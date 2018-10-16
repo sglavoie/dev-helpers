@@ -30,56 +30,57 @@ import glob
 import os
 import subprocess
 import sys
+import threading
+from time import sleep
 
-
-BACKUP_CMD = ['rsync']  # This will be used to add options to `rsync` command
-
-###############################################################################
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # SETTINGS
-###############################################################################
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-# Directories to backup, supplied as a list of strings (no slash at the end)
-DATA_SOURCES = [
-    '/home/username',
-    # '/usr/bin',
-    # '/etc'
-    ]
+# Directories to back up, supplied as a dictionary where {key: value}
+# corresponds to {'source_to_back_up': ['list', 'of', 'rsync', 'options']}
+# If the source directory contains a slash at the end, the CONTENT will be
+# copied without recreating the source directory.
+# Each source can be specified with its own rsync options.
+RSYNC_OPTIONS = ['-vaH', '--delete', '--ignore-errors', '--force',
+                 '--prune-empty-dirs', '--delete-excluded']
 
-# Single destination of the files to backup, supplied as a string
-# This can be overriden when passing option '-d' or '--dest' to the script
-DATA_DESTINATION = f'/media/username/Elements'
+DATA_SOURCES = {
+    '/tmp/seb': RSYNC_OPTIONS,
+    '/tmp/yo': RSYNC_OPTIONS
+}
+
+
+# Single destination of the files to back up, supplied as a string
+# This can be overridden when passing option '-d' or '--dest' to the script
+# DATA_DESTINATION = f'/media/sgdlavoie/Elements'
+DATA_DESTINATION = f'/tmp/desti'
 
 # Line length in the terminal, used for printing separators
 TERMINAL_WIDTH = 40
 
 # Separator to use along with TERMINAL_WIDTH
-SEP = '=-'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
+SEP = '«»'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
 
-# Sets the prefix of the log filename
+# Sets the prefix of the log filename. If set to None, no log is generated.
+# LOG_NAME = None
 LOG_NAME = '.backup_log_'
 
-# This goes right after LOG_NAME as a suffix
+# This goes right after LOG_NAME as a suffix. Reference for modifying format:
+# https://docs.python.org/3/library/time.html#time.strftime
 LOG_FORMAT = '%y%m%d_%H_%M_%S'
 
-# Options to use with rsync as a list of strings
-RSYNC_OPTIONS = [
-    '-vaH',
-    '--delete',
-    '--ignore-errors',
-    '--force',
-    '--prune-empty-dirs',
-    '--delete-excluded'
-]
-
-BACKUP_CMD.extend(RSYNC_OPTIONS)  # adds options set above
-
-# Default file in each source in DATA_SOURCES where files/directories
-# will be ignored
+# Default file in each source in DATA_SOURCES where files/directories will be
+# ignored. If it doesn't exist, the option "--exclude-from" won't be added.
 BACKUP_EXCLUDE = ".backup_exclude"
 
-###############################################################################
-# FUNCTIONS
-###############################################################################
+# How long to wait in seconds for user feedback when --remind option is passed.
+# → Frequency at which a sound is played when waiting for user input.
+PLAY_WAIT_TIME = 15
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# DECORATORS
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 
 def better_separation(the_function):
@@ -93,111 +94,183 @@ def better_separation(the_function):
     return print_separator
 
 
-@better_separation
-def backing_source(source, backup_source, log_filename):
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# FUNCTIONS
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+REMINDER_IS_SET = False  # Do not modify. Used for background_reminder function
+
+
+@better_separation  # FIXME: take logfile into account in rsync command
+def backing_source(source, backup_cmd):
     '''Print information to STDOUT and to `log_filename` and executes the
     rsync command.'''
     cmd_executed = ' '.join(backup_source)
     msg_executed = f'Command executed:\n{cmd_executed}\n'
     print(msg_executed)
-    with open(log_filename, mode='w') as log_file:
-        log_file.write(f'{msg_executed}\n')
-    subprocess.run(backup_source)
+    # with open(log_filename, mode='w') as log_file:
+        # log_file.write(f'{msg_executed}\n')
+    # subprocess.run(backup_source)
 
     print(f'\nBackup completed for: {source}')
 
 
-def user_says_yes():
-    '''Asks the user to enter either "y" or "n" to confirm. Returns boolean.'''
-    choice = None
-    while choice is None:
-        user_input = input(
-            '\nDo you want to delete log files for this source? (y/n) ')
-        if user_input.lower() == 'y':
+def background_reminder(wait_time=PLAY_WAIT_TIME):
+    """Depends on a function to set `reminder_is_set` to False.
+    It will play a sound every `wait_time` in seconds until `reminder_is_set`
+    is False."""
+    global REMINDER_IS_SET
+    while REMINDER_IS_SET:
+        os.system(
+            "aplay /home/sgdlavoie/Music/.levelup.wav > /dev/null 2>&1 &")
+        sleep(wait_time)
+
+
+def user_says_yes(message=""):
+    """Depends on function `background_reminder`. It creates a thread with
+    `background_reminder` and will stop the thread when user input is either
+    'y' or 'n'. Returns a boolean."""
+    # needs to be set globally for other functions to update correspondingly
+    global REMINDER_IS_SET
+    if REMINDER_IS_SET:
+        # `target` defines a function that will be run as a thread
+        reminder_thread = threading.Thread(target=background_reminder)
+        reminder_thread.daemon = True
+        reminder_thread.start()
+    while True:
+        choice = input(message)
+        if choice == 'y':
             choice = True
-        elif user_input.lower() == 'n':
+            REMINDER_IS_SET = False
+            break
+        elif choice == 'n':
             choice = False
+            break
         else:
-            print('Please enter either "y" or "n".')
+            print("Please enter either 'y' or 'n'.")
     return choice
 
 
-def clear_logs(*args):
-    '''Clears log files for each source specified in SETTINGS.'''
-    for source in args:
+def clear_logs(data_sources=None):
+    '''Clear log files for each source specified in DATA_SOURCES.'''
+    if data_sources is None:
+        data_sources = {}
+
+    if LOG_NAME is None:
+        print(f"\nVariable `LOG_NAME` is not defined.")
+        sys.exit(0)
+
+    for source in data_sources:
         # Retrieve a list of all matching log files in `source`
         log_files = glob.glob(f'{source}/{LOG_NAME}*')
         if log_files == []:
             print(f"\nThere is no log file to delete in {source}.")
-            sys.exit(0)
+            continue
         else:
             print(f'Log files in {source}:')
             for log_file in log_files:
                 print(log_file)
-            if user_says_yes():
+            message = ("\nDo you want to delete log files "
+                       "for this source? (y/n) ")
+            if user_says_yes(message=message):
                 for log_file in log_files:
                     os.remove(log_file)
                 print('Log files deleted.')
+                continue
+            else:
+                continue
         print('Exiting script...')
         sys.exit(0)
 
 
-def run_backup(*args, data_destination=DATA_DESTINATION):
-    '''This is where all the action happens!'''
-    # initiate the parser
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-c', '--clear',
-        help='Delete all log files for current source in DATA_SOURCES.',
-        action='store_true')
-    parser.add_argument(
-        '-d', '--dest', dest='destination', default=None,
-        help='Specify an alternative destination for backup as a string.',
-        action='store')
-
-    # read arguments from the command line
-    arguments = parser.parse_args()
-
-    # check for --clear or -c
-    if arguments.clear:
-        clear_logs(*args)
-        # check for --dest or -d
-    if arguments.destination is not None:
-        if os.path.isdir(arguments.destination):
-            data_destination = arguments.destination
+def check_destination_exists(data_destination):
+    """In order to avoid building a list of files with rsync uselessly and
+    later realize that rsync fails because destination doesn't exist."""
+    while True:
+        print(f"The destination doesn't exist.\n({data_destination})\n")
+        message = "Do you want to try again? (y/n) "
+        if user_says_yes(message=message):
+            if not os.path.isdir(data_destination):
+                continue
+            else:
+                break
         else:
-            print("Please enter a valid destination.")
             sys.exit(0)
 
-    # In order to avoid building a list of files with rsync uselessly
-    if not os.path.isdir(data_destination):
-        print(f"The destination doesn't exist.\n({data_destination})")
-        sys.exit(0)
+
+def run_backup(*args, data_destination=DATA_DESTINATION):
+    '''This is where all the action happens!'''
+
+    # FIXME: Breakpoint. This is a work in progress now that DATA_SOURCES
+    # is a dictionary and new functions have been added.
+    sys.exit(0)
+    check_destination_exists(data_destination)
 
     for source in args:
-        date_now = datetime.datetime.now()
-        log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
-        log_filename = f'{source}/{LOG_NAME}{log_format}'
-        log_option = f'--log-file={log_filename}'
+        if LOG_NAME is not None:
+            date_now = datetime.datetime.now()
+            log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
+            log_filename = f'{source}/{LOG_NAME}{log_format}'
+            log_option = f'--log-file={log_filename}'
 
-        backup_source = BACKUP_CMD.copy()
-        backup_source.extend([log_option])
+            backup_source = BACKUP_CMD.copy()
+            backup_source.extend([log_option])
 
         # files to ignore in backup
         exclude_file = f'{source}/{BACKUP_EXCLUDE}'
-
         if os.path.exists(exclude_file):
             exclude_option = f'--exclude-from={exclude_file}'
-            backup_source.extend([exclude_option, source, data_destination])
+            # backup_source.extend([exclude_option, source, data_destination])
         else:  # skips '--exclude-from' option if no file is found
             backup_source.extend([source, data_destination])
 
         backing_source(source, backup_source, log_filename)
 
 
-###############################################################################
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # EXECUTION
-###############################################################################
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 if __name__ == '__main__':
-    run_backup(*DATA_SOURCES)
+    # initiate the parser to check all the arguments passed to the script
+    PARSER = argparse.ArgumentParser()
+    PARSER.add_argument(
+        '-a', '--alert',
+        help='Play a sound when the backup has completed.',
+        action='store_true')
+    PARSER.add_argument(
+        '-c', '--clear',
+        help='Delete all log files for current source in DATA_SOURCES.',
+        action='store_true')
+    PARSER.add_argument(
+        '-d', '--dest', dest='destination', default=None,
+        help='Specify an alternative destination for backup as a string.',
+        action='store')
+    PARSER.add_argument(
+        '-p', '--play',
+        help='Play a sound in the background when launching the script',
+        action='store_true')
+    PARSER.add_argument(
+        '-r', '--remind', action='store_true',
+        help=('Plays a sound every X seconds when waiting for user feedback. '
+              'Depends on PLAY_WAIT_TIME.')
+        )
+
+    # read arguments from the command line
+    ARGUMENTS = PARSER.parse_args()
+
+    if ARGUMENTS.remind:
+        REMINDER_IS_SET = True
+    if ARGUMENTS.play:
+        # Play sound in background and do not output to terminal
+        os.system(
+            "aplay /home/sgdlavoie/Music/.levelup.wav > /dev/null 2>&1 &")
+    if ARGUMENTS.clear:
+        clear_logs(DATA_SOURCES)
+        sys.exit(0)
+    if ARGUMENTS.destination is not None:
+        if os.path.isdir(ARGUMENTS.destination):
+            DATA_DESTINATION = ARGUMENTS.destination
+        print("Please enter a valid destination.")
+        sys.exit(0)
+
+    run_backup(DATA_SOURCES)
