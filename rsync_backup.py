@@ -40,14 +40,14 @@ BACKUP_CMD = ['rsync']  # This will be used to add options to `rsync` command
 
 # Directories to backup, supplied as a list of strings (no slash at the end)
 DATA_SOURCES = [
-    '/home/username',
+    '/home/sgdlavoie',
     # '/usr/bin',
     # '/etc'
     ]
 
 # Single destination of the files to backup, supplied as a string
 # This can be overriden when passing option '-d' or '--dest' to the script
-DATA_DESTINATION = f'/media/username/Elements'
+DATA_DESTINATION = f'/media/sgdlavoie/Elements'
 
 # Line length in the terminal, used for printing separators
 TERMINAL_WIDTH = 40
