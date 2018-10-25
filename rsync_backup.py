@@ -24,6 +24,7 @@ How to use:
     4) In this example, the script can now be executed in a terminal with the
        keyword `backup` along with optional arguments.
 '''
+# Standard library imports
 import argparse
 import datetime
 import glob
@@ -33,50 +34,19 @@ import sys
 import threading
 from time import sleep
 
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-# SETTINGS
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Local imports
+from settings import (
+    BACKUP_EXCLUDE,
+    DATA_DESTINATION,
+    DATA_SOURCES,
+    LOG_FORMAT,
+    LOG_NAME,
+    PLAY_WAIT_TIME,
+    RSYNC_OPTIONS,
+    SEP,
+    TERMINAL_WIDTH,
+)
 
-# Directories to back up, supplied as a dictionary where {key: value}
-# corresponds to {'source_to_back_up': ['list', 'of', 'rsync', 'options']}
-# If the source directory contains a slash at the end, the CONTENT will be
-# copied without recreating the source directory.
-# Each source can be specified with its own rsync options.
-RSYNC_OPTIONS = ['-vaH', '--delete', '--ignore-errors', '--force',
-                 '--prune-empty-dirs', '--delete-excluded']
-
-DATA_SOURCES = {
-    '/tmp/seb': RSYNC_OPTIONS,
-    '/tmp/yo': RSYNC_OPTIONS
-}
-
-
-# Single destination of the files to back up, supplied as a string
-# This can be overridden when passing option '-d' or '--dest' to the script
-# DATA_DESTINATION = f'/media/sgdlavoie/Elements'
-DATA_DESTINATION = f'/tmp/desti'
-
-# Line length in the terminal, used for printing separators
-TERMINAL_WIDTH = 40
-
-# Separator to use along with TERMINAL_WIDTH
-SEP = '«»'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
-
-# Sets the prefix of the log filename. If set to None, no log is generated.
-# LOG_NAME = None
-LOG_NAME = '.backup_log_'
-
-# This goes right after LOG_NAME as a suffix. Reference for modifying format:
-# https://docs.python.org/3/library/time.html#time.strftime
-LOG_FORMAT = '%y%m%d_%H_%M_%S'
-
-# Default file in each source in DATA_SOURCES where files/directories will be
-# ignored. If it doesn't exist, the option "--exclude-from" won't be added.
-BACKUP_EXCLUDE = ".backup_exclude"
-
-# How long to wait in seconds for user feedback when --remind option is passed.
-# → Frequency at which a sound is played when waiting for user input.
-PLAY_WAIT_TIME = 15
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # DECORATORS
@@ -100,18 +70,18 @@ def better_separation(the_function):
 REMINDER_IS_SET = False  # Do not modify. Used for background_reminder function
 
 
-@better_separation  # FIXME: take logfile into account in rsync command
-def backing_source(source, backup_cmd):
+@better_separation
+def backing_source(source_options):
     '''Print information to STDOUT and to `log_filename` and executes the
     rsync command.'''
-    cmd_executed = ' '.join(backup_source)
+    cmd_executed = "pass"
     msg_executed = f'Command executed:\n{cmd_executed}\n'
     print(msg_executed)
     # with open(log_filename, mode='w') as log_file:
         # log_file.write(f'{msg_executed}\n')
     # subprocess.run(backup_source)
 
-    print(f'\nBackup completed for: {source}')
+    print(f'\nBackup completed for: {source_options["source"]}')
 
 
 def background_reminder(wait_time=PLAY_WAIT_TIME):
@@ -184,7 +154,7 @@ def clear_logs(data_sources=None):
 
 def check_destination_exists(data_destination):
     """In order to avoid building a list of files with rsync uselessly and
-    later realize that rsync fails because destination doesn't exist."""
+    later realize that rsync fails because the destination doesn't exist."""
     while True:
         print(f"The destination doesn't exist.\n({data_destination})\n")
         message = "Do you want to try again? (y/n) "
@@ -206,24 +176,25 @@ def run_backup(*args, data_destination=DATA_DESTINATION):
     check_destination_exists(data_destination)
 
     for source in args:
+        source_options = {'source': source}
         if LOG_NAME is not None:
             date_now = datetime.datetime.now()
             log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
             log_filename = f'{source}/{LOG_NAME}{log_format}'
             log_option = f'--log-file={log_filename}'
-
-            backup_source = BACKUP_CMD.copy()
-            backup_source.extend([log_option])
+            source_options['logfile'] = log_option
+        else:
+            source_options['logfile'] = None
 
         # files to ignore in backup
         exclude_file = f'{source}/{BACKUP_EXCLUDE}'
         if os.path.exists(exclude_file):
             exclude_option = f'--exclude-from={exclude_file}'
-            # backup_source.extend([exclude_option, source, data_destination])
-        else:  # skips '--exclude-from' option if no file is found
-            backup_source.extend([source, data_destination])
+            source_options['exclude_option'] = exclude_option
+        else:
+            source_options['exclude_option'] = None
 
-        backing_source(source, backup_source, log_filename)
+        backing_source(source_options)
 
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
