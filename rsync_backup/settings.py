@@ -7,7 +7,7 @@
 # If the source directory contains a slash at the end, the CONTENT will be
 # copied without recreating the source directory.
 # Each source can be specified with its own rsync options.
-RSYNC_OPTIONS = ['rsync', '-vaH', '--delete', '--ignore-errors', '--force',
+RSYNC_OPTIONS = ['rsync', '-vaHh', '--delete', '--ignore-errors', '--force',
                  '--prune-empty-dirs', '--delete-excluded']
 
 DATA_SOURCES = [
@@ -25,7 +25,7 @@ DATA_DESTINATION = f'/tmp/desti'
 TERMINAL_WIDTH = 40
 
 # Separator to use along with TERMINAL_WIDTH
-SEP = '«»'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
+SEP = '……'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
 
 # Sets the prefix of the log filename. If set to None, no log is generated.
 # LOG_NAME = None
@@ -41,4 +41,10 @@ BACKUP_EXCLUDE = ".backup_exclude"
 
 # How long to wait in seconds for user feedback when --remind option is passed.
 # → Frequency at which a sound is played when waiting for user input.
-PLAY_WAIT_TIME = 15
+PLAY_WAIT_TIME = 3
+
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Do not modify below variables.
+REMINDER_IS_SET = False  # Used for background_reminder function
+PLAY_ON_EXIT = False  # Used as flag to play a sound on exiting script

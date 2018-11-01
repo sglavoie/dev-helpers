@@ -41,7 +41,9 @@ from settings import (
     DATA_SOURCES,
     LOG_FORMAT,
     LOG_NAME,
+    PLAY_ON_EXIT,
     PLAY_WAIT_TIME,
+    REMINDER_IS_SET,
     RSYNC_OPTIONS,
     SEP,
     TERMINAL_WIDTH,
@@ -67,26 +69,36 @@ def better_separation(the_function):
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # FUNCTIONS
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-REMINDER_IS_SET = False  # Do not modify. Used for background_reminder function
 
 
 @better_separation
 def backing_source(source_options):
     '''Print information to STDOUT and to `log_filename` and executes the
     rsync command.'''
-    cmd_executed = "pass"
-    msg_executed = f'Command executed:\n{cmd_executed}\n'
+    cmd_executed = RSYNC_OPTIONS.copy()
+
+    if source_options['logfile'] is not None:
+        cmd_executed.append(source_options['logfile'])
+    if source_options['exclude_option'] is not None:
+        cmd_executed.append(source_options['exclude_option'])
+    cmd_executed.append(source_options['source'])
+    cmd_executed.append(DATA_DESTINATION)
+    cmd_to_run = ' '.join(cmd_executed)
+    msg_executed = f'Command being executed:\n{cmd_to_run}\n'
     print(msg_executed)
-    # with open(log_filename, mode='w') as log_file:
-        # log_file.write(f'{msg_executed}\n')
-    # subprocess.run(backup_source)
+
+    if source_options['logfilename'] is not None:
+        with open(source_options['logfilename'], mode='w') as log_file:
+            log_file.write(f'{msg_executed}\n')
+
+    subprocess.run(cmd_to_run, shell=True)
 
     print(f'\nBackup completed for: {source_options["source"]}')
 
 
 def background_reminder(wait_time=PLAY_WAIT_TIME):
     """Depends on a function to set `reminder_is_set` to False.
-    It will play a sound every `wait_time` in seconds until `reminder_is_set`
+    It will play a sound every `wait_time` in seconds until `REMINDER_IS_SET`
     is False."""
     global REMINDER_IS_SET
     while REMINDER_IS_SET:
@@ -95,11 +107,14 @@ def background_reminder(wait_time=PLAY_WAIT_TIME):
         sleep(wait_time)
 
 
+# FIXME: need a way to ask multiple times in a row for user feedback without
+# having the thread multiply itself each time...
 def user_says_yes(message=""):
     """Depends on function `background_reminder`. It creates a thread with
     `background_reminder` and will stop the thread when user input is either
     'y' or 'n'. Returns a boolean."""
     # needs to be set globally for other functions to update correspondingly
+    # Needs to reset for cases when feedback is required various times in a row
     global REMINDER_IS_SET
     if REMINDER_IS_SET:
         # `target` defines a function that will be run as a thread
@@ -110,20 +125,20 @@ def user_says_yes(message=""):
         choice = input(message)
         if choice == 'y':
             choice = True
-            REMINDER_IS_SET = False
             break
         elif choice == 'n':
             choice = False
             break
         else:
             print("Please enter either 'y' or 'n'.")
+    REMINDER_IS_SET = False
     return choice
 
 
 def clear_logs(data_sources=None):
-    '''Clear log files for each source specified in DATA_SOURCES.'''
+    '''Clear log files for each source specified in `DATA_SOURCES`.'''
     if data_sources is None:
-        data_sources = {}
+        data_sources = []
 
     if LOG_NAME is None:
         print(f"\nVariable `LOG_NAME` is not defined.")
@@ -167,20 +182,20 @@ def check_destination_exists(data_destination):
             sys.exit(0)
 
 
-def run_backup(*args, data_destination=DATA_DESTINATION):
+def run_backup(data_sources=None, data_destination=DATA_DESTINATION):
     '''This is where all the action happens!'''
 
-    # FIXME: Breakpoint. This is a work in progress now that DATA_SOURCES
-    # is a dictionary and new functions have been added.
-    sys.exit(0)
-    check_destination_exists(data_destination)
+    if data_sources is None:
+        data_sources = []
 
-    for source in args:
+    for source in data_sources:
+        print(source)
         source_options = {'source': source}
         if LOG_NAME is not None:
             date_now = datetime.datetime.now()
             log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
             log_filename = f'{source}/{LOG_NAME}{log_format}'
+            source_options['logfilename'] = log_filename
             log_option = f'--log-file={log_filename}'
             source_options['logfile'] = log_option
         else:
@@ -196,6 +211,9 @@ def run_backup(*args, data_destination=DATA_DESTINATION):
 
         backing_source(source_options)
 
+        if PLAY_ON_EXIT:
+            print("ding")
+
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # EXECUTION
@@ -210,7 +228,7 @@ if __name__ == '__main__':
         action='store_true')
     PARSER.add_argument(
         '-c', '--clear',
-        help='Delete all log files for current source in DATA_SOURCES.',
+        help='Delete all log files for current source in `DATA_SOURCES`.',
         action='store_true')
     PARSER.add_argument(
         '-d', '--dest', dest='destination', default=None,
@@ -218,17 +236,19 @@ if __name__ == '__main__':
         action='store')
     PARSER.add_argument(
         '-p', '--play',
-        help='Play a sound in the background when launching the script',
+        help='Play a sound in the background when launching the script.',
         action='store_true')
     PARSER.add_argument(
         '-r', '--remind', action='store_true',
-        help=('Plays a sound every X seconds when waiting for user feedback. '
-              'Depends on PLAY_WAIT_TIME.')
+        help=('Play a sound every X seconds when waiting for user feedback. '
+              'Depends on `PLAY_WAIT_TIME`.')
         )
 
     # read arguments from the command line
     ARGUMENTS = PARSER.parse_args()
 
+    if ARGUMENTS.alert:
+        PLAY_ON_EXIT = True
     if ARGUMENTS.remind:
         REMINDER_IS_SET = True
     if ARGUMENTS.play:
@@ -244,4 +264,4 @@ if __name__ == '__main__':
         print("Please enter a valid destination.")
         sys.exit(0)
 
-    run_backup(DATA_SOURCES)
+    run_backup(data_sources=DATA_SOURCES)
