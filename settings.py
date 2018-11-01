@@ -7,13 +7,13 @@
 # If the source directory contains a slash at the end, the CONTENT will be
 # copied without recreating the source directory.
 # Each source can be specified with its own rsync options.
-RSYNC_OPTIONS = ['-vaH', '--delete', '--ignore-errors', '--force',
+RSYNC_OPTIONS = ['rsync', '-vaH', '--delete', '--ignore-errors', '--force',
                  '--prune-empty-dirs', '--delete-excluded']
 
-DATA_SOURCES = {
-    '/tmp/seb': RSYNC_OPTIONS,
-    '/tmp/yo': RSYNC_OPTIONS
-}
+DATA_SOURCES = [
+    '/tmp/seb',
+    '/tmp/yo'
+]
 
 
 # Single destination of the files to back up, supplied as a string
