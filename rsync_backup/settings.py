@@ -1,25 +1,31 @@
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-# SETTINGS
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+'''
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+SETTINGS
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+'''
+# `rsync` options that can be configured independently for each source.
+MAIN_OPTIONS = ['-vaHh', '--delete', '--ignore-errors', '--force',
+                '--prune-empty-dirs', '--delete-excluded']
+# MAIN_OPTIONS_2 = ['-vaHh', '--delete', '--ignore-errors', '--force',
+# '--prune-empty-dirs', '--delete-excluded']
+
 
 # Directories to back up, supplied as a dictionary where {key: value}
 # corresponds to {'source_to_back_up': ['list', 'of', 'rsync', 'options']}
 # If the source directory contains a slash at the end, the CONTENT will be
 # copied without recreating the source directory.
 # Each source can be specified with its own rsync options.
-RSYNC_OPTIONS = ['rsync', '-vaHh', '--delete', '--ignore-errors', '--force',
-                 '--prune-empty-dirs', '--delete-excluded']
-
-DATA_SOURCES = [
-    '/tmp/seb',
-    '/tmp/yo'
-]
+DATA_SOURCES = {
+    '/tmp/backup': [MAIN_OPTIONS],
+    '/tmp/backup2': [MAIN_OPTIONS],
+    # '/tmp/backup3': [MAIN_OPTIONS_2]  # Example with other options
+}
 
 
 # Single destination of the files to back up, supplied as a string
 # This can be overridden when passing option '-d' or '--dest' to the script
-# DATA_DESTINATION = f'/media/sgdlavoie/Elements'
-DATA_DESTINATION = f'/tmp/desti'
+# DATA_DESTINATION = '/media/sgdlavoie/Elements'
+DATA_DESTINATION = '/tmp/destination'
 
 # Line length in the terminal, used for printing separators
 TERMINAL_WIDTH = 40
@@ -43,8 +49,5 @@ BACKUP_EXCLUDE = ".backup_exclude"
 # → Frequency at which a sound is played when waiting for user input.
 PLAY_WAIT_TIME = 3
 
-
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-# Do not modify below variables.
-REMINDER_IS_SET = False  # Used for background_reminder function
-PLAY_ON_EXIT = False  # Used as flag to play a sound on exiting script
+# Path of sound to play
+SOUND_PATH = '/home/sglavoie/Music/.level_up.wav'

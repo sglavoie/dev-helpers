@@ -1,13 +1,14 @@
-'''
+#!/usr/local/bin/python3.7
+"""
 Small script that uses `rsync` to make a simple and convenient backup.
-Note: requires Python 3.6+.
+Note: requires Python 3.6+ (otherwise, f-strings need to be converted).
 
 For each source to backup, a log file is created at the root directory of that
 source. In the log file, the text `Command executed:` is inserted at the
 beginning with the whole `rsync` command that has been executed as a reference.
 
 By default, the following options are passed to `rsync`:
-    '-vaH' → verbose, archive, hard-links (preserve)
+    '-vaHh' → verbose, archive, hard-links (preserve), human readable format
     '--delete' → "delete extraneous files from destination dirs"
     '--ignore-errors' → "delete even if there are I/O errors"
     '--force' → "force deletion of directories even if not empty"
@@ -15,7 +16,7 @@ By default, the following options are passed to `rsync`:
     '--delete-excluded' → "also delete excluded files from destination dirs"
 
 How to use:
-    1) Set all variables in the SETTINGS section below to suit your needs.
+    1) Set all variables in settings.py to suit your needs.
     2) Make sure that the backup destination is available/mounted.
     3) Copy this file somewhere where it will be executed. As an example, I
        put this file in ~/.backup.py and made the following alias in
@@ -23,8 +24,9 @@ How to use:
        alias backup='/usr/local/bin/python3.7 ~/.backup.py'
     4) In this example, the script can now be executed in a terminal with the
        keyword `backup` along with optional arguments.
-'''
+"""
 # Standard library imports
+from time import sleep
 import argparse
 import datetime
 import glob
@@ -32,7 +34,6 @@ import os
 import subprocess
 import sys
 import threading
-from time import sleep
 
 # Local imports
 from settings import (
@@ -41,14 +42,11 @@ from settings import (
     DATA_SOURCES,
     LOG_FORMAT,
     LOG_NAME,
-    PLAY_ON_EXIT,
     PLAY_WAIT_TIME,
-    REMINDER_IS_SET,
-    RSYNC_OPTIONS,
     SEP,
+    SOUND_PATH,
     TERMINAL_WIDTH,
 )
-
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # DECORATORS
@@ -71,29 +69,35 @@ def better_separation(the_function):
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 
+def play_sound(sound_path=SOUND_PATH):
+    """Play sound in background and do not output to terminal."""
+    return os.system(f"aplay {sound_path} > /dev/null 2>&1 &")
+
+
 @better_separation
-def backing_source(source_options):
+def backing_source(source, main_options, custom_options):
     '''Print information to STDOUT and to `log_filename` and executes the
     rsync command.'''
-    cmd_executed = RSYNC_OPTIONS.copy()
+    cmd_executed = main_options.copy()
+    cmd_executed.insert(0, 'rsync')
 
-    if source_options['logfile'] is not None:
-        cmd_executed.append(source_options['logfile'])
-    if source_options['exclude_option'] is not None:
-        cmd_executed.append(source_options['exclude_option'])
-    cmd_executed.append(source_options['source'])
+    if custom_options['logfile'] is not None:
+        cmd_executed.append(custom_options['logfile'])
+    if custom_options['exclude_option'] is not None:
+        cmd_executed.append(custom_options['exclude_option'])
+    cmd_executed.append(source)
     cmd_executed.append(DATA_DESTINATION)
     cmd_to_run = ' '.join(cmd_executed)
     msg_executed = f'Command being executed:\n{cmd_to_run}\n'
     print(msg_executed)
 
-    if source_options['logfilename'] is not None:
-        with open(source_options['logfilename'], mode='w') as log_file:
+    if custom_options['logfilename'] is not None:
+        with open(custom_options['logfilename'], mode='w') as log_file:
             log_file.write(f'{msg_executed}\n')
 
     subprocess.run(cmd_to_run, shell=True)
 
-    print(f'\nBackup completed for: {source_options["source"]}')
+    print(f'\nBackup completed for: {source}')
 
 
 def background_reminder(wait_time=PLAY_WAIT_TIME):
@@ -102,13 +106,12 @@ def background_reminder(wait_time=PLAY_WAIT_TIME):
     is False."""
     global REMINDER_IS_SET
     while REMINDER_IS_SET:
-        os.system(
-            "aplay /home/sgdlavoie/Music/.levelup.wav > /dev/null 2>&1 &")
+        play_sound()
         sleep(wait_time)
 
 
-# FIXME: need a way to ask multiple times in a row for user feedback without
-# having the thread multiply itself each time...
+# FIXME: This need further attention.
+# Use alternative to threading for background processes?
 def user_says_yes(message=""):
     """Depends on function `background_reminder`. It creates a thread with
     `background_reminder` and will stop the thread when user input is either
@@ -137,8 +140,9 @@ def user_says_yes(message=""):
 
 def clear_logs(data_sources=None):
     '''Clear log files for each source specified in `DATA_SOURCES`.'''
+    global REMINDER_IS_SET
     if data_sources is None:
-        data_sources = []
+        data_sources = {}
 
     if LOG_NAME is None:
         print(f"\nVariable `LOG_NAME` is not defined.")
@@ -153,6 +157,8 @@ def clear_logs(data_sources=None):
         else:
             print(f'Log files in {source}:')
             for log_file in log_files:
+                if ARGUMENTS.remind:
+                    REMINDER_IS_SET = True
                 print(log_file)
             message = ("\nDo you want to delete log files "
                        "for this source? (y/n) ")
@@ -182,37 +188,42 @@ def check_destination_exists(data_destination):
             sys.exit(0)
 
 
-def run_backup(data_sources=None, data_destination=DATA_DESTINATION):
+def run_backup(data_sources=None):
     '''This is where all the action happens!'''
 
-    if data_sources is None:
-        data_sources = []
+    options = {}  # Initially empty. Rsync options that will adjust on the fly.
 
-    for source in data_sources:
+    if data_sources is None:
+        data_sources = {}
+
+    for source, source_options in data_sources.items():
         print(source)
-        source_options = {'source': source}
+        source_options.append(options)
+        main_options = source_options[0]  # Everything defined in settings.py
+        custom_options = source_options[1]  # Set up on the fly for each source
+
         if LOG_NAME is not None:
             date_now = datetime.datetime.now()
             log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
             log_filename = f'{source}/{LOG_NAME}{log_format}'
-            source_options['logfilename'] = log_filename
+            custom_options['logfilename'] = log_filename
             log_option = f'--log-file={log_filename}'
-            source_options['logfile'] = log_option
+            custom_options['logfile'] = log_option
         else:
-            source_options['logfile'] = None
+            custom_options['logfile'] = None
 
         # files to ignore in backup
         exclude_file = f'{source}/{BACKUP_EXCLUDE}'
         if os.path.exists(exclude_file):
             exclude_option = f'--exclude-from={exclude_file}'
-            source_options['exclude_option'] = exclude_option
+            custom_options['exclude_option'] = exclude_option
         else:
-            source_options['exclude_option'] = None
+            custom_options['exclude_option'] = None
 
-        backing_source(source_options)
+        backing_source(source, main_options, custom_options)
 
         if PLAY_ON_EXIT:
-            print("ding")
+            play_sound()
 
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -247,14 +258,11 @@ if __name__ == '__main__':
     # read arguments from the command line
     ARGUMENTS = PARSER.parse_args()
 
-    if ARGUMENTS.alert:
-        PLAY_ON_EXIT = True
-    if ARGUMENTS.remind:
-        REMINDER_IS_SET = True
+    PLAY_ON_EXIT = bool(ARGUMENTS.alert)
+    REMINDER_IS_SET = bool(ARGUMENTS.remind)
+
     if ARGUMENTS.play:
-        # Play sound in background and do not output to terminal
-        os.system(
-            "aplay /home/sgdlavoie/Music/.levelup.wav > /dev/null 2>&1 &")
+        play_sound()
     if ARGUMENTS.clear:
         clear_logs(DATA_SOURCES)
         sys.exit(0)
