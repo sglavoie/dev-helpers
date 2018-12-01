@@ -1,3 +1,6 @@
 __pycache__/
-tags
+*.py[cod]
+*$py.class
 TODO
+prep.py
+tags
