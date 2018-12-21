@@ -33,8 +33,11 @@ PATTERNS_TO_IGNORE = [
     r'^df( )?',
     r'^du( )?',
     r'^exit$',
+    r'^git checkout master',
+    r'^git log',
+    r'^git push',
     r'^git status$',
-    r'^git stauts$',
+    r'^git stauts$',  # when trying to type faster than what's realistic
     r'^kill \d+.*',  # killing processes, e.g.: kill 123 3229
     r'^ls -a$',
     r'^ls$',
