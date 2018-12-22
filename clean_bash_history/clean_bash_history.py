@@ -21,7 +21,7 @@ import fileinput
 import re
 
 PATTERNS_TO_IGNORE = [
-    r'^#\d+',
+    r'^\#\d+',
     r'^$',  # empty lines
     r'^(\.\/)?pip$',
     r'^(\.\/)?python.*$',
@@ -30,6 +30,7 @@ PATTERNS_TO_IGNORE = [
     r'^cd ',
     r'^cd$',
     r'^cd..$',
+    r'^fg$',
     r'^df( )?',
     r'^du( )?',
     r'^exit$',
