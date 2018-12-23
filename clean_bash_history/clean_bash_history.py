@@ -73,8 +73,11 @@ def get_list_aliases(bash_aliases_file: str) -> list:
         aliases_list = []
         for line in content:
             # Get the actual alias in each line
-            alias = re.search('^alias (.*)=', line).group(1)
-
+            try:
+                alias = re.search(r'(?<!not )alias (([\.]?[\w]?[\.]?)+)',
+                                  line).group(1)
+            except AttributeError:
+                continue
             # Reformat as a regular expression
             alias = f'^{alias}( )?'
 
