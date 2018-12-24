@@ -27,3 +27,7 @@ Performance-wise, this scans ~8,300 lines per second on my modest Intel Core i5 
 ## Your opinion is welcome!
 
 I haven't noticed any bug up to now for my personal use, but please feel free to let me know if you are aware of any unwanted behavior. To stay on the side of caution, setting `backup_history` to `True` has proven useful.
+
+----
+
+Note: Requires Python 3.6+

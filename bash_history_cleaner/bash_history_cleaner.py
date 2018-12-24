@@ -2,6 +2,8 @@
 Python script that helps to clean the file containing the Bash history
 commands.
 
+Note: Requires Python 3.6+
+
 It will remove any line matching a specified regular expression and can also
 remove any line starting with an alias.
 
