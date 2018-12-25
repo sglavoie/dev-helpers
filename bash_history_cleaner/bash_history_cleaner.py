@@ -32,12 +32,19 @@ Description of available settings in `settings.json`:
                         `history_file`.
 '''
 from datetime import datetime
+from pathlib import Path
 import argparse
 import fileinput
 import glob
 import json
 import os
 import re
+
+
+def get_current_path():
+    '''Returns the current working directory relative to where this script
+    is being executed.'''
+    return Path(__file__).parents[0]
 
 
 def user_says_yes(message=""):
@@ -77,14 +84,13 @@ def delete_logs(settings, history_file):
             print('Log files deleted.')
             return
 
-        else:
-            message = ("\nDo you want to delete those log files? [y/n] ")
+        message = ("\nDo you want to delete those log files? [y/n] ")
 
-            if user_says_yes(message=message):
-                for log_file in log_files:
-                    os.remove(log_file)
-                print('Log files deleted.')
-                return
+        if user_says_yes(message=message):
+            for log_file in log_files:
+                os.remove(log_file)
+            print('Log files deleted.')
+            return
 
     print('Operation aborted.')
     return
@@ -184,7 +190,8 @@ def launch_cleanup(settings: dict, history_file: str, aliases_file: str):
 
 
 if __name__ == '__main__':
-    SETTINGS = load_settings('settings.json')
+    SETTINGS_FILE_PATH = get_current_path() / 'settings.json'
+    SETTINGS = load_settings(SETTINGS_FILE_PATH)
     ALIASES_FILE = SETTINGS['home_directory'] + '/' + SETTINGS['aliases_file']
     HISTORY_FILE = SETTINGS['home_directory'] + '/' + SETTINGS['history_file']
 
