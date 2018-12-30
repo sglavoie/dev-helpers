@@ -142,8 +142,8 @@ def get_list_aliases(bash_aliases_file: str, settings: dict) -> list:
                 # Match the whole line if it starts with the alias.
                 alias = f'^{alias}( )?$|^{alias} .*'
             else:
-                # Will match only when line starts with alias, followed by
-                # optional space.
+                # Will match only when alias is the whole content of the line,
+                # followed by optional space.
                 alias = f'^{alias}( )?$'
 
             # Escape dots in alias
