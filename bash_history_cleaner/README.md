@@ -46,6 +46,7 @@ PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 | `aliases_file`  | Name of file where Bash aliases are set up. |
 | `ignore_patterns` | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions. |
 | `add_aliases` | Boolean. If set to `True`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `True`) |
+| `aliases_match_greedily` | Boolean. If set to `True`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `False`, delete line if the alias is the content of the whole line (with optional space at the end): `False` matches "^alias$" or "^alias $" only. |
 | `backup_history` | Boolean. If set to `True`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `True`) |
 | `delete_logs_without_confirming` | Boolean. If set to `True`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `False`) |
 

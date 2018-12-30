@@ -1,8 +1,9 @@
 {
     "home_directory": "/home/sglavoie",
     "history_file": ".bash_eternal_history",
-    "aliases_file": ".bash_aliases",
     "add_aliases": true,
+    "aliases_file": ".bash_aliases",
+    "aliases_match_greedily": true,
     "backup_history": true,
     "delete_logs_without_confirming": false,
     "ignore_patterns": [
@@ -19,9 +20,10 @@
         "^df( )?",
         "^du( )?",
         "^exit$",
+        "^git branch",
         "^git checkout master",
-        "^git log",
-        "^git push",
+        "^git log$",
+        "^git push$",
         "^git status$",
         "^git stauts$",
         "^kill \\d+.*",
