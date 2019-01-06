@@ -45,10 +45,10 @@ PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 | `history_file`  | Name of file where the history will be cleaned up. |
 | `aliases_file`  | Name of file where Bash aliases are set up. |
 | `ignore_patterns` | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions. |
-| `add_aliases` | Boolean. If set to `True`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `True`) |
-| `aliases_match_greedily` | Boolean. If set to `True`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `False`, delete line if the alias is the content of the whole line (with optional space at the end): `False` matches "^alias$" or "^alias $" only. |
-| `backup_history` | Boolean. If set to `True`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `True`) |
-| `delete_logs_without_confirming` | Boolean. If set to `True`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `False`) |
+| `add_aliases` | Boolean. If set to `true`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `true`) |
+| `aliases_match_greedily` | Boolean. If set to `true`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `false`, delete line if the alias is the content of the whole line (with optional space at the end): `false` matches "^alias$" or "^alias $" only. |
+| `backup_history` | Boolean. If set to `true`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `true`) |
+| `delete_logs_without_confirming` | Boolean. If set to `true`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `false`) |
 | `remove_all_duplicated_lines` | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed). |
 | `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed). |
 | `remove_consecutive_duplicates` | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match. |
