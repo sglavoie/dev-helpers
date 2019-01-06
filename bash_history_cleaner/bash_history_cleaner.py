@@ -19,25 +19,46 @@ Description of available settings in `settings.json`:
                         Each line where a pattern is found will be deleted.
                             → Patterns are specified as regular expressions.
 
-    "add_aliases":      Boolean. If set to True, aliases from `aliases_file`
+    "add_aliases":      Boolean. If set to `true`, aliases from `aliases_file`
                         will be added to `ignore_patterns`.
 
     "aliases_match_greedily":
-                        Boolean. If set to True, any line in `history_file`
+                        Boolean. If set to `true`, any line in `history_file`
                         starting with an alias in `aliases_file` will be
-                        deleted. If set to False, delete line if the alias is
+                        deleted. If set to `false`, delete line if the alias is
                         the content of the whole line (with optional space at
-                        the end): False matches "^alias$" or "^alias $" only.
+                        the end): `false` matches "^alias$" or "^alias $" only.
 
-    "backup_history":   Boolean. If set to True, `history_file` will be backed
-                        up in the same directory with a name ending in .bak
-                        based on the current date.
+    "backup_history":   Boolean. If set to `true`, `history_file` will be
+                        backed up in the same directory with a name ending in
+                        .bak based on the current date.
 
     "delete_logs_without_confirming":
-                        Boolean. If set to True, script with flag `-c` will
+                        Boolean. If set to `true`, script with flag `-c` will
                         automatically delete all the backup files found for
                         `history_file`.
+
+    "remove_all_duplicated_lines":
+                        Boolean. If set to `true`, any following line that is
+                        found to already be present in the file will be
+                        removed. This setting has precedence over
+                        `remove_duplicates_within_X_lines` and
+                        `remove_consecutive_duplicates` (they won't be
+                        executed).
+
+    "remove_duplicates_within_X_lines":
+                        Integer. Scan lines one by one. If the current line is
+                        found in the next `X` lines defined by this setting, it
+                        will be removed. If set to a value greater than `1`,
+                        this setting has precedence over
+                        `remove_consecutive_duplicates` (it won't be executed).
+
+    "remove_consecutive_duplicates":
+                        Boolean. If set to `true`, duplicated lines will be
+                        deleted when they are consecutive in order to leave
+                        only one match.
 '''
+
 from datetime import datetime
 from pathlib import Path
 import argparse
@@ -48,9 +69,24 @@ import os
 import re
 
 
+def file_length(file_name):
+    '''Return the number of lines in a file.'''
+    with open(file_name) as file_to_check:
+        for index, _ in enumerate(file_to_check):
+            pass
+    return index + 1
+
+
+def generate_date_string() -> str:
+    '''Return date formatted string to backup a file.'''
+
+    return datetime.strftime(datetime.today(), '_%Y%m%d_%H%M%S.bak')
+
+
 def get_current_path():
     '''Returns the current working directory relative to where this script
     is being executed.'''
+
     return Path(__file__).parents[0]
 
 
@@ -103,9 +139,59 @@ def delete_logs(settings: dict, history_file: str):
     return
 
 
-def generate_date_string() -> str:
-    '''Return date formatted string to backup a file.'''
-    return datetime.strftime(datetime.today(), '_%Y%m%d_%H%M%S.bak')
+def remove_duplicates_within_range(range_num, history_file):
+    '''Scan lines in `history_file` one by one. If the current line is found
+    in the next `range_num` lines, it will be removed. The same process is
+    repeated on every line so that any line won't have duplicates within
+    `range_num`.
+
+    Note: By executing the script various times, duplicates will be searched
+    again and within few executions, no line will be repeated within the
+    specified range.'''
+
+    file_input = fileinput.FileInput(history_file, inplace=True)
+    with open(history_file, 'r') as original_history:
+        original_lines = original_history.readlines()
+    for index, line in enumerate(file_input):
+        next_line = index + 1
+        max_line = next_line + range_num
+        duplicate = False
+        for following_line in range(next_line, max_line):
+            try:
+                if original_lines[following_line] == line:
+                    duplicate = True
+                    break
+            except IndexError:  # Got to the end of the file, no more lines
+                break
+        if duplicate:
+            continue
+        print(line, end='')
+
+
+def remove_consecutive_duplicates(history_file):
+    '''Go over `history_file` in place and for all consecutive lines that are
+    duplicated, skip them (effectively removing them).'''
+    file_input = fileinput.FileInput(history_file, inplace=True)
+    previous_line = ""
+    for line in file_input:
+        if previous_line == line:
+            continue
+        previous_line = line
+        print(line, end='')
+
+
+def remove_all_duplicates(history_file):
+    '''Go over `history_file` in place and for every line that has been seen
+    before, do not add it back to the file (effectively removing it).'''
+
+    seen = set()
+    file_input = fileinput.FileInput(history_file, inplace=True)
+    for line in file_input:
+        if line in seen:
+            continue  # Skip duplicate
+
+        seen.add(line)
+        print(line, end='')
 
 
 def load_settings(settings_file: str) -> dict:
@@ -161,6 +247,8 @@ def clean_bash_history(settings: dict, history_file: str):
     Optionally, add a list of aliases to `ignore_patterns` with
     `aliases` based on the value of `add_aliases` in settings.json.'''
 
+    original_num_lines = file_length(history_file)
+
     if settings['backup_history']:
         backup_str = generate_date_string()
         file_input = fileinput.FileInput(history_file,
@@ -182,6 +270,27 @@ def clean_bash_history(settings: dict, history_file: str):
             # back into the file. Otherwise, it will be empty.
             if not has_match:
                 print(line, end='')  # Line already has carriage return
+
+    num_lines = settings['remove_duplicates_within_X_lines']
+
+    if settings['remove_all_duplicated_lines']:
+        remove_all_duplicates(history_file)
+        print("All duplicated lines were removed.")
+
+    # if num_lines <= 1 → no need to check (use consecutive instead, if set)
+    elif num_lines > 1:
+        remove_duplicates_within_range(num_lines, history_file)
+        print(f"All duplicates within {num_lines} lines were removed.")
+
+    elif settings['remove_consecutive_duplicates']:
+        remove_consecutive_duplicates(history_file)
+        print("All consecutive duplicated lines were removed.")
+
+    final_num_lines = file_length(history_file)
+    num_lines_deleted = original_num_lines - final_num_lines
+    lines = "line" if num_lines_deleted < 2 else "lines"
+
+    print(f"{num_lines_deleted} {lines} deleted.")
 
 
 def launch_cleanup(settings: dict, history_file: str, aliases_file: str):

@@ -49,6 +49,9 @@ PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 | `aliases_match_greedily` | Boolean. If set to `True`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `False`, delete line if the alias is the content of the whole line (with optional space at the end): `False` matches "^alias$" or "^alias $" only. |
 | `backup_history` | Boolean. If set to `True`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `True`) |
 | `delete_logs_without_confirming` | Boolean. If set to `True`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `False`) |
+| `remove_all_duplicated_lines` | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed). |
+| `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed). |
+| `remove_consecutive_duplicates` | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match. |
 
 
 ## Anecdotal evidence of satisfying performances
@@ -58,7 +61,7 @@ Performance-wise, this scans ~8,300 lines per second on my modest Intel Core i5 
 
 ## Your opinion is welcome!
 
-I haven't noticed any bug up to now for my personal use, but please feel free to let me know if you are aware of any unwanted behavior. To stay on the side of caution, setting `backup_history` to `True` has proven useful.
+I haven't noticed any bug up to now for my personal use, but please feel free to let me know if you are aware of any unwanted behavior. To stay on the side of caution, setting `backup_history` to `True` has proven to be useful.
 
 
 ## Conclusion
