@@ -70,11 +70,15 @@ import re
 
 
 def file_length(file_name):
-    '''Return the number of lines in a file.'''
-    with open(file_name) as file_to_check:
-        for index, _ in enumerate(file_to_check):
-            pass
-    return index + 1
+    '''Return the number of lines in a file. Returns 0 if it doesn't exist.'''
+
+    try:
+        with open(file_name) as file_to_check:
+            for index, _ in enumerate(file_to_check):
+                pass
+            return index + 1  # Will return UnboundLocalError if file is empty
+    except (FileNotFoundError, UnboundLocalError):
+        return 0
 
 
 def generate_date_string() -> str:
@@ -171,6 +175,7 @@ def remove_duplicates_within_range(range_num, history_file):
 def remove_consecutive_duplicates(history_file):
     '''Go over `history_file` in place and for all consecutive lines that are
     duplicated, skip them (effectively removing them).'''
+
     file_input = fileinput.FileInput(history_file, inplace=True)
     previous_line = ""
     for line in file_input:
@@ -196,6 +201,7 @@ def remove_all_duplicates(history_file):
 
 def load_settings(settings_file: str) -> dict:
     '''Load settings in the script. Return them as a dictionary.'''
+
     with open(settings_file, "r") as read_file:
         settings = json.load(read_file)
     return settings
