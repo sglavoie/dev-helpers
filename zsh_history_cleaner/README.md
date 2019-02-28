@@ -3,19 +3,32 @@ _Note: This script is mostly the same as [Bash history cleaner](https://github.c
 
 # Zsh History Cleaner
 
-This is a Python 3.6+ script that helps to clean the file containing the Zsh history commands. It will remove any line matching a specified regular expression and can also remove any line starting with an alias.
+This is a Python 3.6+ script that helps to clean the file containing the Zsh
+history commands. It will remove any line matching a specified regular
+expression and can also remove any line starting with an alias.
 
 The idea behind this small utility was simple:
 
-- The Zsh history file (usually located in `~/.zsh_history`) contains much of the work one ends up doing in the terminal.
-- The history can grow large over time and it becomes more cumbersome to find interesting information in all that clutter, such as a rarely used command with specific flags.
-- By removing all superfluous commands that are repeated often and which give no real benefit in certain contexts (such as `ls`, `cd`, `cat`, etc.), the history is much cleaner and easier to navigate and actually becomes much more useful in my opinion.
-- True, it will be harder to follow the bread crumbs for everything you did, but I haven't come across a situation where having access to yet another empty `ls` or `cd` has proven necessary and reading `.zsh_history` doesn't make for a great narrative story either.
+- The Zsh history file (usually located in `~/.zsh_history`) contains much of
+  the work one ends up doing in the terminal.
+- The history can grow large over time and it becomes more cumbersome to find
+  interesting information in all that clutter, such as a rarely used command
+  with specific flags.
+- By removing all superfluous commands that are repeated often and which give
+  no real benefit in certain contexts (such as `ls`, `cd`, `cat`, etc.), the
+  history is much cleaner and easier to navigate and actually becomes much more
+  useful in my opinion.
+- True, it will be harder to follow the bread crumbs for everything you did,
+  but I haven't come across a situation where having access to yet another
+  empty `ls` or `cd` has proven necessary and reading `.zsh_history` doesn't
+  make for a great narrative story either.
 
 It comes in two files that need to be in the same directory:
 
-- One is a Python file that needs to be launched from the terminal with Python 3.
-- The other file, `settings.json`, is a JSON file used to store the settings of the script, which will be detailed below.
+- One is a Python file that needs to be launched from the terminal with Python
+  3.
+- The other file, `settings.json`, is a JSON file used to store the settings of
+  the script, which will be detailed below.
 
 ----
 
@@ -43,9 +56,13 @@ Performance-wise, this scans ~8,300 lines per second on my modest Intel Core i5 
 
 ## Your opinion is welcome!
 
-I haven't noticed any bug up to now for my personal use, but please feel free to let me know if you are aware of any unwanted behavior. To stay on the side of caution, setting `backup_history` to `True` has proven to be useful.
+I haven't noticed any bug up to now for my personal use, but please feel free
+to let me know if you are aware of any unwanted behavior. To stay on the side
+of caution, setting `backup_history` to `True` has proven to be useful.
 
 
 ## Conclusion
 
-This is a simple solution to an nonexistent problem, but it was in the end very instructive to me nonetheless. You may even find a use for it! Otherwise, you might use the same functions for other files such as logs!
+This is a simple solution to an nonexistent problem, but it was in the end very
+instructive to me nonetheless. You may even find a use for it! Otherwise, you
+might use the same functions for other files such as logs!

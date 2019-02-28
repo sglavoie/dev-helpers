@@ -1,6 +1,5 @@
 '''
-Python script that helps to clean the file containing the Zsh history
-commands.
+Python script that helps to clean the file containing the Zsh history commands.
 
 Note: Requires Python 3.6+
 
@@ -17,7 +16,7 @@ Description of available settings in `settings.json`:
 
     "ignore_patterns":  List of patterns to ignore in `history_file`.
                         Each line where a pattern is found will be deleted.
-                            → Patterns are specified as regular expressions.
+                        → Patterns are specified as regular expressions.
 
     "add_aliases":      Boolean. If set to `true`, aliases from `aliases_file`
                         will be added to `ignore_patterns`.
@@ -88,8 +87,8 @@ def generate_date_string() -> str:
 
 
 def get_current_path():
-    '''Returns the current working directory relative to where this script
-    is being executed.'''
+    '''Returns the current working directory relative to where this script is
+    being executed.'''
 
     return Path(__file__).parents[0]
 
@@ -144,8 +143,8 @@ def delete_logs(settings: dict, history_file: str):
 
 
 def remove_duplicates_within_range(range_num, history_file):
-    '''Scan lines in `history_file` one by one. If the current line is found
-    in the next `range_num` lines, it will be removed. The same process is
+    '''Scan lines in `history_file` one by one. If the current line is found in
+    the next `range_num` lines, it will be removed. The same process is
     repeated on every line so that any line won't have duplicates within
     `range_num`.
 
@@ -250,8 +249,8 @@ def clean_zsh_history(settings: dict, history_file: str):
     '''Modify in place `history_file` by removing every line where
     `ignore_patterns` is found.
 
-    Optionally, add a list of aliases to `ignore_patterns` with
-    `aliases` based on the value of `add_aliases` in settings.json.'''
+    Optionally, add a list of aliases to `ignore_patterns` with `aliases` based
+    on the value of `add_aliases` in settings.json.'''
 
     original_num_lines = file_length(history_file)
 
