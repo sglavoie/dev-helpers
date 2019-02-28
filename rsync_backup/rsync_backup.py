@@ -1,7 +1,7 @@
 #!/usr/local/bin/python3.7
 """
-Small script that uses `rsync` to make a simple and convenient backup.
-Note: requires Python 3.6+ (otherwise, f-strings need to be converted).
+Small script that uses `rsync` to make a simple and convenient backup. Note:
+requires Python 3.6+ (otherwise, f-strings need to be converted).
 
 For each source to backup, a log file is created at the root directory of that
 source. In the log file, the text `Command executed:` is inserted at the
@@ -48,7 +48,6 @@ from settings import (
     TERMINAL_WIDTH,
 )
 
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # DECORATORS
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -64,7 +63,6 @@ def better_separation(the_function):
     return print_separator
 
 
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # FUNCTIONS
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -101,9 +99,8 @@ def backing_source(source, main_options, custom_options):
 
 
 def background_reminder(wait_time=PLAY_WAIT_TIME):
-    """Depends on a function to set `reminder_is_set` to False.
-    It will play a sound every `wait_time` in seconds until `REMINDER_IS_SET`
-    is False."""
+    """Depends on a function to set `reminder_is_set` to False. It will play a
+    sound every `wait_time` in seconds until `REMINDER_IS_SET` is False."""
     global REMINDER_IS_SET
     while REMINDER_IS_SET:
         play_sound()
@@ -226,7 +223,6 @@ def run_backup(data_sources=None):
             play_sound()
 
 
-# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # EXECUTION
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
