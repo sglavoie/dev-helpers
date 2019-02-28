@@ -1,5 +1,4 @@
 '''
-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 SETTINGS
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 '''
@@ -11,10 +10,10 @@ MAIN_OPTIONS = ['-vaHh', '--delete', '--ignore-errors', '--force',
 
 
 # Directories to back up, supplied as a dictionary where {key: value}
-# corresponds to {'source_to_back_up': ['list', 'of', 'rsync', 'options']}
-# If the source directory contains a slash at the end, the CONTENT will be
-# copied without recreating the source directory.
-# Each source can be specified with its own rsync options.
+# corresponds to {'source_to_back_up': ['list', 'of', 'rsync', 'options']}. If
+# the source directory contains a slash at the end, the CONTENT will be copied
+# without recreating the source directory. Each source can be specified with
+# its own rsync options.
 DATA_SOURCES = {
     '/tmp/backup': [MAIN_OPTIONS],
     '/tmp/backup2': [MAIN_OPTIONS],
@@ -22,8 +21,8 @@ DATA_SOURCES = {
 }
 
 
-# Single destination of the files to back up, supplied as a string
-# This can be overridden when passing option '-d' or '--dest' to the script
+# Single destination of the files to back up, supplied as a string. This can be
+# overridden when passing option '-d' or '--dest' to the script
 # DATA_DESTINATION = '/media/sgdlavoie/Elements'
 DATA_DESTINATION = '/tmp/destination'
 
@@ -31,7 +30,7 @@ DATA_DESTINATION = '/tmp/destination'
 TERMINAL_WIDTH = 40
 
 # Separator to use along with TERMINAL_WIDTH
-SEP = '……'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also
+SEP = '……'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also.
 
 # Sets the prefix of the log filename. If set to None, no log is generated.
 # LOG_NAME = None
