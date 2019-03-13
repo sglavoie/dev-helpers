@@ -51,13 +51,13 @@ def pass_to_sha1(password):
     return short_hash, long_hash
 
 
-def check_password(five_chars_hash, long_hash):
+def check_password(short_hash, long_hash):
     """Consult haveibeenpwned.com to see how many times the password has
     been breached."""
     click.secho('Please note that only the 5 first characters from your '
                 'SHA-1 ENCRYPTED password are sent to haveibeenpwned.com.',
                 fg='yellow', bold=True)
-    response = requests.get(PASS_URL + five_chars_hash)
+    response = requests.get(PASS_URL + short_hash)
     lines = response.text.split()
     for line in lines:
         if long_hash in line:
