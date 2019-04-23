@@ -10,14 +10,24 @@ You will need [Click](https://github.com/pallets/click) and [requests](https://g
 
     pip install click requests
 
+or from this directory:
+
+    pip install -r requirements.txt
+
 ---
 
 # Usage
 
 Execute this script in a terminal with Python3.6+ in one of the following ways:
 
-    $ python3 pwned.py -p MyPassword
-    $ python3 pwned.py --password MyPassword
-    $ python3 pwned.py -p 'MyPassword'
-    $ python3 pwned.py -p "MyPassword"
-    $ python3 pwned.py -p "MyPasswordWith\"Quotes\"Inside"
+    python pwned.py  # for general help
+    python pwned.py check --help for more info.
+    python pwned.py check -p MyPassword
+    python pwned.py check --password MyPassword
+    python pwned.py check -p 'MyPassword'
+    python pwned.py check -p "MyPassword"
+
+For more complicated passwords, you have to use quotes and
+escape symbols with \ where appropriate:
+
+    python pwned.py check -p "as0d9\"asg0''A=)SYD"
