@@ -82,7 +82,7 @@ def hibp():
     """A simple command-line interface to make use of
     haveibeenpwned.com's data.
 
-    Type `python3 pwned.py usage` for more info (or whatever way you
+    Type `python pwned.py usage` for more info (or whatever way you
     call Python 3)."""
 
 
@@ -90,15 +90,15 @@ def hibp():
 def usage():
     """Give examples on how to use this script."""
     click.secho('Examples:', fg='blue')
-    click.secho('python3 pwned.py check --help for more info.', fg='green')
-    click.secho('python3 pwned.py check -p MyPasswordHere', fg='yellow')
-    click.secho('python3 pwned.py check --password MyPasswordHere', fg='green')
+    click.secho('python pwned.py check --help for more info.', fg='green')
+    click.secho('python pwned.py check -p MyPasswordHere', fg='yellow')
+    click.secho('python pwned.py check --password MyPasswordHere', fg='green')
 
     click.echo('')
     click.secho('For more complicated passwords, you have to use quotes and ',
                 fg='blue')
     click.secho('escape symbols with \\ where appropriate:', fg='blue')
-    click.secho('python3 pwned.py check -p "as0d9\\"asg0\'\'A=)SYD"',
+    click.secho('python pwned.py check -p "as0d9\\"asg0\'\'A=)SYD"',
                 fg='green')
 
 
