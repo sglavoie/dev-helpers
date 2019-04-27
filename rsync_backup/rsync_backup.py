@@ -107,7 +107,7 @@ def background_reminder(wait_time=PLAY_WAIT_TIME):
         sleep(wait_time)
 
 
-# FIXME: This need further attention.
+# FIXME: This needs further attention.
 # Use alternative to threading for background processes?
 def user_says_yes(message=""):
     """Depends on function `background_reminder`. It creates a thread with

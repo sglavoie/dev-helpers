@@ -14,7 +14,7 @@ import requests
 PASS_URL = 'https://api.pwnedpasswords.com/range/'
 
 # Script information
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 LOGO = r'''
  __                        __   __
 |  |--.---.-.--.--.-----. |__| |  |--.-----.-----.-----.
@@ -28,7 +28,7 @@ LOGO = r'''
 |__|                               '--'  '''
 
 
-def print_info(context, param, value):  # `param` required by `click`
+def print_info(context, _, value):  # `param` (_) required by `click`
     """Print information about the program and exit."""
     if not value or context.resilient_parsing:
         return
