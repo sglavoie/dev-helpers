@@ -1,6 +1,6 @@
-__pycache__/
-*.py[cod]
 *$py.class
+*.py[cod]
+.vscode/settings.json
 TODO
+__pycache__/
 prep.py
-tags

@@ -1,0 +1,35 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+ARGUMENTS	rsync_backup.py	/^    ARGUMENTS = PARSER.parse_args()$/;"	v
+BACKUP_EXCLUDE	settings.py	/^BACKUP_EXCLUDE = ".backup_exclude"$/;"	v
+DATA_DESTINATION	rsync_backup.py	/^            DATA_DESTINATION = ARGUMENTS.destination$/;"	v
+DATA_DESTINATION	settings.py	/^DATA_DESTINATION = f'\/tmp\/desti'$/;"	v
+DATA_SOURCES	settings.py	/^DATA_SOURCES = [$/;"	v
+LOG_FORMAT	settings.py	/^LOG_FORMAT = '%y%m%d_%H_%M_%S'$/;"	v
+LOG_NAME	settings.py	/^LOG_NAME = '.backup_log_'$/;"	v
+PARSER	rsync_backup.py	/^    PARSER = argparse.ArgumentParser()$/;"	v
+PLAY_WAIT_TIME	settings.py	/^PLAY_WAIT_TIME = 15$/;"	v
+REMINDER_IS_SET	rsync_backup.py	/^        REMINDER_IS_SET = True$/;"	v
+REMINDER_IS_SET	rsync_backup.py	/^REMINDER_IS_SET = False  # Do not modify. Used for background_reminder function$/;"	v
+RSYNC_OPTIONS	settings.py	/^RSYNC_OPTIONS = ['rsync', '-vaH', '--delete', '--ignore-errors', '--force',$/;"	v
+SEP	settings.py	/^SEP = '«»'  # using 2 characters, we have to divide TERMINAL_WIDTH by 2 also$/;"	v
+TERMINAL_WIDTH	settings.py	/^TERMINAL_WIDTH = 40$/;"	v
+action	rsync_backup.py	/^        action='store')$/;"	v
+action	rsync_backup.py	/^        action='store_true')$/;"	v
+background_reminder	rsync_backup.py	/^def background_reminder(wait_time=PLAY_WAIT_TIME):$/;"	f
+backing_source	rsync_backup.py	/^def backing_source(source_options):$/;"	f
+better_separation	rsync_backup.py	/^def better_separation(the_function):$/;"	f
+check_destination_exists	rsync_backup.py	/^def check_destination_exists(data_destination):$/;"	f
+clear_logs	rsync_backup.py	/^def clear_logs(data_sources=None):$/;"	f
+help	rsync_backup.py	/^        help='Delete all log files for current source in DATA_SOURCES.',$/;"	v
+help	rsync_backup.py	/^        help='Play a sound in the background when launching the script',$/;"	v
+help	rsync_backup.py	/^        help='Play a sound when the backup has completed.',$/;"	v
+help	rsync_backup.py	/^        help='Specify an alternative destination for backup as a string.',$/;"	v
+help	rsync_backup.py	/^        help=('Plays a sound every X seconds when waiting for user feedback. '$/;"	v
+print_separator	rsync_backup.py	/^    def print_separator(*args, **kwargs):$/;"	f	function:better_separation
+run_backup	rsync_backup.py	/^def run_backup(data_sources=None, data_destination=DATA_DESTINATION):$/;"	f
+user_says_yes	rsync_backup.py	/^def user_says_yes(message=""):$/;"	f
