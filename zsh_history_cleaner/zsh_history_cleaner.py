@@ -1,4 +1,4 @@
-'''
+"""
 Python script that helps to clean the file containing the Zsh history commands.
 
 Note: Requires Python 3.6+
@@ -56,7 +56,7 @@ Description of available settings in `settings.json`:
                         Boolean. If set to `true`, duplicated lines will be
                         deleted when they are consecutive in order to leave
                         only one match.
-'''
+"""
 
 from datetime import datetime
 from pathlib import Path
@@ -69,11 +69,12 @@ import re
 
 
 def file_length(file_name):
-    '''Return the number of lines in a file. Returns 0 if it doesn't exist.'''
+    """Return the number of lines in a file. Returns 0 if it doesn't exist."""
 
     try:
-        with open(file_name, errors='replace',
-                  encoding='utf-8') as file_to_check:
+        with open(
+            file_name, errors="replace", encoding="utf-8"
+        ) as file_to_check:
             for index, _ in enumerate(file_to_check):
                 pass
             return index + 1  # Will return UnboundLocalError if file is empty
@@ -82,27 +83,27 @@ def file_length(file_name):
 
 
 def generate_date_string() -> str:
-    '''Return date formatted string to backup a file.'''
+    """Return date formatted string to backup a file."""
 
-    return datetime.strftime(datetime.today(), '_%Y%m%d_%H%M%S.bak')
+    return datetime.strftime(datetime.today(), "_%Y%m%d_%H%M%S.bak")
 
 
 def get_current_path():
-    '''Returns the current working directory relative to where this script is
-    being executed.'''
+    """Returns the current working directory relative to where this script is
+    being executed."""
 
     return Path(__file__).parents[0]
 
 
 def user_says_yes(message=""):
-    '''Check if user input is either 'y' or 'n'. Returns a boolean.'''
+    """Check if user input is either 'y' or 'n'. Returns a boolean."""
 
     while True:
         choice = input(message).lower()
-        if choice == 'y':
+        if choice == "y":
             choice = True
             break
-        elif choice == 'n':
+        elif choice == "n":
             choice = False
             break
         else:
@@ -112,10 +113,10 @@ def user_says_yes(message=""):
 
 
 def delete_logs(settings: dict, history_file: str):
-    '''Delete log files in `home_directory` based on `history_file`.'''
+    """Delete log files in `home_directory` based on `history_file`."""
 
     # Retrieve a list of all matching log files
-    log_files = glob.glob(f'{history_file}_*.bak')
+    log_files = glob.glob(f"{history_file}_*.bak")
 
     if log_files == []:
         print("There is no log file to delete.")
@@ -125,36 +126,36 @@ def delete_logs(settings: dict, history_file: str):
         for log_file in log_files:
             print(log_file)
 
-        if settings['delete_logs_without_confirming']:
+        if settings["delete_logs_without_confirming"]:
             for log_file in log_files:
                 os.remove(log_file)
-            print('Log files deleted.')
+            print("Log files deleted.")
             return
 
-        message = ("\nDo you want to delete those log files? [y/n] ")
+        message = "\nDo you want to delete those log files? [y/n] "
 
         if user_says_yes(message=message):
             for log_file in log_files:
                 os.remove(log_file)
-            print('Log files deleted.')
+            print("Log files deleted.")
             return
 
-    print('Operation aborted.')
+    print("Operation aborted.")
     return
 
 
 def remove_duplicates_within_range(range_num, history_file):
-    '''Scan lines in `history_file` one by one. If the current line is found in
+    """Scan lines in `history_file` one by one. If the current line is found in
     the next `range_num` lines, it will be removed. The same process is
     repeated on every line so that any line won't have duplicates within
     `range_num`.
 
     Note: By executing the script various times, duplicates will be searched
     again and within few executions, no line will be repeated within the
-    specified range.'''
+    specified range."""
 
     file_input = fileinput.FileInput(history_file, inplace=True)
-    with open(history_file, 'r') as original_history:
+    with open(history_file, "r") as original_history:
         original_lines = original_history.readlines()
     for index, line in enumerate(file_input):
         next_line = index + 1
@@ -169,12 +170,12 @@ def remove_duplicates_within_range(range_num, history_file):
                 break
         if duplicate:
             continue
-        print(line, end='')
+        print(line, end="")
 
 
 def remove_consecutive_duplicates(history_file):
-    '''Go over `history_file` in place and for all consecutive lines that are
-    duplicated, skip them (effectively removing them).'''
+    """Go over `history_file` in place and for all consecutive lines that are
+    duplicated, skip them (effectively removing them)."""
 
     file_input = fileinput.FileInput(history_file, inplace=True)
     previous_line = ""
@@ -182,12 +183,12 @@ def remove_consecutive_duplicates(history_file):
         if previous_line[15:] == line[15:]:
             continue
         previous_line = line
-        print(line, end='')
+        print(line, end="")
 
 
 def remove_all_duplicates(history_file):
-    '''Go over `history_file` in place and for every line that has been seen
-    before, do not add it back to the file (effectively removing it).'''
+    """Go over `history_file` in place and for every line that has been seen
+    before, do not add it back to the file (effectively removing it)."""
 
     seen = set()
     file_input = fileinput.FileInput(history_file, inplace=True)
@@ -196,11 +197,11 @@ def remove_all_duplicates(history_file):
             continue  # Skip duplicate
 
         seen.add(line[15:])
-        print(line, end='')
+        print(line, end="")
 
 
 def load_settings(settings_file: str) -> dict:
-    '''Load settings in the script. Return them as a dictionary.'''
+    """Load settings in the script. Return them as a dictionary."""
 
     with open(settings_file, "r") as read_file:
         settings = json.load(read_file)
@@ -208,11 +209,11 @@ def load_settings(settings_file: str) -> dict:
 
 
 def get_list_aliases(zsh_aliases_file: str, settings: dict) -> list:
-    '''Retrieve the name of all the aliases specified in `zsh_aliases_file`.
+    """Retrieve the name of all the aliases specified in `zsh_aliases_file`.
 
-    Return aliases as a list of strings formatted as regular expressions.'''
+    Return aliases as a list of strings formatted as regular expressions."""
 
-    match_whole_line = bool(settings['aliases_match_greedily'])
+    match_whole_line = bool(settings["aliases_match_greedily"])
 
     with open(zsh_aliases_file) as file:
         content = file.read().splitlines()  # one alias per line
@@ -223,7 +224,7 @@ def get_list_aliases(zsh_aliases_file: str, settings: dict) -> list:
                 # Use negative lookbehind to remove 'alias ' at the beginning.
                 # Matches anything after that is a dot, digit, underscore
                 # or letter (will stop at the equal sign: alias blah='...')
-                alias = re.search(r'(?<!not )alias ([\.\w]*)', line).group(1)
+                alias = re.search(r"(?<!not )alias ([\.\w]*)", line).group(1)
 
             # If for some reason the alias cannot be extracted, skip it
             # If search doesn't match, it's of type None and won't work
@@ -232,14 +233,14 @@ def get_list_aliases(zsh_aliases_file: str, settings: dict) -> list:
 
             if match_whole_line:
                 # Match the whole line if it starts with the alias.
-                alias = f'^{alias}( )?$|^{alias} .*'
+                alias = f"^{alias}( )?$|^{alias} .*"
             else:
                 # Will match only when alias is the whole content of the line,
                 # followed by optional space.
-                alias = f'^{alias}( )?$'
+                alias = f"^{alias}( )?$"
 
             # Escape dots in alias
-            alias = alias.translate(str.maketrans({".":  r"\."}))
+            alias = alias.translate(str.maketrans({".": r"\."}))
 
             aliases_list.append(alias)
 
@@ -247,27 +248,26 @@ def get_list_aliases(zsh_aliases_file: str, settings: dict) -> list:
 
 
 def clean_zsh_history(settings: dict, history_file: str):
-    '''Modify in place `history_file` by removing every line where
+    """Modify in place `history_file` by removing every line where
     `ignore_patterns` is found.
 
     Optionally, add a list of aliases to `ignore_patterns` with `aliases` based
-    on the value of `add_aliases` in settings.json.'''
+    on the value of `add_aliases` in settings.json."""
 
     original_num_lines = file_length(history_file)
 
-    if settings['backup_history']:
+    if settings["backup_history"]:
         backup_str = generate_date_string()
-        file_input = fileinput.FileInput(history_file,
-                                         inplace=True,
-                                         backup=backup_str)
+        file_input = fileinput.FileInput(
+            history_file, inplace=True, backup=backup_str
+        )
     else:
-        file_input = fileinput.FileInput(history_file,
-                                         inplace=True)
+        file_input = fileinput.FileInput(history_file, inplace=True)
 
     with file_input as file:
         for line in file:
             has_match = False
-            for pattern in settings['ignore_patterns']:
+            for pattern in settings["ignore_patterns"]:
                 matched = re.compile(pattern).search
                 if matched(line[15:]):
                     has_match = True
@@ -275,11 +275,11 @@ def clean_zsh_history(settings: dict, history_file: str):
             # If no match is found (nothing to ignore), print the line
             # back into the file. Otherwise, it will be empty.
             if not has_match:
-                print(line, end='')  # Line already has carriage return
+                print(line, end="")  # Line already has carriage return
 
-    num_lines = settings['remove_duplicates_within_X_lines']
+    num_lines = settings["remove_duplicates_within_X_lines"]
 
-    if settings['remove_all_duplicated_lines']:
+    if settings["remove_all_duplicated_lines"]:
         remove_all_duplicates(history_file)
         print("All duplicated lines were removed.")
 
@@ -288,7 +288,7 @@ def clean_zsh_history(settings: dict, history_file: str):
         remove_duplicates_within_range(num_lines, history_file)
         print(f"All duplicates within {num_lines} lines were removed.")
 
-    elif settings['remove_consecutive_duplicates']:
+    elif settings["remove_consecutive_duplicates"]:
         remove_consecutive_duplicates(history_file)
         print("All consecutive duplicated lines were removed.")
 
@@ -300,15 +300,15 @@ def clean_zsh_history(settings: dict, history_file: str):
 
 
 def launch_cleanup(settings: dict, history_file: str, aliases_file: str):
-    '''Main function that launches the cleanup process.'''
+    """Main function that launches the cleanup process."""
 
     zsh_aliases = None
-    if settings['add_aliases']:
+    if settings["add_aliases"]:
         try:
             zsh_aliases = get_list_aliases(aliases_file, settings)
 
             # add aliases to list of patterns to ignore
-            settings['ignore_patterns'].extend(zsh_aliases)
+            settings["ignore_patterns"].extend(zsh_aliases)
         except FileNotFoundError:
             print(f"File not found: {aliases_file}")
             quit()
@@ -318,16 +318,17 @@ def launch_cleanup(settings: dict, history_file: str, aliases_file: str):
         print(f"File not found: {history_file}")
 
 
-if __name__ == '__main__':
-    SETTINGS_FILE_PATH = get_current_path() / 'settings.json'
+if __name__ == "__main__":
+    SETTINGS_FILE_PATH = get_current_path() / "settings.json"
     SETTINGS = load_settings(SETTINGS_FILE_PATH)
-    ALIASES_FILE = SETTINGS['home_directory'] + '/' + SETTINGS['aliases_file']
-    HISTORY_FILE = SETTINGS['home_directory'] + '/' + SETTINGS['history_file']
+    ALIASES_FILE = SETTINGS["home_directory"] + "/" + SETTINGS["aliases_file"]
+    HISTORY_FILE = SETTINGS["home_directory"] + "/" + SETTINGS["history_file"]
 
     # initiate the parser to check all the arguments passed to the script
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument(
-        '-c', '--clear', help='Delete all log files', action='store_true')
+        "-c", "--clear", help="Delete all log files", action="store_true"
+    )
 
     # read arguments from the command line
     ARGUMENTS = PARSER.parse_args()

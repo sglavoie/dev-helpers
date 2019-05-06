@@ -53,13 +53,15 @@ from settings import (
 
 
 def better_separation(the_function):
-    '''Decorator used to print separators around `the_function`.'''
+    """Decorator used to print separators around `the_function`."""
+
     def print_separator(*args, **kwargs):
-        '''Surrounds `the_function` with a separator and add a new line.'''
+        """Surrounds `the_function` with a separator and add a new line."""
         separator = SEP * TERMINAL_WIDTH
         print(separator)
         the_function(*args, **kwargs)
-        print(separator, '\n')
+        print(separator, "\n")
+
     return print_separator
 
 
@@ -74,28 +76,28 @@ def play_sound(sound_path=SOUND_PATH):
 
 @better_separation
 def backing_source(source, main_options, custom_options):
-    '''Print information to STDOUT and to `log_filename` and executes the
-    rsync command.'''
+    """Print information to STDOUT and to `log_filename` and executes the
+    rsync command."""
     cmd_executed = main_options.copy()
-    cmd_executed.insert(0, 'rsync')
+    cmd_executed.insert(0, "rsync")
 
-    if custom_options['logfile'] is not None:
-        cmd_executed.append(custom_options['logfile'])
-    if custom_options['exclude_option'] is not None:
-        cmd_executed.append(custom_options['exclude_option'])
+    if custom_options["logfile"] is not None:
+        cmd_executed.append(custom_options["logfile"])
+    if custom_options["exclude_option"] is not None:
+        cmd_executed.append(custom_options["exclude_option"])
     cmd_executed.append(source)
     cmd_executed.append(DATA_DESTINATION)
-    cmd_to_run = ' '.join(cmd_executed)
-    msg_executed = f'Command being executed:\n{cmd_to_run}\n'
+    cmd_to_run = " ".join(cmd_executed)
+    msg_executed = f"Command being executed:\n{cmd_to_run}\n"
     print(msg_executed)
 
-    if custom_options['logfilename'] is not None:
-        with open(custom_options['logfilename'], mode='w') as log_file:
-            log_file.write(f'{msg_executed}\n')
+    if custom_options["logfilename"] is not None:
+        with open(custom_options["logfilename"], mode="w") as log_file:
+            log_file.write(f"{msg_executed}\n")
 
     subprocess.run(cmd_to_run, shell=True)
 
-    print(f'\nBackup completed for: {source}')
+    print(f"\nBackup completed for: {source}")
 
 
 def background_reminder(wait_time=PLAY_WAIT_TIME):
@@ -123,10 +125,10 @@ def user_says_yes(message=""):
         reminder_thread.start()
     while True:
         choice = input(message)
-        if choice == 'y':
+        if choice == "y":
             choice = True
             break
-        elif choice == 'n':
+        elif choice == "n":
             choice = False
             break
         else:
@@ -136,7 +138,7 @@ def user_says_yes(message=""):
 
 
 def clear_logs(data_sources=None):
-    '''Clear log files for each source specified in `DATA_SOURCES`.'''
+    """Clear log files for each source specified in `DATA_SOURCES`."""
     global REMINDER_IS_SET
     if data_sources is None:
         data_sources = {}
@@ -147,26 +149,27 @@ def clear_logs(data_sources=None):
 
     for source in data_sources:
         # Retrieve a list of all matching log files in `source`
-        log_files = glob.glob(f'{source}/{LOG_NAME}*')
+        log_files = glob.glob(f"{source}/{LOG_NAME}*")
         if log_files == []:
             print(f"\nThere is no log file to delete in {source}.")
             continue
         else:
-            print(f'Log files in {source}:')
+            print(f"Log files in {source}:")
             for log_file in log_files:
                 if ARGUMENTS.remind:
                     REMINDER_IS_SET = True
                 print(log_file)
-            message = ("\nDo you want to delete log files "
-                       "for this source? (y/n) ")
+            message = (
+                "\nDo you want to delete log files " "for this source? (y/n) "
+            )
             if user_says_yes(message=message):
                 for log_file in log_files:
                     os.remove(log_file)
-                print('Log files deleted.')
+                print("Log files deleted.")
                 continue
             else:
                 continue
-        print('Exiting script...')
+        print("Exiting script...")
         sys.exit(0)
 
 
@@ -186,7 +189,7 @@ def check_destination_exists(data_destination):
 
 
 def run_backup(data_sources=None):
-    '''This is where all the action happens!'''
+    """This is where all the action happens!"""
 
     options = {}  # Initially empty. Rsync options that will adjust on the fly.
 
@@ -202,20 +205,20 @@ def run_backup(data_sources=None):
         if LOG_NAME is not None:
             date_now = datetime.datetime.now()
             log_format = datetime.datetime.strftime(date_now, LOG_FORMAT)
-            log_filename = f'{source}/{LOG_NAME}{log_format}'
-            custom_options['logfilename'] = log_filename
-            log_option = f'--log-file={log_filename}'
-            custom_options['logfile'] = log_option
+            log_filename = f"{source}/{LOG_NAME}{log_format}"
+            custom_options["logfilename"] = log_filename
+            log_option = f"--log-file={log_filename}"
+            custom_options["logfile"] = log_option
         else:
-            custom_options['logfile'] = None
+            custom_options["logfile"] = None
 
         # files to ignore in backup
-        exclude_file = f'{source}/{BACKUP_EXCLUDE}'
+        exclude_file = f"{source}/{BACKUP_EXCLUDE}"
         if os.path.exists(exclude_file):
-            exclude_option = f'--exclude-from={exclude_file}'
-            custom_options['exclude_option'] = exclude_option
+            exclude_option = f"--exclude-from={exclude_file}"
+            custom_options["exclude_option"] = exclude_option
         else:
-            custom_options['exclude_option'] = None
+            custom_options["exclude_option"] = None
 
         backing_source(source, main_options, custom_options)
 
@@ -226,30 +229,44 @@ def run_backup(data_sources=None):
 # EXECUTION
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # initiate the parser to check all the arguments passed to the script
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument(
-        '-a', '--alert',
-        help='Play a sound when the backup has completed.',
-        action='store_true')
+        "-a",
+        "--alert",
+        help="Play a sound when the backup has completed.",
+        action="store_true",
+    )
     PARSER.add_argument(
-        '-c', '--clear',
-        help='Delete all log files for current source in `DATA_SOURCES`.',
-        action='store_true')
+        "-c",
+        "--clear",
+        help="Delete all log files for current source in `DATA_SOURCES`.",
+        action="store_true",
+    )
     PARSER.add_argument(
-        '-d', '--dest', dest='destination', default=None,
-        help='Specify an alternative destination for backup as a string.',
-        action='store')
+        "-d",
+        "--dest",
+        dest="destination",
+        default=None,
+        help="Specify an alternative destination for backup as a string.",
+        action="store",
+    )
     PARSER.add_argument(
-        '-p', '--play',
-        help='Play a sound in the background when launching the script.',
-        action='store_true')
+        "-p",
+        "--play",
+        help="Play a sound in the background when launching the script.",
+        action="store_true",
+    )
     PARSER.add_argument(
-        '-r', '--remind', action='store_true',
-        help=('Play a sound every X seconds when waiting for user feedback. '
-              'Depends on `PLAY_WAIT_TIME`.')
-        )
+        "-r",
+        "--remind",
+        action="store_true",
+        help=(
+            "Play a sound every X seconds when waiting for user feedback. "
+            "Depends on `PLAY_WAIT_TIME`."
+        ),
+    )
 
     # read arguments from the command line
     ARGUMENTS = PARSER.parse_args()
