@@ -21,7 +21,7 @@ or from this directory:
 Execute this script in a terminal with Python3.6+ in one of the following ways:
 
     python pwned.py  # for general help
-    python pwned.py check --help for more info.
+    python pwned.py check --help  # same as previous line
     python pwned.py check -p MyPassword
     python pwned.py check --password MyPassword
     python pwned.py check -p 'MyPassword'
