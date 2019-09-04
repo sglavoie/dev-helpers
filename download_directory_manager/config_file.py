@@ -3,6 +3,7 @@ FOLDER_TO_TRACK = f"{HOME_FOLDER}/Downloads"
 FORMATS = {
     "archive": (".7z", ".deb", ".pkg", ".rar", ".tar.gz", ".z", ".zip"),
     "audio": (".aac", ".flac", ".m3u", ".m4a", ".mp3", ".ogg", ".wav", ".wma"),
+    "book": (".epub",),
     "database": (
         ".csv",
         ".dat",
@@ -10,6 +11,8 @@ FORMATS = {
         ".mdb",
         ".pdb",
         ".sql",
+        ".sqlite",
+        ".sqlite3",
         ".tar",
         ".xml",
     ),
@@ -20,7 +23,7 @@ FORMATS = {
         ".odt",
         ".pdf",
         ".rtf",
-        ".tex",
+        ".sla",
         ".txt",
         ".wpd",
     ),
@@ -53,6 +56,7 @@ FORMATS = {
         ".webp",
         ".xps",
     ),
+    "mathematics": (".ggb", ".tex"),
     "presentation": (".odp", ".pps", ".ppt", ".pptx"),
     "programming": (
         ".c",
@@ -60,7 +64,9 @@ FORMATS = {
         ".cpp",
         ".cs",
         ".h",
+        ".ipynb",
         ".java",
+        ".json",
         ".rb",
         ".sh",
         ".swift",

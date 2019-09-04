@@ -10,26 +10,31 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # Script imports
-from config_file import *
+from config_file import FOLDER_TO_TRACK, FORMATS
 
 
 class MyHandler(FileSystemEventHandler):
     def on_created(self, event):
-        file_ext = Path(event.src_path).suffix[1:]  # e.g. 'png' for '.png'
+        file_path = Path(event.src_path)
+        file_ext = file_path.suffix.lower()  # so it works with uppercase too
+        file_name = file_path.name
         if not event.is_directory:  # only check for files, not directories
-            for key, values in FORMATS.items():
-                for value in values:
-                    if file_ext in value:
-                        print(event.src_path)
-                        print(FOLDER_TO_TRACK)
-                        print(file_ext)
-
-        # for filename in os.listdir(FOLDER_TO_TRACK):
-        #     pass
-
-        # src = FOLDER_TO_TRACK + "/" + filename
-        # new_destination = folder_destination + "/" + filename
-        # os.rename(src, new_destination)
+            try:
+                # Check against all known file formats in `config_file`
+                for key, values in FORMATS.items():
+                    for value in values:
+                        if file_ext in value:
+                            file_directory = f"{FOLDER_TO_TRACK}/{key}"
+                            new_destination = (
+                                f"{FOLDER_TO_TRACK}/{key}/{file_name}"
+                            )
+                            if not os.path.exists(file_directory):
+                                # os.rename won't create the directory for us
+                                os.makedirs(file_directory)
+                            os.rename(file_path, new_destination)
+            # FileNotFoundError can occur when creating many files at once
+            except FileNotFoundError:
+                pass
 
     def on_moved(self, event):
         pass
