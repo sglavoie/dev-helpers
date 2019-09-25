@@ -3,9 +3,12 @@ ext_dir_map = {
     ("noname",): ("Other", "Uncategorized"),
     # Audio
     (
+        ".aac",
         ".aif",
         ".cda",
+        ".flac",
         ".m3u",
+        ".m4a",
         ".mid",
         ".midi",
         ".mp3",
@@ -16,37 +19,60 @@ ext_dir_map = {
         ".wma",
         ".wpl",
     ): ("Media", "Audio"),
-    # Text
+    # Books
+    (".epub",): ("Books",),
+    # Compressed files
+    (".7z", ".arj", ".deb", ".pkg", ".rar", ".rpm", ".tar.gz", ".z", ".zip"): (
+        "Compressed",
+    ),
+    # Data
+    (
+        ".csv",
+        ".dat",
+        ".db",
+        ".dbf",
+        ".json",
+        ".log",
+        ".mdb",
+        ".pdb",
+        ".sav",
+        ".sql",
+        ".sqlite",
+        ".sqlite3",
+        ".tar",
+        ".xml",
+    ): ("Programming", "Database"),
+    # Disc
+    (".bin", ".dmg", ".iso", ".toast", ".vcd"): ("Other", "Disc"),
+    # Documents
+    (".doc", ".docx"): ("Text", "Word"),
+    (".pdf",): ("Text", "PDF"),
+    (".sla",): ("Text", "Resume"),
     (".txt", ".rtf", ".tex", ".wks", ".wps", ".wpd", ".odt", ".wiki"): (
         "Text",
         "TextFiles",
     ),
-    (".doc", ".docx"): ("Text", "Word"),
-    (".pdf",): ("Text", "PDF"),
-    (".sla",): ("Text", "Resume"),
-    # Video
+    # Executables
     (
-        ".3g2",
-        ".3gp",
-        ".avi",
-        ".flv",
-        ".h264",
-        ".m4v",
-        ".mkv",
-        ".mov",
-        ".mp4",
-        ".mpg",
-        ".mpeg",
-        ".rm",
-        ".swf",
-        ".vob",
-        ".wmv",
-    ): ("Media", "Video"),
+        ".apk",
+        ".bat",
+        ".bin",
+        ".cgi",
+        ".com",
+        ".exe",
+        ".gadget",
+        ".jar",
+        ".pl",
+        ".wsf",
+    ): ("Executables",),
+    # Fonts
+    (".fnt", ".fon", ".eot", ".otf", ".ttf", ".woff", ".woff2"): ("Fonts"),
     # Images
     (
         ".CR2",
         ".ai",
         ".bmp",
+        ".eps",
         ".gif",
         ".ico",
         ".jpeg",
@@ -57,7 +83,9 @@ ext_dir_map = {
         ".svg",
         ".tif",
         ".tiff",
+        ".webp",
         ".xcf",
+        ".xps",
     ): ("Media", "Images"),
     # Internet
     (
@@ -69,6 +97,7 @@ ext_dir_map = {
         ".pl",
         ".css",
         ".htm",
+        ".html",
         ".js",
         ".jsp",
         ".part",
@@ -76,38 +105,30 @@ ext_dir_map = {
         ".rss",
         ".xhtml",
     ): ("Other", "Internet"),
-    # Compressed
-    (".7z", ".arj", ".deb", ".pkg", ".rar", ".rpm", ".tar.gz", ".z", ".zip"): (
-        "Compressed",
-    ),
-    # Disc
-    (".bin", ".dmg", ".iso", ".toast", ".vcd"): ("Other", "Disc"),
-    # Data
-    (
-        ".csv",
-        ".dat",
-        ".db",
-        ".dbf",
-        ".log",
-        ".mdb",
-        ".sav",
-        ".sql",
-        ".tar",
-        ".xml",
-        ".json",
-    ): ("Programming", "Database"),
-    # Executables
-    (".apk", ".bat", ".com", ".exe", ".gadget", ".jar", ".wsf"): (
-        "Executables",
-    ),
-    # Fonts
-    (".fnt", ".fon", ".otf", ".ttf", ".woff", ".woff2"): ("Fonts"),
+    # Mathematics
+    (".tex", ".ggb"): ("Mathematics",),
     # Presentations
     (".key", ".odp", ".pps", ".ppt", ".pptx"): ("Text", "Presentations"),
     # Programming
-    (".c", ".class", ".dart", ".py", ".sh", ".swift", ".html", ".h"): (
-        "Programming",
-        "SourceCode",
+    (
+        ".c",
+        ".class",
+        ".cpp",
+        ".cs",
+        ".dart",
+        ".h",
+        ".html",
+        ".ipynb",
+        ".java",
+        ".py",
+        ".rb",
+        ".sh",
+        ".swift",
+        ".vb",
+    ): ("Programming", "SourceCode"),
+    # Security
+    (".cer", ".gpg", "kdb", "kdbx", ".asc", ".kbx", ".key", ".pub"): (
+        "Security",
     ),
     # Spreadsheets
     (".ods", ".xlr", ".xls", ".xlsx"): ("Text", "Spreadsheets"),
@@ -129,6 +150,25 @@ ext_dir_map = {
         ".sys",
         ".tmp",
     ): ("Text", "Other", "System"),
-    # Security
-    (".gpg", "kdb", "kdbx", ".asc", ".kbx", ".key", ".pub"): ("Security",),
+    # Torrent
+    (".torrent"): ("Torrents",),
+    # Video
+    (
+        ".3g2",
+        ".3gp",
+        ".avi",
+        ".flv",
+        ".h264",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp4",
+        ".mpeg",
+        ".mpg",
+        ".rm",
+        ".swf",
+        ".vob",
+        ".webm",
+        ".wmv",
+    ): ("Media", "Video"),
 }

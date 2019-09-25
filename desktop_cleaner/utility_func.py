@@ -13,6 +13,12 @@ def get_mapping_dict(managing_dir):
     return mapping
 
 
+def get_month():
+    now = datetime.now()
+    month = now.strftime("%b")
+    return month,
+
+
 def get_year_month():
     now = datetime.now()
     year = now.strftime("%Y")
@@ -25,12 +31,12 @@ def create_path(path):
 
 
 def create_destination_file_path_with_year_month(ext_dir):
-    create_path(os.path.join(ext_dir, *get_year_month()))
+    create_path(os.path.join(ext_dir, *get_month()))
 
 
 def get_absolute_file_destination_path(ext_dir, new_name):
     create_destination_file_path_with_year_month(ext_dir)
-    return os.path.join(ext_dir, *get_year_month(), new_name)
+    return os.path.join(ext_dir, *get_month(), new_name)
 
 
 def get_absolute_file_source_path(folder_to_track, file_name):
