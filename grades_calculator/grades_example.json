@@ -1,0 +1,38 @@
+{
+  "Module name 1": {
+    "score": 60,
+    "level": 4
+  },
+  "Module name 2": {
+    "score": 70,
+    "level": 4
+  },
+  "Module name 3": {
+    "score": 80,
+    "level": 4
+  },
+  "Module name 4": {
+    "score": 60,
+    "level": 5
+  },
+  "Module name 5": {
+    "score": 70,
+    "level": 5
+  },
+  "Module name 6": {
+    "score": 70.5,
+    "level": 5
+  },
+  "Module name 7": {
+    "score": 60.2,
+    "level": 6
+  },
+  "Module name 8": {
+    "score": 64.7,
+    "level": 6
+  },
+  "Final Project": {
+    "score": 70.8,
+    "level": 6
+  }
+}
