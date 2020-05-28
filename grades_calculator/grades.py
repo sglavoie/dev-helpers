@@ -11,16 +11,22 @@ class Grades:
     such as calculating the GPA."""
 
     def __init__(self, grades_file="grades.json"):
-        """Read grades from JSON file, set data attributes and perform
-        necessary calculations to retrieve information."""
+        """Set data attributes and perform necessary calculations to
+        retrieve information."""
+        self.total_credits = 0
+        # self.calculate_weighted_average()
+
+    def load_grades(self, grades_file="grades.json"):
         try:
             with open(grades_file, "r") as read_file:
                 self.grades = json.load(read_file)
         except FileNotFoundError:
-            print("You may want to rename `grades_example.json` to `grades.json`")
-            sys.exit(0)
-        self.total_credits = 0
-        self.calculate_weighted_average()
+            try:
+                with open("grades_example.json", "r") as read_file:
+                    print("You may want to rename `grades_example.json` to `grades.json`")
+                    self.grades = json.load(read_file)
+            except FileNotFoundError as e:
+                raise(e)
 
     @staticmethod
     def get_weight_of(level):
@@ -119,4 +125,5 @@ class Grades:
 
 if __name__ == "__main__":
     GRADES = Grades()
-    GRADES.print_summary()
+    GRADES.load_grades()
+    # GRADES.print_summary()
