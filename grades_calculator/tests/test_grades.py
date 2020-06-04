@@ -1,14 +1,24 @@
-import os
+# Standard library imports
+import uuid
 
-from ..grades import Grades
-
+# Third-party library imports
 import pytest
+
+# Local imports
+from ..grades import Grades
 
 # (level, weight)
 LEVELS = [
     (4, 1),
     (5, 3),
-    (6, 6),
+    (6, 5),
+    ("string", 0),
+    ("", 0),
+    ("1", 0),
+    (2.2, 0),
+    ([], 0),
+    ({}, 0),
+    (set(), 0),
 ]
 
 
@@ -17,39 +27,27 @@ def grades():
     return Grades()
 
 
-@pytest.fixture()
-def ex_grades():
-    grades = Grades()
-    grades.load_grades(grades_file="grades_example.json")
-    return grades
+class TestGradesAreLoadedProperly:
+    @staticmethod
+    def test_grades_json_is_loaded_as_dict(grades):
+        grades.load()
+        assert isinstance(grades.grades, dict)
+
+    @staticmethod
+    def test_no_grades_json_raises_file_not_found(grades):
+        with pytest.raises(FileNotFoundError):
+            non_existent_file = str(uuid.uuid4()) + ".json"
+            grades.load(grades_file=non_existent_file)
 
 
-class TestClass:
-    def test_init_values(self, grades):
-        """Check that initial values are correctly set in the class."""
-        assert grades.total_credits == 0
-
+class TestDataIsRetrievedCorrectly:
+    @staticmethod
     @pytest.mark.parametrize("level,expected", LEVELS)
-    def test_weight_level_ok(self, grades, level, expected):
+    def test_weight_level_ok(grades, level, expected):
         """Check that the correct weight is given to each level.
         Level 4 should return 1.
         Level 5 should return 3.
-        Level 6 should return 6.
+        Level 6 should return 5.
+        Anything else should return 0.
         """
         assert grades.get_weight_of(level) == expected
-
-    def test_load_grades_example(self, grades):
-        grades.load_grades(grades_file="grades_example.json")
-        assert grades.grades["Module name 1"]["score"] == 61
-        assert grades.grades["Module name 1"]["level"] == 4
-        assert grades.grades["Final Project"]["score"] == 70.8
-        assert grades.grades["Final Project"]["level"] == 6
-
-    # TODO: This is wrong. This conditional statement means
-    # that the assert is not always run.
-    def test_load_grades_file_not_found(self, grades, ex_grades):
-        """Check that if `grades.json` is not there, then
-        `grades_example.json` is being loaded instead."""
-        grades.load_grades(grades_file="grades.json")
-        if not os.path.exists("grades.json"):
-            assert grades.grades == ex_grades.grades

@@ -7,7 +7,6 @@ grades.json
 ### Code ###
 .vscode/*
 
-
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
