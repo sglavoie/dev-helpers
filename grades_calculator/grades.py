@@ -1,4 +1,10 @@
+"""Simple script to get information about progress made in a
+BSc Computer Science at the University of London
+(calculations are specific to this particular degree)."""
+
 import json
+
+from .customerrors.errors import JsonFormatError
 
 
 class Grades:
@@ -22,7 +28,18 @@ class Grades:
             with open(grades_file) as grades_json:
                 self.grades = json.load(grades_json)
         except FileNotFoundError:
-            raise FileNotFoundError("grades.json was not found.")
+            raise FileNotFoundError(f"\n{grades_file} was not found.")
+        except json.decoder.JSONDecodeError:
+            raise JsonFormatError(f"\n{grades_file} is not formatted correctly.")
+
+    def _scores_are_valid(self):
+        for _, values in self.grades.items():
+            try:
+                if not isinstance(float(values["score"]), float):
+                    return False
+            except (KeyError, TypeError):
+                return False
+        return True
 
 
 if __name__ == "__main__":

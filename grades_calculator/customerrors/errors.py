@@ -1,0 +1,2 @@
+class JsonFormatError(Exception):
+    pass
