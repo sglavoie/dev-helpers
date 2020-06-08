@@ -6,9 +6,6 @@ import uuid
 from mock import patch
 import pytest
 
-# Local imports
-from ..customerrors.errors import JsonFormatError
-
 
 class TestGradesAreLoadedProperly:
     @staticmethod
@@ -26,7 +23,7 @@ class TestGradesAreLoadedProperly:
 class TestJsonStructureIsFormattedWell:
     @staticmethod
     def test_json_file_being_garbage_raises_error(grades):
-        with pytest.raises(JsonFormatError):
+        with pytest.raises(json.decoder.JSONDecodeError):
             grades.load(grades_file="tests/fixtures/json/bad_format.json")
 
     @staticmethod
@@ -36,7 +33,7 @@ class TestJsonStructureIsFormattedWell:
             {"Module name 1": {"score": 61}, "Module name 2": {"score": 70}},
             clear=True,
         ):
-            assert grades._scores_are_valid() == True
+            assert grades.scores_are_valid()
 
     @staticmethod
     def test_assert_grades_are_missing_scores(grades):
@@ -45,7 +42,7 @@ class TestJsonStructureIsFormattedWell:
             {"Module name 1": {"score": 61}, "Module name 2": {"level": 4}},
             clear=True,
         ):
-            assert grades._scores_are_valid() == False
+            assert not grades.scores_are_valid()
 
     @staticmethod
     def test_assert_grades_have_invalid_scores(grades):
@@ -56,13 +53,13 @@ class TestJsonStructureIsFormattedWell:
                 "Module name 2": {"score": 101},
                 "Module name 3": {"score": -1},
                 "Module name 4": {"score": "abc"},
-                "Module name 4": {"score": {1, 2, 3}},
-                "Module name 4": {"score": {"a": 1}},
-                "Module name 4": {"score": [1, 2, 3]},
+                "Module name 5": {"score": {1, 2, 3}},
+                "Module name 6": {"score": {"a": 1}},
+                "Module name 7": {"score": [1, 2, 3]},
             },
             clear=True,
         ):
-            assert grades._scores_are_valid() == False
+            assert not grades.scores_are_valid()
 
 
 class TestDataIsRetrievedCorrectly:

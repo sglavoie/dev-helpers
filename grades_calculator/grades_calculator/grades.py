@@ -4,8 +4,6 @@ BSc Computer Science at the University of London
 
 import json
 
-from .customerrors.errors import JsonFormatError
-
 
 class Grades:
     def __init__(self):
@@ -28,16 +26,17 @@ class Grades:
             with open(grades_file) as grades_json:
                 self.grades = json.load(grades_json)
         except FileNotFoundError:
-            raise FileNotFoundError(f"\n{grades_file} was not found.")
-        except json.decoder.JSONDecodeError:
-            raise JsonFormatError(f"\n{grades_file} is not formatted correctly.")
+            raise FileNotFoundError(f"\n\n{grades_file} was not found.\n")
+        except json.decoder.JSONDecodeError as err:
+            print(f"\n\n{grades_file} is not formatted correctly.\n")
+            raise err
 
-    def _scores_are_valid(self):
+    def scores_are_valid(self):
         for _, values in self.grades.items():
             try:
                 if not isinstance(float(values["score"]), float):
                     return False
-            except (KeyError, TypeError):
+            except (KeyError, TypeError, ValueError):
                 return False
         return True
 
