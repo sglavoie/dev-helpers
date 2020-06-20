@@ -30,7 +30,7 @@ class TestJsonStructureIsFormattedWell:
     @pytest.mark.parametrize(
         "score,expected_bool",
         [
-            (61, True),
+            (61.5, True),
             (100, True),
             (0, True),
             (-1, True),
@@ -88,7 +88,7 @@ class TestDataIsRetrievedCorrectly:
                 "Module 1": {"score": 100},
                 "Module 2": {"score": 0},
                 "Module 3": {"score": 80},
-                "Module 4": {"score": 75},
+                "Module 4": {"score": 75.5},
                 "Module 6": {"score": -1},
                 "Module 5": {"level": 4},
                 "Module 7": {},
@@ -105,7 +105,7 @@ class TestDataIsRetrievedCorrectly:
             {"Module 1": {"score": 100}},
             {"Module 2": {"score": -1}},
             {"Module 3": {"score": 80}},
-            {"Module 4": {"score": 75}},
+            {"Module 4": {"score": 75.5}},
             {"Module 5": {"score": 0}},
         ]
         with patch.dict(
@@ -114,7 +114,7 @@ class TestDataIsRetrievedCorrectly:
                 "Module 1": {"score": 100},
                 "Module 2": {"score": -1},
                 "Module 3": {"score": 80},
-                "Module 4": {"score": 75},
+                "Module 4": {"score": 75.5},
                 "Module 5": {"score": 0},
                 "Module 6": {"level": 4},
                 "Module 7": {},
@@ -128,13 +128,13 @@ class TestDataIsRetrievedCorrectly:
 
     @staticmethod
     def test_get_scores_of_finished_modules(grades):
-        expected_list = [100, 80, 75, 0]
+        expected_list = [100, 80, 75.5, 0]
         with patch.dict(
             grades.grades,
             {
                 "Module 1": {"score": 100},
                 "Module 3": {"score": 80},
-                "Module 4": {"score": 75},
+                "Module 4": {"score": 75.5},
                 "Module 6": {"score": 0},
                 "Module 2": {"score": -1},
                 "Module 5": {"level": 4},
