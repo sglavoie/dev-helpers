@@ -41,6 +41,7 @@ class TestJsonStructureIsFormattedWell:
             ([1, 2, 3], False),
             (-2, False),
             ({}, False),
+            ("", False),
             (set(), False),
             (None, False),
         ],
@@ -59,6 +60,8 @@ class TestDataIsRetrievedCorrectly:
             (6, 5),
             (2, 0),
             (7, 0),
+            (-1, 0),
+            (0, 0),
             ("string", 0),
             ("", 0),
             ("1", 0),
@@ -88,6 +91,7 @@ class TestDataIsRetrievedCorrectly:
                 "Module 4": {"score": 75},
                 "Module 6": {"score": -1},
                 "Module 5": {"level": 4},
+                "Module 7": {},
             },
             clear=True,
         ):
@@ -113,6 +117,7 @@ class TestDataIsRetrievedCorrectly:
                 "Module 4": {"score": 75},
                 "Module 5": {"score": 0},
                 "Module 6": {"level": 4},
+                "Module 7": {},
             },
             clear=True,
         ):
@@ -133,6 +138,7 @@ class TestDataIsRetrievedCorrectly:
                 "Module 6": {"score": 0},
                 "Module 2": {"score": -1},
                 "Module 5": {"level": 4},
+                "Module 7": {},
             },
             clear=True,
         ):
@@ -151,6 +157,7 @@ class TestDataIsCalculatedWell:
                 "Module 6": {"score": 0},
                 "Module 2": {"score": -1},
                 "Module 5": {"level": 4},
+                "Module 5": {},
             },
             clear=True,
         ):
@@ -161,9 +168,13 @@ class TestDataIsCalculatedWell:
                 "Module 1": {"score": 97.23},
                 "Module 2": {"score": 93.58},
                 "Module 3": {"score": 91.11},
+                "Module 4": {},
+                "Module 5": {"level": 4},
             },
             clear=True,
         ):
             assert grades.calculate_average_of_finished_modules() == 93.97
-        with patch.dict(grades.grades, {}, clear=True,):
+        with patch.dict(
+            grades.grades, {}, clear=True,
+        ):
             assert grades.calculate_average_of_finished_modules() == 0
