@@ -1,4 +1,4 @@
-# WIP
+# Grades Calculator
 
 Simple script to get information about progress made in a BSc Computer Science at the University of London (calculations are specific to this particular degree).
 
@@ -6,12 +6,10 @@ Simple script to get information about progress made in a BSc Computer Science a
 
 * To run the utility:
 
-      cd grades_calculator
+      cd src
       python grades.py
-
 
 * To run the test suite:
 
-      cd grades_calculator
-      python -m pytest
-
+      cd src
+      pytest

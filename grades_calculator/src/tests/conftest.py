@@ -1,8 +1,12 @@
+import sys
+
+sys.path.insert(0, "../src")
+
 # Third-party library imports
 import pytest
 
 # Local imports
-from grades_calculator.grades import Grades
+from src.grades import Grades
 
 
 @pytest.fixture(scope="module")
