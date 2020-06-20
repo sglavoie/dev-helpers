@@ -31,9 +31,10 @@ class TestJsonStructureIsFormattedWell:
         "score,expected_bool",
         [
             (61, True),
-            (101, False),
+            (100, True),
             (0, True),
             (-1, True),
+            (101, False),
             ("string", False),
             ({1, 2, 3}, False),
             ({"a": 1}, False),
@@ -56,6 +57,8 @@ class TestDataIsRetrievedCorrectly:
             (4, 1),
             (5, 3),
             (6, 5),
+            (2, 0),
+            (7, 0),
             ("string", 0),
             ("", 0),
             ("1", 0),
@@ -88,6 +91,8 @@ class TestDataIsRetrievedCorrectly:
             },
             clear=True,
         ):
+            # All are valid except `Module 5` which doesn't have a score
+            # `0` means FAILED, `-1` means we got recognition of prior learning
             assert grades.get_num_of_finished_modules() == 5
 
     @staticmethod
@@ -97,6 +102,7 @@ class TestDataIsRetrievedCorrectly:
             {"Module 2": {"score": -1}},
             {"Module 3": {"score": 80}},
             {"Module 4": {"score": 75}},
+            {"Module 5": {"score": 0}},
         ]
         with patch.dict(
             grades.grades,
@@ -105,10 +111,14 @@ class TestDataIsRetrievedCorrectly:
                 "Module 2": {"score": -1},
                 "Module 3": {"score": 80},
                 "Module 4": {"score": 75},
-                "Module 5": {"level": 4},
+                "Module 5": {"score": 0},
+                "Module 6": {"level": 4},
             },
             clear=True,
         ):
+            # `0` means the module was FAILED. `-1` means the module was
+            # not taken but has been recognized through prior learning, so
+            # it is also considered done.
             assert grades.get_list_of_finished_modules() == expected_list
 
     @staticmethod
@@ -155,3 +165,5 @@ class TestDataIsCalculatedWell:
             clear=True,
         ):
             assert grades.calculate_average_of_finished_modules() == 93.97
+        with patch.dict(grades.grades, {}, clear=True,):
+            assert grades.calculate_average_of_finished_modules() == 0

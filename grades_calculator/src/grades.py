@@ -76,6 +76,8 @@ class Grades:
 
     def calculate_average_of_finished_modules(self):
         scores = self.get_scores_of_finished_modules()
+        if len(scores) == 0:
+            return 0
         return mathtools.round_half_up(sum(scores) / len(scores), 2)
 
 
