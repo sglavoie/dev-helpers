@@ -80,6 +80,20 @@ class Grades:
             return 0
         return mathtools.round_half_up(sum(scores) / len(scores), 2)
 
+    def get_classification(self):
+        """Return a string containing the classification of the student
+        according to the Programme Specification."""
+        score = self.calculate_average_of_finished_modules()
+        if score >= 70:
+            return "First Class Honours"
+        if score >= 60:
+            return "Second Class Honours [Upper Division]"
+        if score >= 50:
+            return "Second Class Honours [Lower Division]"
+        if score >= 40:
+            return "Third Class Honours"
+        return "Fail"
+
 
 if __name__ == "__main__":
     GRADES = Grades()
@@ -88,3 +102,4 @@ if __name__ == "__main__":
     print("Number of modules done:", GRADES.get_num_of_finished_modules())
     print("Scores so far:", GRADES.get_scores_of_finished_modules())
     print("Average so far:", GRADES.calculate_average_of_finished_modules())
+    print("Classification:", GRADES.get_classification())

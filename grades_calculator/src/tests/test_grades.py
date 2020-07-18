@@ -178,3 +178,26 @@ class TestDataIsCalculatedWell:
             grades.grades, {}, clear=True,
         ):
             assert grades.calculate_average_of_finished_modules() == 0
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "score,expected_class",
+        [
+            (100, "First Class Honours"),
+            (70, "First Class Honours"),
+            (71, "First Class Honours"),
+            (69.9, "Second Class Honours [Upper Division]"),
+            (69, "Second Class Honours [Upper Division]"),
+            (60, "Second Class Honours [Upper Division]"),
+            (59.9, "Second Class Honours [Lower Division]"),
+            (50, "Second Class Honours [Lower Division]"),
+            (49.9, "Third Class Honours"),
+            (40, "Third Class Honours"),
+            (39.9, "Fail"),
+            (39, "Fail"),
+            (0, "Fail"),
+        ],
+    )
+    def test_classification_returns_correct_value(grades, score, expected_class):
+        with patch.object(grades, 'calculate_average_of_finished_modules', return_value=score):
+            assert grades.get_classification() == expected_class
