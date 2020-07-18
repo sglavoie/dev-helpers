@@ -46,7 +46,7 @@ class TestJsonStructureIsFormattedWell:
             (None, False),
         ],
     )
-    def test_assert_grades_scores_are_valid(grades, score, expected_bool):
+    def test_grades_scores_are_valid(grades, score, expected_bool):
         assert grades.score_is_valid(score) == expected_bool
 
 
@@ -198,6 +198,6 @@ class TestDataIsCalculatedWell:
             (0, "Fail"),
         ],
     )
-    def test_classification_returns_correct_value(grades, score, expected_class):
+    def test_classification(grades, score, expected_class):
         with patch.object(grades, 'calculate_average_of_finished_modules', return_value=score):
             assert grades.get_classification() == expected_class

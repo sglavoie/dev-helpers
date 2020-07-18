@@ -11,5 +11,6 @@ Simple script to get information about progress made in a BSc Computer Science a
 
 * To run the test suite:
 
+      pip install -r requirements-dev.txt
       cd src
       pytest
