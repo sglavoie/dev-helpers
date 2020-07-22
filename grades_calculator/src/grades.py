@@ -10,10 +10,10 @@ from utils import mathtools
 
 
 class Grades:
-    def __init__(self):
+    def __init__(self) -> None:
         self.grades = None
 
-    def load(self, grades_file="grades.json"):
+    def load(self, grades_file="grades.json") -> None:
         try:
             with open(grades_file) as grades_json:
                 self.grades = json.load(grades_json)
@@ -36,7 +36,7 @@ class Grades:
         return 0
 
     @staticmethod
-    def score_is_valid(score):
+    def score_is_valid(score) -> bool:
         try:
             if (
                 score is not None
@@ -48,7 +48,7 @@ class Grades:
             pass
         return False
 
-    def get_num_of_finished_modules(self):
+    def get_num_of_finished_modules(self) -> int:
         total = 0
         for _, values in self.grades.items():
             score = values.get("score")
@@ -56,7 +56,7 @@ class Grades:
                 total += 1
         return total
 
-    def get_list_of_finished_modules(self):
+    def get_list_of_finished_modules(self) -> list:
         modules = []
         for module, values in self.grades.items():
             score = values.get("score")
@@ -64,7 +64,7 @@ class Grades:
                 modules.append({module: values})
         return modules
 
-    def get_scores_of_finished_modules(self):
+    def get_scores_of_finished_modules(self) -> list:
         modules = self.get_list_of_finished_modules()
         scores = []
         for module in modules:
@@ -74,13 +74,13 @@ class Grades:
                     scores.append(score)
         return scores
 
-    def calculate_average_of_finished_modules(self):
+    def calculate_average_of_finished_modules(self) -> float:
         scores = self.get_scores_of_finished_modules()
         if len(scores) == 0:
             return 0
         return mathtools.round_half_up(sum(scores) / len(scores), 2)
 
-    def get_classification(self):
+    def get_classification(self) -> str:
         """Return a string containing the classification of the student
         according to the Programme Specification."""
         score = self.calculate_average_of_finished_modules()
@@ -94,7 +94,7 @@ class Grades:
             return "Third Class Honours"
         return "Fail"
     
-    def get_uk_gpa(self):
+    def get_uk_gpa(self) -> float:
         """Return the GPA as calculated in the UK."""
         score = self.calculate_average_of_finished_modules()
         if score < 35:
