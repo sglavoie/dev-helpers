@@ -116,6 +116,14 @@ class Grades:
         if score >= 70:
             result = 4
         return round(result, 2)
+    
+    def get_us_gpa(self) -> float:
+        """Return the GPA as calculated in the US."""
+        score = self.calculate_average_of_finished_modules()
+        result = round(score / 20 -1, 2)
+        if result >= 0:
+            return result
+        return 0
 
 
 

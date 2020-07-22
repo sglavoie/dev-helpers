@@ -233,3 +233,28 @@ class TestDataIsCalculatedWell:
             grades, "calculate_average_of_finished_modules", return_value=score
         ):
             assert grades.get_uk_gpa() == expected_gpa
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "score,expected_gpa",
+        [
+            (100, 4),
+            (95, 3.75),
+            (93, 3.65),
+            (90, 3.5),
+            (87, 3.35),
+            (82, 3.1),
+            (59, 1.95),
+            (51, 1.55),
+            (29, 0.45),
+            (21, 0.05),
+            (20, 0),
+            (12, 0),
+            (0, 0),
+        ],
+    )
+    def test_us_gpa(grades, score, expected_gpa):
+        with patch.object(
+            grades, "calculate_average_of_finished_modules", return_value=score
+        ):
+            assert grades.get_us_gpa() == expected_gpa
