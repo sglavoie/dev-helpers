@@ -1,3 +1,6 @@
+"""
+Test suite for `grades_calculator`.
+"""
 # Standard library imports
 import json
 import uuid

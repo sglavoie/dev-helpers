@@ -1,6 +1,8 @@
-"""Simple script to get information about progress made in a
+"""
+Simple script to get information about progress made in a
 BSc Computer Science at the University of London
-(calculations are specific to this particular degree)."""
+(calculations are specific to this particular degree).
+"""
 
 # Standard library imports
 import json
@@ -95,7 +97,7 @@ class Grades:
         if self.average >= 40:
             return "Third Class Honours"
         return "Fail"
-    
+
     def get_uk_gpa(self) -> float:
         """Return the GPA as calculated in the UK."""
         if self.average < 35:
@@ -117,15 +119,13 @@ class Grades:
         if self.average >= 70:
             result = 4
         return round(result, 2)
-    
+
     def get_us_gpa(self) -> float:
         """Return the GPA as calculated in the US."""
-        result = round(self.average / 20 -1, 2)
+        result = round(self.average / 20 - 1, 2)
         if result >= 0:
             return result
         return 0
-
-
 
 
 if __name__ == "__main__":
@@ -136,3 +136,4 @@ if __name__ == "__main__":
     print("Scores so far:", GRADES.get_scores_of_finished_modules())
     print("Average so far:", GRADES.calculate_average_of_finished_modules())
     print("Classification:", GRADES.get_classification())
+    print(f"GPA: {GRADES.get_us_gpa()} (US) – {GRADES.get_uk_gpa()} (UK)")
