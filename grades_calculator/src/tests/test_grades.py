@@ -198,11 +198,9 @@ class TestDataIsCalculatedWell:
             (0, "Fail"),
         ],
     )
-    def test_classification(grades, score, expected_class):
-        with patch.object(
-            grades, "calculate_average_of_finished_modules", return_value=score
-        ):
-            assert grades.get_classification() == expected_class
+    def test_classification(grades, score, expected_class, monkeypatch):
+        monkeypatch.setattr(grades, "average", score, raising=True)
+        assert grades.get_classification() == expected_class
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -228,11 +226,9 @@ class TestDataIsCalculatedWell:
             (0, 0),
         ],
     )
-    def test_uk_gpa(grades, score, expected_gpa):
-        with patch.object(
-            grades, "calculate_average_of_finished_modules", return_value=score
-        ):
-            assert grades.get_uk_gpa() == expected_gpa
+    def test_uk_gpa(grades, score, expected_gpa, monkeypatch):
+        monkeypatch.setattr(grades, "average", score, raising=True)
+        assert grades.get_uk_gpa() == expected_gpa
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -253,8 +249,6 @@ class TestDataIsCalculatedWell:
             (0, 0),
         ],
     )
-    def test_us_gpa(grades, score, expected_gpa):
-        with patch.object(
-            grades, "calculate_average_of_finished_modules", return_value=score
-        ):
-            assert grades.get_us_gpa() == expected_gpa
+    def test_us_gpa(grades, score, expected_gpa, monkeypatch):
+        monkeypatch.setattr(grades, "average", score, raising=True)
+        assert grades.get_us_gpa() == expected_gpa

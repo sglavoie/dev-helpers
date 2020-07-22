@@ -12,6 +12,7 @@ from utils import mathtools
 class Grades:
     def __init__(self) -> None:
         self.grades = None
+        self.average = 0
 
     def load(self, grades_file="grades.json") -> None:
         try:
@@ -22,6 +23,8 @@ class Grades:
         except json.decoder.JSONDecodeError as err:
             print(f"\n\n{grades_file} is not formatted correctly.\n")
             raise err
+        else:  # no exception raised in `try` block
+            self.average = self.calculate_average_of_finished_modules()
 
     @staticmethod
     def get_weight_of(level: int) -> int:
@@ -83,44 +86,41 @@ class Grades:
     def get_classification(self) -> str:
         """Return a string containing the classification of the student
         according to the Programme Specification."""
-        score = self.calculate_average_of_finished_modules()
-        if score >= 70:
+        if self.average >= 70:
             return "First Class Honours"
-        if score >= 60:
+        if self.average >= 60:
             return "Second Class Honours [Upper Division]"
-        if score >= 50:
+        if self.average >= 50:
             return "Second Class Honours [Lower Division]"
-        if score >= 40:
+        if self.average >= 40:
             return "Third Class Honours"
         return "Fail"
     
     def get_uk_gpa(self) -> float:
         """Return the GPA as calculated in the UK."""
-        score = self.calculate_average_of_finished_modules()
-        if score < 35:
+        if self.average < 35:
             result = 0
-        if score >= 35:
+        if self.average >= 35:
             result = 1.0
-        if score >= 40:
+        if self.average >= 40:
             result = 2.0
-        if score >= 45:
+        if self.average >= 45:
             result = 2.3
-        if score >= 50:
+        if self.average >= 50:
             result = 2.7
-        if score >= 55:
+        if self.average >= 55:
             result = 3
-        if score >= 60:
+        if self.average >= 60:
             result = 3.3
-        if score >= 65:
+        if self.average >= 65:
             result = 3.7
-        if score >= 70:
+        if self.average >= 70:
             result = 4
         return round(result, 2)
     
     def get_us_gpa(self) -> float:
         """Return the GPA as calculated in the US."""
-        score = self.calculate_average_of_finished_modules()
-        result = round(score / 20 -1, 2)
+        result = round(self.average / 20 -1, 2)
         if result >= 0:
             return result
         return 0
