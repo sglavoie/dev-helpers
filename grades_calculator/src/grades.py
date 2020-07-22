@@ -93,6 +93,31 @@ class Grades:
         if score >= 40:
             return "Third Class Honours"
         return "Fail"
+    
+    def get_uk_gpa(self):
+        """Return the GPA as calculated in the UK."""
+        score = self.calculate_average_of_finished_modules()
+        if score < 35:
+            result = 0
+        if score >= 35:
+            result = 1.0
+        if score >= 40:
+            result = 2.0
+        if score >= 45:
+            result = 2.3
+        if score >= 50:
+            result = 2.7
+        if score >= 55:
+            result = 3
+        if score >= 60:
+            result = 3.3
+        if score >= 65:
+            result = 3.7
+        if score >= 70:
+            result = 4
+        return round(result, 2)
+
+
 
 
 if __name__ == "__main__":
