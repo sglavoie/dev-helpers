@@ -143,6 +143,13 @@ class Grades:
                         self.total_credits += 15
         return self.total_credits
 
+    def get_percentage_degree_done(self) -> float:
+        """From the total number of credits, return the percentage done
+        out of 360 credits."""
+        if self.total_credits > 360:
+            return -1  # can't be more than what's available!
+        return round(self.total_credits / 360 * 100, 2)
+
 
 if __name__ == "__main__":
     GRADES = Grades()
@@ -153,4 +160,7 @@ if __name__ == "__main__":
     print("Average so far:", GRADES.calculate_average_of_finished_modules())
     print("Classification:", GRADES.get_classification())
     print(f"GPA: {GRADES.get_us_gpa()} (US) – {GRADES.get_uk_gpa()} (UK)")
-    print("Total credits done:", GRADES.get_total_credits())
+    print(
+        f"Total credits done: {GRADES.get_total_credits()} / 360",
+        f"({GRADES.get_percentage_degree_done()}%)",
+    )

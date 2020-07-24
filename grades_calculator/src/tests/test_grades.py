@@ -290,3 +290,22 @@ class TestDataIsCalculatedWell:
             clear=True,
         ):
             assert grades.get_total_credits() == 15
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "num_credits,exp_percentage",
+        [
+            (0, 0),
+            (15, 4.17),
+            (30, 8.33),
+            (60, 16.67),
+            (135, 37.5),
+            (240, 66.67),
+            (300, 83.33),
+            (360, 100),
+            (375, -1),  # can't have more than 360 credits
+        ],
+    )
+    def test_get_percentage_degree_done(grades, num_credits, exp_percentage, monkeypatch):
+        monkeypatch.setattr(grades, "total_credits", num_credits, raising=True)
+        assert grades.get_percentage_degree_done() == exp_percentage
