@@ -137,7 +137,7 @@ class Grades:
                 score = details["score"]
                 if score == -1 or score >= 40:
                     # This won't be -1 but it does not matter
-                    if subject_name == "Final Project":
+                    if subject_name.lower() == "final project":
                         self.total_credits += 30
                     else:
                         self.total_credits += 15

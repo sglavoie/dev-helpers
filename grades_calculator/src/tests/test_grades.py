@@ -271,6 +271,22 @@ class TestDataIsCalculatedWell:
             assert grades.get_total_credits() == 45
         with patch.dict(
             grades.grades,
+            {"Final Project": {"score": 80}},  # counts double
+            clear=True,
+        ):
+            assert grades.get_total_credits() == 30
+        with patch.dict(
+            grades.grades,
+            {
+                "final project": {
+                    "score": 80
+                },  # make sure capitalization does not matter
+            },
+            clear=True,
+        ):
+            assert grades.get_total_credits() == 30
+        with patch.dict(
+            grades.grades,
             {
                 "Module 1": {"score": -1},  # counts as done
                 "Final Project": {"score": 80},  # counts double
@@ -306,6 +322,8 @@ class TestDataIsCalculatedWell:
             (375, -1),  # can't have more than 360 credits
         ],
     )
-    def test_get_percentage_degree_done(grades, num_credits, exp_percentage, monkeypatch):
+    def test_get_percentage_degree_done(
+        grades, num_credits, exp_percentage, monkeypatch
+    ):
         monkeypatch.setattr(grades, "total_credits", num_credits, raising=True)
         assert grades.get_percentage_degree_done() == exp_percentage
