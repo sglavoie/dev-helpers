@@ -1,7 +1,8 @@
-_Note: This script is mostly the same as [Bash history cleaner](https://github.com/sglavoie/python-utilities/tree/master/bash_history_cleaner), slightly adapted to work for Zsh._
-
-
 # Zsh History Cleaner
+
+_Note: This script is mostly the same as
+[Bash history cleaner](https://github.com/sglavoie/python-utilities/tree/master/bash_history_cleaner),
+slightly adapted to work for Zsh._
 
 This is a Python 3.6+ script that helps to clean the file containing the Zsh
 history commands. It will remove any line matching a specified regular
@@ -25,41 +26,37 @@ The idea behind this small utility was simple:
 
 It comes in two files that need to be in the same directory:
 
-- One is a Python file that needs to be launched from the terminal with Python
-  3.
+- One is a Python file that needs to be launched from the terminal with Python 3.
 - The other file, `settings.json`, is a JSON file used to store the settings of
   the script, which will be detailed below.
 
-----
+---
 
 ## Description of available settings in `settings.json`
 
-| Name of setting | Description |
-| --------------- | ----------- |
-| `home_directory` | Absolute path to user's home directory. |
-| `history_file`  | Name of file where the history will be cleaned up. |
-| `aliases_file`  | Name of file where Zsh aliases are set up. |
-| `ignore_patterns` | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions. |
-| `add_aliases` | Boolean. If set to `true`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `true`) |
-| `aliases_match_greedily` | Boolean. If set to `true`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `false`, delete line if the alias is the content of the whole line (with optional space at the end): `false` matches "^alias$" or "^alias $" only. |
-| `backup_history` | Boolean. If set to `true`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `true`) |
-| `delete_logs_without_confirming` | Boolean. If set to `true`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `false`) |
-| `remove_all_duplicated_lines` | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed). |
-| `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed). |
-| `remove_consecutive_duplicates` | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match. |
-
+| Name of setting                    | Description                                                                                                                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `home_directory`                   | Absolute path to user's home directory.                                                                                                                                                                                                                                      |
+| `history_file`                     | Name of file where the history will be cleaned up.                                                                                                                                                                                                                           |
+| `aliases_file`                     | Name of file where Zsh aliases are set up.                                                                                                                                                                                                                                   |
+| `ignore_patterns`                  | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions.                                                                                                                             |
+| `add_aliases`                      | Boolean. If set to `true`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `true`)                                                                                                                                                                 |
+| `aliases_match_greedily`           | Boolean. If set to `true`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `false`, delete line if the alias is the content of the whole line (with optional space at the end): `false` matches "^alias$" or "^alias $" only. |
+| `backup_history`                   | Boolean. If set to `true`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `true`)                                                                                                                    |
+| `delete_logs_without_confirming`   | Boolean. If set to `true`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `false`)                                                                                                                                 |
+| `remove_all_duplicated_lines`      | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed).                             |
+| `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed).                 |
+| `remove_consecutive_duplicates`    | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match.                                                                                                                                                      |
 
 ## Anecdotal evidence of satisfying performances
 
 Performance-wise, this scans ~8,300 lines per second on my modest Intel Core i5 laptop with files of over 200,000 lines long. Not that I type so much stuff in the terminal: I just duplicated many lines :).
 
-
-## Your opinion is welcome!
+## Your opinion is welcome
 
 I haven't noticed any bug up to now for my personal use, but please feel free
 to let me know if you are aware of any unwanted behavior. To stay on the side
 of caution, setting `backup_history` to `True` has proven to be useful.
-
 
 ## Conclusion
 
