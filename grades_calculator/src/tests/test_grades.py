@@ -255,3 +255,38 @@ class TestDataIsCalculatedWell:
     def test_us_gpa(grades, score, expected_gpa, monkeypatch):
         monkeypatch.setattr(grades, "average", score, raising=True)
         assert grades.get_us_gpa() == expected_gpa
+
+    @staticmethod
+    def test_get_total_credits(grades):
+        with patch.dict(
+            grades.grades,
+            {
+                "Module 1": {"score": -1, "level": 4},  # counts as done
+                "Module 2": {"score": 80, "level": 5},
+                "Module 3": {"score": 70, "level": 6},
+                "Module 4": {},  # don't count when there's no data
+            },
+            clear=True,
+        ):
+            assert grades.get_total_credits() == 45
+        with patch.dict(
+            grades.grades,
+            {
+                "Module 1": {"score": -1},  # counts as done
+                "Final Project": {"score": 80},  # counts double
+                "Module 3": {"score": 90.5},
+                "Module 4": {"level": 5},  # don't count when there's no score
+            },
+            clear=True,
+        ):
+            assert grades.get_total_credits() == 60
+        with patch.dict(
+            grades.grades,
+            {
+                "Module 3": {"score": 90.5},
+                "Module 4": {"level": 5},
+                "Module 4": {"score": 34},  # do not count failed attempts
+            },
+            clear=True,
+        ):
+            assert grades.get_total_credits() == 15

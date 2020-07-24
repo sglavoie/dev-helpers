@@ -15,6 +15,7 @@ class Grades:
     def __init__(self) -> None:
         self.grades = None
         self.average = 0
+        self.total_credits = 0
 
     def load(self, grades_file="grades.json") -> None:
         try:
@@ -27,6 +28,7 @@ class Grades:
             raise err
         else:  # no exception raised in `try` block
             self.average = self.calculate_average_of_finished_modules()
+            self.total_credits = self.get_total_credits()
 
     @staticmethod
     def get_weight_of(level: int) -> int:
@@ -127,6 +129,20 @@ class Grades:
             return result
         return 0
 
+    def get_total_credits(self) -> int:
+        """Get the total number of credits gotten so far."""
+        self.total_credits = 0
+        for subject_name, details in self.grades.items():
+            if details.get("score"):
+                score = details["score"]
+                if score == -1 or score >= 40:
+                    # This won't be -1 but it does not matter
+                    if subject_name == "Final Project":
+                        self.total_credits += 30
+                    else:
+                        self.total_credits += 15
+        return self.total_credits
+
 
 if __name__ == "__main__":
     GRADES = Grades()
@@ -137,3 +153,4 @@ if __name__ == "__main__":
     print("Average so far:", GRADES.calculate_average_of_finished_modules())
     print("Classification:", GRADES.get_classification())
     print(f"GPA: {GRADES.get_us_gpa()} (US) – {GRADES.get_uk_gpa()} (UK)")
+    print("Total credits done:", GRADES.get_total_credits())
