@@ -1,6 +1,6 @@
 {
     "add_aliases": true,
-    "aliases_file": ".dotfiles/custom/aliases.zsh",
+    "aliases_file": ".bash_aliases",
     "aliases_match_greedily": true,
     "backup_history": true,
     "delete_logs_without_confirming": false,
