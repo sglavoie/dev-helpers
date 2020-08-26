@@ -274,7 +274,34 @@ class TestDataIsCalculatedWell:
     )
     def test_ects_equivalent(grades, score, expected_score, monkeypatch):
         monkeypatch.setattr(grades, "average", score, raising=True)
-        assert grades.get_ects_equivalent() == expected_score
+        assert grades.get_ects_equivalent_score(score) == expected_score
+
+    @staticmethod
+    def test_ects_equivalent_list_of_scores_conversion(grades):
+        expected_scores = {
+            "Module 1": "A",
+            "Module 2": "N/A",
+            "Module 3": "B",
+            "Module 4": "C",
+            "Module 5": "E/F",
+            "Module 6": "A",
+            "Module 7": "D",
+        }
+        with patch.dict(
+            grades.grades,
+            {
+                "Module 1": {"score": 95.2},
+                "Module 2": {"score": -1},  # not counted
+                "Module 3": {"score": 60},
+                "Module 4": {"score": 50.3},
+                "Module 5": {"score": 0},
+                "Module 6": {"score": 100},
+                "Module 7": {"score": 41},
+            },
+            clear=True,
+        ):
+            out = grades.get_ects_scores_of_finished_modules()
+            assert out == expected_scores
 
     @staticmethod
     def test_get_total_credits(grades):

@@ -81,6 +81,18 @@ class Grades:
                     scores.append(score)
         return scores
 
+    def get_ects_scores_of_finished_modules(self) -> dict:
+        """Return a dictionary containing the converted ECTS score
+        for each module."""
+        finished_modules = self.get_list_of_finished_modules()
+        converted_scores = {}
+        for module in finished_modules:
+            for module_name, module_score in module.items():
+                converted_scores[module_name] = self.get_ects_equivalent_score(
+                    module_score.get("score")
+                )
+        return converted_scores
+
     def calculate_average_of_finished_modules(self) -> float:
         scores = self.get_scores_of_finished_modules()
         if len(scores) == 0:
@@ -129,17 +141,20 @@ class Grades:
             return result
         return 0
 
-    def get_ects_equivalent(self) -> str:
-        """Return the average grade in the ECTS equivalent form.
+    @staticmethod
+    def get_ects_equivalent_score(score: int) -> str:
+        """Return the grade in the ECTS equivalent form.
         Range from A to E/F."""
-        if self.average >= 70:
+        if score >= 70:
             return "A"
-        if self.average >= 60:
+        if score >= 60:
             return "B"
-        if self.average >= 50:
+        if score >= 50:
             return "C"
-        if self.average >= 40:
+        if score >= 40:
             return "D"
+        if score == -1:  # RPL: score is not applicable
+            return "N/A"
         return "E/F"
 
     def get_total_credits(self) -> int:
@@ -167,12 +182,18 @@ class Grades:
 if __name__ == "__main__":
     GRADES = Grades()
     GRADES.load()
+    AVERAGE_SCORE = GRADES.calculate_average_of_finished_modules()
     print("Modules taken:", GRADES.get_list_of_finished_modules())
     print("Number of modules done:", GRADES.get_num_of_finished_modules())
     print("Scores so far:", GRADES.get_scores_of_finished_modules())
-    print("Average so far:", GRADES.calculate_average_of_finished_modules())
+    print(
+        f"Average so far: {AVERAGE_SCORE}"
+        f" (ECTS: {GRADES.get_ects_equivalent_score(AVERAGE_SCORE)})"
+    )
     print("Classification:", GRADES.get_classification())
-    print("ECTS grade equivalence:", GRADES.get_ects_equivalent())
+    print(
+        "ECTS grade equivalence:", GRADES.get_ects_scores_of_finished_modules()
+    )
     print(f"GPA: {GRADES.get_us_gpa()} (US) – {GRADES.get_uk_gpa()} (UK)")
     print(
         f"Total credits done: {GRADES.get_total_credits()} / 360",
