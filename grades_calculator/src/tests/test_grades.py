@@ -257,6 +257,26 @@ class TestDataIsCalculatedWell:
         assert grades.get_us_gpa() == expected_gpa
 
     @staticmethod
+    @pytest.mark.parametrize(
+        "score,expected_score",
+        [
+            (100, "A"),
+            (70, "A"),
+            (69.8, "B"),
+            (60, "B"),
+            (59.6, "C"),
+            (50, "C"),
+            (49.8, "D"),
+            (40, "D"),
+            (39.7, "E/F"),
+            (0, "E/F"),
+        ],
+    )
+    def test_ects_equivalent(grades, score, expected_score, monkeypatch):
+        monkeypatch.setattr(grades, "average", score, raising=True)
+        assert grades.get_ects_equivalent() == expected_score
+
+    @staticmethod
     def test_get_total_credits(grades):
         with patch.dict(
             grades.grades,
