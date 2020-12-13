@@ -19,8 +19,6 @@ BACKUP_CMD = ["rsync"]  # This will be used to add options to `rsync` command
 # Directories to backup, supplied as a list of strings (no slash at the end)
 DATA_SOURCES = [
     "/home/sglavoie",
-    # '/usr/bin',
-    # '/etc'
 ]
 
 # Single destination of the files to backup, supplied as a string
@@ -60,12 +58,12 @@ BACKUP_EXCLUDE = ".backup_exclude"
 ###############################################################################
 
 
-def better_separation(the_function):
+def better_separation(the_function, sep=SEP, term_width=TERMINAL_WIDTH):
     """Decorator used to print separators around `the_function`."""
 
     def print_separator(*args, **kwargs):
         """Surrounds `the_function` with a separator and add a new line."""
-        separator = SEP * TERMINAL_WIDTH
+        separator = sep * term_width
         print(separator)
         the_function(*args, **kwargs)
         print(separator, "\n")
@@ -74,7 +72,9 @@ def better_separation(the_function):
 
 
 @better_separation
-def backing_source(source, backup_source, log_filename):
+def backing_source(
+    source: str, backup_source: list, log_filename: str
+) -> None:
     """Print information to STDOUT and to `log_filename` and executes the
     rsync command."""
     cmd_executed = " ".join(backup_source)
@@ -82,16 +82,18 @@ def backing_source(source, backup_source, log_filename):
     print(msg_executed)
     with open(log_filename, mode="w") as log_file:
         log_file.write(f"{msg_executed}\n")
-    subprocess.run(backup_source)
+    subprocess.run(backup_source, check=True)
 
     print(f"\nBackup completed for: {source}")
 
 
-def user_says_yes():
+def user_says_yes(
+    msg: str = "\nDo you want to delete log files for this source? (y/n) ",
+) -> bool:
     """Asks the user to enter either "y" or "n" to confirm. Returns boolean."""
     choice = None
     while choice is None:
-        user_input = input("\nDo you want to delete log files for this source? (y/n) ")
+        user_input = input(msg)
         if user_input.lower() == "y":
             choice = True
         elif user_input.lower() == "n":
@@ -101,7 +103,7 @@ def user_says_yes():
     return choice
 
 
-def clear_logs(*args):
+def clear_logs(*args) -> None:
     """Clears log files for each source specified in SETTINGS."""
     for source in args:
         # Retrieve a list of all matching log files in `source`
@@ -121,7 +123,7 @@ def clear_logs(*args):
         sys.exit(0)
 
 
-def run_backup(*args, data_destination=DATA_DESTINATION):
+def run_backup(*args, data_destination: str = DATA_DESTINATION):
     """This is where all the action happens!"""
     # initiate the parser
     parser = argparse.ArgumentParser()
@@ -146,7 +148,8 @@ def run_backup(*args, data_destination=DATA_DESTINATION):
     # check for --clear or -c
     if arguments.clear:
         clear_logs(*args)
-        # check for --dest or -d
+
+    # check for --dest or -d
     if arguments.destination is not None:
         if os.path.isdir(arguments.destination):
             data_destination = arguments.destination
@@ -174,7 +177,8 @@ def run_backup(*args, data_destination=DATA_DESTINATION):
         if os.path.exists(exclude_file):
             exclude_option = f"--exclude-from={exclude_file}"
             backup_source.extend([exclude_option, source, data_destination])
-        else:  # skips '--exclude-from' option if no file is found
+        else:
+            # skips '--exclude-from' option if no file is found
             backup_source.extend([source, data_destination])
 
         backing_source(source, backup_source, log_filename)
