@@ -80,11 +80,15 @@ def backing_source(
     cmd_executed = " ".join(backup_source)
     msg_executed = f"Command executed:\n{cmd_executed}\n"
     print(msg_executed)
+
     with open(log_filename, mode="w") as log_file:
         log_file.write(f"{msg_executed}\n")
-    subprocess.run(backup_source, check=True)
 
-    print(f"\nBackup completed for: {source}")
+    child = subprocess.Popen(backup_source)
+    _ = child.communicate()[0]  # call communicate to get the return code
+    rc = child.returncode
+
+    print(f"\nBackup completed for: {source} (return code: {rc})")
 
 
 def user_says_yes(
