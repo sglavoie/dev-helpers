@@ -1,0 +1,19 @@
+{
+    "data_sources": [
+        "/home/sglavoie"
+    ],
+    "data_destination": "/media/sglavoie/Elements",
+    "terminal_width": 40,
+    "sep": "=-",
+    "log_name": ".backup_log_",
+    "log_format": "%y%m%d_%H_%M_%S",
+    "rsync_options": [
+        "-vaAHh",
+        "--delete",
+        "--ignore-errors",
+        "--force",
+        "--prune-empty-dirs",
+        "--delete-excluded"
+    ],
+    "backup_exclude": ".backup_exclude"
+}
