@@ -63,10 +63,12 @@ By default, the following options are passed to `rsync`:
 
 ## Help menu
 
-    rsync_backup.py [-h] [-c] [-d DESTINATION]
+    usage: backup [-h] [-c] [-s SOURCE] [-d DESTINATION]
 
     optional arguments:
     -h, --help            show this help message and exit
     -c, --clear           Delete all log files for current source in DATA_SOURCES.
+    -s SOURCE, --src SOURCE
+                            Specify an alternative source to backup as a string.
     -d DESTINATION, --dest DESTINATION
-                        Specify an alternative destination for backup as a string.
+                            Specify an alternative destination for backup as a string.
