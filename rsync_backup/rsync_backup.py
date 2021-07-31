@@ -17,12 +17,20 @@ def run_backup():
     settings = get_settings()
 
     # initiate the parser
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("backup")
     parser.add_argument(
         "-c",
         "--clear",
         help="Delete all log files for current source in DATA_SOURCES.",
         action="store_true",
+    )
+    parser.add_argument(
+        "-s",
+        "--src",
+        dest="source",
+        default=None,
+        help="Specify an alternative source to backup as a string.",
+        action="store",
     )
     parser.add_argument(
         "-d",
@@ -36,6 +44,15 @@ def run_backup():
     # read arguments from the command line
     arguments = parser.parse_args()
 
+    # check for --source or -s
+    # Replace potential list of sources to backup with this one
+    if arguments.source is not None:
+        if os.path.isdir(arguments.source):
+            settings["data_sources"] = [arguments.source]
+        else:
+            print("Please enter a valid source to backup.")
+            sys.exit(0)
+
     # check for --clear or -c
     if arguments.clear:
         clear_logs(
@@ -44,19 +61,26 @@ def run_backup():
         )
 
     # check for --dest or -d
-    data_destination = settings["data_destination"]
+    # Replace destination to backup with this one
     if arguments.destination is not None:
         if os.path.isdir(arguments.destination):
-            data_destination = arguments.destination
+            settings["data_destination"] = arguments.destination
         else:
             print("Please enter a valid destination.")
             sys.exit(0)
 
     # don't run the script if the destination doesn't exist
-    if not os.path.isdir(data_destination):
-        print(f"The destination doesn't exist.\n({data_destination})")
+    if not os.path.isdir(settings["data_destination"]):
+        print(
+            f"The destination doesn't exist.\n({settings['data_destination']})"
+        )
         sys.exit(0)
 
+    backup_all_sources(settings)
+
+
+def backup_all_sources(settings: dict) -> None:
+    """Iterate over all sources to backup."""
     for source in settings["data_sources"]:
         date_now = datetime.datetime.now()
         log_format = datetime.datetime.strftime(
@@ -73,10 +97,12 @@ def run_backup():
 
         if os.path.exists(exclude_file):
             exclude_option = f"--exclude-from={exclude_file}"
-            backup_source.extend([exclude_option, source, data_destination])
+            backup_source.extend(
+                [exclude_option, source, settings["data_destination"]]
+            )
         else:
             # skips '--exclude-from' option if no file is found
-            backup_source.extend([source, data_destination])
+            backup_source.extend([source, settings["data_destination"]])
 
         settings["source"] = source
         settings["backup_source"] = backup_source
