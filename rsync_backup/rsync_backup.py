@@ -9,7 +9,6 @@ import json
 import os
 import pathlib
 import subprocess
-import sys
 
 
 def run_backup():
@@ -51,7 +50,7 @@ def run_backup():
             settings["data_sources"] = [arguments.source]
         else:
             print("Please enter a valid source to backup.")
-            sys.exit(0)
+            exit(0)
 
     # check for --clear or -c
     if arguments.clear:
@@ -67,14 +66,14 @@ def run_backup():
             settings["data_destination"] = arguments.destination
         else:
             print("Please enter a valid destination.")
-            sys.exit(0)
+            exit(0)
 
     # don't run the script if the destination doesn't exist
     if not os.path.isdir(settings["data_destination"]):
         print(
             f"The destination doesn't exist.\n({settings['data_destination']})"
         )
-        sys.exit(0)
+        exit(0)
 
     backup_all_sources(settings)
 
@@ -107,7 +106,12 @@ def backup_all_sources(settings: dict) -> None:
         settings["source"] = source
         settings["backup_source"] = backup_source
         settings["log_filename"] = log_filename
-        backing_source(settings)
+
+        try:
+            backing_source(settings)
+        except KeyboardInterrupt:
+            print("\nKeyboardInterrupt: Exiting operations.")
+            exit(0)
 
 
 def backing_source(settings: dict) -> None:
@@ -122,9 +126,13 @@ def backing_source(settings: dict) -> None:
     with open(settings["log_filename"], mode="w") as log_file:
         log_file.write(f"{msg_executed}\n")
 
-    child = subprocess.Popen(settings["backup_source"])
-    _ = child.communicate()[0]  # call communicate to get the return code
-    rc = child.returncode
+    try:
+        child = subprocess.Popen(settings["backup_source"])
+        _ = child.communicate()[0]  # call communicate to get the return code
+        rc = child.returncode
+    except FileNotFoundError:
+        print(f"FileNotFoundError: Is the `rsync` tool installed?")
+        exit(1)
 
     print(f"\nBackup completed for: {settings['source']} (return code: {rc})")
     print(settings["sep"] * settings["terminal_width"])
@@ -137,7 +145,7 @@ def clear_logs(data_sources: list, log_name: str) -> None:
         log_files = glob.glob(f"{source}/{log_name}*")
         if log_files == []:
             print(f"\nThere is no log file to delete in {source}.")
-            sys.exit(0)
+            exit(0)
         else:
             print(f"Log files in {source}:")
             for log_file in log_files:
@@ -147,7 +155,7 @@ def clear_logs(data_sources: list, log_name: str) -> None:
                     os.remove(log_file)
                 print("Log files deleted.")
         print("Exiting script...")
-        sys.exit(0)
+        exit(0)
 
 
 def user_says_yes(
