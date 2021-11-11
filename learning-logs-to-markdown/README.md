@@ -80,6 +80,22 @@ A Markdown output to the terminal in the following format:
             - ch. 2 (_note 2 here too_)
 ```
 
+## Installing this tool
+
+*Tested only under Python 3.9.7*, requires at least Python 3.7+.
+
+### Using `pip`
+
+- [recommended] Activate a virtual environment.
+- To install dependencies, run from this directory: `pip install -r requirements.txt`
+- Then execute the script to run the tool: `python3 get_learning_logs`
+
+### Using `pipenv`
+
+- Run from this directory: `pipenv install`.
+- Activate the newly created virtual environment with `pipenv shell`.
+- Then execute the script to run the tool: `python3 get_learning_logs`
+
 ## How to use this tool
 
 You will need to create an environment file (default path: `~/.learning-logs` or edit the path for `LEARNING_LOGS_ENV_PATH` in `get_learning_logs.py`). It should look as follows:
