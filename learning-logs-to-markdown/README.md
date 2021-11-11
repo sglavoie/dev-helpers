@@ -1,4 +1,4 @@
-# learning-logs-to-markdown (WIP)
+# learning-logs-to-markdown
 
 The purpose of this tool is to parse and convert the content of a Google Sheets spreadsheet to Markdown. In this specific case, I just wanted a simple script to reduce the friction in getting a valid output I could use to maintain a ["learning log" on my website](https://www.sglavoie.com/learning-progress.html). So that gives me a quick way to input data in a spreadsheet and then I can take the time whenever needed to update the learning progress as desired by reformatting any of the entries and optionally adding notes to them.
 
@@ -79,3 +79,33 @@ A Markdown output to the terminal in the following format:
             - ch. 1 (_note 1 here_)
             - ch. 2 (_note 2 here too_)
 ```
+
+## How to use this tool
+
+You will need to create an environment file (default path: `~/.learning-logs` or edit the path for `LEARNING_LOGS_ENV_PATH` in `get_learning_logs.py`). It should look as follows:
+
+```env
+SERVICE_ACCOUNT_FILEPATH="/path/to/service_account_learning_logs.json"
+SPREADSHEET_ID=SPREADSHEET_ID  # Found in the URL of the document
+WORKSHEET_ID=0  # First sheet is 0 by default, it comes after the URL parameter `gid`
+```
+
+To set up this project, you will have to:
+
+- Enable the Google Sheets API for your project (https://support.google.com/googleapi/answer/6158841?hl=en).
+- In the project, search for "service account" in the search bar and create new credentials.
+- Download the credentials and put them at the path `SERVICE_ACCOUNT_FILEPATH` referenced in the environment file.
+- Create a spreadsheet with the following columns (not necessarily in that order): `Date`, `Category`, `Sub-category`, `Title`, `Activity`, `Link`, `Notes`.
+  - The column `Date` Should match a date format: select all cells from that column, go to `Format > Number > Date` to apply the expected format (`mm/dd/yyyy`). You can then input a date (e.g. `11/1/2021`) and you will see a calendar pop up when double-clicking on it. Dragging it down to a new cell will create a new date for the next day (in this example, `11/2/2021`).
+- Get its `SPREADSHEET_ID` (`https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit#gid=0`) to put it in the environment file.
+- Get the `WORKSHEET_ID` (the integer after `gid=` in the URL of the document).
+- From the spreadsheet document (or from the folder view in Google Drive), share with the email associated with the service account (e.g. `learning-logs-something@project-name-12345.iam.gserviceaccount.com`). Read access ("Viewer" permission) is enough.
+
+By now, the script is ready to be called. I just created an alias to execute it more easily by putting the following in `~/.bash_aliases` (you will have to adapt the paths of course):
+
+```sh
+alias learning-logs='~/.local/share/virtualenvs/learning-logs-to-markdown-XJLvhmzn/bin/python3.9 \
+  ~/dev/sglavoie/dev-helpers/learning-logs-to-markdown/get_learning_logs.py'
+```
+
+This will output the converted data from the spreadsheet to Markdown [as shown above](#output).

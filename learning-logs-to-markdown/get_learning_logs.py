@@ -1,62 +1,15 @@
 """
-# Data structure:
-data = {
-    "Month": {  # integer
-        "Category": {  # string
-            "Sub-category": {  # string
-                "Title": {  # string
-                    "link": "some_url",  # string if valid
-                    "notes": []
-                    "activities": [  # list
-                        {
-                            "note": "Note message",  # formatted string
-                            "value": "Activity message",  # string
-                        }
-                    ],
-                }
-            }
-        }
-    }
-}
-sorted_columns = {
-    "years": [2018, 2019, 2020, 2021],
-    "months": [1, 2, 3],
-    "categories": ["sorted list of strings"],
-    "sub-categories": ["sorted list of strings"],
-    "titles": ["sorted list of strings"],
-}
-months = {1: "January"}  # ...
+Parse and convert the content of a Google Sheets spreadsheet to Markdown
+to get a valid output to maintain a "learning log" at
+https://www.sglavoie.com/learning-progress.html
 """
-### Sort data chronologically, from oldest to newest
-# if no (valid) date, skip
-
-#### Convert all rows into top level with the name of the month (tool will only support output for one year at a time and all dates must fall within the same year)
-
-#### Validate data (discard invalid rows)
-##### If no `Title` -> discard
-
-
-### Parse rows
-
-# start generating string output for each month starting from Dec
-# then append each month to a list
-# then pop each month from the list to the output
-
-# iterate over sorted months from Jan to Dec
-## iterate over sorted categories
-### iterate over sorted sub-categories
-#### iterate over sorted titles
-##### iterate over activities in order
-
-#### If no category -> "0unknown"
-#### If no sub-category -> "0unknown"
-#### Convert `Title` into link if URL is valid
-
+# Standard library
 from datetime import datetime
 import calendar
 import re
 import os
 
+# Third-party libraries
 from dotenv import load_dotenv
 import gspread
 
@@ -185,6 +138,9 @@ def get_string_without_special_characters(
     return string
 
 
+# TODO: The code below this point will need to be tested further and refactored into smaller functions
+
+
 def get_data_tree(data: list, months: list) -> tuple:
     tree = {}
     sorted_tree = {}
@@ -255,7 +211,7 @@ def get_data_tree(data: list, months: list) -> tuple:
     return tree, sorted_tree_list
 
 
-if __name__ == "__main__":
+def generate_output():
     data = get_worksheet_data()
     last_year = get_all_years(data)[-1]
 
@@ -317,3 +273,7 @@ if __name__ == "__main__":
                                     title
                                 ]["Activities"]:
                                     print(f"{spaces}{activity}")
+
+
+if __name__ == "__main__":
+    generate_output()
