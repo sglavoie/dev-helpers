@@ -16,7 +16,7 @@ This tool should:
 - Output a hierarchical format like the following: `Category > Sub-category > Title > Activity & notes`
 - Group entries by category **and** sub-category (e.g. if a category is named `Articles` and there is a sub-category named `Python`, then `Python` must be nested under `Articles` for the corresponding month).
 - Sort on the `Date` column before doing any parsing on other columns (rows in the spreadsheet _can_ be in non-chronological order).
-  - Dates from a single year will be kept (either the year received as a parameter or the oldest year found).
+  - Dates from a single year will be kept (either the year received as a parameter or the most recent year found).
 - Sort `Category`, `Sub-category` and `Title` alphabetically (ascending order from top to bottom).
 - **Not** sort the `Activity` column to preserve the order in which rows were added to the spreadsheet.
 - Render links only if the `Link` column is a valid URL.
@@ -39,7 +39,7 @@ A spreadsheet with the following columns (starting with **Date**):
 | ----------------------------- | ---------- | ------------- | -------------------- | -------------------------------------- | ------------ | ------------------------------------------------------------------------------------ | ------------------------ |
 | November                      | 13/11/2021 | Articles      | Python               | Python slots, slots, and object layout |              | https://www.youtube.com/watch?v=Iwf17zsDAnY                                          | understood that X does Y |
 | November                      | 14/11/2021 | Books         | Software engineering | The Pragmatic Programmer               | ch. 1        | https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/ | note 1 here              |
-| November                      | 15/11/2021 | Books         | Software engineering | The Pragmatic Programmer               | ch. 2        | https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/ | note 2 here too          |
+| November                      | 15/11/2021 | Books         | Software engineering | The Pragmatic Programmer               | ch. 2        |                                                                                      | note 2 here too          |
 | November                      | 16/11/2021 | Books         | Software engineering | Clean Code                             |              |                                                                                      |                          |
 | December                      | 1/12/2021  | Documentation | Python               | The Python Tutorial                    | Sections 1-4 | https://docs.python.org/3/tutorial/index.html                                        |                          |
 | December                      | 2/12/2021  | Books         | Software engineering | Clean Code                             | ch. 2-10     |                                                                                      |                          |
