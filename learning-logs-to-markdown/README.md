@@ -125,3 +125,13 @@ alias learning-logs='~/.local/share/virtualenvs/learning-logs-to-markdown-XJLvhm
 ```
 
 This will output the converted data from the spreadsheet to Markdown [as shown above](#output).
+
+## Example usage and output (sample)
+
+### Input (spreadsheet) and output (raw Markdown)
+
+![input-output](./images/input_output.png)
+
+### Formatted Markdown output
+
+![formatted-markdown-output](./images/formatted_markdown_output.png)
