@@ -89,6 +89,92 @@ def test_row_is_valid():
         assert learning.row_is_valid(row) == row["Valid"]
 
 
+def test_data_contains_all_keys_for_all_rows_returns_True_with_all_keys():
+    # Just check for the presence of keys (values don't matter here).
+    # Keys must match exactly (case-sensitive).
+    valid_list = [
+        {
+            "Date": "",
+            "Category": "",
+            "Sub-category": "",
+            "Title": "",
+            "Activity": "",
+            "Link": "",
+            "Notes": "",
+        },
+    ]
+    assert learning.data_contains_all_keys_for_all_rows(valid_list)
+
+
+def test_data_contains_all_keys_for_all_rows_returns_False_with_lowercase_key():
+    # Test case sensitivity
+    invalid_list_with_lowercase_date = [
+        {
+            "date": "",  # Should be `Date`
+            "Category": "",
+            "Sub-category": "",
+            "Title": "",
+            "Activity": "",
+            "Link": "",
+            "Notes": "",
+        },
+    ]
+    assert (
+        learning.data_contains_all_keys_for_all_rows(
+            invalid_list_with_lowercase_date
+        )
+        == False
+    )
+
+
+def test_data_contains_all_keys_for_all_rows_returns_False_on_missing_key():
+    # FAIL if a single key is missing
+    all_keys = [
+        "Date",
+        "Category",
+        "Sub-category",
+        "Title",
+        "Activity",
+        "Link",
+        "Notes",
+    ]
+    for key in all_keys:
+        # Reset `data` before popping each key
+        data = {
+            "Date": "",
+            "Category": "",
+            "Sub-category": "",
+            "Title": "",
+            "Activity": "",
+            "Link": "",
+            "Notes": "",
+        }
+        data.pop(key)  # Should now FAIL: all keys must be there
+        assert learning.data_contains_all_keys_for_all_rows([data]) == False
+
+
+def test_data_contains_all_keys_for_all_rows_returns_True_with_extra_key():
+    # So as long as all mandatory keys are there, we don't care about
+    # extra keys
+    data = [
+        {
+            "Date": "",
+            "Category": "",
+            "Sub-category": "",
+            "Title": "",
+            "Activity": "",
+            "Link": "",
+            "Notes": "",
+            "This extra key here": "does not matter",
+        }
+    ]
+    assert learning.data_contains_all_keys_for_all_rows(data)
+
+
+def test_data_contains_all_keys_for_all_rows_returns_False_with_no_data():
+    assert learning.data_contains_all_keys_for_all_rows([]) == False
+
+
 def test_get_all_years():
     all_years = [2018, 2019, 2020, 2021]
     assert learning.get_all_years(TEST_DATA) == all_years

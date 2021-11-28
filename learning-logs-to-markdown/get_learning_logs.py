@@ -45,6 +45,30 @@ def get_worksheet_data(
     return list_of_dicts
 
 
+def get_all_valid_keys() -> list:
+    return [
+        "Date",
+        "Category",
+        "Sub-category",
+        "Title",
+        "Activity",
+        "Link",
+        "Notes",
+    ]
+
+
+def data_contains_all_keys_for_all_rows(data: list) -> bool:
+    if not data:
+        return False
+
+    all_keys = get_all_valid_keys()
+    for row in data:
+        for key in all_keys:
+            if not key in row:
+                return False
+    return True
+
+
 def row_is_valid(row: dict) -> bool:
     return date_is_valid(row["Date"]) and row["Title"] != ""
 
@@ -213,6 +237,17 @@ def get_data_tree(data: list, months: list) -> tuple:
 
 def generate_output():
     data = get_worksheet_data()
+
+    # Let's make sure we have the data we expect first...
+    if not data_contains_all_keys_for_all_rows(data):
+        valid_keys = get_all_valid_keys()
+        print(
+            "The data didn't contain the expected keys. Please make sure you"
+            " have all of the following for each row (case-sensitive):"
+        )
+        print("  |  ".join(valid_keys))
+        exit()
+
     last_year = get_all_years(data)[-1]
 
     parsed_data = []
