@@ -11,6 +11,7 @@ import os
 
 # Third-party libraries
 from dotenv import load_dotenv
+from gspread.exceptions import APIError, WorksheetNotFound
 import gspread
 
 
@@ -40,9 +41,18 @@ def get_worksheet_data(
 ) -> list:
     google_client = gspread.service_account(filename=service_account_filename)
     spreadsheet = google_client.open_by_key(spreadsheet_id)
-    worksheet = spreadsheet.get_worksheet_by_id(int(worksheet_id))
-    list_of_dicts = worksheet.get_all_records()
-    return list_of_dicts
+
+    try:
+        worksheet = spreadsheet.get_worksheet_by_id(int(worksheet_id))
+        list_of_dicts = worksheet.get_all_records()
+        return list_of_dicts
+    except (APIError, WorksheetNotFound) as err:
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={worksheet_id}"
+        print(
+            f"Make sure you can access the worksheet in a browser: {sheet_url}"
+        )
+        print(f"Error: {err}")
+        exit()
 
 
 def get_all_valid_keys() -> list:
