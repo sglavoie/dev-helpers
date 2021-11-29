@@ -215,15 +215,24 @@ def get_data_tree(data: list, months: list) -> tuple:
                 if row["Activity"] != "":
                     tree[month][row["Category"]][row["Sub-category"]][
                         row["Title"]
-                    ]["Activities"].append(
-                        get_formatted_activity(row["Activity"], row["Notes"])
+                    ]["Activities"] = append_activity(
+                        row["Activity"],
+                        row["Notes"],
+                        tree[month][row["Category"]][row["Sub-category"]][
+                            row["Title"]
+                        ]["Activities"],
                     )
                 # If there's no activity, there can still be a note,
                 # keep them all in a list
                 elif row["Notes"] != "":
                     tree[month][row["Category"]][row["Sub-category"]][
                         row["Title"]
-                    ]["Notes"].append(row["Notes"])
+                    ]["Notes"] = append_notes(
+                        row["Notes"],
+                        tree[month][row["Category"]][row["Sub-category"]][
+                            row["Title"]
+                        ]["Notes"],
+                    )
 
         sorted_tree_list[month] = {
             "categories": sorted(list(sorted_tree[month]["categories"])),
@@ -233,6 +242,34 @@ def get_data_tree(data: list, months: list) -> tuple:
             "titles": sorted(list(sorted_tree[month]["titles"])),
         }
     return tree, sorted_tree_list
+
+
+def append_activity(activity: str, notes: str, activities: list) -> list:
+    formatted_activity = get_formatted_activity(activity, notes)
+    formatted_activity_without_notes = get_formatted_activity(activity, "")
+
+    # If an activity is already there, don't add it again
+    for existing_activity in activities:
+        if formatted_activity in existing_activity:
+            return activities
+
+    # If the activity without notes isn't there, then it's nowhere
+    # and can be added with its notes
+    if formatted_activity_without_notes not in activities:
+        activities.append(formatted_activity)
+    # If this activity without notes is there BUT it's not with notes, then
+    # remove the existing activity to append it again with its notes
+    elif (
+        formatted_activity_without_notes in activities
+        and formatted_activity not in activities
+    ):
+        activities.remove(formatted_activity_without_notes)
+        activities.append(formatted_activity)
+    return activities
+
+
+def append_notes(notes: str, notes_list: list) -> list:
+    return notes_list + [notes] if notes not in notes_list else notes_list
 
 
 def generate_output():

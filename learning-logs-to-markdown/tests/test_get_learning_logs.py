@@ -284,5 +284,142 @@ def test_get_formatted_activity():
         )
 
 
-def _test_get_data_tree():
-    assert False
+def test_append_activity_appends_activity_when_initially_empty_with_no_notes():
+    activity = "Some activity here"
+    activities = []
+
+    # added activity without notes
+    expected_activities = ["- Some activity here"]
+    assert (
+        learning.append_activity(activity, "", activities)
+        == expected_activities
+    )
+
+
+def test_append_activity_appends_activity_when_initially_empty_with_notes():
+    activity = "Some activity here"
+    notes = "Some notes here"
+    activities = []
+
+    # added activity without notes
+    expected_activities = ["- Some activity here (_Some notes here_)"]
+    assert (
+        learning.append_activity(activity, notes, activities)
+        == expected_activities
+    )
+
+
+def test_append_activity_appends_notes_to_activity_without_prior_notes_with_single_activity():
+    activity = "Some activity here"
+    notes = "Some notes here"
+    activities = ["- Some activity here"]  # no notes yet
+
+    # added activity with notes
+    expected_activities = ["- Some activity here (_Some notes here_)"]
+    assert (
+        learning.append_activity(activity, notes, activities)
+        == expected_activities
+    )
+
+
+def test_append_activity_appends_notes_to_activity_without_prior_notes_with_multiple_activities():
+    activity = "Some activity here"
+    notes = "Some notes here"
+    activities = [
+        "- Some activity here",  # no notes yet
+        "- Some other activity",
+    ]
+
+    # added activity with notes, removing the old one first
+    expected_activities = [
+        "- Some other activity",  # Shifted in the existing list
+        "- Some activity here (_Some notes here_)",  # Appended with notes
+    ]
+    assert (
+        learning.append_activity(activity, notes, activities)
+        == expected_activities
+    )
+
+
+def test_append_activity_does_not_duplicate_activity_with_prior_notes_with_single_activity():
+    # Case where same activity and same notes are added again (should not duplicate)
+    activity = "Some activity here"
+    notes = "Some notes here"
+    activities = ["- Some activity here (_Some notes here_)"]
+    expected_activities = activities  # same thing
+    assert (
+        learning.append_activity(activity, notes, activities)
+        == expected_activities
+    )
+
+    # Case where same activity but without notes is added again
+    # (should not modify anything)
+    assert (
+        learning.append_activity(activity, "", activities)
+        == expected_activities
+    )
+
+    activity = "Some activity here"
+    activities = ["- Some activity here"]  # already formatted, no notes
+    expected_activities = ["- Some activity here"]  # no change expected
+    assert (
+        learning.append_activity(activity, "", activities)
+        == expected_activities
+    )
+
+
+def test_append_activity_does_not_duplicate_activity_with_prior_notes_with_multiple_activities():
+    # Case where same activity and same notes are added again (should not duplicate)
+    activity = "Some activity here"
+    notes = "Some notes here"
+    activities = [
+        "- Some other activity",
+        "- Some activity here (_Some notes here_)",
+    ]
+    expected_activities = activities  # same thing
+    assert (
+        learning.append_activity(activity, notes, activities)
+        == expected_activities
+    )
+
+    # Case where same activity but without notes is added again
+    # (should not modify anything)
+    assert (
+        learning.append_activity(activity, "", activities)
+        == expected_activities
+    )
+
+    activity = "Some activity here"
+    activities = [
+        "- Some other activity (_With notes_)",
+        "- Some activity here (_Some notes here_)",
+    ]  # already formatted, no notes
+    expected_activities = activities  # no change expected
+    assert (
+        learning.append_activity(activity, "", activities)
+        == expected_activities
+    )
+
+
+def test_append_notes_does_not_duplicate_notes_when_there_is_no_activity():
+    notes = "Some notes"
+    notes_list = ["Some notes"]
+    expected_notes_list = notes_list
+    assert learning.append_notes(notes, notes_list) == expected_notes_list
+
+    # Search with multiple items
+    notes_list = ["Some other notes", "Some notes"]
+    expected_notes_list = notes_list
+    assert learning.append_notes(notes, notes_list) == expected_notes_list
+
+
+def test_append_notes_adds_notes_when_there_is_no_activity_and_notes_werent_there_already():
+    notes = "Some notes 2"
+    notes_list = ["Some notes"]
+    expected_notes_list = ["Some notes", "Some notes 2"]
+    assert learning.append_notes(notes, notes_list) == expected_notes_list
+
+    # Search with multiple items
+    notes_list = ["Some other notes", "Some notes"]
+    expected_notes_list = ["Some other notes", "Some notes", "Some notes 2"]
+    assert learning.append_notes(notes, notes_list) == expected_notes_list
