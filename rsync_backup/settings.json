@@ -1,19 +1,20 @@
 {
     "data_sources": [
-        "/home/sglavoie"
+        "/Users/sglavoie"
     ],
-    "data_destination": "/media/sglavoie/Elements",
+    "data_destination": "/Volumes/Elements",
     "terminal_width": 40,
     "sep": "=-",
     "log_name": ".backup_log_",
     "log_format": "%y%m%d_%H_%M_%S",
     "rsync_options": [
-        "-vaAHh",
+        "-vaHhR",
         "--delete",
         "--ignore-errors",
         "--force",
         "--prune-empty-dirs",
         "--delete-excluded"
     ],
-    "backup_exclude": ".backup_exclude"
+    "backup_exclude": ".backup_exclude",
+    "backup_include": ".backup_include"
 }

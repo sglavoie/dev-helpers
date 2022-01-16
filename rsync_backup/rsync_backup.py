@@ -91,6 +91,14 @@ def backup_all_sources(settings: dict) -> None:
         backup_source = settings["backup_cmd"].copy()
         backup_source.extend([log_option])
 
+        # files to include in backup that would otherwise be excluded with
+        # --exclude-from
+        include_file = f"{source}/{settings['backup_include']}"
+
+        if os.path.exists(include_file):
+            include_option = f"--include-from={include_file}"
+            backup_source.append(include_option)
+
         # files to ignore in backup
         exclude_file = f"{source}/{settings['backup_exclude']}"
 
