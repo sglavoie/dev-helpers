@@ -48,11 +48,9 @@ def get_worksheet_data(
         return list_of_dicts
     except (APIError, WorksheetNotFound) as err:
         sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={worksheet_id}"
-        print(
-            f"Make sure you can access the worksheet in a browser: {sheet_url}"
-        )
+        print(f"Make sure you can access the worksheet in a browser: {sheet_url}")
         print(f"Error: {err}")
-        exit()
+        sys.exit()
 
 
 def get_all_valid_keys() -> list:
@@ -103,7 +101,7 @@ def get_all_months(data: list) -> list:
 
 def date_is_valid(date: str) -> bool:
     try:
-        parsed_date = datetime.strptime(date, "%m/%d/%Y")
+        datetime.strptime(date, "%m/%d/%Y")
     except (TypeError, ValueError):
         return False
     return True
@@ -209,46 +207,46 @@ def get_data_tree(data: list, months: list) -> tuple:
                 if not tree[month][row["Category"]][row["Sub-category"]].get(
                     row["Title"]
                 ):
-                    tree[month][row["Category"]][row["Sub-category"]][
-                        row["Title"]
-                    ] = {"Link": "", "Activities": [], "Notes": []}
+                    tree[month][row["Category"]][row["Sub-category"]][row["Title"]] = {
+                        "Link": "",
+                        "Activities": [],
+                        "Notes": [],
+                    }
 
                 # Override existing link for that title, if there's any
                 # and if it's valid
                 if link_is_valid(row["Link"]):
-                    tree[month][row["Category"]][row["Sub-category"]][
-                        row["Title"]
-                    ]["Link"] = row["Link"]
+                    tree[month][row["Category"]][row["Sub-category"]][row["Title"]][
+                        "Link"
+                    ] = row["Link"]
 
                 # Append activities in the order they appear in the data
                 # if there's one
                 if row["Activity"] != "":
-                    tree[month][row["Category"]][row["Sub-category"]][
-                        row["Title"]
-                    ]["Activities"] = append_activity(
+                    tree[month][row["Category"]][row["Sub-category"]][row["Title"]][
+                        "Activities"
+                    ] = append_activity(
                         row["Activity"],
                         row["Notes"],
-                        tree[month][row["Category"]][row["Sub-category"]][
-                            row["Title"]
-                        ]["Activities"],
+                        tree[month][row["Category"]][row["Sub-category"]][row["Title"]][
+                            "Activities"
+                        ],
                     )
                 # If there's no activity, there can still be a note,
                 # keep them all in a list
                 elif row["Notes"] != "":
-                    tree[month][row["Category"]][row["Sub-category"]][
-                        row["Title"]
-                    ]["Notes"] = append_notes(
+                    tree[month][row["Category"]][row["Sub-category"]][row["Title"]][
+                        "Notes"
+                    ] = append_notes(
                         row["Notes"],
-                        tree[month][row["Category"]][row["Sub-category"]][
-                            row["Title"]
-                        ]["Notes"],
+                        tree[month][row["Category"]][row["Sub-category"]][row["Title"]][
+                            "Notes"
+                        ],
                     )
 
         sorted_tree_list[month] = {
             "categories": sorted(list(sorted_tree[month]["categories"])),
-            "sub_categories": sorted(
-                list(sorted_tree[month]["sub_categories"])
-            ),
+            "sub_categories": sorted(list(sorted_tree[month]["sub_categories"])),
             "titles": sorted(list(sorted_tree[month]["titles"])),
         }
     return tree, sorted_tree_list
@@ -293,9 +291,7 @@ def generate_output():
             " have all of the following for each row (case-sensitive):"
         )
         print("  |  ".join(valid_keys))
-        exit()
-
-    last_year = get_all_years(data)[-1]
+        sys.exit()
 
     parsed_data = []
     for row in data:
@@ -322,9 +318,7 @@ def generate_output():
                         if sub_cat != "":
                             if category != "":
                                 spaces = 4 * " "
-                            print(
-                                f"{spaces}{get_formatted_sub_category(sub_cat)}"
-                            )
+                            print(f"{spaces}{get_formatted_sub_category(sub_cat)}")
                         for title in sorted_tree[month]["titles"]:
                             spaces = ""
                             if title in tree[month][category][sub_cat]:
@@ -332,9 +326,7 @@ def generate_output():
                                     spaces += 4 * " "
                                 if sub_cat != "":
                                     spaces += 4 * " "
-                                notes = tree[month][category][sub_cat][title][
-                                    "Notes"
-                                ]
+                                notes = tree[month][category][sub_cat][title]["Notes"]
                                 if notes == []:
                                     print(
                                         f"{spaces}{get_formatted_title(title, tree[month][category][sub_cat][title]['Link'])}"
@@ -351,9 +343,9 @@ def generate_output():
                                         + concat_notes
                                     )
                                 spaces += 4 * " "
-                                for activity in tree[month][category][sub_cat][
-                                    title
-                                ]["Activities"]:
+                                for activity in tree[month][category][sub_cat][title][
+                                    "Activities"
+                                ]:
                                     print(f"{spaces}{activity}")
 
 
