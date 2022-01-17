@@ -1,4 +1,7 @@
+from datetime import datetime
 import sys
+
+import pytest
 
 sys.path.append(".")
 
@@ -179,10 +182,17 @@ def test_get_all_years():
     assert learning.get_all_years(TEST_DATA) == all_years
 
 
-def test_get_all_months():
+def test_get_all_months_without_custom_month():
     expected_months = [12, 11, 6]
     entries = [e for e in TEST_DATA if "2021" in e["Date"]]
     assert learning.get_all_months(entries) == expected_months
+
+
+def test_get_all_months_with_custom_month():
+    entries = [e for e in TEST_DATA if "2021" in e["Date"]]
+    assert learning.get_all_months(entries, 12) == [12]
+    assert learning.get_all_months(entries, 11) == [11]
+    assert learning.get_all_months(entries, 6) == [6]
 
 
 def test_get_string_without_special_characters():
@@ -392,3 +402,20 @@ def test_append_notes_adds_notes_when_there_is_no_activity_and_notes_werent_ther
     notes_list = ["Some other notes", "Some notes"]
     expected_notes_list = ["Some other notes", "Some notes", "Some notes 2"]
     assert learning.append_notes(notes, notes_list) == expected_notes_list
+
+
+def test_check_month_flag_raises_error_if_month_is_invalid():
+    for i in range(1, 13):
+        assert learning.check_month_flag(i)
+    with pytest.raises(ValueError):
+        learning.check_month_flag(13)
+    with pytest.raises(ValueError):
+        learning.check_month_flag(0)
+
+
+def test_check_year_flag_raises_error_if_year_is_invalid():
+    with pytest.raises(ValueError):
+        learning.check_year_flag(-1)
+    with pytest.raises(ValueError):
+        next_year = datetime.now().year + 1
+        learning.check_year_flag(next_year)

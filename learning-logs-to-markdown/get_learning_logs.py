@@ -5,9 +5,12 @@ https://www.sglavoie.com/learning-progress.html
 """
 # Standard library
 from datetime import datetime
+import argparse
 import calendar
 import re
 import os
+import sys
+from typing import Tuple, Union
 
 # Third-party libraries
 from dotenv import load_dotenv
@@ -32,6 +35,11 @@ REGEX_URL = re.compile(
     r"(?:/?|[/?]\S+)$",
     re.IGNORECASE,
 )
+
+
+def main():
+    year, month = read_args()
+    generate_output(year, month)
 
 
 def get_worksheet_data(
@@ -90,11 +98,17 @@ def get_all_years(data: list) -> list:
     return sorted_years
 
 
-def get_all_months(data: list) -> list:
+def get_all_months(data: list, month: Union[int, None] = None) -> list:
     months_set = set()
     for row in data:
         if date_is_valid(row["Date"]):
-            months_set.add(int(row["Date"].split("/")[0]))
+            row_month = int(row["Date"].split("/")[0])
+            if month is not None:
+                if month == row_month:
+                    months_set.add(int(row["Date"].split("/")[0]))
+            else:
+                months_set.add(int(row["Date"].split("/")[0]))
+
     sorted_months = sorted(list(months_set), reverse=True)
     return sorted_months
 
@@ -280,8 +294,57 @@ def append_notes(notes: str, notes_list: list) -> list:
     return notes_list + [notes] if notes not in notes_list else notes_list
 
 
-def generate_output():
+def read_args() -> Tuple[Union[int, None], Union[int, None]]:
+    # Set default values
+    year = None
+    month = None
+
+    parser = argparse.ArgumentParser(description="learning-logs")
+    parser.add_argument(
+        "-y",
+        "--year",
+        help="Year for which to retrieve data",
+        type=int,
+    )
+    parser.add_argument(
+        "-m",
+        "--month",
+        help="Month for which to retrieve data. Defaults to latest year "
+        "available in the data if not provided.",
+        type=int,
+    )
+    args = parser.parse_args()
+
+    if args.year is not None:
+        year = check_year_flag(args.year)
+
+    if args.month is not None:
+        month = check_month_flag(args.month)
+
+    return year, month
+
+
+def check_month_flag(month: int):
+    if month < 1 or month > 12:
+        raise ValueError("Month must be between 1 and 12.")
+    return month
+
+
+def check_year_flag(year: int):
+    if year < 0:
+        raise ValueError("Year can't be negative.")
+    if year > datetime.now().year:
+        raise ValueError("Year can't be in the future.")
+
+    # Other cases, it's up to the user...
+    return year
+
+
+def generate_output(year: Union[int, None], custom_month: Union[int, None]):
     data = get_worksheet_data()
+
+    if year is None:
+        year = get_all_years(data)[-1]  # last year
 
     # Let's make sure we have the data we expect first...
     if not data_contains_all_keys_for_all_rows(data):
@@ -295,10 +358,10 @@ def generate_output():
 
     parsed_data = []
     for row in data:
-        if row_is_valid(row) and int(row["Date"][-4:]) == last_year:
+        if row_is_valid(row) and int(row["Date"][-4:]) == year:
             parsed_data.append(row)
 
-    months = get_all_months(parsed_data)
+    months = get_all_months(parsed_data, custom_month)
 
     tree, sorted_tree = get_data_tree(parsed_data, months)
 
@@ -350,4 +413,4 @@ def generate_output():
 
 
 if __name__ == "__main__":
-    generate_output()
+    main()
