@@ -9,7 +9,6 @@
     "log_format": "%y%m%d_%H_%M_%S",
     "rsync_options": [
         "-vaHhR",
-        "--delete",
         "--ignore-errors",
         "--force",
         "--prune-empty-dirs",
