@@ -3,10 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 )
 
 // cfgFile is a global variable that will hold the path to the configuration file
@@ -57,7 +58,6 @@ func initConfig() {
 		viper.AddConfigPath(home)
 	}
 
-	viper.SetConfigFile(cp)
 	readConfig(cp)
 }
 
@@ -71,7 +71,7 @@ func getHomeDir() string {
 
 func readConfig(cp string) {
 	if err := viper.ReadInConfig(); err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if errors.As(err, &configFileNotFoundError) {
 			err = viper.WriteConfigAs(cp)
@@ -84,4 +84,5 @@ func readConfig(cp string) {
 			log.Fatal(err)
 		}
 	}
+	viper.SetConfigFile(cp)
 }
