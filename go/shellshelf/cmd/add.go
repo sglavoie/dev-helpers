@@ -3,12 +3,13 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/spf13/viper"
 	"log"
 
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func preRunLogic(cmd *cobra.Command) error {
@@ -60,13 +61,13 @@ func runLogic(cmd *cobra.Command) {
 func buildCommand(cmd *cobra.Command) (models.Command, error) {
 	command := models.Command{}
 
-	name, err := commands.GetFlagString(cmd, "name")
+	name, err := clihelpers.GetFlagString(cmd, "name")
 	if err != nil {
 		return command, err
 	}
 	command.Name = name
 
-	if description, err := commands.GetFlagString(cmd, "description"); err == nil && description != "" {
+	if description, err := clihelpers.GetFlagString(cmd, "description"); err == nil && description != "" {
 		command.Description = description
 	}
 
@@ -76,7 +77,7 @@ func buildCommand(cmd *cobra.Command) (models.Command, error) {
 		return command, err
 	}
 
-	if tags, err := commands.GetFlagStringSlice(cmd, "tags"); err == nil && len(tags) > 0 {
+	if tags, err := clihelpers.GetFlagStringSlice(cmd, "tags"); err == nil && len(tags) > 0 {
 		command.Tags = tags
 	}
 
@@ -84,7 +85,7 @@ func buildCommand(cmd *cobra.Command) (models.Command, error) {
 }
 
 func readCommand(cmd *cobra.Command, command models.Command) (models.Command, error) {
-	v, err := commands.GetFlagString(cmd, "command")
+	v, err := clihelpers.GetFlagString(cmd, "command")
 	if err != nil {
 		return command, err
 	}
