@@ -2,8 +2,19 @@ package clihelpers
 
 import (
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/spf13/cobra"
 )
+
+func FatalExit(format string, v ...interface{}) {
+	_, err := fmt.Fprintf(os.Stderr, format+"\n", v...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.Exit(1)
+}
 
 func GetFlagBool(cmd *cobra.Command, flagName string) (bool, error) {
 	value, err := cmd.Flags().GetBool(flagName)

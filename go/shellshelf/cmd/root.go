@@ -3,9 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,7 +30,7 @@ Manage your shell commands with ShellShelf.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		log.Fatal(err)
+		clihelpers.FatalExit(err.Error())
 	}
 }
 
@@ -64,7 +64,7 @@ func initConfig() {
 func getHomeDir() string {
 	home, err := homedir.Dir()
 	if err != nil {
-		log.Fatal(err)
+		clihelpers.FatalExit(err.Error())
 	}
 	return home
 }
@@ -76,12 +76,12 @@ func readConfig(cp string) {
 		if errors.As(err, &configFileNotFoundError) {
 			err = viper.WriteConfigAs(cp)
 			if err != nil {
-				log.Fatal(err)
+				clihelpers.FatalExit(err.Error())
 			}
 
 			fmt.Printf("Configuration file created at: %s\n", cp)
 		} else {
-			log.Fatal(err)
+			clihelpers.FatalExit(err.Error())
 		}
 	}
 	viper.SetConfigFile(cp)

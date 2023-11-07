@@ -27,18 +27,19 @@ var removeCmd = &cobra.Command{
 
 		err = commands.AreAllCommandIDsValid(cmds, args)
 		if err != nil {
-			fmt.Println("Error checking command IDs:", err)
-			return
+			clihelpers.FatalExit("Error checking command IDs:", err)
 		}
 
 		f, err := clihelpers.GetFlagBool(cmd, "force")
 		if err != nil {
-			fmt.Println("Error getting flag:", err)
-			return
+			clihelpers.FatalExit("Error getting flag:", err)
 		}
 
 		if !f {
-			confirmRemoval(args, cmds)
+			err := confirmRemovalCommand(args, cmds)
+			if err != nil {
+				clihelpers.FatalExit("Error confirming removal:", err)
+			}
 		}
 
 		// Only remove commands if all IDs are valid and user confirmed
@@ -48,13 +49,12 @@ var removeCmd = &cobra.Command{
 
 		err = commands.Save(cmds)
 		if err != nil {
-			fmt.Println("Error saving commands:", err)
-			return
+			clihelpers.FatalExit("Error saving commands:", err)
 		}
 	},
 }
 
-func confirmRemoval(args []string, cmds map[string]models.Command) {
+func confirmRemovalCommand(args []string, cmds map[string]models.Command) error {
 	fmt.Println("Are you sure you want to remove the following command(s)?")
 	for _, id := range args {
 		desc := cmds[id].Description
@@ -68,15 +68,16 @@ func confirmRemoval(args []string, cmds map[string]models.Command) {
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		fmt.Println("Error reading input:", err)
-		return
+		return err
 	}
 
 	input = strings.TrimSpace(input)
 
 	if input != "y" && input != "Y" {
-		fmt.Println("Aborting")
-		return
+		clihelpers.FatalExit("Aborting")
 	}
+
+	return nil
 }
 
 func init() {

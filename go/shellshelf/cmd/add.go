@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
@@ -12,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func preRunLogic(cmd *cobra.Command) error {
+func preRunLogicAdd(cmd *cobra.Command) error {
 	editor, err := cmd.Flags().GetBool("editor")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -32,7 +31,7 @@ func preRunLogic(cmd *cobra.Command) error {
 	return nil
 }
 
-func runLogic(cmd *cobra.Command) {
+func runLogicAdd(cmd *cobra.Command) {
 	cmds, err := commands.Load()
 	if err != nil {
 		fmt.Println(err)
@@ -41,21 +40,20 @@ func runLogic(cmd *cobra.Command) {
 
 	command, err := buildCommand(cmd)
 	if err != nil {
-		fmt.Println("Error building command:", err)
-		return
+		clihelpers.FatalExit("Error building command:", err)
 	}
 
 	cmds, err = commands.Add(cmds, command)
 	if err != nil {
-		fmt.Println("Error adding command:", err)
-		return
+		clihelpers.FatalExit("Error adding command:", err)
 	}
 
 	err = commands.Save(cmds)
 	if err != nil {
-		fmt.Println("Error saving commands:", err)
-		return
+		clihelpers.FatalExit("Error saving commands:", err)
 	}
+
+	fmt.Println("Command shelved successfully!")
 }
 
 func buildCommand(cmd *cobra.Command) (models.Command, error) {
@@ -122,13 +120,13 @@ var addCmd = &cobra.Command{
 	Aliases: []string{"a"},
 	Short:   "Add a command to the shelf",
 	Long:    "Add a command to the shelf. You can specify the command directly or open an editor to enter it.",
-	Example: "add -n 'my command' -c 'echo hello world'",
+	Example: "add -n 'my command' -c 'echo hello world'\nadd -n 'my command' -e -t tag1,tag2",
 	Args:    cobra.NoArgs,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return preRunLogic(cmd)
+		return preRunLogicAdd(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogic(cmd)
+		runLogicAdd(cmd)
 	},
 }
 
@@ -140,11 +138,11 @@ func init() {
 	addCmd.Flags().StringP("description", "d", "", "Description of the command")
 	addCmd.Flags().BoolP("editor", "e", false, "Open editor to enter command")
 	addCmd.Flags().StringP("name", "n", "", "Name of the command")
-	addCmd.Flags().StringSliceP("tags", "t", []string{}, "Tags for the command")
+	addCmd.Flags().StringSliceP("tags", "t", []string{}, "Tags for the command, comma-separated")
 
 	// Required flags
 	err := addCmd.MarkFlagRequired("name")
 	if err != nil {
-		log.Fatal(err)
+		clihelpers.FatalExit(err.Error())
 	}
 }
