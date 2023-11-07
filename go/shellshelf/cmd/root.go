@@ -25,6 +25,13 @@ Manage your shell commands with ShellShelf.`,
 	//Run: func(cmd *cobra.Command, args []string) { },
 }
 
+func completionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion",
+		Short: "Generate the autocompletion script for the specified shell",
+	}
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -41,6 +48,10 @@ func init() {
 
 	// Local flags, which will only run when this command is called directly
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	completion := completionCmd()
+	completion.Hidden = true
+	rootCmd.AddCommand(completion)
 }
 
 func initConfig() {
