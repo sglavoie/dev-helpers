@@ -70,6 +70,24 @@ func Load() (map[string]models.Command, error) {
 	return commands, nil
 }
 
+func LoadDecoded() (map[string]models.Command, error) {
+	commands, err := Load()
+	if err != nil {
+		return nil, err
+	}
+
+	for id, cmd := range commands {
+		decodedCmd, err := Decode(cmd.Command)
+		if err != nil {
+			return nil, err
+		}
+		cmd.Command = decodedCmd
+		commands[id] = cmd
+	}
+
+	return commands, nil
+}
+
 func Save(commands map[string]models.Command) error {
 	viper.Set("commands", commands)
 	return viper.WriteConfig()
