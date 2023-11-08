@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
@@ -14,7 +15,7 @@ import (
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
-	Use:   "remove",
+	Use:   "remove ID [ID]...",
 	Short: "Remove commands from the shelf",
 	Long:  "Remove one or more command(s) from the shelf by ID(s).",
 	Args:  cobra.MinimumNArgs(1),
@@ -47,9 +48,28 @@ var removeCmd = &cobra.Command{
 			delete(cmds, id)
 		}
 
+		// Also need to remove aliases that reference the removed commands
+		as, err := aliases.Load()
+		if err != nil {
+			fmt.Println(err)
+			as = map[string]string{}
+		}
+		for alias, cmdID := range as {
+			for _, id := range args {
+				if cmdID == id {
+					fmt.Printf("Removing alias '%v'\n", alias)
+					delete(as, alias)
+				}
+			}
+		}
+
 		err = commands.Save(cmds)
 		if err != nil {
 			clihelpers.FatalExit("Error saving commands:", err)
+		}
+		err = aliases.Save(as)
+		if err != nil {
+			clihelpers.FatalExit("Error saving aliases:", err)
 		}
 	},
 }

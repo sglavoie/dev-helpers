@@ -17,7 +17,7 @@ import (
 )
 
 func Add(args []string) {
-	as, err := load()
+	as, err := Load()
 	if err != nil {
 		fmt.Println(err)
 		as = map[string]string{}
@@ -39,7 +39,7 @@ func Add(args []string) {
 		return
 	}
 
-	err = save(as)
+	err = Save(as)
 	if err != nil {
 		fmt.Println("Error saving aliases:", err)
 		return
@@ -49,7 +49,7 @@ func Add(args []string) {
 }
 
 func ClearAliases(cmd *cobra.Command) {
-	as, err := load()
+	as, err := Load()
 	if err != nil {
 		fmt.Println(err)
 		as = map[string]string{}
@@ -68,12 +68,26 @@ func ClearAliases(cmd *cobra.Command) {
 		confirmRemovalAlias(as)
 	}
 
-	err = save(map[string]string{})
+	err = Save(map[string]string{})
 	if err != nil {
 		clihelpers.FatalExit("Error saving aliases:", err)
 	}
 
 	fmt.Println("Aliases cleared successfully!")
+}
+
+func Load() (map[string]string, error) {
+	if !viper.IsSet("aliases") {
+		return nil, errors.New("'aliases' key not found in config")
+	}
+
+	var aliases map[string]string
+	err := viper.UnmarshalKey("aliases", &aliases)
+	if err != nil {
+		return nil, err
+	}
+
+	return aliases, nil
 }
 
 func PreRunAdd(args []string) error {
@@ -96,7 +110,7 @@ func PreRunAdd(args []string) error {
 }
 
 func Remove(cmd *cobra.Command, args []string) {
-	as, err := load()
+	as, err := Load()
 	if err != nil {
 		fmt.Println(err)
 		as = map[string]string{}
@@ -121,6 +135,11 @@ func Remove(cmd *cobra.Command, args []string) {
 			return
 		}
 	}
+}
+
+func Save(aliases map[string]string) error {
+	viper.Set("aliases", aliases)
+	return viper.WriteConfig()
 }
 
 func add(aliases map[string]string, alias models.Alias, cmds map[string]models.Command) (map[string]string, error) {
@@ -198,20 +217,6 @@ func isValid(alias string) bool {
 	return re.MatchString(alias)
 }
 
-func load() (map[string]string, error) {
-	if !viper.IsSet("aliases") {
-		return nil, errors.New("'aliases' key not found in config")
-	}
-
-	var aliases map[string]string
-	err := viper.UnmarshalKey("aliases", &aliases)
-	if err != nil {
-		return nil, err
-	}
-
-	return aliases, nil
-}
-
 func namesExistElseExit(as map[string]string, args []string) {
 	for _, arg := range args {
 		_, err := get(as, arg)
@@ -225,7 +230,7 @@ func runLogicRemoveAliasByID(as map[string]string, args []string) {
 	areIDsValidElseExit(args)
 	c := deleteById(as, args)
 
-	err := save(as)
+	err := Save(as)
 	if err != nil {
 		clihelpers.FatalExit("Error saving aliases:", err)
 	}
@@ -247,7 +252,7 @@ func runLogicRemoveAliasByName(as map[string]string, args []string) {
 	namesExistElseExit(as, args)
 	deleteByName(as, args)
 
-	err := save(as)
+	err := Save(as)
 	if err != nil {
 		clihelpers.FatalExit("Error saving aliases:", err)
 	}
@@ -260,9 +265,4 @@ func runLogicRemoveAliasByName(as map[string]string, args []string) {
 	}
 
 	fmt.Println(n, "aliases removed successfully!")
-}
-
-func save(aliases map[string]string) error {
-	viper.Set("aliases", aliases)
-	return viper.WriteConfig()
 }
