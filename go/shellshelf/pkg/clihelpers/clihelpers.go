@@ -6,7 +6,15 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
+
+func CountSetFlags(cmd *cobra.Command) (count int) {
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		count++
+	})
+	return count
+}
 
 func FatalExit(format string, v ...interface{}) {
 	_, err := fmt.Fprintf(os.Stderr, format+"\n", v...)

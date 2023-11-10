@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/find"
 	"github.com/spf13/cobra"
@@ -10,41 +11,49 @@ import (
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
-	Use:   "find text",
+	Use:   "find [flags]... text...",
 	Short: "Find a command on the shelf",
 	Long: `Find a command on the shelf by searching for text anywhere in the
 command name, description, tags, etc.`,
-	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		decoded, err := commands.LoadDecoded()
 		if err != nil {
 			return
 		}
 
-		matches := find.InCommandFields(decoded, args)
+		flagsPassed := clihelpers.CountSetFlags(cmd)
+
+		var matches []string
+		if flagsPassed == 0 {
+			find.HandleFindInAllCommands(cmd, decoded, args)
+			return
+		}
+
+		if find.HandleAllFlagReturns(cmd, flagsPassed, decoded, args) {
+			return
+		}
+
+		if find.HandleAllExceptFlagReturns(cmd, flagsPassed, decoded, args) {
+			return
+		}
+
+		matches = find.InFlagsPassed(cmd, decoded)
 		if len(matches) == 0 {
 			fmt.Println("No matches found")
 			return
 		}
-
-		fmt.Println("Commands:")
-		fmt.Println("--------------------------------------------------------------------------------")
-		for _, id := range matches {
-			decodedCmd := decoded[id]
-			if decodedCmd.Description == "" {
-				fmt.Printf("[%v] %v\n", id, decodedCmd.Name)
-			} else {
-				fmt.Printf("[%v] %v - %v\n", id, decodedCmd.Name, decodedCmd.Description)
-			}
-			if len(decodedCmd.Tags) > 0 {
-				fmt.Printf("Tags: %v\n", decodedCmd.Tags)
-			}
-			fmt.Printf("%v\n", decodedCmd.Command)
-			fmt.Println("--------------------------------------------------------------------------------")
-		}
+		find.PrintMatches(decoded, matches)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(findCmd)
+
+	// Local flags
+	findCmd.Flags().BoolP("all", "a", false, "Show all commands, ignoring search terms")
+	findCmd.Flags().BoolP("exclude", "e", false, "Show all commands except those matching any of the search terms")
+	findCmd.Flags().StringSliceP("command", "c", []string{}, "Restrict search to the command contents")
+	findCmd.Flags().StringSliceP("description", "d", []string{}, "Restrict search to the command description")
+	findCmd.Flags().StringSliceP("name", "n", []string{}, "Restrict search to the command name")
+	findCmd.Flags().StringSliceP("tags", "t", []string{}, "Restrict search to the command tags")
 }
