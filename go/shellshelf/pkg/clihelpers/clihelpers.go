@@ -47,3 +47,7 @@ func GetFlagStringSlice(cmd *cobra.Command, flagName string) ([]string, error) {
 	}
 	return value, nil
 }
+
+func PrintLineSeparator() {
+	fmt.Println("--------------------------------------------------------------------------------")
+}

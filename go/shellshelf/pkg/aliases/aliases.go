@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/find"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -76,6 +78,23 @@ func ClearAliases(cmd *cobra.Command) {
 	fmt.Println("Aliases cleared successfully!")
 }
 
+func FindAlias(args []string) {
+	as, err := Load()
+	if err != nil {
+		fmt.Println(err)
+		as = map[string]string{}
+	}
+
+	matches := inAliasFields(as, args)
+	if len(matches) == 0 {
+		fmt.Println("No matches found")
+		return
+	}
+
+	slices.Sort(matches)
+	PrintMatches(as, matches)
+}
+
 func Load() (map[string]string, error) {
 	if !viper.IsSet("aliases") {
 		return nil, errors.New("'aliases' key not found in config")
@@ -107,6 +126,21 @@ func PreRunAdd(args []string) error {
 		return fmt.Errorf("invalid alias specified: %s", args[1])
 	}
 	return nil
+}
+
+func PrintMatches(as map[string]string, matches []string) {
+	decoded, err := commands.LoadDecoded()
+	if err != nil {
+		return
+	}
+
+	clihelpers.PrintLineSeparator()
+	for _, match := range matches {
+		cmdId := as[match]
+		fmt.Printf("%v\n", match)
+		find.PrintMatch(decoded, cmdId)
+		clihelpers.PrintLineSeparator()
+	}
 }
 
 func Remove(cmd *cobra.Command, args []string) {
@@ -209,6 +243,18 @@ func get(aliases map[string]string, name string) (string, error) {
 	}
 
 	return aliases[name], nil
+}
+
+func inAliasFields(as map[string]string, args []string) []string {
+	var matches []string
+	for _, arg := range args {
+		for k := range as {
+			if strings.Contains(k, arg) {
+				matches = append(matches, k)
+			}
+		}
+	}
+	return matches
 }
 
 func isValid(alias string) bool {

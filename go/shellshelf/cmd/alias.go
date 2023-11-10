@@ -43,6 +43,18 @@ var aliasClearCmd = &cobra.Command{
 	},
 }
 
+var aliasFindCmd = &cobra.Command{
+	Use:     "find [alias]",
+	Aliases: []string{"f"},
+	Short:   "Find an alias by name",
+	Long:    "Find an alias by name, displaying the associated command.",
+	Example: "find myalias",
+	Args:    cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		aliases.FindAlias(args)
+	},
+}
+
 // aliasRemoveCmd represents the remove command for aliases
 var aliasRemoveCmd = &cobra.Command{
 	Aliases: []string{"r"},
@@ -61,9 +73,11 @@ func init() {
 	// Sub-commands
 	aliasRootCmd.AddCommand(aliasAddCmd)
 	aliasRootCmd.AddCommand(aliasClearCmd)
+	aliasRootCmd.AddCommand(aliasFindCmd)
 	aliasRootCmd.AddCommand(aliasRemoveCmd)
 
 	// Local flags
 	aliasClearCmd.Flags().BoolP("force", "f", false, "Remove all aliases without confirmation")
+	aliasFindCmd.Flags().BoolP("find", "f", false, "Find an alias by name")
 	aliasRemoveCmd.Flags().StringSliceP("id", "i", []string{}, "Remove alias(es) matching by command ID(s)")
 }

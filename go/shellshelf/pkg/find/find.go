@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -82,21 +83,24 @@ func InFlagsPassed(cmd *cobra.Command, decoded map[string]models.Command) []stri
 	return uniqueEntries(matches)
 }
 
+func PrintMatch(cmds map[string]models.Command, id string) {
+	decodedCmd := cmds[id]
+	if decodedCmd.Description == "" {
+		fmt.Printf("[%v] %v\n", id, decodedCmd.Name)
+	} else {
+		fmt.Printf("[%v] %v - %v\n", id, decodedCmd.Name, decodedCmd.Description)
+	}
+	if len(decodedCmd.Tags) > 0 {
+		fmt.Printf("Tags: %v\n", decodedCmd.Tags)
+	}
+	fmt.Printf("%v\n", decodedCmd.Command)
+}
+
 func PrintMatches(cmds map[string]models.Command, matches []string) {
-	fmt.Println("Commands:")
-	fmt.Println("--------------------------------------------------------------------------------")
+	clihelpers.PrintLineSeparator()
 	for _, id := range matches {
-		decodedCmd := cmds[id]
-		if decodedCmd.Description == "" {
-			fmt.Printf("[%v] %v\n", id, decodedCmd.Name)
-		} else {
-			fmt.Printf("[%v] %v - %v\n", id, decodedCmd.Name, decodedCmd.Description)
-		}
-		if len(decodedCmd.Tags) > 0 {
-			fmt.Printf("Tags: %v\n", decodedCmd.Tags)
-		}
-		fmt.Printf("%v\n", decodedCmd.Command)
-		fmt.Println("--------------------------------------------------------------------------------")
+		PrintMatch(cmds, id)
+		clihelpers.PrintLineSeparator()
 	}
 }
 
@@ -182,8 +186,7 @@ func makeSearchFunc(field string) func(map[string]models.Command, []string) []st
 }
 
 func printAll(cmds map[string]models.Command) {
-	fmt.Println("Commands:")
-	fmt.Println("--------------------------------------------------------------------------------")
+	clihelpers.PrintLineSeparator()
 
 	// Extract keys and convert them to integers for sorting
 	var keys []int
@@ -207,7 +210,7 @@ func printAll(cmds map[string]models.Command) {
 			fmt.Printf("Tags: %v\n", cmd.Tags)
 		}
 		fmt.Printf("%v\n", cmd.Command)
-		fmt.Println("--------------------------------------------------------------------------------")
+		clihelpers.PrintLineSeparator()
 	}
 }
 
