@@ -1,9 +1,11 @@
 package clihelpers
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -50,4 +52,26 @@ func GetFlagStringSlice(cmd *cobra.Command, flagName string) ([]string, error) {
 
 func PrintLineSeparator() {
 	fmt.Println("--------------------------------------------------------------------------------")
+}
+
+func ReadUserConfirmation() (bool, error) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("y/N: ")
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Println("Error reading input:", err)
+		return false, err
+	}
+
+	input = strings.TrimSpace(input)
+
+	if input != "y" && input != "Y" {
+		return false, nil
+	}
+	return true, nil
+}
+
+func WarnBeforeProceeding() (bool, error) {
+	fmt.Println("Are you sure you want to proceed?")
+	return ReadUserConfirmation()
 }

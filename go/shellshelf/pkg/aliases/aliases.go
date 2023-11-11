@@ -1,10 +1,8 @@
 package aliases
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -244,17 +242,10 @@ func confirmRemovalAlias(as map[string]string) {
 	for k := range as {
 		fmt.Printf("%v\n", k)
 	}
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("y/N: ")
-	input, err := reader.ReadString('\n')
+
+	_, err := clihelpers.ReadUserConfirmation()
 	if err != nil {
-		clihelpers.FatalExit("Error reading input:", err)
-	}
-
-	input = strings.TrimSpace(input)
-
-	if input != "y" && input != "Y" {
-		clihelpers.FatalExit("Aborting")
+		return
 	}
 }
 

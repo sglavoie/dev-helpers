@@ -1,11 +1,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
@@ -37,7 +33,7 @@ var removeCmd = &cobra.Command{
 		}
 
 		if !f {
-			err := confirmRemovalCommand(args, cmds)
+			_, err := confirmRemovalCommand(args, cmds)
 			if err != nil {
 				clihelpers.FatalExit("Error confirming removal:", err)
 			}
@@ -74,7 +70,7 @@ var removeCmd = &cobra.Command{
 	},
 }
 
-func confirmRemovalCommand(args []string, cmds map[string]models.Command) error {
+func confirmRemovalCommand(args []string, cmds map[string]models.Command) (bool, error) {
 	fmt.Println("Are you sure you want to remove the following command(s)?")
 	for _, id := range args {
 		desc := cmds[id].Description
@@ -83,21 +79,7 @@ func confirmRemovalCommand(args []string, cmds map[string]models.Command) error 
 		}
 		fmt.Printf("[%v] %v %v\n", id, cmds[id].Name, desc)
 	}
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("y/N: ")
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error reading input:", err)
-		return err
-	}
-
-	input = strings.TrimSpace(input)
-
-	if input != "y" && input != "Y" {
-		clihelpers.FatalExit("Aborting")
-	}
-
-	return nil
+	return clihelpers.ReadUserConfirmation()
 }
 
 func init() {
