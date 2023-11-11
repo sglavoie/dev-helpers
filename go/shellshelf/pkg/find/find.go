@@ -9,6 +9,7 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/slicingutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -80,7 +81,7 @@ func InFlagsPassed(cmd *cobra.Command, decoded map[string]models.Command) []stri
 		matches = append(matches, searchFunc(decoded, value)...)
 	})
 
-	return uniqueEntries(matches)
+	return slicingutils.UniqueEntries(matches)
 }
 
 func PrintMatch(cmds map[string]models.Command, id string) {
@@ -223,7 +224,7 @@ func printMatchesExcept(decoded map[string]models.Command, args []string) {
 		matches = append(matches, match...)
 	}
 
-	matches = uniqueEntries(matches)
+	matches = slicingutils.UniqueEntries(matches)
 
 	// Keep only the command IDs that don't match the search terms
 	var reverse []string
@@ -265,17 +266,4 @@ func searchCommandFields(cmd models.Command, keyword string) bool {
 	}
 
 	return false
-}
-
-// uniqueEntries ensures entries are unique
-func uniqueEntries(slice []string) []string {
-	keys := make(map[string]bool)
-	var list []string
-	for _, entry := range slice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }

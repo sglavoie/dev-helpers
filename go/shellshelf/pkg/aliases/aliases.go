@@ -14,6 +14,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/find"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/slicingutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -92,7 +93,46 @@ func FindAlias(args []string) {
 	}
 
 	slices.Sort(matches)
+	matches = slicingutils.UniqueEntries(matches)
 	PrintMatches(as, matches)
+}
+
+func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, args []string) bool {
+	all, err := cmd.Flags().GetBool("all")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return true
+	}
+	if all && flagsPassed > 1 {
+		fmt.Println("You cannot specify more than one flag when using --all")
+		return true
+	}
+	if all {
+		as, err := Load()
+		if err != nil {
+			fmt.Println(err)
+			as = map[string]string{}
+		}
+
+		if len(as) == 0 {
+			fmt.Println("No aliases found!")
+			return true
+		}
+
+		var matches []string
+		for k := range as {
+			matches = append(matches, k)
+		}
+
+		slices.Sort(matches)
+		PrintMatches(as, matches)
+
+		if len(args) > 0 {
+			fmt.Println("Search terms ignored")
+		}
+		return true
+	}
+	return false
 }
 
 func Load() (map[string]string, error) {

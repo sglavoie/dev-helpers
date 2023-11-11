@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/spf13/cobra"
 )
 
@@ -49,9 +52,24 @@ var aliasFindCmd = &cobra.Command{
 	Short:   "Find an alias by name",
 	Long:    "Find an alias by name, displaying the associated command.",
 	Example: "find myalias",
-	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.FindAlias(args)
+		flagsPassed := clihelpers.CountSetFlags(cmd)
+		if flagsPassed == 0 {
+			if len(args) == 0 {
+				err := cmd.Help()
+				if err != nil {
+					return
+				}
+				fmt.Println("error: search term(s) required")
+				return
+			}
+			aliases.FindAlias(args)
+			return
+		}
+
+		if aliases.HandleAllFlagReturns(cmd, flagsPassed, args) {
+			return
+		}
 	},
 }
 
@@ -78,6 +96,6 @@ func init() {
 
 	// Local flags
 	aliasClearCmd.Flags().BoolP("force", "f", false, "Remove all aliases without confirmation")
-	aliasFindCmd.Flags().BoolP("find", "f", false, "Find an alias by name")
+	aliasFindCmd.Flags().BoolP("all", "a", false, "Show all aliases, ignoring search terms")
 	aliasRemoveCmd.Flags().StringSliceP("id", "i", []string{}, "Remove alias(es) matching by command ID(s)")
 }
