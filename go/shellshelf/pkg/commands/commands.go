@@ -56,6 +56,15 @@ func GetMaxID(commands map[string]models.Command) (int, error) {
 	return maxID, nil
 }
 
+func IsCommandNameAlreadyTaken(commands map[string]models.Command, name string) bool {
+	for _, cmd := range commands {
+		if cmd.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func Load() (map[string]models.Command, error) {
 	if !viper.IsSet("commands") {
 		return nil, errors.New("'commands' key not found in config")

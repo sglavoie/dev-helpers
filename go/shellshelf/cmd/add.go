@@ -43,6 +43,17 @@ func runLogicAdd(cmd *cobra.Command) {
 		clihelpers.FatalExit("Error building command:", err)
 	}
 
+	if commands.IsCommandNameAlreadyTaken(cmds, command.Name) {
+		fmt.Println("A command with that name already exists.")
+		proceeding, err := clihelpers.WarnBeforeProceeding()
+		if err != nil {
+			return
+		}
+		if !proceeding {
+			return
+		}
+	}
+
 	cmds, err = commands.Add(cmds, command)
 	if err != nil {
 		clihelpers.FatalExit("Error adding command:", err)
