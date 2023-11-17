@@ -8,7 +8,6 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func preRunLogicAdd(cmd *cobra.Command) error {
@@ -114,7 +113,7 @@ func readCommand(cmd *cobra.Command, command models.Command) (models.Command, er
 		return command, errors.New("no editor specified")
 	}
 
-	v, err = commands.GetCommandWithEditor(viper.GetString("editor"))
+	v, err = commands.GetCommandWithEditor()
 	if err != nil {
 		return command, err
 	}

@@ -50,6 +50,13 @@ func GetFlagStringSlice(cmd *cobra.Command, flagName string) ([]string, error) {
 	return value, nil
 }
 
+func GetSetFlags(cmd *cobra.Command) (flags []string) {
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		flags = append(flags, f.Name)
+	})
+	return flags
+}
+
 func PrintLineSeparator() {
 	fmt.Println("--------------------------------------------------------------------------------")
 }

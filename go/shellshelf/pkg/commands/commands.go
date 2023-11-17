@@ -38,6 +38,21 @@ func Decode(encodedCmd string) (string, error) {
 	return string(decodedBytes), nil
 }
 
+func EditAllFields(cmd models.Command) (models.Command, error) {
+	updatedCmdDetails, err := getUpdatedCommandFields(cmd)
+	if err != nil {
+		return cmd, err
+	}
+
+	parsedCmd, err := GetParsedCommand(updatedCmdDetails)
+	if err != nil {
+		return cmd, err
+	}
+
+	fmt.Println("parsedCmd:", parsedCmd)
+	return parsedCmd, nil
+}
+
 func Encode(cmdStr string) string {
 	return base64.StdEncoding.EncodeToString([]byte(cmdStr))
 }
