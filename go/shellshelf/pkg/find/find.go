@@ -2,12 +2,14 @@ package find
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/slicingutils"
 	"github.com/spf13/cobra"
@@ -42,8 +44,21 @@ func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, decoded map[strin
 		return true
 	}
 	if all && flagsPassed > 1 {
-		fmt.Println("You cannot specify more than one flag when using --all")
-		return true
+		if flagsPassed > 2 {
+			fmt.Println("You cannot specify more than one flag when using --all except for --editor")
+			return true
+		}
+
+		editor, err := cmd.Flags().GetBool("editor")
+		if err != nil {
+			fmt.Println("Error:", err)
+			return true
+		}
+		if !editor {
+			fmt.Println("Only --editor can be used with --all")
+			return true
+		}
+		return false
 	}
 	if all {
 		printAll(decoded)
@@ -105,6 +120,36 @@ func PrintMatches(cmds map[string]models.Command, matches []string) {
 	}
 }
 
+func ShowMatchesInEditor(cmds map[string]models.Command, matches []string) error {
+	details := getMatchesString(cmds, matches)
+
+	tmpfile, err := os.CreateTemp("", "commands")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+			fmt.Printf("failed to remove temp file: %v", err)
+		}
+	}(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(details)); err != nil {
+		err := tmpfile.Close()
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to write to temp file: %v", err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %v", err)
+	}
+
+	commands.OpenFileWithEditor(tmpfile.Name())
+
+	return nil
+}
+
 // inAllCommandFields searches for keywords within the specified fields of all commands.
 // Returns a slice of unique command IDs that match **all** the keywords.
 func inAllCommandFields(cmds map[string]models.Command, keywords []string) []string {
@@ -132,6 +177,23 @@ func inAllCommandFields(cmds map[string]models.Command, keywords []string) []str
 
 	slices.Sort(matchSlice)
 	return matchSlice
+}
+
+func getMatchesString(cmds map[string]models.Command, matches []string) string {
+	var details string
+	for _, id := range matches {
+		command := cmds[id]
+		details += clihelpers.GetLineSeparator() + "\n"
+		details += fmt.Sprintf("[%s] %s\n", id, command.Name)
+		if command.Description != "" {
+			details += fmt.Sprintf("Description: %s\n", command.Description)
+		}
+		if len(command.Tags) > 0 {
+			details += fmt.Sprintf("Tags: %v\n", command.Tags)
+		}
+		details += fmt.Sprintf("Command: %s\n", command.Command)
+	}
+	return details
 }
 
 // makeSearchFunc creates a function to search commands based on a given field and keywords.

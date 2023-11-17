@@ -64,7 +64,18 @@ func GetParsedCommand(input string) (models.Command, error) {
 }
 
 func OpenEditorAndGetInput(tempFilePath string) (string, error) {
-	args := getArgsForEditor(getDefaultEditorName(), tempFilePath)
+	OpenFileWithEditor(tempFilePath)
+
+	content, err := os.ReadFile(tempFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read temp file: %v", err)
+	}
+
+	return string(content), nil
+}
+
+func OpenFileWithEditor(filePath string) {
+	args := getArgsForEditor(getDefaultEditorName(), filePath)
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -72,16 +83,8 @@ func OpenEditorAndGetInput(tempFilePath string) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("failed to open editor: %v", err)
+		clihelpers.FatalExit("Error opening file with editor:", err)
 	}
-
-	// Read the content of the temporary file
-	content, err := os.ReadFile(tempFilePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read temp file: %v", err)
-	}
-
-	return string(content), nil
 }
 
 func getArgsForEditor(editor, tempFilePath string) []string {
@@ -160,17 +163,7 @@ func getUpdatedCommandFields(command models.Command) (string, error) {
 		return "", fmt.Errorf("failed to close temp file: %v\n", err)
 	}
 
-	args := getArgsForEditor(getDefaultEditorName(), tempFile.Name())
-	fmt.Println("args:", args)
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("failed to open editor: %v\n", err)
-	}
+	OpenFileWithEditor(tempFile.Name())
 
 	content, err := os.ReadFile(tempFile.Name())
 	if err != nil {

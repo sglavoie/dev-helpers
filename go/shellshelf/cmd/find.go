@@ -42,6 +42,21 @@ command name, description, tags, etc.`,
 			fmt.Println("No matches found")
 			return
 		}
+
+		editor, err := cmd.Flags().GetBool("editor")
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		if editor {
+			err := find.ShowMatchesInEditor(decoded, matches)
+			if err != nil {
+				fmt.Println("Error ShowMatchesInEditor:", err)
+			}
+			return
+		}
+
 		find.PrintMatches(decoded, matches)
 	},
 }
@@ -51,7 +66,8 @@ func init() {
 
 	// Local flags
 	findCmd.Flags().BoolP("all", "a", false, "Show all commands, ignoring search terms")
-	findCmd.Flags().BoolP("exclude", "e", false, "Show all commands except those matching any of the search terms")
+	findCmd.Flags().BoolP("editor", "e", false, "Show the results in an editor")
+	findCmd.Flags().BoolP("exclude", "x", false, "Show all commands except those matching any of the search terms")
 	findCmd.Flags().StringSliceP("command", "c", []string{}, "Restrict search to the command contents")
 	findCmd.Flags().StringSliceP("description", "d", []string{}, "Restrict search to the command description")
 	findCmd.Flags().StringSliceP("name", "n", []string{}, "Restrict search to the command name")
