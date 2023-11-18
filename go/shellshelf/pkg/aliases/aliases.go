@@ -42,7 +42,7 @@ func Add(args []string) {
 
 	err = Save(as)
 	if err != nil {
-		fmt.Println("Error saving aliases: %v", err)
+		fmt.Printf("Error saving aliases: %v\n", err)
 		return
 	}
 
