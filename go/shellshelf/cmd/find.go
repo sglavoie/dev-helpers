@@ -11,8 +11,9 @@ import (
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
-	Use:   "find [flags]... text...",
-	Short: "Find a command on the shelf",
+	Use:     "find [flags]... text...",
+	Aliases: []string{"f"},
+	Short:   "Find a command on the shelf",
 	Long: `Find a command on the shelf by searching for text anywhere in the
 command name, description, tags, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {

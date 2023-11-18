@@ -119,10 +119,11 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 
 // editCmd represents the edit command
 var editCmd = &cobra.Command{
-	Use:   "edit ID [flags]",
-	Short: "Edit a shelved command",
-	Long:  "Edit a shelved command by ID for the provided flags/fields, or open an editor to edit all fields.",
-	Args:  cobra.ExactArgs(1),
+	Use:     "edit ID [flags]",
+	Aliases: []string{"e"},
+	Short:   "Edit a shelved command",
+	Long:    "Edit a shelved command by ID for the provided flags/fields, or open an editor to edit all fields.",
+	Args:    cobra.ExactArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		return preRunLogicEdit(cmd)
 	},

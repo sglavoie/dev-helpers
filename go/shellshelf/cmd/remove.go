@@ -11,10 +11,11 @@ import (
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
-	Use:   "remove ID [ID]...",
-	Short: "Remove commands from the shelf",
-	Long:  "Remove one or more command(s) from the shelf by ID(s).",
-	Args:  cobra.MinimumNArgs(1),
+	Use:     "remove ID [ID]...",
+	Aliases: []string{"rm"},
+	Short:   "Remove commands from the shelf",
+	Long:    "Remove one or more command(s) from the shelf by ID(s).",
+	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		cmds, err := commands.Load()
 		if err != nil {
