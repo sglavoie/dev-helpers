@@ -249,6 +249,11 @@ func makeSearchFunc(field string) func(map[string]models.Command, []string) []st
 }
 
 func printAll(cmds map[string]models.Command) {
+	if len(cmds) == 0 {
+		fmt.Println("No commands found")
+		return
+	}
+
 	clihelpers.PrintLineSeparator()
 
 	// Extract keys and convert them to integers for sorting
