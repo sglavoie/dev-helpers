@@ -39,7 +39,7 @@ func runLogicAdd(cmd *cobra.Command) {
 
 	command, err := buildCommand(cmd)
 	if err != nil {
-		clihelpers.FatalExit("Error building command:", err)
+		clihelpers.FatalExit("Error building command: %v", err)
 	}
 
 	if commands.IsCommandNameAlreadyTaken(cmds, command.Name) {
@@ -55,12 +55,12 @@ func runLogicAdd(cmd *cobra.Command) {
 
 	cmds, err = commands.Add(cmds, command)
 	if err != nil {
-		clihelpers.FatalExit("Error adding command:", err)
+		clihelpers.FatalExit("Error adding command: %v", err)
 	}
 
 	err = commands.Save(cmds)
 	if err != nil {
-		clihelpers.FatalExit("Error saving commands:", err)
+		clihelpers.FatalExit("Error saving commands: %v", err)
 	}
 
 	fmt.Println("Command shelved successfully!")

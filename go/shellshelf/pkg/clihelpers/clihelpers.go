@@ -3,7 +3,6 @@ package clihelpers
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -21,7 +20,7 @@ func CountSetFlags(cmd *cobra.Command) (count int) {
 func FatalExit(format string, v ...interface{}) {
 	_, err := fmt.Fprintf(os.Stderr, format+"\n", v...)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 	os.Exit(1)
 }

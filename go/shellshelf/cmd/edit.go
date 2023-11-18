@@ -72,12 +72,12 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 
 	command, ok := cmds[cmdID]
 	if !ok {
-		clihelpers.FatalExit("Command ID not found: " + cmdID)
+		clihelpers.FatalExit("Command ID not found: %v", cmdID)
 	}
 
 	command.Command, err = commands.Decode(command.Command)
 	if err != nil {
-		clihelpers.FatalExit("Error decoding command:", err)
+		clihelpers.FatalExit("Error decoding command: %v", err)
 	}
 
 	editor, err := cmd.Flags().GetBool("editor")
@@ -95,14 +95,14 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 
 		updatedCmd, err := commands.EditAllFields(command)
 		if err != nil {
-			clihelpers.FatalExit("Error editing command:", err)
+			clihelpers.FatalExit("Error editing command: %v", err)
 		}
 		updatedCmd.Command = commands.Encode(updatedCmd.Command)
 		cmds[cmdID] = updatedCmd
 
 		err = commands.Save(cmds)
 		if err != nil {
-			clihelpers.FatalExit("Error saving commands:", err)
+			clihelpers.FatalExit("Error saving commands: %v", err)
 		}
 		return
 	}
@@ -111,7 +111,7 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 	cmds[cmdID] = command
 	err = commands.Save(cmds)
 	if err != nil {
-		clihelpers.FatalExit("Error saving commands:", err)
+		clihelpers.FatalExit("Error saving commands: %v", err)
 	}
 }
 

@@ -42,7 +42,7 @@ func Add(args []string) {
 
 	err = Save(as)
 	if err != nil {
-		fmt.Println("Error saving aliases:", err)
+		fmt.Println("Error saving aliases: %v", err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func ClearAliases(cmd *cobra.Command) {
 
 	f, err := clihelpers.GetFlagBool(cmd, "force")
 	if err != nil {
-		clihelpers.FatalExit("Error getting flag:", err)
+		clihelpers.FatalExit("Error getting flag: %v", err)
 	}
 
 	if !f {
@@ -71,7 +71,7 @@ func ClearAliases(cmd *cobra.Command) {
 
 	err = Save(map[string]string{})
 	if err != nil {
-		clihelpers.FatalExit("Error saving aliases:", err)
+		clihelpers.FatalExit("Error saving aliases: %v", err)
 	}
 
 	fmt.Println("Aliases cleared successfully!")
@@ -232,7 +232,7 @@ func areIDsValidElseExit(args []string) {
 	for _, arg := range args {
 		_, err := strconv.Atoi(arg)
 		if err != nil {
-			clihelpers.FatalExit("Error parsing ID:", err)
+			clihelpers.FatalExit("Error parsing ID: %v", err)
 		}
 	}
 }
@@ -309,7 +309,7 @@ func runLogicRemoveAliasByID(as map[string]string, args []string) {
 
 	err := Save(as)
 	if err != nil {
-		clihelpers.FatalExit("Error saving aliases:", err)
+		clihelpers.FatalExit("Error saving aliases: %v", err)
 	}
 
 	if c == 0 {
@@ -331,7 +331,7 @@ func runLogicRemoveAliasByName(as map[string]string, args []string) {
 
 	err := Save(as)
 	if err != nil {
-		clihelpers.FatalExit("Error saving aliases:", err)
+		clihelpers.FatalExit("Error saving aliases: %v", err)
 	}
 
 	n := len(args)

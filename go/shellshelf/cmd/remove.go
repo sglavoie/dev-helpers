@@ -24,18 +24,18 @@ var removeCmd = &cobra.Command{
 
 		err = commands.AreAllCommandIDsValid(cmds, args)
 		if err != nil {
-			clihelpers.FatalExit("Error checking command IDs:", err)
+			clihelpers.FatalExit("Error checking command IDs: %v", err)
 		}
 
 		f, err := clihelpers.GetFlagBool(cmd, "force")
 		if err != nil {
-			clihelpers.FatalExit("Error getting flag:", err)
+			clihelpers.FatalExit("Error getting flag: %v", err)
 		}
 
 		if !f {
 			_, err := confirmRemovalCommand(args, cmds)
 			if err != nil {
-				clihelpers.FatalExit("Error confirming removal:", err)
+				clihelpers.FatalExit("Error confirming removal: %v", err)
 			}
 		}
 
@@ -61,11 +61,11 @@ var removeCmd = &cobra.Command{
 
 		err = commands.Save(cmds)
 		if err != nil {
-			clihelpers.FatalExit("Error saving commands:", err)
+			clihelpers.FatalExit("Error saving commands: %v", err)
 		}
 		err = aliases.Save(as)
 		if err != nil {
-			clihelpers.FatalExit("Error saving aliases:", err)
+			clihelpers.FatalExit("Error saving aliases: %v", err)
 		}
 	},
 }

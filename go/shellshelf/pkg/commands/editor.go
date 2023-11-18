@@ -83,7 +83,7 @@ func OpenFileWithEditor(filePath string) {
 
 	err := cmd.Run()
 	if err != nil {
-		clihelpers.FatalExit("Error opening file with editor:", err)
+		clihelpers.FatalExit("Error opening file with editor: %v", err)
 	}
 }
 
