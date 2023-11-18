@@ -6,7 +6,6 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
-
 	"github.com/spf13/cobra"
 )
 
@@ -97,6 +96,8 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 		if err != nil {
 			clihelpers.FatalExit("Error editing command: %v", err)
 		}
+
+		commands.RunCheckOnDecodedCommand(updatedCmd)
 		updatedCmd.Command = commands.Encode(updatedCmd.Command)
 		cmds[cmdID] = updatedCmd
 
@@ -107,7 +108,8 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	command = getUpdatedCommandFromFlags(cmd, command)
+	updatedCmd := getUpdatedCommandFromFlags(cmd, command)
+	commands.RunCheckOnDecodedCommand(updatedCmd)
 	cmds[cmdID] = command
 	err = commands.Save(cmds)
 	if err != nil {

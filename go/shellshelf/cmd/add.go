@@ -100,7 +100,7 @@ func readCommand(cmd *cobra.Command, command models.Command) (models.Command, er
 
 	// Get command from flag
 	if v != "" {
-		command.Command = commands.Encode(v)
+		command.Command = v
 		return command, nil
 	}
 
@@ -120,7 +120,7 @@ func readCommand(cmd *cobra.Command, command models.Command) (models.Command, er
 	if v == "" {
 		return command, errors.New("no command specified")
 	}
-	command.Command = commands.Encode(v)
+	command.Command = v
 	return command, nil
 }
 

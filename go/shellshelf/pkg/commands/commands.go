@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"strconv"
+	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/viper"
@@ -16,6 +18,8 @@ func Add(cmds map[string]models.Command, cmd models.Command) (map[string]models.
 		return cmds, err
 	}
 
+	RunCheckOnDecodedCommand(cmd)
+	cmd.Command = Encode(cmd.Command)
 	cmds[strconv.Itoa(maxID+1)] = cmd
 
 	return cmds, nil
@@ -49,7 +53,6 @@ func EditAllFields(cmd models.Command) (models.Command, error) {
 		return cmd, err
 	}
 
-	fmt.Println("parsedCmd:", parsedCmd)
 	return parsedCmd, nil
 }
 
@@ -110,6 +113,16 @@ func LoadDecoded() (map[string]models.Command, error) {
 	}
 
 	return commands, nil
+}
+
+func RunCheckOnDecodedCommand(decodedCmd models.Command) {
+	if strings.TrimSpace(decodedCmd.Name) == "" {
+		clihelpers.FatalExit("command name cannot be empty")
+	}
+
+	if strings.TrimSpace(decodedCmd.Command) == "" {
+		clihelpers.FatalExit("command content cannot be empty")
+	}
 }
 
 func Save(commands map[string]models.Command) error {
