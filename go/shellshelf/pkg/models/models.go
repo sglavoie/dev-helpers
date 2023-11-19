@@ -20,5 +20,6 @@ type Config struct {
 }
 
 type Settings struct {
-	Editor string `json:"editor"`
+	ConfirmBeforeRun bool   `json:"confirmBeforeRun"`
+	Editor           string `json:"editor"`
 }

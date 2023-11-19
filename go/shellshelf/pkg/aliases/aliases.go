@@ -204,7 +204,7 @@ func deleteByName(cfg *models.Config, args []string) {
 	}
 }
 
-func get(aliases map[string]string, name string) (string, error) {
+func Get(aliases map[string]string, name string) (string, error) {
 	if _, ok := aliases[name]; !ok {
 		return "", fmt.Errorf("alias '%v' not found", name)
 	}
@@ -232,7 +232,7 @@ func isValid(alias string) bool {
 
 func namesExistElseExit(as map[string]string, args []string) {
 	for _, arg := range args {
-		_, err := get(as, arg)
+		_, err := Get(as, arg)
 		if err != nil {
 			clihelpers.FatalExit(err.Error())
 		}

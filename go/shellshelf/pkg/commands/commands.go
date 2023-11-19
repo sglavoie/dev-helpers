@@ -59,6 +59,22 @@ func Encode(cmdStr string) string {
 	return base64.StdEncoding.EncodeToString([]byte(cmdStr))
 }
 
+func GetById(commands map[string]models.Command, id string) (models.Command, error) {
+	if cmd, ok := commands[id]; ok {
+		return cmd, nil
+	}
+	return models.Command{}, fmt.Errorf("command ID '%s' not found", id)
+}
+
+func GetByName(commands map[string]models.Command, name string) (models.Command, error) {
+	for _, cmd := range commands {
+		if cmd.Name == name {
+			return cmd, nil
+		}
+	}
+	return models.Command{}, fmt.Errorf("command name '%s' not found", name)
+}
+
 func GetMaxID(commands map[string]models.Command) (int, error) {
 	maxID := 0
 	for idStr := range commands {
