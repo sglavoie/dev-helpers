@@ -6,12 +6,13 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/editor"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
 
 func preRunLogicAdd(cmd *cobra.Command) error {
-	editor, err := cmd.Flags().GetBool("editor")
+	ed, err := cmd.Flags().GetBool("editor")
 	if err != nil {
 		fmt.Println("Error:", err)
 		return err
@@ -23,7 +24,7 @@ func preRunLogicAdd(cmd *cobra.Command) error {
 		return err
 	}
 
-	if (editor && command != "") || (!editor && command == "") {
+	if (ed && command != "") || (!ed && command == "") {
 		return errors.New("you must specify either --editor or --command, but not both")
 	}
 
@@ -95,15 +96,15 @@ func readCommand(cmd *cobra.Command, command models.Command) (models.Command, er
 	}
 
 	// Get command from editor
-	editor, err := cmd.Flags().GetBool("editor")
+	ed, err := cmd.Flags().GetBool("editor")
 	if err != nil {
 		return command, err
 	}
-	if !editor {
+	if !ed {
 		return command, errors.New("no editor specified")
 	}
 
-	v, err = commands.GetCommandWithEditor()
+	v, err = editor.GetCommandWithEditor()
 	if err != nil {
 		return command, err
 	}

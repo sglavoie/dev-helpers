@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/editor"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/slicingutils"
 	"github.com/spf13/cobra"
@@ -49,12 +49,12 @@ func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, decoded map[strin
 			return true
 		}
 
-		editor, err := cmd.Flags().GetBool("editor")
+		ed, err := cmd.Flags().GetBool("editor")
 		if err != nil {
 			fmt.Println("Error:", err)
 			return true
 		}
-		if !editor {
+		if !ed {
 			fmt.Println("Only --editor can be used with --all")
 			return true
 		}
@@ -123,7 +123,7 @@ func PrintMatches(cmds map[string]models.Command, matches []string) {
 func ShowMatchesInEditor(cmds map[string]models.Command, matches []string) error {
 	details := getMatchesString(cmds, matches)
 
-	tmpfile, err := os.CreateTemp("", "commands")
+	tmpFile, err := os.CreateTemp("", "commands")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %v", err)
 	}
@@ -132,20 +132,20 @@ func ShowMatchesInEditor(cmds map[string]models.Command, matches []string) error
 		if err != nil {
 			fmt.Printf("failed to remove temp file: %v", err)
 		}
-	}(tmpfile.Name())
+	}(tmpFile.Name())
 
-	if _, err := tmpfile.Write([]byte(details)); err != nil {
-		err := tmpfile.Close()
+	if _, err := tmpFile.Write([]byte(details)); err != nil {
+		err := tmpFile.Close()
 		if err != nil {
 			return err
 		}
 		return fmt.Errorf("failed to write to temp file: %v", err)
 	}
-	if err := tmpfile.Close(); err != nil {
+	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("failed to close temp file: %v", err)
 	}
 
-	commands.OpenFileWithEditor(tmpfile.Name())
+	editor.OpenFileWithEditor(tmpFile.Name())
 
 	return nil
 }

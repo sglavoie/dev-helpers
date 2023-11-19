@@ -2,14 +2,13 @@ package commands
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"strconv"
 	"strings"
 
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/editor"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
-	"github.com/spf13/viper"
 )
 
 func Add(cmds map[string]models.Command, cmd models.Command) map[string]models.Command {
@@ -43,12 +42,12 @@ func Decode(encodedCmd string) (string, error) {
 }
 
 func EditAllFields(cmd models.Command) (models.Command, error) {
-	updatedCmdDetails, err := getUpdatedCommandFields(cmd)
+	updatedCmdDetails, err := editor.GetUpdatedCommandFields(cmd)
 	if err != nil {
 		return cmd, err
 	}
 
-	parsedCmd, err := GetParsedCommand(updatedCmdDetails)
+	parsedCmd, err := editor.GetParsedCommand(updatedCmdDetails)
 	if err != nil {
 		return cmd, err
 	}

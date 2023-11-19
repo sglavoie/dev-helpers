@@ -1,14 +1,14 @@
-package commands
+package editor
 
 import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/osutils"
 	"github.com/spf13/viper"
 )
 
@@ -63,6 +63,37 @@ func GetParsedCommand(input string) (models.Command, error) {
 	return parsedCmd, nil
 }
 
+func GetUpdatedCommandFields(command models.Command) (string, error) {
+	tempFile, err := os.CreateTemp("", "shellshelf-*.tmp")
+	if err != nil {
+		return "", errors.New("failed to create temp file: " + err.Error())
+	}
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+			fmt.Println("Failed to remove temp file:", err)
+			return
+		}
+	}(tempFile.Name())
+
+	strCmd := getStringToWriteToTempFile(command)
+	if _, err := tempFile.WriteString(strCmd); err != nil {
+		return "", fmt.Errorf("failed to write to temp file: %v\n", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		return "", fmt.Errorf("failed to close temp file: %v\n", err)
+	}
+
+	OpenFileWithEditor(tempFile.Name())
+
+	content, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("failed to read temp file: %v\n", err)
+	}
+
+	return string(content), nil
+}
+
 func OpenEditorAndGetInput(tempFilePath string) (string, error) {
 	OpenFileWithEditor(tempFilePath)
 
@@ -76,12 +107,7 @@ func OpenEditorAndGetInput(tempFilePath string) (string, error) {
 
 func OpenFileWithEditor(filePath string) {
 	args := getArgsForEditor(getDefaultEditorName(), filePath)
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
+	err := osutils.ExecWithOutputRedirects(args[0], args[1:])
 	if err != nil {
 		clihelpers.FatalExit("Error opening file with editor: %v", err)
 	}
@@ -140,37 +166,6 @@ func getStringToWriteToTempFile(command models.Command) string {
 	editorStr += fmt.Sprintf(command.Command) + "\n" + fieldSeparator
 
 	return editorStr
-}
-
-func getUpdatedCommandFields(command models.Command) (string, error) {
-	tempFile, err := os.CreateTemp("", "shellshelf-*.tmp")
-	if err != nil {
-		return "", errors.New("failed to create temp file: " + err.Error())
-	}
-	defer func(name string) {
-		err := os.Remove(name)
-		if err != nil {
-			fmt.Println("Failed to remove temp file:", err)
-			return
-		}
-	}(tempFile.Name())
-
-	strCmd := getStringToWriteToTempFile(command)
-	if _, err := tempFile.WriteString(strCmd); err != nil {
-		return "", fmt.Errorf("failed to write to temp file: %v\n", err)
-	}
-	if err := tempFile.Close(); err != nil {
-		return "", fmt.Errorf("failed to close temp file: %v\n", err)
-	}
-
-	OpenFileWithEditor(tempFile.Name())
-
-	content, err := os.ReadFile(tempFile.Name())
-	if err != nil {
-		return "", fmt.Errorf("failed to read temp file: %v\n", err)
-	}
-
-	return string(content), nil
 }
 
 func getTrimmedParsedCommandFields(cmd models.Command) models.Command {
