@@ -31,38 +31,39 @@ func preRunLogicAdd(cmd *cobra.Command) error {
 }
 
 func runLogicAdd(cmd *cobra.Command, cfg *models.Config) {
-	command, err := buildCommand(cmd)
+	command, cmdIDs, err := buildCommand(cmd, cfg)
 	if err != nil {
 		clihelpers.FatalExit("Error building command: %v", err)
 	}
 
-	if commands.IsCommandNameAlreadyTaken(cfg.Commands, command.Name) {
-		fmt.Println("A command with that name already exists.")
-		proceeding, err := clihelpers.WarnBeforeProceeding()
-		if err != nil {
-			return
-		}
-		if !proceeding {
-			return
-		}
+	if cmdIDs != nil {
+		cfg.Commands = commands.Remove(cfg.Commands, cmdIDs)
 	}
-
-	cfg.Commands, err = commands.Add(cfg.Commands, command)
-	if err != nil {
-		clihelpers.FatalExit("Error adding command: %v", err)
-	}
+	cfg.Commands = commands.Add(cfg.Commands, command)
 
 	config.SaveCommands(cfg)
 }
 
-func buildCommand(cmd *cobra.Command) (models.Command, error) {
+func buildCommand(cmd *cobra.Command, cfg *models.Config) (models.Command, []string, error) {
 	command := models.Command{}
 
 	name, err := clihelpers.GetFlagString(cmd, "name")
 	if err != nil {
-		return command, err
+		return command, []string{}, err
 	}
 	command.Name = name
+
+	cmdTaken, cmdIDs := commands.IsCommandNameAlreadyTaken(cfg.Commands, command.Name)
+	if cmdTaken {
+		fmt.Println("This command name already exists: it would be overwritten by this command.")
+		proceeding, err := clihelpers.WarnBeforeProceeding()
+		if err != nil {
+			return command, []string{}, err
+		}
+		if !proceeding {
+			return command, []string{}, errors.New("operation aborted")
+		}
+	}
 
 	if description, err := clihelpers.GetFlagString(cmd, "description"); err == nil && description != "" {
 		command.Description = description
@@ -71,14 +72,14 @@ func buildCommand(cmd *cobra.Command) (models.Command, error) {
 	command, err = readCommand(cmd, command)
 	if err != nil {
 		fmt.Println("Error reading command:", err)
-		return command, err
+		return command, []string{}, err
 	}
 
 	if tags, err := clihelpers.GetFlagStringSlice(cmd, "tags"); err == nil && len(tags) > 0 {
 		command.Tags = tags
 	}
 
-	return command, nil
+	return command, cmdIDs, nil
 }
 
 func readCommand(cmd *cobra.Command, command models.Command) (models.Command, error) {

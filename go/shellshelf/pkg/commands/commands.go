@@ -12,17 +12,17 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Add(cmds map[string]models.Command, cmd models.Command) (map[string]models.Command, error) {
+func Add(cmds map[string]models.Command, cmd models.Command) map[string]models.Command {
 	maxID, err := GetMaxID(cmds)
 	if err != nil {
-		return cmds, err
+		clihelpers.FatalExit("Error getting max ID: %v", err)
 	}
 
 	RunCheckOnDecodedCommand(cmd)
 	cmd.Command = Encode(cmd.Command)
 	cmds[strconv.Itoa(maxID+1)] = cmd
 
-	return cmds, nil
+	return cmds
 }
 
 func AreAllCommandIDsValid(commands map[string]models.Command, ids []string) error {
@@ -74,13 +74,14 @@ func GetMaxID(commands map[string]models.Command) (int, error) {
 	return maxID, nil
 }
 
-func IsCommandNameAlreadyTaken(commands map[string]models.Command, name string) bool {
-	for _, cmd := range commands {
+func IsCommandNameAlreadyTaken(commands map[string]models.Command, name string) (bool, []string) {
+	var ids []string
+	for id, cmd := range commands {
 		if cmd.Name == name {
-			return true
+			ids = append(ids, id)
 		}
 	}
-	return false
+	return len(ids) > 0, ids
 }
 
 func Load() (map[string]models.Command, error) {
@@ -108,6 +109,13 @@ func LoadDecoded(commands map[string]models.Command) (map[string]models.Command,
 	}
 
 	return commands, nil
+}
+
+func Remove(commands map[string]models.Command, ids []string) map[string]models.Command {
+	for _, id := range ids {
+		delete(commands, id)
+	}
+	return commands
 }
 
 func RunCheckOnDecodedCommand(decodedCmd models.Command) {
