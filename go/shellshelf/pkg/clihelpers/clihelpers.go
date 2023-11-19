@@ -81,6 +81,17 @@ func ReadUserConfirmation() (bool, error) {
 	return true, nil
 }
 
+func ShowHelpOnNoArgsNoFlagsAndExit(cmd *cobra.Command, args []string) {
+	if len(args) == 0 && CountSetFlags(cmd) == 0 {
+		err := cmd.Help()
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		os.Exit(0)
+	}
+}
+
 func WarnBeforeProceeding() (bool, error) {
 	fmt.Println("Are you sure you want to proceed?")
 	return ReadUserConfirmation()

@@ -13,9 +13,9 @@ var rootCmd = &cobra.Command{
 	Long: `Keep your favorite commands on a shelf.
 
 Manage your shell commands with ShellShelf.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//Run: func(cmd *cobra.Command, args []string) { },
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		clihelpers.ShowHelpOnNoArgsNoFlagsAndExit(cmd, args)
+	},
 }
 
 func completionCmd() *cobra.Command {

@@ -22,7 +22,7 @@ func runLogicFind(cmd *cobra.Command, args []string, cfg *models.Config) {
 
 	var matches []string
 	if flagsPassed == 0 {
-		find.HandleFindInAllCommands(cmd, cfg.Commands, args)
+		find.HandleFindInAllCommands(cfg.Commands, args)
 		return
 	}
 
@@ -59,11 +59,13 @@ func runLogicFind(cmd *cobra.Command, args []string, cfg *models.Config) {
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
-	Use:     "find [flags]... text...",
+	Use:     "find {text... | [flags]... [text...]}",
 	Aliases: []string{"f"},
 	Short:   "Find a command on the shelf",
 	Long: `Find a command on the shelf by searching for text anywhere in the
-command name, description, tags, etc.`,
+command name, description, tags, etc.
+
+If no flags are specified, the search will be performed on all fields.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runLogicFind(cmd, args, &config.Cfg)
 	},

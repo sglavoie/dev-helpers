@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
@@ -56,14 +55,6 @@ var aliasFindCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		flagsPassed := clihelpers.CountSetFlags(cmd)
 		if flagsPassed == 0 {
-			if len(args) == 0 {
-				err := cmd.Help()
-				if err != nil {
-					return
-				}
-				fmt.Println("error: search term(s) required")
-				return
-			}
 			aliases.FindAlias(args, &config.Cfg)
 			return
 		}

@@ -70,15 +70,7 @@ func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, decoded map[strin
 	return false
 }
 
-func HandleFindInAllCommands(cmd *cobra.Command, decoded map[string]models.Command, args []string) {
-	if len(args) == 0 {
-		err := cmd.Help()
-		if err != nil {
-			return
-		}
-		fmt.Println("You must specify at least one search term")
-		return
-	}
+func HandleFindInAllCommands(decoded map[string]models.Command, args []string) {
 	matches := inAllCommandFields(decoded, args)
 	if len(matches) == 0 {
 		fmt.Println("No matches found")
