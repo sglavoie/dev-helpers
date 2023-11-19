@@ -112,3 +112,7 @@ func RunCheckOnDecodedCommand(decodedCmd models.Command) {
 		clihelpers.FatalExit("command content cannot be empty")
 	}
 }
+
+func SetCommand(cfg *models.Config, cmd models.Command, cmdId string) {
+	cfg.Commands[cmdId] = cmd
+}

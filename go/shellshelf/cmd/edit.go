@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
@@ -9,6 +8,15 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
+
+func editWithEditor(command models.Command) models.Command {
+	updatedCmd, err := commands.EditAllFields(command)
+	if err != nil {
+		clihelpers.FatalExit("Error editing command: %v", err)
+	}
+
+	return updatedCmd
+}
 
 func getUpdatedCommandFromFlags(cmd *cobra.Command, command models.Command) models.Command {
 	setFlags := clihelpers.GetSetFlags(cmd)
@@ -41,25 +49,7 @@ func getUpdatedCommandFromFlags(cmd *cobra.Command, command models.Command) mode
 		}
 	}
 
-	command.Command = commands.Encode(command.Command)
 	return command
-}
-
-func preRunLogicEdit(cmd *cobra.Command) error {
-	editor, err := cmd.Flags().GetBool("editor")
-	if err != nil {
-		fmt.Println("Error:", err)
-		return err
-	}
-
-	flagsPassed := clihelpers.CountSetFlags(cmd)
-
-	if !editor && flagsPassed == 0 {
-		return errors.New("you must specify either --editor (with or without " +
-			"other flags to limit editing to those fields) or at least one other flag")
-	}
-
-	return nil
 }
 
 func runLogicEdit(cmd *cobra.Command, args []string, cfg *models.Config) {
@@ -83,27 +73,22 @@ func runLogicEdit(cmd *cobra.Command, args []string, cfg *models.Config) {
 
 	flagsPassed := clihelpers.CountSetFlags(cmd)
 
-	if editor {
-		if flagsPassed > 1 {
-			clihelpers.FatalExit("When used, `--editor` should be the only flag passed for this command")
-		}
-
-		updatedCmd, err := commands.EditAllFields(command)
-		if err != nil {
-			clihelpers.FatalExit("Error editing command: %v", err)
-		}
-
-		commands.RunCheckOnDecodedCommand(updatedCmd)
-		updatedCmd.Command = commands.Encode(updatedCmd.Command)
-		cfg.Commands[cmdID] = updatedCmd
-
-		config.SaveCommands(cfg)
-		return
+	if editor && flagsPassed > 1 {
+		clihelpers.FatalExit("When used, `--editor` should be the only flag passed for this command")
 	}
 
-	updatedCmd := getUpdatedCommandFromFlags(cmd, command)
+	var updatedCmd models.Command
+
+	// Make using the editor the default sensible behavior
+	if flagsPassed == 0 || flagsPassed == 1 && editor {
+		updatedCmd = editWithEditor(command)
+	} else {
+		updatedCmd = getUpdatedCommandFromFlags(cmd, command)
+	}
+
 	commands.RunCheckOnDecodedCommand(updatedCmd)
-	cfg.Commands[cmdID] = command
+	updatedCmd.Command = commands.Encode(updatedCmd.Command)
+	commands.SetCommand(cfg, updatedCmd, cmdID)
 	config.SaveCommands(cfg)
 }
 
@@ -114,9 +99,6 @@ var editCmd = &cobra.Command{
 	Short:   "Edit a shelved command",
 	Long:    "Edit a shelved command by ID for the provided flags/fields, or open an editor to edit all fields.",
 	Args:    cobra.ExactArgs(1),
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return preRunLogicEdit(cmd)
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		runLogicEdit(cmd, args, &config.Cfg)
 	},
