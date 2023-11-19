@@ -29,7 +29,7 @@ test:
 
 install:
 	$(info ============================================================> installing)
-	go build -o ss main.go && mv ss $(GOPATH)/bin
+	go build -o ss main.go && mv ss $(GOPATH)
 uninstall:
 	$(info ============================================================> uninstalling)
-	rm -f $(GOPATH)/bin/ss
+	rm -f $(GOPATH)/ss
