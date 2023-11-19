@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
@@ -30,7 +31,7 @@ Multiple aliases can be mapped to the same command ID.`,
 		return aliases.PreRunAdd(args)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.Add(args)
+		aliases.Add(args, &config.Cfg)
 	},
 }
 
@@ -42,7 +43,7 @@ var aliasClearCmd = &cobra.Command{
 	Example: "clear -f",
 	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.ClearAliases(cmd)
+		aliases.ClearAliases(cmd, &config.Cfg)
 	},
 }
 
@@ -63,11 +64,11 @@ var aliasFindCmd = &cobra.Command{
 				fmt.Println("error: search term(s) required")
 				return
 			}
-			aliases.FindAlias(args)
+			aliases.FindAlias(args, &config.Cfg)
 			return
 		}
 
-		if aliases.HandleAllFlagReturns(cmd, flagsPassed, args) {
+		if aliases.HandleAllFlagReturns(cmd, flagsPassed, args, &config.Cfg) {
 			return
 		}
 	},
@@ -81,7 +82,7 @@ var aliasRemoveCmd = &cobra.Command{
 	Long:    "Remove aliases by name or by associated command IDs using the --id flag.",
 	Example: "remove myalias\nremove myalias1 myalias2\nremove --id 1 2 3",
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.Remove(cmd, args)
+		aliases.Remove(cmd, args, &config.Cfg)
 	},
 }
 

@@ -3,9 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
@@ -30,19 +30,13 @@ func preRunLogicAdd(cmd *cobra.Command) error {
 	return nil
 }
 
-func runLogicAdd(cmd *cobra.Command) {
-	cmds, err := commands.Load()
-	if err != nil {
-		fmt.Println(err)
-		cmds = map[string]models.Command{}
-	}
-
+func runLogicAdd(cmd *cobra.Command, cfg *models.Config) {
 	command, err := buildCommand(cmd)
 	if err != nil {
 		clihelpers.FatalExit("Error building command: %v", err)
 	}
 
-	if commands.IsCommandNameAlreadyTaken(cmds, command.Name) {
+	if commands.IsCommandNameAlreadyTaken(cfg.Commands, command.Name) {
 		fmt.Println("A command with that name already exists.")
 		proceeding, err := clihelpers.WarnBeforeProceeding()
 		if err != nil {
@@ -53,17 +47,12 @@ func runLogicAdd(cmd *cobra.Command) {
 		}
 	}
 
-	cmds, err = commands.Add(cmds, command)
+	cfg.Commands, err = commands.Add(cfg.Commands, command)
 	if err != nil {
 		clihelpers.FatalExit("Error adding command: %v", err)
 	}
 
-	err = commands.Save(cmds)
-	if err != nil {
-		clihelpers.FatalExit("Error saving commands: %v", err)
-	}
-
-	fmt.Println("Command shelved successfully!")
+	config.SaveCommands(cfg)
 }
 
 func buildCommand(cmd *cobra.Command) (models.Command, error) {
@@ -136,7 +125,7 @@ var addCmd = &cobra.Command{
 		return preRunLogicAdd(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicAdd(cmd)
+		runLogicAdd(cmd, &config.Cfg)
 	},
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
@@ -61,19 +62,14 @@ func preRunLogicEdit(cmd *cobra.Command) error {
 	return nil
 }
 
-func runLogicEdit(cmd *cobra.Command, args []string) {
+func runLogicEdit(cmd *cobra.Command, args []string, cfg *models.Config) {
 	cmdID := args[0]
-	cmds, err := commands.Load()
-	if err != nil {
-		fmt.Println(err)
-		cmds = map[string]models.Command{}
-	}
-
-	command, ok := cmds[cmdID]
+	command, ok := cfg.Commands[cmdID]
 	if !ok {
 		clihelpers.FatalExit("Command ID not found: %v", cmdID)
 	}
 
+	var err error
 	command.Command, err = commands.Decode(command.Command)
 	if err != nil {
 		clihelpers.FatalExit("Error decoding command: %v", err)
@@ -99,22 +95,16 @@ func runLogicEdit(cmd *cobra.Command, args []string) {
 
 		commands.RunCheckOnDecodedCommand(updatedCmd)
 		updatedCmd.Command = commands.Encode(updatedCmd.Command)
-		cmds[cmdID] = updatedCmd
+		cfg.Commands[cmdID] = updatedCmd
 
-		err = commands.Save(cmds)
-		if err != nil {
-			clihelpers.FatalExit("Error saving commands: %v", err)
-		}
+		config.SaveCommands(cfg)
 		return
 	}
 
 	updatedCmd := getUpdatedCommandFromFlags(cmd, command)
 	commands.RunCheckOnDecodedCommand(updatedCmd)
-	cmds[cmdID] = command
-	err = commands.Save(cmds)
-	if err != nil {
-		clihelpers.FatalExit("Error saving commands: %v", err)
-	}
+	cfg.Commands[cmdID] = command
+	config.SaveCommands(cfg)
 }
 
 // editCmd represents the edit command
@@ -128,7 +118,7 @@ var editCmd = &cobra.Command{
 		return preRunLogicEdit(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicEdit(cmd, args)
+		runLogicEdit(cmd, args, &config.Cfg)
 	},
 }
 

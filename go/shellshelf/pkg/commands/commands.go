@@ -97,12 +97,7 @@ func Load() (map[string]models.Command, error) {
 	return commands, nil
 }
 
-func LoadDecoded() (map[string]models.Command, error) {
-	commands, err := Load()
-	if err != nil {
-		return nil, err
-	}
-
+func LoadDecoded(commands map[string]models.Command) (map[string]models.Command, error) {
 	for id, cmd := range commands {
 		decodedCmd, err := Decode(cmd.Command)
 		if err != nil {

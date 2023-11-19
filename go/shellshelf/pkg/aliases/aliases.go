@@ -3,6 +3,7 @@ package aliases
 import (
 	"errors"
 	"fmt"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"regexp"
 	"slices"
 	"strconv"
@@ -14,49 +15,26 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/slicingutils"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func Add(args []string) {
-	as, err := Load()
-	if err != nil {
-		fmt.Println(err)
-		as = map[string]string{}
-	}
-
-	cmds, err := commands.Load()
-	if err != nil {
-		fmt.Println(err)
-		cmds = map[string]models.Command{}
-	}
-
+func Add(args []string, cfg *models.Config) {
 	a := models.Alias{
 		CommandID: args[0],
 		Name:      args[1],
 	}
-	as, err = add(as, a, cmds)
+
+	var err error
+	cfg.Aliases, err = add(cfg.Aliases, a, cfg.Commands)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	err = Save(as)
-	if err != nil {
-		fmt.Printf("Error saving aliases: %v\n", err)
-		return
-	}
-
-	fmt.Println("Alias shelved successfully!")
+	config.SaveAliases(cfg)
 }
 
-func ClearAliases(cmd *cobra.Command) {
-	as, err := Load()
-	if err != nil {
-		fmt.Println(err)
-		as = map[string]string{}
-	}
-
-	if len(as) == 0 {
+func ClearAliases(cmd *cobra.Command, cfg *models.Config) {
+	if len(cfg.Aliases) == 0 {
 		clihelpers.FatalExit("No aliases to clear!")
 	}
 
@@ -66,25 +44,15 @@ func ClearAliases(cmd *cobra.Command) {
 	}
 
 	if !f {
-		confirmRemovalAlias(as)
+		confirmRemovalAlias(cfg.Aliases)
 	}
 
-	err = Save(map[string]string{})
-	if err != nil {
-		clihelpers.FatalExit("Error saving aliases: %v", err)
-	}
-
-	fmt.Println("Aliases cleared successfully!")
+	cfg.Aliases = map[string]string{}
+	config.SaveAliases(cfg)
 }
 
-func FindAlias(args []string) {
-	as, err := Load()
-	if err != nil {
-		fmt.Println(err)
-		as = map[string]string{}
-	}
-
-	matches := inAliasFields(as, args)
+func FindAlias(args []string, cfg *models.Config) {
+	matches := inAliasFields(cfg.Aliases, args)
 	if len(matches) == 0 {
 		fmt.Println("No matches found")
 		return
@@ -92,10 +60,10 @@ func FindAlias(args []string) {
 
 	slices.Sort(matches)
 	matches = slicingutils.UniqueEntries(matches)
-	PrintMatches(as, matches)
+	PrintMatches(cfg, matches)
 }
 
-func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, args []string) bool {
+func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, args []string, cfg *models.Config) bool {
 	all, err := cmd.Flags().GetBool("all")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -106,24 +74,18 @@ func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, args []string) bo
 		return true
 	}
 	if all {
-		as, err := Load()
-		if err != nil {
-			fmt.Println(err)
-			as = map[string]string{}
-		}
-
-		if len(as) == 0 {
+		if len(cfg.Aliases) == 0 {
 			fmt.Println("No aliases found!")
 			return true
 		}
 
 		var matches []string
-		for k := range as {
+		for k := range cfg.Aliases {
 			matches = append(matches, k)
 		}
 
 		slices.Sort(matches)
-		PrintMatches(as, matches)
+		PrintMatches(cfg, matches)
 
 		if len(args) > 0 {
 			fmt.Println("Search terms ignored")
@@ -131,20 +93,6 @@ func HandleAllFlagReturns(cmd *cobra.Command, flagsPassed int, args []string) bo
 		return true
 	}
 	return false
-}
-
-func Load() (map[string]string, error) {
-	if !viper.IsSet("aliases") {
-		return nil, errors.New("'aliases' key not found in config")
-	}
-
-	var aliases map[string]string
-	err := viper.UnmarshalKey("aliases", &aliases)
-	if err != nil {
-		return nil, err
-	}
-
-	return aliases, nil
 }
 
 func PreRunAdd(args []string) error {
@@ -166,28 +114,22 @@ func PreRunAdd(args []string) error {
 	return nil
 }
 
-func PrintMatches(as map[string]string, matches []string) {
-	decoded, err := commands.LoadDecoded()
+func PrintMatches(cfg *models.Config, matches []string) {
+	decoded, err := commands.LoadDecoded(cfg.Commands)
 	if err != nil {
 		return
 	}
 
 	clihelpers.PrintLineSeparator()
 	for _, match := range matches {
-		cmdId := as[match]
+		cmdId := cfg.Aliases[match]
 		fmt.Printf("%v\n", match)
 		find.PrintMatch(decoded, cmdId)
 		clihelpers.PrintLineSeparator()
 	}
 }
 
-func Remove(cmd *cobra.Command, args []string) {
-	as, err := Load()
-	if err != nil {
-		fmt.Println(err)
-		as = map[string]string{}
-	}
-
+func Remove(cmd *cobra.Command, args []string, cfg *models.Config) {
 	ids, err := cmd.Flags().GetStringSlice("id")
 	if err != nil {
 		fmt.Println("Error getting id flag:", err)
@@ -196,10 +138,9 @@ func Remove(cmd *cobra.Command, args []string) {
 
 	// Check if the --id flag is used
 	if len(ids) > 0 {
-		// Handle removal by IDs
-		runLogicRemoveAliasByID(as, ids)
+		runLogicRemoveAliasByID(cfg, ids)
 	} else if len(args) > 0 {
-		runLogicRemoveAliasByName(as, args)
+		runLogicRemoveAliasByName(cfg, args)
 	} else {
 		err := cmd.Help()
 		if err != nil {
@@ -207,11 +148,6 @@ func Remove(cmd *cobra.Command, args []string) {
 			return
 		}
 	}
-}
-
-func Save(aliases map[string]string) error {
-	viper.Set("aliases", aliases)
-	return viper.WriteConfig()
 }
 
 func add(aliases map[string]string, alias models.Alias, cmds map[string]models.Command) (map[string]string, error) {
@@ -249,22 +185,22 @@ func confirmRemovalAlias(as map[string]string) {
 	}
 }
 
-func deleteById(as map[string]string, args []string) int {
+func deleteById(cfg *models.Config, args []string) int {
 	c := 0
 	for _, arg := range args {
-		for k, v := range as {
+		for k, v := range cfg.Aliases {
 			if v == arg {
 				c++
-				delete(as, k)
+				delete(cfg.Aliases, k)
 			}
 		}
 	}
 	return c
 }
 
-func deleteByName(as map[string]string, args []string) {
+func deleteByName(cfg *models.Config, args []string) {
 	for _, arg := range args {
-		delete(as, arg)
+		delete(cfg.Aliases, arg)
 	}
 }
 
@@ -303,43 +239,18 @@ func namesExistElseExit(as map[string]string, args []string) {
 	}
 }
 
-func runLogicRemoveAliasByID(as map[string]string, args []string) {
+func runLogicRemoveAliasByID(cfg *models.Config, args []string) {
 	areIDsValidElseExit(args)
-	c := deleteById(as, args)
-
-	err := Save(as)
-	if err != nil {
-		clihelpers.FatalExit("Error saving aliases: %v", err)
-	}
+	c := deleteById(cfg, args)
+	config.SaveAliases(cfg)
 
 	if c == 0 {
 		fmt.Println("No aliases removed!")
-		return
 	}
-
-	if c == 1 {
-		fmt.Println("Alias removed successfully!")
-		return
-	}
-
-	fmt.Println(c, "aliases removed successfully!")
 }
 
-func runLogicRemoveAliasByName(as map[string]string, args []string) {
-	namesExistElseExit(as, args)
-	deleteByName(as, args)
-
-	err := Save(as)
-	if err != nil {
-		clihelpers.FatalExit("Error saving aliases: %v", err)
-	}
-
-	n := len(args)
-
-	if n == 1 {
-		fmt.Println("Alias removed successfully!")
-		return
-	}
-
-	fmt.Println(n, "aliases removed successfully!")
+func runLogicRemoveAliasByName(cfg *models.Config, args []string) {
+	namesExistElseExit(cfg.Aliases, args)
+	deleteByName(cfg, args)
+	config.SaveAliases(cfg)
 }

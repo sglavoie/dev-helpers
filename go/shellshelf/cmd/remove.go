@@ -2,12 +2,50 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/aliases"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
+
+func runLogicRemove(cmd *cobra.Command, args []string, cfg *models.Config) {
+	cmds := cfg.Commands
+	err := commands.AreAllCommandIDsValid(cmds, args)
+	if err != nil {
+		clihelpers.FatalExit("Error checking command IDs: %v", err)
+	}
+
+	f, err := clihelpers.GetFlagBool(cmd, "force")
+	if err != nil {
+		clihelpers.FatalExit("Error getting flag: %v", err)
+	}
+
+	if !f {
+		_, err := confirmRemovalCommand(args, cmds)
+		if err != nil {
+			clihelpers.FatalExit("Error confirming removal: %v", err)
+		}
+	}
+
+	// Only remove commands if all IDs are valid and user confirmed
+	for _, id := range args {
+		delete(cmds, id)
+	}
+
+	// Also need to remove aliases that reference the removed commands
+	for alias, cmdID := range cfg.Aliases {
+		for _, id := range args {
+			if cmdID == id {
+				fmt.Printf("Removing alias '%v'\n", alias)
+				delete(cfg.Aliases, alias)
+			}
+		}
+	}
+
+	config.SaveCommands(cfg)
+	config.SaveAliases(cfg)
+}
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
@@ -17,57 +55,7 @@ var removeCmd = &cobra.Command{
 	Long:    "Remove one or more command(s) from the shelf by ID(s).",
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cmds, err := commands.Load()
-		if err != nil {
-			fmt.Println(err)
-			cmds = map[string]models.Command{}
-		}
-
-		err = commands.AreAllCommandIDsValid(cmds, args)
-		if err != nil {
-			clihelpers.FatalExit("Error checking command IDs: %v", err)
-		}
-
-		f, err := clihelpers.GetFlagBool(cmd, "force")
-		if err != nil {
-			clihelpers.FatalExit("Error getting flag: %v", err)
-		}
-
-		if !f {
-			_, err := confirmRemovalCommand(args, cmds)
-			if err != nil {
-				clihelpers.FatalExit("Error confirming removal: %v", err)
-			}
-		}
-
-		// Only remove commands if all IDs are valid and user confirmed
-		for _, id := range args {
-			delete(cmds, id)
-		}
-
-		// Also need to remove aliases that reference the removed commands
-		as, err := aliases.Load()
-		if err != nil {
-			fmt.Println(err)
-			as = map[string]string{}
-		}
-		for alias, cmdID := range as {
-			for _, id := range args {
-				if cmdID == id {
-					fmt.Printf("Removing alias '%v'\n", alias)
-					delete(as, alias)
-				}
-			}
-		}
-
-		err = commands.Save(cmds)
-		if err != nil {
-			clihelpers.FatalExit("Error saving commands: %v", err)
-		}
-		err = aliases.Save(as)
-		if err != nil {
-			clihelpers.FatalExit("Error saving aliases: %v", err)
-		}
+		runLogicRemove(cmd, args, &config.Cfg)
 	},
 }
 

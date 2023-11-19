@@ -16,4 +16,9 @@ type Command struct {
 type Config struct {
 	Aliases  map[string]string  `json:"aliases"`
 	Commands map[string]Command `json:"commands"`
+	Settings Settings           `json:"settings"`
+}
+
+type Settings struct {
+	Editor string `json:"editor"`
 }
