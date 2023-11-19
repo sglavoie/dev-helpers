@@ -26,7 +26,7 @@ var aliasAddCmd = &cobra.Command{
 
 An alias is mapped to a single command ID and must be unique.
 Multiple aliases can be mapped to the same command ID.`,
-	Example: "add 1 myalias",
+	Example: "add 1 myAlias",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		return aliases.PreRunAdd(args)
 	},
@@ -52,7 +52,7 @@ var aliasFindCmd = &cobra.Command{
 	Aliases: []string{"f"},
 	Short:   "Find an alias by name",
 	Long:    "Find an alias by name, displaying the associated command.",
-	Example: "find myalias",
+	Example: "find myAlias",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagsPassed := clihelpers.CountSetFlags(cmd)
 		if flagsPassed == 0 {
@@ -80,7 +80,7 @@ var aliasRemoveCmd = &cobra.Command{
 	Use:     "remove [aliases...]",
 	Short:   "Remove aliases by name or by command ID",
 	Long:    "Remove aliases by name or by associated command IDs using the --id flag.",
-	Example: "remove myalias\nremove myalias1 myalias2\nremove --id 1 2 3",
+	Example: "remove myAlias\nremove myAlias1 myAlias2\nremove --id 1 2 3",
 	Run: func(cmd *cobra.Command, args []string) {
 		aliases.Remove(cmd, args, &config.Cfg)
 	},

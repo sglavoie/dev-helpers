@@ -1,6 +1,6 @@
 # learning-logs-to-markdown
 
-The purpose of this tool is to parse and convert the content of a Google Sheets spreadsheet to Markdown. In this specific case, I just wanted a simple script to reduce the friction in getting a valid output I could use to maintain a ["learning log" on my website](https://www.sglavoie.com/learning-progress.html). So that gives me a quick way to input data in a spreadsheet and then I can take the time whenever needed to update the learning progress as desired by reformatting any of the entries and optionally adding notes to them.
+The purpose of this tool is to parse and convert the content of a Google Sheets spreadsheet to Markdown. In this specific case, I just wanted a simple script to reduce the friction in getting a valid output I could use to maintain a ["learning log" on my website](https://www.sglavoie.com/learning-progress.html). So that gives me a quick way to input data in a spreadsheet, and then I can take the time whenever needed to update the learning progress as desired by reformatting any of the entries and optionally adding notes to them.
 
 ## General software requirements
 
@@ -36,7 +36,7 @@ This tool should:
 A spreadsheet with the following columns (starting with **Date**):
 
 | [additional info]                  | Date       | Category      | Sub-category         | Title                                  | Activity     | Link                                                                                 | Notes                    |
-| ---------------------------------- | ---------- | ------------- | -------------------- | -------------------------------------- | ------------ | ------------------------------------------------------------------------------------ | ------------------------ |
+|------------------------------------|------------|---------------|----------------------|----------------------------------------|--------------|--------------------------------------------------------------------------------------|--------------------------|
 | November                           | 13/11/2021 | Articles      | Python               | Python slots, slots, and object layout |              | https://www.youtube.com/watch?v=Iwf17zsDAnY                                          | understood that X does Y |
 | November                           | 14/11/2021 | Books         | Software engineering | The Pragmatic Programmer               | ch. 1        | https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/ | note 1 here              |
 | November                           | 15/11/2021 | Books         | Software engineering | The Pragmatic Programmer               | ch. 2        |                                                                                      | note 2 here too          |

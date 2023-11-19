@@ -5,7 +5,7 @@ This is a Python 3.6+ script that helps to clean the file containing the Bash hi
 The idea behind this small utility was simple:
 
 - The Bash history file (usually located in `~/.bash_history`) contains much of the work one ends up doing in the terminal.
-- The history can grow large over time and it becomes more cumbersome to find interesting information in all that clutter, such as a rarely used command with specific flags.
+- The history can grow large over time, and it becomes more cumbersome to find interesting information in all that clutter, such as a rarely used command with specific flags.
 - By removing all superfluous commands that are repeated often and which give no real benefit in certain contexts (such as `ls`, `cd`, `cat`, etc.), the history is much cleaner and easier to navigate and actually becomes much more useful in my opinion.
 - True, it will be harder to follow the bread crumbs for everything you did, but I haven't come across a situation where having access to yet another empty `ls` or `cd` has proven necessary and reading `.bash_history` doesn't make for a great narrative story either.
 
@@ -24,34 +24,34 @@ I took advantage of the fact that the history can be cleaned with the script you
 # Eternal bash history.
 # ---------------------
 # Undocumented feature which sets the size to "unlimited".
-# http://stackoverflow.com/questions/9457233/unlimited-bash-history
+# https://stackoverflow.com/questions/9457233/unlimited-bash-history
 export HISTFILESIZE=-1
 export HISTSIZE=-1
 export HISTTIMEFORMAT="[%F %T] "
 # Change the file location because certain bash sessions truncate .bash_history file upon close.
-# http://superuser.com/questions/575479/bash-history-truncated-to-500-lines-on-each-login
+#https:///superuser.com/questions/575479/bash-history-truncated-to-500-lines-on-each-login
 export HISTFILE=~/.bash_eternal_history
 # Force prompt to write history after every command.
-# http://superuser.com/questions/20900/bash-history-loss
+https:////superuser.com/questions/20900/bash-history-loss
 PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 ```
 ----
 
 ## Description of available settings in `settings.json`
 
-| Name of setting | Description |
-| --------------- | ----------- |
-| `home_directory` | Absolute path to user's home directory. |
-| `history_file`  | Name of file where the history will be cleaned up. |
-| `aliases_file`  | Name of file where Bash aliases are set up. |
-| `ignore_patterns` | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions. |
-| `add_aliases` | Boolean. If set to `true`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `true`) |
-| `aliases_match_greedily` | Boolean. If set to `true`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `false`, delete line if the alias is the content of the whole line (with optional space at the end): `false` matches "^alias$" or "^alias $" only. |
-| `backup_history` | Boolean. If set to `true`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `true`) |
-| `delete_logs_without_confirming` | Boolean. If set to `true`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `false`) |
-| `remove_all_duplicated_lines` | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed). |
-| `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed). |
-| `remove_consecutive_duplicates` | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match. |
+| Name of setting                    | Description                                                                                                                                                                                                                                                                  |
+|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `home_directory`                   | Absolute path to user's home directory.                                                                                                                                                                                                                                      |
+| `history_file`                     | Name of file where the history will be cleaned up.                                                                                                                                                                                                                           |
+| `aliases_file`                     | Name of file where Bash aliases are set up.                                                                                                                                                                                                                                  |
+| `ignore_patterns`                  | List of patterns to ignore in `history_file`. Each line where a pattern is found will be deleted. Patterns are specified as regular expressions.                                                                                                                             |
+| `add_aliases`                      | Boolean. If set to `true`, aliases from `aliases_file` will be added to `ignore_patterns`. (Default: `true`)                                                                                                                                                                 |
+| `aliases_match_greedily`           | Boolean. If set to `true`, any line in `history_file` starting with an alias in `aliases_file` will be deleted. If set to `false`, delete line if the alias is the content of the whole line (with optional space at the end): `false` matches "^alias$" or "^alias $" only. |
+| `backup_history`                   | Boolean. If set to `true`, `history_file` will be backed up in the same directory with a name ending in .bak based on the current date. (Default: `true`)                                                                                                                    |
+| `delete_logs_without_confirming`   | Boolean. If set to `true`, script with flag `-c` will automatically delete all the backup files found for `history_file`. (Default: `false`)                                                                                                                                 |
+| `remove_all_duplicated_lines`      | Boolean. If set to `true`, any following line that is found to already be present in the file will be removed. This setting has precedence over `remove_duplicates_within_X_lines` and `remove_consecutive_duplicates` (they won't be executed).                             |
+| `remove_duplicates_within_X_lines` | Integer. Scan lines one by one. If the current line is found in the next `X` lines defined by this setting, it will be removed. If set to a value greater than `1`, this setting has precedence over `remove_consecutive_duplicates` (it won't be executed).                 |
+| `remove_consecutive_duplicates`    | Boolean. If set to `true`, duplicated lines will be deleted when they are consecutive in order to leave only one match.                                                                                                                                                      |
 
 
 ## Anecdotal evidence of satisfying performances
@@ -66,4 +66,4 @@ I haven't noticed any bug up to now for my personal use, but please feel free to
 
 ## Conclusion
 
-This is a simple solution to an nonexistent problem, but it was in the end very instructive to me nonetheless. You may even find a use for it! Otherwise, you might use the same functions for other files such as logs!
+This is a simple solution to a nonexistent problem, but it was in the end very instructive to me nonetheless. You may even find a use for it! Otherwise, you might use the same functions for other files such as logs!

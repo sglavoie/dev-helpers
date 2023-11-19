@@ -13,7 +13,7 @@ Script that uses `rsync` to make a simple and convenient backup.
 
 **Note:** requires Python 3.6+. No other Python third-party libraries are required.
 
-For each source to backup, a log file is created at the root directory of that
+For each source to back up, a log file is created at the root directory of that
 source. In the log file, the text `Command executed:` is inserted at the
 beginning with the whole `rsync` command that has been executed as a reference.
 
@@ -28,7 +28,7 @@ Example (long line broken for extra readability):
 By default, the following options are passed to `rsync`:
 
 | Option               | Description                                          |
-| -------------------- | ---------------------------------------------------- |
+|----------------------|------------------------------------------------------|
 | `-vaAH`              | verbose, archive, ACLs, hard-links (preserve)        |
 | `--delete`           | _"delete extraneous files from destination dirs"_    |
 | `--ignore-errors`    | _"delete even if there are I/O errors"_              |
@@ -39,7 +39,7 @@ By default, the following options are passed to `rsync`:
 ## Description of available settings in `settings.json`
 
 | Name of setting    | Description                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | `data_sources`     | Directories to backup, supplied as a list of strings (no slash at the end).                                                                |
 | `data_destination` | Single destination of the files to backup, supplied as a string. This can be overridden when passing option `-d` or `--dest` to the script |
 | `terminal_width`   | Line length in the terminal, used for printing separators.                                                                                 |

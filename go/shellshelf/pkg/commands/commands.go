@@ -84,20 +84,6 @@ func IsCommandNameAlreadyTaken(commands map[string]models.Command, name string) 
 	return len(ids) > 0, ids
 }
 
-func Load() (map[string]models.Command, error) {
-	if !viper.IsSet("commands") {
-		return nil, errors.New("'commands' key not found in config")
-	}
-
-	var commands map[string]models.Command
-	err := viper.UnmarshalKey("commands", &commands)
-	if err != nil {
-		return nil, err
-	}
-
-	return commands, nil
-}
-
 func LoadDecoded(commands map[string]models.Command) (map[string]models.Command, error) {
 	for id, cmd := range commands {
 		decodedCmd, err := Decode(cmd.Command)
@@ -126,9 +112,4 @@ func RunCheckOnDecodedCommand(decodedCmd models.Command) {
 	if strings.TrimSpace(decodedCmd.Command) == "" {
 		clihelpers.FatalExit("command content cannot be empty")
 	}
-}
-
-func Save(commands map[string]models.Command) error {
-	viper.Set("commands", commands)
-	return viper.WriteConfig()
 }

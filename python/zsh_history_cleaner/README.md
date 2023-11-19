@@ -12,7 +12,7 @@ The idea behind this small utility was simple:
 
 - The Zsh history file (usually located in `~/.zsh_history`) contains much of
   the work one ends up doing in the terminal.
-- The history can grow large over time and it becomes more cumbersome to find
+- The history can grow large over time, and it becomes more cumbersome to find
   interesting information in all that clutter, such as a rarely used command
   with specific flags.
 - By removing all superfluous commands that are repeated often and which give
@@ -35,7 +35,7 @@ It comes in two files that need to be in the same directory:
 ## Description of available settings in `settings.json`
 
 | Name of setting                    | Description                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `home_directory`                   | Absolute path to user's home directory.                                                                                                                                                                                                                                      |
 | `history_file`                     | Name of file where the history will be cleaned up.                                                                                                                                                                                                                           |
 | `aliases_file`                     | Name of file where Zsh aliases are set up.                                                                                                                                                                                                                                   |
@@ -60,6 +60,6 @@ of caution, setting `backup_history` to `True` has proven to be useful.
 
 ## Conclusion
 
-This is a simple solution to an nonexistent problem, but it was in the end very
+This is a simple solution to a nonexistent problem, but it was in the end very
 instructive to me nonetheless. You may even find a use for it! Otherwise, you
 might use the same functions for other files such as logs!
