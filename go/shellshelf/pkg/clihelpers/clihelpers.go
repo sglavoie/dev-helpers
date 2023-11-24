@@ -60,6 +60,15 @@ func GetSetFlags(cmd *cobra.Command) (flags []string) {
 	return flags
 }
 
+func IsInSlice(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
 func PrintLineSeparator() {
 	fmt.Println(GetLineSeparator())
 }

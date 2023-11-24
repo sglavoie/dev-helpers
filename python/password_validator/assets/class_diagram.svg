@@ -32,8 +32,8 @@ abstract class PasswordValidator {
    - {abstract} min_letters : int
    - {abstract} min_numbers : int
    - {abstract} condition_methods: list
-   + {static} is_valid(class_: class) : bool
-   + {static} print_unmet_conditions(reasons : list)
+   + {templates} is_valid(class_: class) : bool
+   + {templates} print_unmet_conditions(reasons : list)
    -_has_valid_length() : tuple
    -_has_enough_letters() : tuple
    -_has_enough_numbers() : tuple

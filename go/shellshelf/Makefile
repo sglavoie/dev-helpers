@@ -6,7 +6,7 @@ endif
 
 default: all
 
-all: fmt lint test
+all: fmt lint test prettify
 
 build:
 	$(info ============================================================> building)
@@ -20,9 +20,15 @@ fmt:
 lint:
 	$(info ============================================================> linting)
 	golangci-lint run -v
+prettify:
+	$(info ============================================================> prettifying)
+	npx prettier --write .
 run:
 	$(info ============================================================> running)
 	go run main.go
+serve:
+	$(info ============================================================> serving)
+	go run scripts/serve/serve.go
 test:
 	$(info ============================================================> testing)
 	go test -v ./...

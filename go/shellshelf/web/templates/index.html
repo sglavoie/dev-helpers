@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <script src="/static/htmx.js" type="text/javascript"></script>
+    <title>Some title</title>
+    <link href="/static/styles.css" rel="stylesheet" />
+  </head>
+  <body class="m-8 bg-white dark:bg-slate-800">
+    <h1 class="text-3xl my-2 font-bold underline dark:text-white">
+      Hello world!
+    </h1>
+    <p class="dark:text-slate-400">Some content</p>
+
+    {{ range . }}
+      <ul role="list" class="p-6 divide-y divide-slate-200 dark:text-slate-400">
+        <li>{{ .Name }}</li>
+        <li>{{ .Description }}</li>
+        <li>{{ .Tags }}</li>
+      </ul>
+    {{ end }}
+  </body>
+</html>

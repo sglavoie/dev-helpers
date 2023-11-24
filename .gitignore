@@ -23,6 +23,7 @@ Sessionx.vim
 # Temporary
 .netrwhist
 *~
+tmp/
 # Persistent undo
 [._]*.un~
 

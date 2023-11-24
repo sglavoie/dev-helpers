@@ -14,7 +14,11 @@ var rootCmd = &cobra.Command{
 
 Manage your shell commands with ShellShelf.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		clihelpers.ShowHelpOnNoArgsNoFlagsAndExit(cmd, args)
+		cmdsWithNoArgsAndNoFlags := []string{"help", "completion", "serve"}
+
+		if !clihelpers.IsInSlice(cmdsWithNoArgsAndNoFlags, cmd.Name()) {
+			clihelpers.ShowHelpOnNoArgsNoFlagsAndExit(cmd, args)
+		}
 	},
 }
 
