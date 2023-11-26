@@ -1,11 +1,9 @@
 package main
 
 import (
-	"log"
-	"os"
-	"os/exec"
-	"strings"
 	"sync"
+
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/osutils"
 )
 
 func main() {
@@ -18,15 +16,7 @@ func main() {
 		go func(command string) {
 			defer wg.Done()
 
-			cmdArgs := strings.Fields(command)
-
-			cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-
-			if err := cmd.Run(); err != nil {
-				log.Printf("Error running %s: %v", command, err)
-			}
+			osutils.ExecShellCommand(command)
 		}(cmdStr)
 	}
 
