@@ -17,12 +17,51 @@
     </h1>
     <p class="dark:text-slate-400">Some content</p>
 
-    {{ range . }}
-      <ul role="list" class="p-6 divide-y divide-slate-200 dark:text-slate-400">
-        <li>{{ .Name }}</li>
-        <li>{{ .Description }}</li>
-        <li>{{ .Tags }}</li>
-      </ul>
-    {{ end }}
+    <div class="relative rounded-xl overflow-auto">
+      <div class="shadow-sm overflow-hidden my-8">
+        <div class="table border-collapse table-auto w-full text-sm">
+          <div class="table-header-group">
+            <div class="table-row">
+              <div
+                class="table-cell border-b dark:border-slate-600 font-medium p-4 pl-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left"
+              >
+                Name
+              </div>
+              <div
+                class="table-cell border-b dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left"
+              >
+                Description
+              </div>
+              <div
+                class="table-cell border-b dark:border-slate-600 font-medium p-4 pr-8 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left"
+              >
+                Tags
+              </div>
+            </div>
+          </div>
+          <div class="table-row-group bg-white dark:bg-slate-800">
+            {{ range . }}
+              <div class="table-row">
+                <div
+                  class="table-cell border-b border-slate-100 dark:border-slate-700 p-4 pl-8 text-slate-500 dark:text-slate-400"
+                >
+                  {{ .Name }}
+                </div>
+                <div
+                  class="table-cell border-b border-slate-100 dark:border-slate-700 p-4 text-slate-500 dark:text-slate-400"
+                >
+                  {{ .Description }}
+                </div>
+                <div
+                  class="table-cell border-b border-slate-100 dark:border-slate-700 p-4 pr-8 text-slate-500 dark:text-slate-400"
+                >
+                  {{ .Tags }}
+                </div>
+              </div>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
