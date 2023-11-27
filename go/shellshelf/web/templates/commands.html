@@ -1,0 +1,40 @@
+{{ define "commands" }}
+  <div id="commands">
+    <div id="loading" class="htmx-indicator">Loading data...</div>
+    <div class="shadow-lg my-8">
+      <div
+        class="table border-collapse table-auto w-full text-sm overflow-x-auto"
+      >
+        <div class="table-header-group">
+          <div class="table-row">
+            <div
+              class="table-cell border-b dark:border-slate-600 text-lg p-2 pl-2 pt-0 pb-3 text-slate-700 font-bold dark:text-slate-200 text-left"
+            >
+              Name
+            </div>
+            <div
+              class="table-cell border-b dark:border-slate-600 text-lg p-2 pl-2 pt-0 pb-3 text-slate-700 font-bold dark:text-slate-200 text-left"
+            >
+              Command
+            </div>
+            <div
+              class="table-cell border-b dark:border-slate-600 text-lg p-2 pt-0 pb-3 text-slate-700 font-bold dark:text-slate-200 text-left"
+            >
+              Description
+            </div>
+            <div
+              class="table-cell border-b dark:border-slate-600 text-lg p-2 pr-8 pt-0 pb-3 text-slate-700 font-bold dark:text-slate-200 text-left"
+            >
+              Tags
+            </div>
+          </div>
+        </div>
+        <div class="table-row-group bg-white dark:bg-slate-800">
+          {{ range . }}
+            {{ template "commands-row". }}
+          {{ end }}
+        </div>
+      </div>
+    </div>
+  </div>
+{{ end }}

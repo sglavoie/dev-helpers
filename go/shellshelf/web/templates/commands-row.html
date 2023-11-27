@@ -1,0 +1,49 @@
+{{ define "commands-row" }}
+  <div class="table-row">
+    <div
+      class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
+    >
+      {{ .Name }}
+    </div>
+    <div
+      class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
+    >
+      <pre class="whitespace-pre-wrap overflow-x-auto min-w-full max-w-prose">
+{{ .Command }}</pre
+      >
+    </div>
+    <div
+      class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 text-slate-500 dark:text-slate-400"
+    >
+      {{ if .Description }}
+        {{ .Description }}
+      {{ else }}
+        <span class="italic text-slate-300 dark:text-slate-500"
+          >No description</span
+        >
+      {{ end }}
+    </div>
+    <div
+      class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pr-8 text-slate-500 dark:text-slate-400 min-w-fit"
+    >
+      {{ if .Tags }}
+        <ul>
+          {{ $total := len .Tags }}
+          {{ range $index, $tag := .Tags }}
+            <!-- Hack to decrement the total number of tags by 1 and check if the -->
+            <!-- current index is the last one without creating a custom function -->
+            <!-- https://stackoverflow.com/a/72465098/8787680 -->
+            {{ $lastIndex := eq $index (len (slice (printf "%*s" $total "") 1)) }}
+            {{ if $lastIndex }}
+              <li><code>{{ $tag }}</code></li>
+            {{ else }}
+              <li class="mb-4"><code>{{ $tag }}</code></li>
+            {{ end }}
+          {{ end }}
+        </ul>
+      {{ else }}
+        <span class="italic text-slate-300 dark:text-slate-500">No tags</span>
+      {{ end }}
+    </div>
+  </div>
+{{ end }}
