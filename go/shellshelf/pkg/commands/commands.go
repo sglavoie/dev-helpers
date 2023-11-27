@@ -17,9 +17,12 @@ func Add(cmds map[string]models.Command, cmd models.Command) map[string]models.C
 		clihelpers.FatalExit("Error getting max ID: %v", err)
 	}
 
+	newCmdId := strconv.Itoa(maxID + 1)
+
 	RunCheckOnDecodedCommand(cmd)
 	cmd.Command = Encode(cmd.Command)
-	cmds[strconv.Itoa(maxID+1)] = cmd
+	cmd.Id = newCmdId
+	cmds[newCmdId] = cmd
 
 	return cmds
 }

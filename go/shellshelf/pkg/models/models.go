@@ -8,6 +8,7 @@ type Alias struct {
 // Command represents a single command configuration
 type Command struct {
 	Command     string   `json:"command"`
+	Id          string   `json:"id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
