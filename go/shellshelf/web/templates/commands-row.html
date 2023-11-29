@@ -56,8 +56,20 @@
       <button
         class="rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
         hx-get="/command/edit/{{ .Id }}"
-        hx-trigger="click"
+        hx-trigger="edit"
         hx-target="#datarow-{{ .Id }}"
+        _="on click
+             if .editing is not empty
+               Swal.fire({title: 'Already Editing',
+                          showCancelButton: true,
+                          confirmButtonText: 'Sure!',
+                          text:'Another row is already being edited. Are you sure you want to continue?'})
+               if the result's isConfirmed is false
+                 halt
+               end
+               send cancel to .editing
+             end
+             trigger edit"
       >
         Edit
       </button>
