@@ -1,9 +1,11 @@
 package models
 
 type Alias struct {
-	CommandID string `json:"commandID"`
 	Name      string `json:"name"`
+	CommandID string `json:"commandId"`
 }
+
+type Aliases map[string]string
 
 // Command represents a single command configuration
 type Command struct {
@@ -14,10 +16,12 @@ type Command struct {
 	Tags        []string `json:"tags,omitempty"`
 }
 
+type Commands map[string]Command
+
 type Config struct {
-	Aliases  map[string]string  `json:"aliases"`
-	Commands map[string]Command `json:"commands"`
-	Settings Settings           `json:"settings"`
+	Aliases  Aliases  `json:"aliases"`
+	Commands Commands `json:"commands"`
+	Settings Settings `json:"settings"`
 }
 
 type Settings struct {

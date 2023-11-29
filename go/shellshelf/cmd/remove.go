@@ -34,11 +34,11 @@ func runLogicRemove(cmd *cobra.Command, args []string, cfg *models.Config) {
 	}
 
 	// Also need to remove aliases that reference the removed commands
-	for alias, cmdID := range cfg.Aliases {
+	for cmdId, alias := range cfg.Aliases {
 		for _, id := range args {
-			if cmdID == id {
+			if cmdId == id {
 				fmt.Printf("Removing alias '%v'\n", alias)
-				delete(cfg.Aliases, alias)
+				delete(cfg.Aliases, cmdId)
 			}
 		}
 	}
@@ -55,11 +55,11 @@ var removeCmd = &cobra.Command{
 	Long:    "Remove one or more command(s) from the shelf by ID(s).",
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicRemove(cmd, args, &config.Cfg)
+		runLogicRemove(cmd, args, config.Cfg)
 	},
 }
 
-func confirmRemovalCommand(args []string, cmds map[string]models.Command) (bool, error) {
+func confirmRemovalCommand(args []string, cmds models.Commands) (bool, error) {
 	fmt.Println("Are you sure you want to remove the following command(s)?")
 	for _, id := range args {
 		desc := cmds[id].Description

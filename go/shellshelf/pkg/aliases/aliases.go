@@ -22,7 +22,6 @@ func Add(args []string, cfg *models.Config) {
 		CommandID: args[0],
 		Name:      args[1],
 	}
-
 	var err error
 	cfg.Aliases, err = add(cfg.Aliases, a, cfg.Commands)
 	if err != nil {
@@ -150,7 +149,7 @@ func Remove(cmd *cobra.Command, args []string, cfg *models.Config) {
 	}
 }
 
-func add(aliases map[string]string, alias models.Alias, cmds map[string]models.Command) (map[string]string, error) {
+func add(aliases models.Aliases, alias models.Alias, cmds map[string]models.Command) (map[string]string, error) {
 	if _, exists := aliases[alias.Name]; exists {
 		return aliases, fmt.Errorf("alias '%s' already exists", alias.Name)
 	}
@@ -173,10 +172,10 @@ func areIDsValidElseExit(args []string) {
 	}
 }
 
-func confirmRemovalAlias(as map[string]string) {
+func confirmRemovalAlias(aliases models.Aliases) {
 	fmt.Println("Are you sure you want to remove the following aliases?")
-	for k := range as {
-		fmt.Printf("%v\n", k)
+	for _, alias := range aliases {
+		fmt.Printf("%v\n", alias)
 	}
 
 	_, err := clihelpers.ReadUserConfirmation()
@@ -204,7 +203,7 @@ func deleteByName(cfg *models.Config, args []string) {
 	}
 }
 
-func Get(aliases map[string]string, name string) (string, error) {
+func Get(aliases models.Aliases, name string) (string, error) {
 	if _, ok := aliases[name]; !ok {
 		return "", fmt.Errorf("alias '%v' not found", name)
 	}

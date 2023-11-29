@@ -2,15 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"log"
 	"net/http"
 	"os/exec"
 	"runtime"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/server"
 	"github.com/spf13/cobra"
 )
@@ -26,13 +23,7 @@ var serveCmd = &cobra.Command{
 			clihelpers.FatalExit("Error reading 'browser' flag: %v", err)
 		}
 
-		cfg := &config.Cfg
-		cfg.Commands, err = commands.LoadDecoded(cfg.Commands)
-		if err != nil {
-			fmt.Println("Error loading commands:", err)
-			return
-		}
-		startServer(cfg, openBrowser)
+		startServer(openBrowser)
 	},
 }
 
@@ -57,11 +48,13 @@ func browserOpener(url string) error {
 	return nil
 }
 
-func startServer(cfg *models.Config, openBrowser bool) {
+func startServer(openBrowser bool) {
 	staticFileHandler := http.FileServer(http.Dir("web/static"))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFileHandler))
-
-	http.HandleFunc("/", server.IndexHandler(cfg))
+	http.HandleFunc("/", server.WithConfig(server.IndexHandler))
+	http.HandleFunc("/command/edit/", server.WithConfig(server.CommandEditHandler))
+	http.HandleFunc("/command/get/", server.WithConfig(server.CommandGetHandler))
+	http.HandleFunc("/command/save/", server.WithConfig(server.CommandSaveHandler))
 
 	port := ":8080"
 	url := "http://localhost" + port

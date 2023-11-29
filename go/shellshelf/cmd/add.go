@@ -127,7 +127,7 @@ var addCmd = &cobra.Command{
 		return preRunLogicAdd(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicAdd(cmd, &config.Cfg)
+		runLogicAdd(cmd, config.Cfg)
 	},
 }
 

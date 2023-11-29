@@ -39,7 +39,11 @@
             </div>
           </div>
         </div>
-        <div class="table-row-group bg-white dark:bg-slate-800">
+        <div
+          class="table-row-group bg-white dark:bg-slate-800"
+          hx-target="closest div"
+          hx-swap="outerHTML"
+        >
           {{ range . }}
             {{ template "commands-row". }}
           {{ end }}

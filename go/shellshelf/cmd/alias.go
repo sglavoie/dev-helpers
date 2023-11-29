@@ -30,7 +30,7 @@ Multiple aliases can be mapped to the same command ID.`,
 		return aliases.PreRunAdd(args)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.Add(args, &config.Cfg)
+		aliases.Add(args, config.Cfg)
 	},
 }
 
@@ -42,7 +42,7 @@ var aliasClearCmd = &cobra.Command{
 	Example: "clear -f",
 	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.ClearAliases(cmd, &config.Cfg)
+		aliases.ClearAliases(cmd, config.Cfg)
 	},
 }
 
@@ -55,11 +55,11 @@ var aliasFindCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		flagsPassed := clihelpers.CountSetFlags(cmd)
 		if flagsPassed == 0 {
-			aliases.FindAlias(args, &config.Cfg)
+			aliases.FindAlias(args, config.Cfg)
 			return
 		}
 
-		if aliases.HandleAllFlagReturns(cmd, flagsPassed, args, &config.Cfg) {
+		if aliases.HandleAllFlagReturns(cmd, flagsPassed, args, config.Cfg) {
 			return
 		}
 	},
@@ -73,7 +73,7 @@ var aliasRemoveCmd = &cobra.Command{
 	Long:    "Remove aliases by name or by associated command IDs using the --id flag.",
 	Example: "remove myAlias\nremove myAlias1 myAlias2\nremove --id 1 2 3",
 	Run: func(cmd *cobra.Command, args []string) {
-		aliases.Remove(cmd, args, &config.Cfg)
+		aliases.Remove(cmd, args, config.Cfg)
 	},
 }
 

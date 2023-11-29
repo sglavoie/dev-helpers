@@ -1,4 +1,4 @@
-{{ define "commands-row" }}
+{{ define "commands-row-edit" }}
   <div class="table-row" id="datarow-{{ .Id }}">
     <div
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
@@ -8,25 +8,41 @@
     <div
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
     >
-      {{ .Name }}
+      <label>
+        <input
+          type="text"
+          class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          data-include-edit="{{ .Id }}"
+          name="name"
+          value="{{ .Name }}"
+        />
+      </label>
     </div>
     <div
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
     >
-      <pre class="whitespace-pre-wrap overflow-x-auto min-w-full max-w-prose">
-{{ .Command }}</pre
-      >
+      <label>
+        <input
+          type="text"
+          class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          data-include-edit="{{ .Id }}"
+          name="command"
+          value="{{ .Command }}"
+        />
+      </label>
     </div>
     <div
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 text-slate-500 dark:text-slate-400"
     >
-      {{ if .Description }}
-        {{ .Description }}
-      {{ else }}
-        <span class="italic text-slate-300 dark:text-slate-500"
-          >No description</span
-        >
-      {{ end }}
+      <label>
+        <input
+          type="text"
+          class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          data-include-edit="{{ .Id }}"
+          name="description"
+          value="{{ .Description }}"
+        />
+      </label>
     </div>
     <div
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pr-8 text-slate-500 dark:text-slate-400 min-w-fit"
@@ -54,12 +70,23 @@
       class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pr-8 text-slate-500 dark:text-slate-400 min-w-fit"
     >
       <button
-        class="rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
-        hx-get="/command/edit/{{ .Id }}"
-        hx-trigger="click"
+        hx-put="/command/save/{{ .Id }}"
         hx-target="#datarow-{{ .Id }}"
+        hx-swap="outerHTML"
+        hx-indicator="#loading"
+        hx-include="input[data-include-edit='{{ .Id }}']"
+        class="inline-flex items-center p-1 text-sm text-blue-100 transition-colors duration-150 bg-blue-700 rounded focus:shadow-outline hover:bg-blue-800"
       >
-        Edit
+        Save
+      </button>
+      <button
+        hx-get="/command/get/{{ .Id }}"
+        hx-target="#datarow-{{ .Id }}"
+        hx-swap="outerHTML"
+        hx-indicator="#loading"
+        class="inline-flex items-center p-1 text-sm text-red-100 transition-colors duration-150 bg-red-700 rounded focus:shadow-outline hover:bg-red-800"
+      >
+        Cancel
       </button>
     </div>
   </div>

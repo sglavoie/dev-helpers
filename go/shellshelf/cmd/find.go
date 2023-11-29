@@ -67,7 +67,7 @@ command name, description, tags, etc.
 
 If no flags are specified, the search will be performed on all fields.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicFind(cmd, args, &config.Cfg)
+		runLogicFind(cmd, args, config.Cfg)
 	},
 }
 

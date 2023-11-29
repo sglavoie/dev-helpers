@@ -88,6 +88,7 @@ func runLogicEdit(cmd *cobra.Command, args []string, cfg *models.Config) {
 
 	commands.RunCheckOnDecodedCommand(updatedCmd)
 	updatedCmd.Command = commands.Encode(updatedCmd.Command)
+	updatedCmd.Id = cmdID
 	commands.SetCommand(cfg, updatedCmd, cmdID)
 	config.SaveCommands(cfg)
 }
@@ -100,7 +101,7 @@ var editCmd = &cobra.Command{
 	Long:    "Edit a shelved command by ID for the provided flags/fields, or open an editor to edit all fields.",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		runLogicEdit(cmd, args, &config.Cfg)
+		runLogicEdit(cmd, args, config.Cfg)
 	},
 }
 

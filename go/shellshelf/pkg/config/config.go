@@ -1,14 +1,22 @@
 package config
 
 import (
+	"sync"
+
 	"github.com/mitchellh/go-homedir"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/viper"
 )
 
-// Cfg is the configuration for the application.
-var Cfg models.Config
+var (
+	// Cfg is the configuration for the application.
+	Cfg *models.Config
+
+	// cfgMutex is a mutex to protect the configuration.
+	cfgMutex sync.RWMutex
+)
 
 func Init() {
 	home := getHomeDir()
@@ -23,6 +31,44 @@ func Init() {
 
 	setDefaultValues()
 	Cfg = loadConfig()
+}
+
+// loadConfig loads the configuration from the file.
+func loadConfig() *models.Config {
+	var config *models.Config
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		clihelpers.FatalExit(err.Error())
+	}
+
+	cfgMutex.Lock()
+	defer cfgMutex.Unlock()
+
+	if err = viper.Unmarshal(&config); err != nil {
+		clihelpers.FatalExit(err.Error())
+	}
+
+	return config
+}
+
+// LoadConfigAsValue loads the configuration from the file as a value.
+func LoadConfigAsValue() (models.Config, error) {
+	var config models.Config
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		return models.Config{}, err
+	}
+
+	cfgMutex.Lock()
+	defer cfgMutex.Unlock()
+
+	if err = viper.Unmarshal(&config); err != nil {
+		return models.Config{}, err
+	}
+
+	return config, nil
 }
 
 func SaveAliases(cfg *models.Config) {
@@ -41,28 +87,26 @@ func SaveCommands(cfg *models.Config) {
 	}
 }
 
+func SaveEncodedCommands(cfg models.Config) error {
+	cfgMutex.RLock()
+	defer cfgMutex.RUnlock()
+
+	cfg.Commands = commands.EncodeAll(cfg.Commands)
+
+	viper.Set("commands", &cfg.Commands)
+	err := viper.WriteConfig()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func getHomeDir() string {
 	home, err := homedir.Dir()
 	if err != nil {
 		clihelpers.FatalExit(err.Error())
 	}
 	return home
-}
-
-// loadConfig loads the configuration from the file.
-func loadConfig() models.Config {
-	var config models.Config
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		clihelpers.FatalExit(err.Error())
-	}
-
-	if err = viper.Unmarshal(&config); err != nil {
-		clihelpers.FatalExit(err.Error())
-	}
-
-	return config
 }
 
 // setDefaultValues sets the default values for the configuration.

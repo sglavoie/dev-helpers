@@ -62,6 +62,14 @@ func Encode(cmdStr string) string {
 	return base64.StdEncoding.EncodeToString([]byte(cmdStr))
 }
 
+func EncodeAll(commands map[string]models.Command) map[string]models.Command {
+	for id, cmd := range commands {
+		cmd.Command = Encode(cmd.Command)
+		commands[id] = cmd
+	}
+	return commands
+}
+
 func GetById(commands map[string]models.Command, id string) (models.Command, error) {
 	if cmd, ok := commands[id]; ok {
 		return cmd, nil
