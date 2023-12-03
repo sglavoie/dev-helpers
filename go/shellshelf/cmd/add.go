@@ -38,7 +38,7 @@ func runLogicAdd(cmd *cobra.Command, cfg *models.Config) {
 	}
 
 	if cmdIDs != nil {
-		cfg.Commands = commands.Remove(cfg.Commands, cmdIDs)
+		cfg.Commands = commands.RemoveByIds(cfg.Commands, cmdIDs)
 	}
 	cfg.Commands = commands.Add(cfg.Commands, command)
 

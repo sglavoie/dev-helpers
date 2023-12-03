@@ -54,6 +54,7 @@ func startServer(openBrowser bool) {
 	http.HandleFunc("/", server.WithConfig(server.IndexHandler))
 	http.HandleFunc("/command/edit/", server.WithConfig(server.CommandEditHandler))
 	http.HandleFunc("/command/get/", server.WithConfig(server.CommandGetHandler))
+	http.HandleFunc("/command/remove/", server.WithConfig(server.CommandRemoveHandler))
 	http.HandleFunc("/command/save/", server.WithConfig(server.CommandSaveHandler))
 
 	port := ":8080"

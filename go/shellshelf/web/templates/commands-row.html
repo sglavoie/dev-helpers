@@ -51,14 +51,15 @@
       {{ end }}
     </div>
     <div
-      class="table-cell border-b border-slate-100 dark:border-slate-700 p-2 pr-8 text-slate-500 dark:text-slate-400 min-w-fit"
+      class="table-cell p-2 border-b border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400"
     >
-      <button
-        class="rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
-        hx-get="/command/edit/{{ .Id }}"
-        hx-trigger="edit"
-        hx-target="#datarow-{{ .Id }}"
-        _="on click
+      <div class="flex flex-grow flex-col space-y-2 justify-center min-h-fit">
+        <button
+          class="w-full rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
+          hx-get="/command/edit/{{ .Id }}"
+          hx-trigger="edit"
+          hx-target="#datarow-{{ .Id }}"
+          _="on click
              if .editing is not empty
                Swal.fire({title: 'Already Editing',
                           showCancelButton: true,
@@ -70,9 +71,27 @@
                send cancel to .editing
              end
              trigger edit"
-      >
-        Edit
-      </button>
+        >
+          Edit
+        </button>
+        <button
+          class="w-full rounded text-red-100 p-1 transition-colors duration-150 bg-red-700 rounded focus:shadow-outline hover:bg-red-800 transition-all"
+          hx-delete="/command/remove/{{ .Id }}"
+          hx-trigger="remove"
+          hx-target="#datarow-{{ .Id }}"
+          _="on click
+               Swal.fire({title: 'Remove Command',
+                          showCancelButton: true,
+                          confirmButtonText: 'Sure!',
+                          text:'Are you sure you want to remove this command?'})
+               if the result's isConfirmed is false
+                 halt
+               end
+             trigger remove"
+        >
+          Remove
+        </button>
+      </div>
     </div>
   </div>
 {{ end }}

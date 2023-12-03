@@ -123,7 +123,12 @@ func LoadDecoded(commands map[string]models.Command) (map[string]models.Command,
 	return commands, nil
 }
 
-func Remove(commands map[string]models.Command, ids []string) map[string]models.Command {
+func RemoveById(commands map[string]models.Command, ids string) map[string]models.Command {
+	delete(commands, ids)
+	return commands
+}
+
+func RemoveByIds(commands map[string]models.Command, ids []string) map[string]models.Command {
 	for _, id := range ids {
 		delete(commands, id)
 	}
