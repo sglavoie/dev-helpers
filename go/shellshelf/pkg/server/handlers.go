@@ -1,9 +1,11 @@
 package server
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
@@ -20,6 +22,75 @@ func IndexHandler(w http.ResponseWriter, r *http.Request, cfg models.Config) {
 
 	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
 	ExecuteTemplate(w, tmpl, "index.html", cfg.Commands)
+}
+
+func CommandAddButtonHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
+	ExecuteTemplate(w, tmpl, "commands-add", nil)
+}
+
+func CommandShowActionRowHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
+	ExecuteTemplate(w, tmpl, "commands-action-row", nil)
+}
+
+func CommandAddSaveHandler(w http.ResponseWriter, r *http.Request, cfg models.Config) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentMaxID, err := commands.GetMaxID(cfg.Commands)
+	if err != nil {
+		return
+	}
+	newMaxID := strconv.Itoa(currentMaxID + 1)
+	newCmd := models.Command{
+		Id:          newMaxID,
+		Name:        r.FormValue("name"),
+		Description: r.FormValue("description"),
+		Command:     r.FormValue("command"),
+	}
+
+	fmt.Println("newCmd:", newCmd)
+	cfg.Commands[newMaxID] = newCmd
+
+	err = config.SaveEncodedCommands(cfg)
+	if err != nil {
+		log.Println("Error saving commands:", err)
+		return
+	}
+
+	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
+	ExecuteTemplate(w, tmpl, "commands-add", nil)
+}
+
+func CommandAddValidateNameHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := r.FormValue("name")
+	trimmedName := strings.TrimSpace(name)
+	if len(trimmedName) < 2 {
+		tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
+		ExecuteTemplate(w, tmpl, "commands-add-name-invalid", name)
+		return
+	}
+
+	tmpl := template.Must(template.ParseGlob("web/templates/*.html"))
+	ExecuteTemplate(w, tmpl, "commands-add-name-valid", name)
 }
 
 func CommandEditHandler(w http.ResponseWriter, r *http.Request, cfg models.Config) {

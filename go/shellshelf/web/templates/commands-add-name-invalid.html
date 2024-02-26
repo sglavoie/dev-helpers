@@ -1,0 +1,23 @@
+{{ define "commands-add-name-invalid" }}
+  <div
+    id="commandAddName"
+    class="table-cell flex items-center justify-center border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
+  >
+    <label
+      class="block text-slate-700 font-bold dark:text-slate-200 text-sm font-bold mb-2"
+    >
+      Name
+      <input
+        type="text"
+        class="h-8 shadow appearance-none border rounded w-full px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        name="name"
+        hx-post="/command/add/validate-name/"
+        hx-trigger="keyup changed delay:200ms"
+        hx-target="#commandAddName"
+        value="{{ . }}"
+        aria-invalid="true"
+      />
+    </label>
+      <div class="text-red-500">Please enter a valid command name</div>
+  </div>
+{{ end }}

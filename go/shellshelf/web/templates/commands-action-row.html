@@ -1,0 +1,14 @@
+{{ define "commands-action-row" }}
+  <div
+    class="flex flex-row flex-wrap justify-center content-center"
+    hx-target="closest div"
+    hx-swap="outerHTML"
+  >
+    <button
+      class="text-sm rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
+      hx-get="/command/add/"
+    >
+      Add command
+    </button>
+  </div>
+{{ end }}

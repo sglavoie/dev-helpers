@@ -1,0 +1,77 @@
+{{ define "commands-add-editable-fields" }}
+  <form>
+    <h1 class="text-slate-700 font-bold dark:text-slate-200 text-2xl p-2">
+      Add a command
+    </h1>
+    <div
+      id="commandAddName"
+      class="table-cell flex items-center justify-center border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
+    >
+      <label
+        class="block text-slate-700 font-bold dark:text-slate-200 text-sm font-bold mb-2"
+      >
+        Name
+        <input
+          type="text"
+          class="h-8 shadow appearance-none border rounded w-full px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          name="name"
+          hx-post="/command/add/validate-name/"
+          hx-trigger="keyup changed delay:200ms"
+          hx-target="#commandAddName"
+        />
+      </label>
+    </div>
+
+    <div
+      class="table-cell flex items-center justify-center border-b border-slate-100 dark:border-slate-700 p-2 pl-2 text-slate-500 dark:text-slate-400"
+    >
+      <label
+        class="block text-slate-700 font-bold dark:text-slate-200 text-sm font-bold mb-2"
+      >
+        Command
+        <textarea
+          class="h-12 min-h-[2rem] resize shadow border rounded px-3 text-gray-700 focus:outline-none focus:shadow-outline whitespace-pre-wrap overflow-x-auto min-w-full max-w-prose align-middle"
+          name="command"
+        ></textarea>
+      </label>
+    </div>
+    <div
+      class="table-cell flex items-center justify-center border-b border-slate-100 dark:border-slate-700 p-2 text-slate-500 dark:text-slate-400"
+    >
+      <label
+        class="block text-slate-700 font-bold dark:text-slate-200 text-sm font-bold mb-2"
+      >
+        Description
+        <input
+          type="text"
+          class="h-8 shadow appearance-none border rounded w-full px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          name="description"
+        />
+      </label>
+    </div>
+    <div
+      class="table-cell flex items-center justify-center border-b border-slate-100 dark:border-slate-700 p-2 pr-8 text-slate-500 dark:text-slate-400 min-w-fit"
+    >
+      TODO
+    </div>
+    <div
+      class="table-cell flex items-center justify-center p-2 border-b border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400"
+    >
+      <div class="flex flex-grow flex-col space-y-2 justify-center min-h-fit">
+        <button
+          hx-post="/command/add/save/"
+          class="w-full rounded text-white bg-sky-500 dark:bg-sky-500 hover:bg-sky-700 dark:hover:bg-sky-700 dark:text-white p-1 transition-all"
+        >
+          Save
+        </button>
+        <button
+          hx-get="/command/showActionRow/"
+          hx-target="#commands-add"
+          class="w-full rounded text-red-100 p-1 transition-colors duration-150 bg-red-700 rounded focus:shadow-outline hover:bg-red-800 transition-all"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </form>
+{{ end }}
