@@ -1,0 +1,42 @@
+exclude = ["**/*.pyi"]
+
+fix = true
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[lint]
+# E: pycodestyle
+# F: Pyflakes
+# PL: Pylint
+# PLR: Pylint rules
+# W: pycodestyle
+select = ["E101", "E4", "E7", "E9", "F", "PL", "W"]
+ignore = [
+    "E402",    # module-import-not-at-top-of-file
+    "PLR0913", # too-many-arguments
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
