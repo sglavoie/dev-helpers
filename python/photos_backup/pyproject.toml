@@ -1,9 +1,13 @@
 [project]
-name = "osxphotos"
+name = "photos_backup"
 version = "0.1.0"
 description = "Simple backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
-dependencies = ["python-dotenv>=1.0.1", "click>=8.1.7"]
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "click>=8.1.7",
+    "osxphotos>=0.67.10",
+]
 readme = "README.md"
 requires-python = ">= 3.12"
 
@@ -13,16 +17,13 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = [
-    "ruff>=0.4.3",
-    "pre-commit>=3.7.0",
-]
+dev-dependencies = ["ruff>=0.4.3", "pre-commit>=3.7.0"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/osxphotos"]
+packages = ["src/photos_backup"]
 
 [tool.rye.scripts]
-cli = 'python -m osxphotos.cli.cli'
+cli = 'python -m photos_backup.cli.cli'

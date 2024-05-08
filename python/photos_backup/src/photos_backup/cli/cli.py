@@ -3,7 +3,8 @@ import os
 import click
 from dotenv import load_dotenv
 
-from osxphotos.cli.sd_card import sd_card
+from photos_backup.cli.apple_photos import apple_photos
+from photos_backup.cli.sd_card import sd_card
 
 
 HOME = os.path.expanduser("~")
@@ -20,7 +21,9 @@ def cli() -> None:
     """Pass `--help` to any command to see its usage."""
 
 
+cli.add_command(apple_photos)
 cli.add_command(sd_card)
+
 
 if __name__ == "__main__":
     cli()

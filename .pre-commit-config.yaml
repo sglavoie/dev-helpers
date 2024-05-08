@@ -16,6 +16,7 @@ repos:
     hooks:
       - id: reformat
         name: lint and format code
-        entry: /bin/sh -c "rye fmt && rye lint"
+        entry: /bin/sh -c "cd python/photos_backup && rye fmt && rye lint"
+        files: '^python/photos_backup/.*\.py'
         language: script
         types: [python]

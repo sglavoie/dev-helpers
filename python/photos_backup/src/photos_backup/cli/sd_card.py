@@ -1,6 +1,6 @@
 import click
 
-from osxphotos.sd_card.backup import Backup
+from photos_backup.sd_card.backup import Backup
 
 
 @click.command(name="sd-card", help="Work with an SD card.")
