@@ -5,17 +5,26 @@ from osxphotos.cli.export import export_cli
 
 
 class ApplePhotosExport:
-    def __init__(self, dry_run: bool):
-        self.dry_run = dry_run
+    def __init__(self, testing: bool):
+        # Set a couple of flags when testing
+        self.testing = testing
+        self.limit = int(os.getenv("APPLE_PHOTOS_LIMIT_EXPORT", "0")) if testing else 0
+
         self.dst_path: Path = Path()
         self._set_up_paths()
 
     def export(self):
         export_cli(
+            # Testing flags
+            dry_run=self.testing,
+            verbose_flag=self.testing,
+            limit=self.limit,
+            # Regular flags
             dest=str(self.dst_path),
-            dry_run=self.dry_run,
             exiftool=True,
-            export_by_date=True,
+            directory="{created.year}/{created.mm}/"
+            "{media_type,photo=photos;video=videos}/{album[ ,_],}",
+            filename_template="{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
             report="photos_export_{today.date}.csv",
             update=True,
         )
