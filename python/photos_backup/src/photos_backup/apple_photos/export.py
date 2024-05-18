@@ -22,8 +22,7 @@ class ApplePhotosExport:
             # Regular flags
             dest=str(self.dst_path),
             exiftool=True,
-            directory="{created.year}/{created.mm}/"
-            "{media_type,photo=photos;video=videos}/{album[ ,_],}",
+            directory="{created.year}/{created.mm}/{album[ ,_],}",
             filename_template="{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
             report="photos_export_{today.date}.csv",
             update=True,
