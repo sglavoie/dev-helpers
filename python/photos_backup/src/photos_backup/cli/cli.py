@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from photos_backup.cli.apple_photos import apple_photos
 from photos_backup.cli.sd_card import sd_card
+from photos_backup.cli.sdd import sdd
 
 
 HOME = os.path.expanduser("~")
@@ -23,6 +24,7 @@ def cli() -> None:
 
 cli.add_command(apple_photos)
 cli.add_command(sd_card)
+cli.add_command(sdd)
 
 
 if __name__ == "__main__":
