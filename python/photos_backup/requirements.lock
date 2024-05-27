@@ -8,10 +8,23 @@
 #   with-sources: false
 
 -e file:.
+aiohttp==3.9.5
+    # via microsoft-kiota-authentication-azure
+aiosignal==1.3.1
+    # via aiohttp
+anyio==4.3.0
+    # via httpx
 appdirs==1.4.4
     # via ptpython
 arpeggio==2.0.2
     # via textx
+attrs==23.2.0
+    # via aiohttp
+azure-core==1.30.1
+    # via azure-identity
+    # via microsoft-kiota-authentication-azure
+azure-identity==1.16.0
+    # via msgraph-sdk
 bitarray==2.9.2
     # via bitstring
 bitmath==1.3.3.1
@@ -23,8 +36,11 @@ blessed==1.17.12
 bpylist2==4.1.1
     # via osxphotos
 certifi==2024.2.2
+    # via httpcore
+    # via httpx
     # via requests
 cffi==1.16.0
+    # via cryptography
     # via xattr
 charset-normalizer==3.3.2
     # via requests
@@ -32,8 +48,35 @@ click==8.1.7
     # via osxmetadata
     # via osxphotos
     # via photos-backup
+cryptography==42.0.7
+    # via azure-identity
+    # via msal
+    # via pyjwt
+deprecated==1.2.14
+    # via opentelemetry-api
+frozenlist==1.4.1
+    # via aiohttp
+    # via aiosignal
+h11==0.14.0
+    # via httpcore
+h2==4.1.0
+    # via httpx
+hpack==4.0.0
+    # via h2
+httpcore==1.0.5
+    # via httpx
+httpx==0.27.0
+    # via microsoft-kiota-http
+    # via msgraph-core
+hyperframe==6.0.1
+    # via h2
 idna==3.7
+    # via anyio
+    # via httpx
     # via requests
+    # via yarl
+importlib-metadata==7.0.0
+    # via opentelemetry-api
 jedi==0.19.1
     # via ptpython
 mac-alias==2.2.2
@@ -46,24 +89,79 @@ markupsafe==2.1.5
     # via mako
 mdurl==0.1.2
     # via markdown-it-py
+microsoft-kiota-abstractions==1.3.2
+    # via microsoft-kiota-authentication-azure
+    # via microsoft-kiota-http
+    # via microsoft-kiota-serialization-form
+    # via microsoft-kiota-serialization-json
+    # via microsoft-kiota-serialization-multipart
+    # via microsoft-kiota-serialization-text
+    # via msgraph-core
+    # via msgraph-sdk
+microsoft-kiota-authentication-azure==1.0.0
+    # via msgraph-core
+    # via msgraph-sdk
+microsoft-kiota-http==1.3.1
+    # via msgraph-core
+    # via msgraph-sdk
+microsoft-kiota-serialization-form==0.1.0
+    # via msgraph-sdk
+microsoft-kiota-serialization-json==1.2.0
+    # via msgraph-sdk
+microsoft-kiota-serialization-multipart==0.1.0
+    # via msgraph-sdk
+microsoft-kiota-serialization-text==1.0.0
+    # via msgraph-sdk
 more-itertools==8.14.0
     # via osxphotos
+msal==1.28.0
+    # via azure-identity
+    # via msal-extensions
+    # via office365-rest-python-client
+msal-extensions==1.1.0
+    # via azure-identity
+msgraph-core==1.0.0
+    # via msgraph-sdk
+msgraph-sdk==1.4.0
+    # via photos-backup
+multidict==6.0.5
+    # via aiohttp
+    # via yarl
 objexplore==1.6.3
     # via osxphotos
+office365-rest-python-client==2.5.9
+    # via photos-backup
+opentelemetry-api==1.24.0
+    # via microsoft-kiota-abstractions
+    # via microsoft-kiota-authentication-azure
+    # via microsoft-kiota-http
+    # via opentelemetry-sdk
+opentelemetry-sdk==1.24.0
+    # via microsoft-kiota-abstractions
+    # via microsoft-kiota-authentication-azure
+    # via microsoft-kiota-http
+opentelemetry-semantic-conventions==0.45b0
+    # via opentelemetry-sdk
 osxmetadata==1.3.4
     # via osxphotos
 osxphotos==0.67.10
     # via photos-backup
 packaging==24.0
+    # via msal-extensions
     # via osxphotos
 parso==0.8.4
     # via jedi
 pathvalidate==3.2.0
     # via osxphotos
+pendulum==3.0.0
+    # via microsoft-kiota-serialization-form
+    # via microsoft-kiota-serialization-json
 photoscript==0.3.1
     # via osxphotos
 pip==24.0
     # via osxphotos
+portalocker==2.8.2
+    # via msal-extensions
 prompt-toolkit==3.0.43
     # via ptpython
 ptpython==3.0.26
@@ -76,6 +174,8 @@ pycparser==2.22
 pygments==2.18.0
     # via ptpython
     # via rich
+pyjwt==2.8.0
+    # via msal
 pyobjc-core==10.2
     # via osxmetadata
     # via osxphotos
@@ -149,13 +249,22 @@ pyobjc-framework-scriptingbridge==10.2
     # via osxmetadata
 pyobjc-framework-vision==10.2
     # via osxphotos
+python-dateutil==2.9.0.post0
+    # via microsoft-kiota-serialization-text
+    # via pendulum
+    # via time-machine
 python-dotenv==1.0.1
     # via photos-backup
 pytimeparse2==1.7.1
     # via osxphotos
+pytz==2024.1
+    # via office365-rest-python-client
 pyyaml==6.0.1
     # via osxphotos
 requests==2.31.0
+    # via azure-core
+    # via msal
+    # via office365-rest-python-client
     # via osxphotos
 rich==13.7.1
     # via objexplore
@@ -166,7 +275,14 @@ rich-theme-manager==0.11.0
 shortuuid==1.0.13
     # via osxphotos
 six==1.16.0
+    # via azure-core
     # via blessed
+    # via python-dateutil
+sniffio==1.3.1
+    # via anyio
+    # via httpx
+std-uritemplate==0.0.57
+    # via microsoft-kiota-abstractions
 strpdatetime==0.3.0
     # via osxphotos
 tenacity==8.3.0
@@ -174,8 +290,16 @@ tenacity==8.3.0
 textx==4.0.1
     # via osxphotos
     # via strpdatetime
+time-machine==2.14.1
+    # via pendulum
 toml==0.10.2
     # via osxphotos
+typing-extensions==4.11.0
+    # via azure-core
+    # via office365-rest-python-client
+    # via opentelemetry-sdk
+tzdata==2024.1
+    # via pendulum
 urllib3==2.2.1
     # via requests
 wcwidth==0.2.13
@@ -184,6 +308,7 @@ wcwidth==0.2.13
 wheel==0.43.0
     # via osxmetadata
 wrapt==1.16.0
+    # via deprecated
     # via osxphotos
 wurlitzer==3.1.0
     # via osxphotos
@@ -191,3 +316,7 @@ xattr==1.1.0
     # via osxmetadata
 xdg-base-dirs==6.0.1
     # via osxphotos
+yarl==1.9.4
+    # via aiohttp
+zipp==3.18.2
+    # via importlib-metadata
