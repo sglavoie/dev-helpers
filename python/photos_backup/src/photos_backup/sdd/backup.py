@@ -14,15 +14,18 @@ class Backup:
 
     def backup(self) -> None:
         dry_run = "--dry-run" if self.dry_run else ""
-        cmd = f"""rsync -a --progress \
-            {dry_run} \
-            {self.apple_photos_path} {self.sdd_dst_path}"""
-        subprocess.run(shlex.split(cmd), check=True)
 
-        cmd = f"""rsync -a --progress \
-            {dry_run} \
-            {self.sd_card_path} {self.sdd_dst_path}"""
-        subprocess.run(shlex.split(cmd), check=True)
+        if self.apple_photos_path.exists():
+            cmd = f"""rsync -a --progress \
+                {dry_run} \
+                {self.apple_photos_path} {self.sdd_dst_path}"""
+            subprocess.run(shlex.split(cmd), check=True)
+
+        if self.sd_card_path.exists():
+            cmd = f"""rsync -a --progress \
+                {dry_run} \
+                {self.sd_card_path} {self.sdd_dst_path}"""
+            subprocess.run(shlex.split(cmd), check=True)
 
     def _set_up_paths(self) -> None:
         apple_photos_path_env = "APPLE_PHOTOS_DST_PATH"
@@ -41,7 +44,7 @@ class Backup:
 
         for path in [apple_photos_path, sd_card_path]:
             if not os.path.exists(path):
-                raise FileNotFoundError(f"'{path}' does not exist")
+                print(f"'{path}' does not exist: skipping")
 
         if not os.path.exists(sdd_dst_path):
             try:
