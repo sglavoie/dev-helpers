@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 class Backup:
-    def __init__(self, dry_run: bool) -> None:
+    def __init__(self, delete_at_destination: bool, dry_run: bool) -> None:
+        self.delete_at_destination = delete_at_destination
         self.dry_run = dry_run
         self.apple_photos_path: Path = Path()
         self.sd_card_path: Path = Path()
@@ -14,15 +15,16 @@ class Backup:
 
     def backup(self) -> None:
         dry_run = "--dry-run" if self.dry_run else ""
+        delete = "--delete" if self.delete_at_destination else ""
 
         if self.apple_photos_path.exists():
-            cmd = f"""rsync -a --progress \
+            cmd = f"""rsync -avh --progress {delete} \
                 {dry_run} \
                 {self.apple_photos_path} {self.sdd_dst_path}"""
             subprocess.run(shlex.split(cmd), check=True)
 
         if self.sd_card_path.exists():
-            cmd = f"""rsync -a --progress \
+            cmd = f"""rsync -avh --progress {delete} \
                 {dry_run} \
                 {self.sd_card_path} {self.sdd_dst_path}"""
             subprocess.run(shlex.split(cmd), check=True)
