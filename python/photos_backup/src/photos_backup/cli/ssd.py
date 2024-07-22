@@ -1,9 +1,9 @@
 import click
 
-from photos_backup.sdd.backup import Backup
+from photos_backup.ssd.backup import Backup
 
 
-@click.command(name="sdd", help="Backup to an external drive.")
+@click.command(name="ssd", help="Backup to an external drive.")
 @click.option(
     "--delete",
     is_flag=True,
@@ -14,7 +14,7 @@ from photos_backup.sdd.backup import Backup
     is_flag=True,
     help="Dry run.",
 )
-def sdd(
+def ssd(
     delete: bool,
     dry_run: bool,
 ) -> None:
