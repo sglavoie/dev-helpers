@@ -1,0 +1,6 @@
+# Executable produced when running `go build`
+goback
+
+bin/
+
+.idea/
