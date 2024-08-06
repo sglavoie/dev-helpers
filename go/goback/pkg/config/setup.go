@@ -32,10 +32,15 @@ var cfg config
 var cliCfg cliConfig
 
 // InitConfig reads in config file.
-func InitConfig() {
+func InitConfig(recreateInvalid bool) {
 	setCliCfg()
 	setViperCfg()
 	readConfigFile()
+
+	if recreateInvalid {
+		recreateInvalidConfigFile()
+	}
+
 	cfg.Unmarshal()
 	err := cfg.Validate()
 	if err != nil {
@@ -53,6 +58,12 @@ func (c *config) Unmarshal() {
 func (c *config) Validate() error {
 	// TODO
 	return nil
+}
+
+func recreateInvalidConfigFile() {
+	if err := viper.ReadInConfig(); err != nil {
+		askToRecreateInvalidConfigFile()
+	}
 }
 
 func setCliCfg() {

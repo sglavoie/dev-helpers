@@ -38,6 +38,10 @@ var printCmd = &cobra.Command{
 	Use:   "print",
 	Short: "Print the configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
+		if cmd.Flag("raw").Value.String() == "true" {
+			config.PrintRaw()
+			return
+		}
 		config.Print()
 	},
 }

@@ -11,6 +11,14 @@ import (
 var RootCmd = &cobra.Command{
 	Use:   "goback",
 	Short: "A no-nonsense backup tool using rsync",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if cmd.Parent().Name() == "config" && cmd.Name() == "print" {
+			config.InitConfig(false)
+			return
+		}
+
+		config.InitConfig(true)
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -23,6 +31,6 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(config.InitConfig)
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
+	printCmd.Flags().Bool("raw", false, "print the raw configuration without unmarshalling it")
 }

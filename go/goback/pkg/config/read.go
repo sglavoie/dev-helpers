@@ -14,8 +14,4 @@ func readConfigFile() {
 			cobra.CheckErr(err)
 		}
 	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		askToRecreateInvalidConfigFile()
-	}
 }
