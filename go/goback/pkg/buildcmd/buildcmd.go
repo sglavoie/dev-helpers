@@ -7,17 +7,24 @@ import (
 	"time"
 )
 
-func GetRsyncCommand() string {
+func getRsyncCommandBuilder() *strings.Builder {
 	var sb strings.Builder
 	sb.WriteString("rsync")
 	addBooleanFlags(&sb)
 	addLogFile(&sb)
-	wrapLongLinesWithBackslashes(&sb)
+	addExcludedPatterns(&sb)
+	addSrcDest(&sb)
+	return &sb
+}
+
+func getRsyncCommandString(sb *strings.Builder) string {
 	return sb.String()
 }
 
 func PrintRsyncCommand() {
-	fmt.Println(GetRsyncCommand())
+	sb := getRsyncCommandBuilder()
+	wrapLongLinesWithBackslashes(sb)
+	fmt.Println(getRsyncCommandString(sb))
 }
 
 func addBooleanFlags(sb *strings.Builder) {
@@ -54,6 +61,26 @@ func addLogFile(sb *strings.Builder) {
 	sb.WriteString(" --log-file=")
 	sb.WriteString(strings.TrimSuffix(viper.ConfigFileUsed(), ".json"))
 	sb.WriteString("_" + time.Now().Format("20060102_15_04_05"))
+}
+
+func addExcludedPatterns(sb *strings.Builder) {
+	for _, pattern := range viper.GetStringSlice("excludedPatterns") {
+		sb.WriteString(" --exclude=\"")
+		sb.WriteString(pattern)
+		sb.WriteString("\"")
+	}
+}
+
+// addSrcDest reads a map of source to destination directories from the config file.
+// It currently handles a single mapping for simplicity.
+func addSrcDest(sb *strings.Builder) {
+	for src, dest := range viper.GetStringMapString("srcDest") {
+		sb.WriteString(" ")
+		sb.WriteString(src)
+		sb.WriteString(" ")
+		sb.WriteString(dest)
+		break
+	}
 }
 
 func wrapLongLinesWithBackslashes(sb *strings.Builder) {

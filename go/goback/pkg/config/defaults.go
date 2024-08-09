@@ -12,4 +12,6 @@ func setDefaultValues() {
 	viper.Set("rsyncFlags.ignoreErrors", true)
 	viper.Set("rsyncFlags.pruneEmptyDirs", true)
 	viper.Set("rsyncFlags.verbose", false)
+	viper.Set("excludedPatterns", []string{})
+	viper.Set("srcDest", map[string]string{})
 }

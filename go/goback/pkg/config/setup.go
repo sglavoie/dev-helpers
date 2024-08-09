@@ -21,7 +21,9 @@ type rsyncFlags struct {
 }
 
 type config struct {
-	rsyncFlags rsyncFlags
+	excludedPatterns []string
+	rsyncFlags       rsyncFlags
+	srcDest          map[string]string
 }
 
 type cliConfig struct {
@@ -32,13 +34,18 @@ var cfg config
 var cliCfg cliConfig
 
 // InitConfig reads in config file.
-func InitConfig(recreateInvalid bool) {
+func InitConfig(recreateInvalid bool, readConfig bool) {
 	setCliCfg()
 	setViperCfg()
 	readConfigFile()
 
 	if recreateInvalid {
 		recreateInvalidConfigFile()
+	} else if readConfig {
+		err := viper.ReadInConfig()
+		if err != nil {
+			cobra.CheckErr(err)
+		}
 	}
 
 	cfg.Unmarshal()

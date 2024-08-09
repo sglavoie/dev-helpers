@@ -12,12 +12,12 @@ var RootCmd = &cobra.Command{
 	Use:   "goback",
 	Short: "A no-nonsense backup tool using rsync",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if cmd.Parent().Name() == "config" && cmd.Name() == "print" {
-			config.InitConfig(false)
+		if cmd.Parent().Name() != "config" {
+			config.InitConfig(true, true)
 			return
 		}
 
-		config.InitConfig(true)
+		config.InitConfig(false, false)
 	},
 }
 
