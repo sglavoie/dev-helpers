@@ -31,6 +31,7 @@ func Execute() {
 }
 
 func init() {
+	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
 	printCmd.Flags().Bool("raw", false, "print the raw configuration without unmarshalling it")
 }

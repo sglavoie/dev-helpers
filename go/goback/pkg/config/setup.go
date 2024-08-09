@@ -21,6 +21,7 @@ type rsyncFlags struct {
 }
 
 type config struct {
+	confirmExec      bool
 	excludedPatterns []string
 	rsyncFlags       rsyncFlags
 	srcDest          map[string]string
