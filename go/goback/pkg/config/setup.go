@@ -46,11 +46,6 @@ func (c *Config) Unmarshal() {
 	}
 }
 
-func (c *Config) Validate() error {
-	// TODO
-	return nil
-}
-
 type CliConfig struct {
 	ConfigExtension string
 }
@@ -76,10 +71,6 @@ func MustInitConfig(recreateInvalid bool, readConfig bool) {
 	}
 
 	cfg.Unmarshal()
-	err := cfg.Validate()
-	if err != nil {
-		cobra.CheckErr(err)
-	}
 }
 
 func recreateInvalidFile() {

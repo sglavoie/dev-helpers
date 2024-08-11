@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"github.com/carlmjohnson/versioninfo"
 	"os"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
@@ -9,8 +11,9 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "goback",
-	Short: "A no-nonsense backup tool using rsync",
+	Use:     "goback",
+	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
+	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if cmd.Parent().Name() != "config" {
 			config.MustInitConfig(true, true)
@@ -34,4 +37,8 @@ func init() {
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
 	printCmd.Flags().Bool("raw", false, "print the raw configuration without unmarshalling it")
+}
+
+func lastCommitDate() string {
+	return versioninfo.LastCommit.Format("2006-01-02")
 }

@@ -10,14 +10,14 @@ import (
 )
 
 func OpenFileWithEditor(filePath string) {
-	args := getArgs(getDefaultName(), filePath)
+	args := args(defaultName(), filePath)
 	err := execWithOutputRedirects(args[0], args[1:])
 	if err != nil {
 		cobra.CheckErr(err)
 	}
 }
 
-func getDefaultName() string {
+func defaultName() string {
 	editor := viper.GetString("editor")
 	if editor != "" {
 		return editor
@@ -30,7 +30,7 @@ func getDefaultName() string {
 	return editor
 }
 
-func getArgs(editor, tempFilePath string) []string {
+func args(editor, tempFilePath string) []string {
 	var args []string
 	if editor == "code" {
 		args = strings.Fields(editor)

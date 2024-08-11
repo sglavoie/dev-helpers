@@ -78,6 +78,28 @@ func (r *builder) setUpdatedSourceDestination(src, dest string) {
 	r.updatedDest = dest
 }
 
+func (r *builder) validateBeforeRun() {
+	if _, err := os.Stat(r.updatedDest); os.IsNotExist(err) {
+		cobra.CheckErr(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDest))
+	}
+
+	if _, err := os.Stat(r.updatedSrc); os.IsNotExist(err) {
+		cobra.CheckErr(fmt.Sprintf("source directory %s does not exist", r.updatedSrc))
+	}
+
+	if _, err := os.ReadDir(r.updatedSrc); err != nil {
+		cobra.CheckErr(fmt.Sprintf("source directory %s is empty", r.updatedSrc))
+	}
+
+	if r.updatedSrc == r.updatedDest {
+		cobra.CheckErr(fmt.Sprintf("source and r.updatedDestination are the same: %s", r.updatedSrc))
+	}
+
+	if strings.HasPrefix(r.updatedDest, r.updatedSrc) {
+		cobra.CheckErr(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDest))
+	}
+}
+
 // RsyncBuilderDaily is a struct that implements the builder interface for daily backups.
 type RsyncBuilderDaily struct {
 	builder
@@ -89,6 +111,7 @@ func (r *RsyncBuilderDaily) Build() {
 	r.appendLogFile()
 	r.appendExcludedPatterns()
 	r.appendSrcDest()
+	r.validateBeforeRun()
 }
 
 func (r *RsyncBuilderDaily) initBuilder() {
@@ -104,11 +127,6 @@ func (r *RsyncBuilderDaily) appendExcludedPatterns() {
 	r.setExcludedPatternsByBackupType("rsync.daily.")
 }
 
-func (r *RsyncBuilderDaily) validateBeforeRun() {
-	//TODO implement me
-	panic("implement me")
-}
-
 // RsyncBuilderWeekly is a struct that implements the builder interface for weekly backups.
 type RsyncBuilderWeekly struct {
 	builder
@@ -120,6 +138,7 @@ func (r *RsyncBuilderWeekly) Build() {
 	r.appendLogFile()
 	r.setExcludedPatterns()
 	r.appendSrcDest()
+	r.validateBeforeRun()
 }
 
 func (r *RsyncBuilderWeekly) initBuilder() {
@@ -133,11 +152,6 @@ func (r *RsyncBuilderWeekly) setBooleanFlags() {
 
 func (r *RsyncBuilderWeekly) setExcludedPatterns() {
 	r.setExcludedPatternsByBackupType("rsync.weekly.")
-}
-
-func (r *RsyncBuilderWeekly) validateBeforeRun() {
-	//TODO implement me
-	panic("implement me")
 }
 
 // RsyncBuilderMonthly is a struct that implements the builder interface for monthly backups.
@@ -163,32 +177,6 @@ func (r *RsyncBuilderMonthly) appendCompressionCommand() {
 
 func (r *RsyncBuilderMonthly) setDestDir() {
 	r.destDir = strings.Join(strings.Split(r.updatedDest, "/")[:len(strings.Split(r.updatedDest, "/"))-1], "/")
-}
-
-func (r *RsyncBuilderMonthly) setBooleanFlags() {
-	// FIXME: not rsync
-	r.setBooleanFlagsByBackupType("rsync.monthly.")
-}
-
-// TODO
-func (r *RsyncBuilderMonthly) validateBeforeRun() {
-	if _, err := os.Stat(r.destDir); os.IsNotExist(err) {
-		cobra.CheckErr(fmt.Sprintf("destination directory %s does not exist", r.destDir))
-	}
-
-	if _, err := os.Stat(r.updatedSrc); os.IsNotExist(err) {
-		cobra.CheckErr(fmt.Sprintf("source directory %s does not exist", r.updatedSrc))
-	}
-
-	// check r.updatedDest is writable
-	// ...
-
-	// check if r.updatedSrc is readable
-	// check if r.updatedSrc is not empty
-	// check if r.updatedDest is not empty
-	// check if r.updatedSrc is not the same as r.updatedDest
-	// check if r.updatedSrc is not a parent of r.updatedDest
-
 }
 
 func (r *builder) setBooleanFlagsByBackupType(cfgPrefix string) {
