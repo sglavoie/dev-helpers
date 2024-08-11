@@ -1,8 +1,8 @@
 package config
 
 import (
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/editor"
 	"github.com/spf13/viper"
-	"goback/pkg/editor"
 )
 
 func Edit() {

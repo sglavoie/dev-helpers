@@ -2,57 +2,70 @@ package buildcmd
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
 	"time"
 )
 
-func GetRsyncCommandToRun(backupType string) string {
-	src, dest := exitOnInvalidSourceOrDestination()
-	switch backupType {
-	case "daily":
-		dest = dest + "/daily"
-	case "weekly":
-		src = dest + "/daily/" // append slash to avoid copying the daily directory itself
-		dest = dest + "/weekly"
-	case "monthly":
-		src = dest + "/daily"
-		dest = dest + "/monthly/monthly_" + time.Now().Format("20060102") + ".tar.gz"
-		return getCompressionCommand(src, dest)
-	default:
-		log.Fatal("invalid backup type")
-	}
-	sb := getRsyncCommandBuilder()
-	addUpdatedSourceDestination(sb, src, dest)
-	return getRsyncCommandString(sb)
+func AsStringDaily() string {
+	c := commandToRunDaily()
+	c.Build()
+	return c.String()
 }
 
-func PrintRsyncCommand() {
-	sb := getRsyncCommandBuilder()
-	addRawSourceDestination(sb)
-	wrapLongLinesWithBackslashes(sb)
-	fmt.Println(getRsyncCommandString(sb))
+func AsStringWeekly() string {
+	c := commandToRunWeekly()
+	c.Build()
+	return c.String()
 }
 
-func getCompressionCommand(src string, dest string) string {
-	if _, err := os.Stat(dest); err == nil {
-		log.Fatal("destination file already exists: " + dest)
-	}
-
-	destDir := strings.Join(strings.Split(dest, "/")[:len(strings.Split(dest, "/"))-1], "/")
-	return "mkdir -p " + destDir + " && " + "tar -czvf " + dest + " " + src
+func AsStringMonthly() string {
+	c := commandToRunMonthly()
+	c.Build()
+	return c.String()
 }
 
-func getRsyncCommandBuilder() *strings.Builder {
-	var sb strings.Builder
-	sb.WriteString("rsync")
-	addBooleanFlags(&sb)
-	addLogFile(&sb)
-	addExcludedPatterns(&sb)
-	return &sb
+func PrintCommandDaily() {
+	c := commandToRunDaily()
+	c.Build()
+	c.WrapLongLinesWithBackslashes()
+	c.PrintString()
 }
 
-func getRsyncCommandString(sb *strings.Builder) string {
-	return sb.String()
+func PrintCommandWeekly() {
+	c := commandToRunWeekly()
+	c.Build()
+	c.WrapLongLinesWithBackslashes()
+	c.PrintString()
+}
+
+func PrintCommandMonthly() {
+	c := commandToRunMonthly()
+	c.Build()
+	c.WrapLongLinesWithBackslashes()
+	c.PrintString()
+}
+
+func commandToRunDaily() *RsyncBuilderDaily {
+	src, dest := mustExitOnInvalidSourceOrDestination()
+	dest = dest + "/daily"
+	b := &RsyncBuilderDaily{}
+	b.setUpdatedSourceDestination(src, dest)
+	return b
+}
+
+func commandToRunWeekly() *RsyncBuilderWeekly {
+	src, dest := mustExitOnInvalidSourceOrDestination()
+	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
+	dest = dest + "/weekly"
+	b := &RsyncBuilderWeekly{}
+	b.setUpdatedSourceDestination(src, dest)
+	return b
+}
+
+func commandToRunMonthly() *RsyncBuilderMonthly {
+	src, dest := mustExitOnInvalidSourceOrDestination()
+	src = dest + "/daily"
+	dest = fmt.Sprintf("%s/monthly/monthly_%s.tar.gz", dest, time.Now().Format("20060102"))
+	b := &RsyncBuilderMonthly{}
+	b.setUpdatedSourceDestination(src, dest)
+	return b
 }

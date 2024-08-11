@@ -1,10 +1,11 @@
 package config
 
 import (
+	"os"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/inputs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"goback/pkg/inputs"
-	"os"
 )
 
 func Reset() {
@@ -19,5 +20,5 @@ func Reset() {
 			cobra.CheckErr(errRemove)
 		}
 	}
-	createConfigFileWithoutConfirmation()
+	createFileWithoutConfirmation()
 }

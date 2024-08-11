@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/cobra"
-	"goback/pkg/config"
 )
 
 func init() {

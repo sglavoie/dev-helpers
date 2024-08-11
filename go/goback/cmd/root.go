@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"goback/pkg/config"
 	"os"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -13,11 +13,11 @@ var RootCmd = &cobra.Command{
 	Short: "A no-nonsense backup tool using rsync",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if cmd.Parent().Name() != "config" {
-			config.InitConfig(true, true)
+			config.MustInitConfig(true, true)
 			return
 		}
 
-		config.InitConfig(false, false)
+		config.MustInitConfig(false, false)
 	},
 }
 

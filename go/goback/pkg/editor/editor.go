@@ -1,22 +1,23 @@
 package editor
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func OpenFileWithEditor(filePath string) {
-	args := getArgsForEditor(getDefaultEditorName(), filePath)
+	args := getArgs(getDefaultName(), filePath)
 	err := execWithOutputRedirects(args[0], args[1:])
 	if err != nil {
 		cobra.CheckErr(err)
 	}
 }
 
-func getDefaultEditorName() string {
+func getDefaultName() string {
 	editor := viper.GetString("editor")
 	if editor != "" {
 		return editor
@@ -29,7 +30,7 @@ func getDefaultEditorName() string {
 	return editor
 }
 
-func getArgsForEditor(editor, tempFilePath string) []string {
+func getArgs(editor, tempFilePath string) []string {
 	var args []string
 	if editor == "code" {
 		args = strings.Fields(editor)

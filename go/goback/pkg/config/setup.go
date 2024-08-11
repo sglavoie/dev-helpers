@@ -1,14 +1,13 @@
 package config
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
-var CfgFile string
-
-type rsyncFlags struct {
+type rsyncSupportedFlags struct {
 	archive        bool
 	delete         bool
 	deleteExcluded bool
@@ -20,28 +19,55 @@ type rsyncFlags struct {
 	verbose        bool
 }
 
-type config struct {
+type rsyncFlagsDaily struct {
+	flags rsyncSupportedFlags
+}
+
+type rsyncFlagsWeekly struct {
+	flags rsyncSupportedFlags
+}
+
+type rsync struct {
+	daily  rsyncFlagsDaily
+	weekly rsyncFlagsWeekly
+}
+
+type Config struct {
 	confirmExec      bool
 	excludedPatterns []string
-	rsyncFlags       rsyncFlags
+	rsync            rsync
 	srcDest          map[string]string
 }
 
-type cliConfig struct {
-	configExtension string
+func (c *Config) Unmarshal() {
+	err := viper.Unmarshal(&c)
+	if err != nil {
+		cobra.CheckErr(err)
+	}
 }
 
-var cfg config
-var cliCfg cliConfig
+func (c *Config) Validate() error {
+	// TODO
+	return nil
+}
 
-// InitConfig reads in config file.
-func InitConfig(recreateInvalid bool, readConfig bool) {
+type CliConfig struct {
+	ConfigExtension string
+}
+
+var CfgFile string
+
+var cfg Config
+var cliCfg CliConfig
+
+// MustInitConfig reads in config file.
+func MustInitConfig(recreateInvalid bool, readConfig bool) {
 	setCliCfg()
 	setViperCfg()
-	readConfigFile()
+	mustReadFile()
 
 	if recreateInvalid {
-		recreateInvalidConfigFile()
+		recreateInvalidFile()
 	} else if readConfig {
 		err := viper.ReadInConfig()
 		if err != nil {
@@ -56,26 +82,14 @@ func InitConfig(recreateInvalid bool, readConfig bool) {
 	}
 }
 
-func (c *config) Unmarshal() {
-	err := viper.Unmarshal(&c)
-	if err != nil {
-		cobra.CheckErr(err)
-	}
-}
-
-func (c *config) Validate() error {
-	// TODO
-	return nil
-}
-
-func recreateInvalidConfigFile() {
+func recreateInvalidFile() {
 	if err := viper.ReadInConfig(); err != nil {
-		askToRecreateInvalidConfigFile()
+		askToRecreateInvalidFile()
 	}
 }
 
 func setCliCfg() {
-	cliCfg.configExtension = ".json"
+	cliCfg.ConfigExtension = ".json"
 }
 
 func setViperCfg() {

@@ -1,12 +1,13 @@
 package buildcmd
 
 import (
-	"github.com/spf13/viper"
 	"log"
 	"os"
+
+	"github.com/spf13/viper"
 )
 
-func exitOnInvalidSourceOrDestination() (string, string) {
+func mustExitOnInvalidSourceOrDestination() (string, string) {
 	src := viper.GetString("source")
 	if src == "" {
 		log.Fatal("source not set")

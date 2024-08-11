@@ -1,6 +1,6 @@
 package main
 
-import "goback/cmd"
+import "github.com/sglavoie/dev-helpers/go/goback/cmd"
 
 func main() {
 	cmd.Execute()

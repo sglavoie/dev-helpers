@@ -1,4 +1,4 @@
-module goback
+module github.com/sglavoie/dev-helpers/go/goback
 
 go 1.22.5
 
