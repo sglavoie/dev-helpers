@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,9 +13,7 @@ import (
 func OpenFileWithEditor(filePath string) {
 	args := args(defaultName(), filePath)
 	err := execWithOutputRedirects(args[0], args[1:])
-	if err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(err)
 }
 
 func defaultName() string {
@@ -25,7 +24,7 @@ func defaultName() string {
 
 	editor = os.Getenv("EDITOR")
 	if editor == "" {
-		cobra.CheckErr("EDITOR environment variable not set")
+		log.Fatal("EDITOR environment variable not set")
 	}
 	return editor
 }
@@ -50,9 +49,6 @@ func execWithOutputRedirects(cmdName string, args []string) error {
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
-	if err != nil {
-		cobra.CheckErr(err)
-	}
-
+	cobra.CheckErr(err)
 	return nil
 }

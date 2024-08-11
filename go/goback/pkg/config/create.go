@@ -32,16 +32,11 @@ func mustCreateFileWithConfirmation() {
 
 func mustCreateDefaultFile() {
 	_, errFile := os.Create(viper.ConfigFileUsed())
-	if errFile != nil {
-		cobra.CheckErr(errFile)
-	}
+	cobra.CheckErr(errFile)
 
 	setDefaultValues()
 
 	err := viper.WriteConfig()
-	if err != nil {
-		fmt.Println("Error writing config file:", err)
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(fmt.Sprintf("error writing config file: %s", err))
 	fmt.Println("config file created.")
 }

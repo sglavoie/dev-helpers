@@ -16,9 +16,7 @@ func Reset() {
 
 	if _, errRead := os.Stat(viper.ConfigFileUsed()); errRead == nil {
 		errRemove := os.Remove(viper.ConfigFileUsed())
-		if errRemove != nil {
-			cobra.CheckErr(errRemove)
-		}
+		cobra.CheckErr(errRemove)
 	}
 	createFileWithoutConfirmation()
 }

@@ -2,11 +2,11 @@ package buildcmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -80,23 +80,23 @@ func (r *builder) setUpdatedSourceDestination(src, dest string) {
 
 func (r *builder) validateBeforeRun() {
 	if _, err := os.Stat(r.updatedDest); os.IsNotExist(err) {
-		cobra.CheckErr(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDest))
+		log.Fatal(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDest))
 	}
 
 	if _, err := os.Stat(r.updatedSrc); os.IsNotExist(err) {
-		cobra.CheckErr(fmt.Sprintf("source directory %s does not exist", r.updatedSrc))
+		log.Fatal(fmt.Sprintf("source directory %s does not exist", r.updatedSrc))
 	}
 
 	if _, err := os.ReadDir(r.updatedSrc); err != nil {
-		cobra.CheckErr(fmt.Sprintf("source directory %s is empty", r.updatedSrc))
+		log.Fatal(fmt.Sprintf("source directory %s is empty", r.updatedSrc))
 	}
 
 	if r.updatedSrc == r.updatedDest {
-		cobra.CheckErr(fmt.Sprintf("source and r.updatedDestination are the same: %s", r.updatedSrc))
+		log.Fatal(fmt.Sprintf("source and r.updatedDestination are the same: %s", r.updatedSrc))
 	}
 
 	if strings.HasPrefix(r.updatedDest, r.updatedSrc) {
-		cobra.CheckErr(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDest))
+		log.Fatal(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDest))
 	}
 }
 

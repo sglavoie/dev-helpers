@@ -41,9 +41,7 @@ type Config struct {
 
 func (c *Config) Unmarshal() {
 	err := viper.Unmarshal(&c)
-	if err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(err)
 }
 
 type CliConfig struct {
@@ -65,9 +63,7 @@ func MustInitConfig(recreateInvalid bool, readConfig bool) {
 		recreateInvalidFile()
 	} else if readConfig {
 		err := viper.ReadInConfig()
-		if err != nil {
-			cobra.CheckErr(err)
-		}
+		cobra.CheckErr(err)
 	}
 
 	cfg.Unmarshal()

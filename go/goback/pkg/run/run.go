@@ -34,10 +34,7 @@ func execCmd(cmdToRun string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-
-	if err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(err)
 }
 
 func printCommandToRunWithConfirmation(c string) {

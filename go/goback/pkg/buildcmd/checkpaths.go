@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -18,16 +19,12 @@ func mustExitOnInvalidSourceOrDestination() (string, string) {
 	}
 
 	srcIsDir, err := isDirectory(src)
-	if err != nil {
-		log.Fatal(err)
-	}
 	if !srcIsDir {
 		log.Fatal("source is not a directory")
 	}
+
 	destIsDir, err := isDirectory(dest)
-	if err != nil {
-		log.Fatal(err)
-	}
+	cobra.CheckErr(err)
 	if !destIsDir {
 		log.Fatal("destination is not a directory")
 	}
