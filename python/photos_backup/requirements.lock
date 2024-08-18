@@ -42,9 +42,13 @@ certifi==2024.2.2
 cffi==1.16.0
     # via cryptography
     # via xattr
+cgmetadata==0.1.6
+    # via makelive
+    # via osxphotos
 charset-normalizer==3.3.2
     # via requests
 click==8.1.7
+    # via makelive
     # via osxmetadata
     # via osxphotos
     # via photos-backup
@@ -66,7 +70,6 @@ hpack==4.0.0
 httpcore==1.0.5
     # via httpx
 httpx==0.27.0
-    # via httpx
     # via microsoft-kiota-http
     # via msgraph-core
 hyperframe==6.0.1
@@ -81,6 +84,8 @@ importlib-metadata==7.0.0
 jedi==0.19.1
     # via ptpython
 mac-alias==2.2.2
+    # via osxphotos
+makelive==0.6.1
     # via osxphotos
 mako==1.2.4
     # via osxphotos
@@ -107,7 +112,7 @@ microsoft-kiota-http==1.3.1
     # via msgraph-sdk
 microsoft-kiota-serialization-form==0.1.0
     # via msgraph-sdk
-microsoft-kiota-serialization-json==1.2.0
+microsoft-kiota-serialization-json==1.3.0
     # via msgraph-sdk
 microsoft-kiota-serialization-multipart==0.1.0
     # via msgraph-sdk
@@ -123,14 +128,14 @@ msal-extensions==1.1.0
     # via azure-identity
 msgraph-core==1.0.0
     # via msgraph-sdk
-msgraph-sdk==1.4.0
+msgraph-sdk==1.5.4
     # via photos-backup
 multidict==6.0.5
     # via aiohttp
     # via yarl
 objexplore==1.6.3
     # via osxphotos
-office365-rest-python-client==2.5.9
+office365-rest-python-client==2.5.12
     # via photos-backup
 opentelemetry-api==1.24.0
     # via microsoft-kiota-abstractions
@@ -145,7 +150,7 @@ opentelemetry-semantic-conventions==0.45b0
     # via opentelemetry-sdk
 osxmetadata==1.3.4
     # via osxphotos
-osxphotos==0.67.10
+osxphotos==0.68.5
     # via photos-backup
 packaging==24.0
     # via msal-extensions
@@ -158,6 +163,8 @@ pendulum==3.0.0
     # via microsoft-kiota-serialization-form
     # via microsoft-kiota-serialization-json
 photoscript==0.3.1
+    # via osxphotos
+pip==24.0
     # via osxphotos
 portalocker==2.8.2
     # via msal-extensions
@@ -175,8 +182,9 @@ pygments==2.18.0
     # via rich
 pyjwt==2.8.0
     # via msal
-    # via pyjwt
 pyobjc-core==10.2
+    # via cgmetadata
+    # via makelive
     # via osxmetadata
     # via osxphotos
     # via photoscript
@@ -185,7 +193,9 @@ pyobjc-core==10.2
     # via pyobjc-framework-applescriptobjc
     # via pyobjc-framework-avfoundation
     # via pyobjc-framework-cocoa
+    # via pyobjc-framework-contacts
     # via pyobjc-framework-coreaudio
+    # via pyobjc-framework-corelocation
     # via pyobjc-framework-coremedia
     # via pyobjc-framework-coreml
     # via pyobjc-framework-coreservices
@@ -194,6 +204,7 @@ pyobjc-core==10.2
     # via pyobjc-framework-photos
     # via pyobjc-framework-quartz
     # via pyobjc-framework-scriptingbridge
+    # via pyobjc-framework-uniformtypeidentifiers
     # via pyobjc-framework-vision
 pyobjc-framework-applescriptkit==10.2
     # via osxmetadata
@@ -206,6 +217,8 @@ pyobjc-framework-applescriptobjc==10.2
     # via photoscript
     # via py-applescript
 pyobjc-framework-avfoundation==10.2
+    # via cgmetadata
+    # via makelive
     # via osxmetadata
     # via osxphotos
 pyobjc-framework-cocoa==10.2
@@ -214,7 +227,9 @@ pyobjc-framework-cocoa==10.2
     # via pyobjc-framework-applescriptkit
     # via pyobjc-framework-applescriptobjc
     # via pyobjc-framework-avfoundation
+    # via pyobjc-framework-contacts
     # via pyobjc-framework-coreaudio
+    # via pyobjc-framework-corelocation
     # via pyobjc-framework-coremedia
     # via pyobjc-framework-coreml
     # via pyobjc-framework-coreservices
@@ -223,9 +238,15 @@ pyobjc-framework-cocoa==10.2
     # via pyobjc-framework-photos
     # via pyobjc-framework-quartz
     # via pyobjc-framework-scriptingbridge
+    # via pyobjc-framework-uniformtypeidentifiers
     # via pyobjc-framework-vision
+pyobjc-framework-contacts==10.2
+    # via makelive
 pyobjc-framework-coreaudio==10.2
     # via pyobjc-framework-avfoundation
+pyobjc-framework-corelocation==10.2
+    # via cgmetadata
+    # via makelive
 pyobjc-framework-coremedia==10.2
     # via osxmetadata
     # via pyobjc-framework-avfoundation
@@ -241,12 +262,17 @@ pyobjc-framework-metal==10.2
 pyobjc-framework-photos==10.2
     # via osxphotos
 pyobjc-framework-quartz==10.2
+    # via cgmetadata
+    # via makelive
     # via osxmetadata
     # via osxphotos
     # via pyobjc-framework-avfoundation
     # via pyobjc-framework-vision
 pyobjc-framework-scriptingbridge==10.2
     # via osxmetadata
+pyobjc-framework-uniformtypeidentifiers==10.2
+    # via cgmetadata
+    # via makelive
 pyobjc-framework-vision==10.2
     # via osxphotos
 python-dateutil==2.9.0.post0
@@ -267,6 +293,7 @@ requests==2.31.0
     # via office365-rest-python-client
     # via osxphotos
 rich==13.7.1
+    # via cgmetadata
     # via objexplore
     # via osxphotos
     # via rich-theme-manager
@@ -306,11 +333,15 @@ wcwidth==0.2.13
     # via blessed
     # via prompt-toolkit
 wheel==0.43.0
+    # via cgmetadata
+    # via makelive
     # via osxmetadata
 wrapt==1.16.0
     # via deprecated
     # via osxphotos
 wurlitzer==3.1.0
+    # via cgmetadata
+    # via makelive
     # via osxphotos
 xattr==1.1.0
     # via osxmetadata
@@ -320,5 +351,3 @@ yarl==1.9.4
     # via aiohttp
 zipp==3.18.2
     # via importlib-metadata
-pip==24.0
-    # via osxphotos

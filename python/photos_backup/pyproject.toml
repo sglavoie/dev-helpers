@@ -6,11 +6,11 @@ authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
     "python-dotenv>=1.0.1",
     "click>=8.1.7",
-    "osxphotos>=0.67.10",
-    "office365-rest-python-client>=2.5.9",
-    "msgraph-sdk>=1.4.0",
+    "osxphotos>=0.68.5",
+    "office365-rest-python-client>=2.5.12",
+    "msgraph-sdk>=1.5.4",
 ]
-readme = "README.md"
+readme = "README.md"  # `rye` doesn't know what do to with a `README.adoc`
 requires-python = ">= 3.12"
 
 [build-system]
@@ -19,7 +19,14 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = ["ruff>=0.4.3", "pre-commit>=3.7.0"]
+dev-dependencies = [
+    "ruff>=0.6.1",
+    "pre-commit>=3.8.0",
+]
+
+# `uv` breaks the build. No thanks.
+[tool.rye.behavior]
+use-uv = false
 
 [tool.hatch.metadata]
 allow-direct-references = true
