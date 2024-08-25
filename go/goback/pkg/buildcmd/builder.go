@@ -12,9 +12,10 @@ import (
 
 // builder is a struct that implements the rsyncCommonBuilder interface.
 type builder struct {
-	sb          *strings.Builder
-	updatedSrc  string
-	updatedDest string
+	sb              *strings.Builder
+	updatedSrc      string
+	updatedDestDir  string
+	updatedDestFile string
 }
 
 func (r *builder) PrintString() {
@@ -60,7 +61,7 @@ func (r *builder) appendSrcDest() {
 	r.sb.WriteString(" ")
 	r.sb.WriteString(r.updatedSrc)
 	r.sb.WriteString(" ")
-	r.sb.WriteString(r.updatedDest)
+	r.sb.WriteString(r.updatedDestDir)
 }
 
 // AddRawSourceDestination reads a source and a destination from the config file.
@@ -73,14 +74,20 @@ func (r *builder) addRawSourceDestination() {
 	r.sb.WriteString(dest)
 }
 
-func (r *builder) setUpdatedSourceDestination(src, dest string) {
+func (r *builder) setUpdatedSourceDestinationDirs(src, dest string) {
 	r.updatedSrc = src
-	r.updatedDest = dest
+	r.updatedDestDir = dest
+}
+
+func (r *builder) setUpdatedSourceDestinationDirToFile(src, destDir, destFile string) {
+	r.updatedSrc = src
+	r.updatedDestDir = destDir
+	r.updatedDestFile = destFile
 }
 
 func (r *builder) validateBeforeRun() {
-	if _, err := os.Stat(r.updatedDest); os.IsNotExist(err) {
-		log.Fatal(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDest))
+	if _, err := os.Stat(r.updatedDestDir); os.IsNotExist(err) {
+		log.Fatal(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDestDir))
 	}
 
 	if _, err := os.Stat(r.updatedSrc); os.IsNotExist(err) {
@@ -91,12 +98,12 @@ func (r *builder) validateBeforeRun() {
 		log.Fatal(fmt.Sprintf("source directory %s is empty", r.updatedSrc))
 	}
 
-	if r.updatedSrc == r.updatedDest {
+	if r.updatedSrc == r.updatedDestDir {
 		log.Fatal(fmt.Sprintf("source and r.updatedDestination are the same: %s", r.updatedSrc))
 	}
 
-	if strings.HasPrefix(r.updatedDest, r.updatedSrc) {
-		log.Fatal(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDest))
+	if strings.HasPrefix(r.updatedDestDir, r.updatedSrc) {
+		log.Fatal(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDestDir))
 	}
 }
 
@@ -172,11 +179,11 @@ func (r *RsyncBuilderMonthly) Build() {
 }
 
 func (r *RsyncBuilderMonthly) appendCompressionCommand() {
-	r.sb.WriteString(fmt.Sprintf("mkdir -p %s && tar -czvf %s %s", r.destDir, r.updatedDest, r.updatedSrc))
+	r.sb.WriteString(fmt.Sprintf("mkdir -p %s && tar -czvf %s %s", r.updatedDestDir, r.updatedDestFile, r.updatedSrc))
 }
 
 func (r *RsyncBuilderMonthly) setDestDir() {
-	r.destDir = strings.Join(strings.Split(r.updatedDest, "/")[:len(strings.Split(r.updatedDest, "/"))-1], "/")
+	r.destDir = strings.Join(strings.Split(r.updatedDestDir, "/")[:len(strings.Split(r.updatedDestDir, "/"))-1], "/")
 }
 
 func (r *builder) setBooleanFlagsByBackupType(cfgPrefix string) {

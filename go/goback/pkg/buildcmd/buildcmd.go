@@ -48,7 +48,7 @@ func commandToRunDaily() *RsyncBuilderDaily {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	dest = dest + "/daily"
 	b := &RsyncBuilderDaily{}
-	b.setUpdatedSourceDestination(src, dest)
+	b.setUpdatedSourceDestinationDirs(src, dest)
 	return b
 }
 
@@ -57,15 +57,16 @@ func commandToRunWeekly() *RsyncBuilderWeekly {
 	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
 	dest = dest + "/weekly"
 	b := &RsyncBuilderWeekly{}
-	b.setUpdatedSourceDestination(src, dest)
+	b.setUpdatedSourceDestinationDirs(src, dest)
 	return b
 }
 
 func commandToRunMonthly() *RsyncBuilderMonthly {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	src = dest + "/daily"
-	dest = fmt.Sprintf("%s/monthly/monthly_%s.tar.gz", dest, time.Now().Format("20060102"))
+	destDir := fmt.Sprintf("%s/monthly", dest)
+	destFile := fmt.Sprintf("%s/monthly_%s.tar.gz", destDir, time.Now().Format("20060102"))
 	b := &RsyncBuilderMonthly{}
-	b.setUpdatedSourceDestination(src, dest)
+	b.setUpdatedSourceDestinationDirToFile(src, destDir, destFile)
 	return b
 }
