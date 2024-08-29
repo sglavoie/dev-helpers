@@ -10,12 +10,36 @@ import (
 	"github.com/spf13/viper"
 )
 
-// builder is a struct that implements the rsyncCommonBuilder interface.
+// builder is a struct that implements the RsyncBuilder interface.
 type builder struct {
-	sb              *strings.Builder
-	updatedSrc      string
-	updatedDestDir  string
-	updatedDestFile string
+	sb             *strings.Builder
+	updatedSrc     string
+	updatedDestDir string
+	builderType    string
+}
+
+// RsyncBuilderDaily is a struct that implements the builder interface for daily backups.
+type RsyncBuilderDaily struct {
+	builder
+}
+
+// RsyncBuilderWeekly is a struct that implements the builder interface for weekly backups.
+type RsyncBuilderWeekly struct {
+	builder
+}
+
+// RsyncBuilderMonthly is a struct that implements the builder interface for monthly backups.
+type RsyncBuilderMonthly struct {
+	builder
+}
+
+func (r *builder) Build() {
+	r.initBuilder()
+	r.appendBooleanFlags()
+	r.appendLogFile()
+	r.appendExcludedPatterns()
+	r.appendSrcDest()
+	r.validateBeforeRun()
 }
 
 func (r *builder) PrintString() {
@@ -37,24 +61,13 @@ func (r *builder) WrapLongLinesWithBackslashes() {
 	}
 }
 
-func splitIntoChunks(s string, chunkSize int) []string {
-	var chunks []string
-	for len(s) > chunkSize {
-		i := strings.LastIndex(s[:chunkSize], " ")
-		if i == -1 {
-			i = chunkSize
-		}
-		chunks = append(chunks, s[:i])
-		s = s[i:]
-	}
-	chunks = append(chunks, s)
-	return chunks
-}
-
 func (r *builder) appendLogFile() {
 	r.sb.WriteString(" --log-file=")
 	r.sb.WriteString(strings.TrimSuffix(viper.ConfigFileUsed(), ".json"))
-	r.sb.WriteString("_" + time.Now().Format("20060102_15_04_05"))
+	r.sb.WriteString("_")
+	r.sb.WriteString(r.builderType)
+	r.sb.WriteString("_")
+	r.sb.WriteString(time.Now().Format("20060102_15_04_05"))
 }
 
 func (r *builder) appendSrcDest() {
@@ -74,15 +87,27 @@ func (r *builder) addRawSourceDestination() {
 	r.sb.WriteString(dest)
 }
 
-func (r *builder) setUpdatedSourceDestinationDirs(src, dest string) {
-	r.updatedSrc = src
-	r.updatedDestDir = dest
+func (r *builder) builderSettingsPrefix() string {
+	return "rsync." + r.builderType + "."
 }
 
-func (r *builder) setUpdatedSourceDestinationDirToFile(src, destDir, destFile string) {
-	r.updatedSrc = src
-	r.updatedDestDir = destDir
-	r.updatedDestFile = destFile
+func (r *builder) initBuilder() {
+	r.sb = &strings.Builder{}
+	r.sb.WriteString("rsync")
+}
+
+func splitIntoChunks(s string, chunkSize int) []string {
+	var chunks []string
+	for len(s) > chunkSize {
+		i := strings.LastIndex(s[:chunkSize], " ")
+		if i == -1 {
+			i = chunkSize
+		}
+		chunks = append(chunks, s[:i])
+		s = s[i:]
+	}
+	chunks = append(chunks, s)
+	return chunks
 }
 
 func (r *builder) validateBeforeRun() {
@@ -107,86 +132,8 @@ func (r *builder) validateBeforeRun() {
 	}
 }
 
-// RsyncBuilderDaily is a struct that implements the builder interface for daily backups.
-type RsyncBuilderDaily struct {
-	builder
-}
-
-func (r *RsyncBuilderDaily) Build() {
-	r.initBuilder()
-	r.appendBooleanFlags()
-	r.appendLogFile()
-	r.appendExcludedPatterns()
-	r.appendSrcDest()
-	r.validateBeforeRun()
-}
-
-func (r *RsyncBuilderDaily) initBuilder() {
-	r.sb = &strings.Builder{}
-	r.sb.WriteString("rsync")
-}
-
-func (r *RsyncBuilderDaily) appendBooleanFlags() {
-	r.setBooleanFlagsByBackupType("rsync.daily.")
-}
-
-func (r *RsyncBuilderDaily) appendExcludedPatterns() {
-	r.setExcludedPatternsByBackupType("rsync.daily.")
-}
-
-// RsyncBuilderWeekly is a struct that implements the builder interface for weekly backups.
-type RsyncBuilderWeekly struct {
-	builder
-}
-
-func (r *RsyncBuilderWeekly) Build() {
-	r.initBuilder()
-	r.setBooleanFlags()
-	r.appendLogFile()
-	r.setExcludedPatterns()
-	r.appendSrcDest()
-	r.validateBeforeRun()
-}
-
-func (r *RsyncBuilderWeekly) initBuilder() {
-	r.sb = &strings.Builder{}
-	r.sb.WriteString("rsync")
-}
-
-func (r *RsyncBuilderWeekly) setBooleanFlags() {
-	r.setBooleanFlagsByBackupType("rsync.weekly.")
-}
-
-func (r *RsyncBuilderWeekly) setExcludedPatterns() {
-	r.setExcludedPatternsByBackupType("rsync.weekly.")
-}
-
-// RsyncBuilderMonthly is a struct that implements the builder interface for monthly backups.
-type RsyncBuilderMonthly struct {
-	builder
-	destDir string
-}
-
-func (r *RsyncBuilderMonthly) initBuilder() {
-	r.sb = &strings.Builder{}
-}
-
-func (r *RsyncBuilderMonthly) Build() {
-	r.initBuilder()
-	r.setDestDir()
-	r.appendCompressionCommand()
-	r.validateBeforeRun()
-}
-
-func (r *RsyncBuilderMonthly) appendCompressionCommand() {
-	r.sb.WriteString(fmt.Sprintf("mkdir -p %s && tar -czvf %s %s", r.updatedDestDir, r.updatedDestFile, r.updatedSrc))
-}
-
-func (r *RsyncBuilderMonthly) setDestDir() {
-	r.destDir = strings.Join(strings.Split(r.updatedDestDir, "/")[:len(strings.Split(r.updatedDestDir, "/"))-1], "/")
-}
-
-func (r *builder) setBooleanFlagsByBackupType(cfgPrefix string) {
+func (r *builder) appendBooleanFlags() {
+	cfgPrefix := r.builderSettingsPrefix()
 	if viper.GetBool(cfgPrefix + "archive") {
 		r.sb.WriteString(" --archive")
 	}
@@ -220,7 +167,8 @@ func (r *builder) setBooleanFlagsByBackupType(cfgPrefix string) {
 	}
 }
 
-func (r *builder) setExcludedPatternsByBackupType(cfgPrefix string) {
+func (r *builder) appendExcludedPatterns() {
+	cfgPrefix := r.builderSettingsPrefix()
 	for _, pattern := range viper.GetStringSlice(cfgPrefix + "excludedPatterns") {
 		r.sb.WriteString(" --exclude=\"")
 		r.sb.WriteString(pattern)

@@ -1,9 +1,6 @@
 package buildcmd
 
-import (
-	"fmt"
-	"time"
-)
+import "strings"
 
 func AsStringDaily() string {
 	c := commandToRunDaily()
@@ -47,8 +44,14 @@ func PrintCommandMonthly() {
 func commandToRunDaily() *RsyncBuilderDaily {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	dest = dest + "/daily"
-	b := &RsyncBuilderDaily{}
-	b.setUpdatedSourceDestinationDirs(src, dest)
+	b := &RsyncBuilderDaily{
+		builder: builder{
+			sb:             &strings.Builder{},
+			updatedSrc:     src,
+			updatedDestDir: dest,
+			builderType:    "daily",
+		},
+	}
 	return b
 }
 
@@ -56,17 +59,28 @@ func commandToRunWeekly() *RsyncBuilderWeekly {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
 	dest = dest + "/weekly"
-	b := &RsyncBuilderWeekly{}
-	b.setUpdatedSourceDestinationDirs(src, dest)
+	b := &RsyncBuilderWeekly{
+		builder: builder{
+			sb:             &strings.Builder{},
+			updatedSrc:     src,
+			updatedDestDir: dest,
+			builderType:    "weekly",
+		},
+	}
 	return b
 }
 
 func commandToRunMonthly() *RsyncBuilderMonthly {
 	src, dest := mustExitOnInvalidSourceOrDestination()
-	src = dest + "/daily"
-	destDir := fmt.Sprintf("%s/monthly", dest)
-	destFile := fmt.Sprintf("%s/monthly_%s.tar.gz", destDir, time.Now().Format("20060102"))
-	b := &RsyncBuilderMonthly{}
-	b.setUpdatedSourceDestinationDirToFile(src, destDir, destFile)
+	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
+	dest = dest + "/monthly"
+	b := &RsyncBuilderMonthly{
+		builder: builder{
+			sb:             &strings.Builder{},
+			updatedSrc:     src,
+			updatedDestDir: dest,
+			builderType:    "monthly",
+		},
+	}
 	return b
 }
