@@ -1,6 +1,7 @@
 package clean
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -54,11 +55,14 @@ func removeLogs(n int, home string, files []string) {
 	if n < len(files) {
 		toRemove = files[n:]
 	} else {
+		fmt.Println("Nothing to remove")
 		return
 	}
 
 	for _, file := range toRemove {
-		err := os.Remove(home + "/" + file)
+		fp := home + "/" + file
+		fmt.Println("Removing", fp)
+		err := os.Remove(fp)
 		cobra.CheckErr(err)
 	}
 }
