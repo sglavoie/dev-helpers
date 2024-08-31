@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+func getSourceAndDestination() (src, dest string) {
+	return viper.GetString("source"), viper.GetString("destination")
+}
+
 func mustExitOnInvalidSourceOrDestination() (string, string) {
 	src := viper.GetString("source")
 	if src == "" {

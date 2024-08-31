@@ -33,12 +33,24 @@ type RsyncBuilderMonthly struct {
 	builder
 }
 
-func (r *builder) Build() {
+func (r *builder) BuildNoCheck() {
+	r.build()
+}
+
+func (r *builder) BuildCheck() {
+	r.build()
+	r.validate()
+}
+
+func (r *builder) build() {
 	r.initBuilder()
 	r.appendBooleanFlags()
 	r.appendLogFile()
 	r.appendExcludedPatterns()
 	r.appendSrcDest()
+}
+
+func (r *builder) validate() {
 	r.validateBeforeRun()
 }
 
