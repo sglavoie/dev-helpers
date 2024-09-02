@@ -10,6 +10,9 @@ build:
 clean:
 	@rm $(APP_NAME)
 install:
+	make clean
+	go build
+	rm ~/.local/bin/$(APP_NAME)
 	cp $(APP_NAME) ~/.local/bin/$(APP_NAME)
 uninstall:
 	rm ~/.local/bin/$(APP_NAME)

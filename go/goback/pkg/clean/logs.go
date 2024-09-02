@@ -55,7 +55,7 @@ func removeLogs(n int, home string, files []string) {
 	if n < len(files) {
 		toRemove = files[n:]
 	} else {
-		fmt.Println("Nothing to remove")
+		fmt.Println("Nothing to remove: keeping", len(files))
 		return
 	}
 

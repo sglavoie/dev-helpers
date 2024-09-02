@@ -11,9 +11,7 @@ var previewCmd = &cobra.Command{
 	Short: "Print the rsync command that would be executed",
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
-		if err != nil {
-			return
-		}
+		cobra.CheckErr(err)
 	},
 }
 

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 	"io"
 	"os"
 
@@ -16,7 +17,7 @@ func Print() {
 	err := viper.Unmarshal(&cfg)
 	cobra.CheckErr(err)
 	b, _ := json.MarshalIndent(viper.AllSettings(), "", "  ")
-	fmt.Print(string(b) + "\n")
+	printer.Pager(string(b)+"\n", viper.ConfigFileUsed())
 }
 
 func PrintRaw() {

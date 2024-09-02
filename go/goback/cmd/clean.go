@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/clean"
 	"github.com/spf13/cobra"
 )
@@ -13,10 +11,7 @@ var cleanCmd = &cobra.Command{
 	Short: "Remove logs",
 	Run: func(cmd *cobra.Command, args []string) {
 		keep, err := cmd.Flags().GetInt("keep")
-		if err != nil {
-			fmt.Println("Error getting keep flag:", err)
-			return
-		}
+		cobra.CheckErr(err)
 		clean.KeepLatest(keep)
 	},
 }

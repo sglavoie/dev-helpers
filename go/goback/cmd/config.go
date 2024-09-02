@@ -18,9 +18,7 @@ var configCmd = &cobra.Command{
 	Short: "Work with the configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
-		if err != nil {
-			return
-		}
+		cobra.CheckErr(err)
 	},
 }
 

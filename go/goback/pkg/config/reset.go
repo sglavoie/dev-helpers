@@ -9,7 +9,7 @@ import (
 )
 
 func Reset() {
-	resets := inputs.AskYesNoQuestion("Are you sure you want to reset the config file to its default values?")
+	resets := inputs.AskNoYesQuestion("Are you sure you want to reset the config file to its default values?")
 	if !resets {
 		os.Exit(0)
 	}

@@ -11,9 +11,7 @@ var runCmd = &cobra.Command{
 	Short: "Run the backup command",
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
-		if err != nil {
-			return
-		}
+		cobra.CheckErr(err)
 	},
 }
 

@@ -2,22 +2,49 @@ package buildcmd
 
 import "strings"
 
-func AsStringDaily() string {
+func BuildDaily() *RsyncBuilderDaily {
 	c := commandToRunDailyCheck()
 	c.BuildCheck()
-	return c.String()
+	return c
 }
 
-func AsStringWeekly() string {
+func BuildWeekly() *RsyncBuilderWeekly {
 	c := commandToRunWeeklyCheck()
 	c.BuildCheck()
-	return c.String()
+	return c
 }
 
-func AsStringMonthly() string {
+func BuildMonthly() *RsyncBuilderMonthly {
 	c := commandToRunMonthlyCheck()
 	c.BuildCheck()
-	return c.String()
+	return c
+}
+
+func DailyBuilderType() string {
+	return RsyncBuilderDaily{
+		builder: builder{
+			sb:          &strings.Builder{},
+			builderType: "daily",
+		},
+	}.builderType
+}
+
+func WeeklyBuilderType() string {
+	return RsyncBuilderWeekly{
+		builder: builder{
+			sb:          &strings.Builder{},
+			builderType: "weekly",
+		},
+	}.builderType
+}
+
+func MonthlyBuilderType() string {
+	return RsyncBuilderMonthly{
+		builder: builder{
+			sb:          &strings.Builder{},
+			builderType: "monthly",
+		},
+	}.builderType
 }
 
 func PrintCommandDaily() {

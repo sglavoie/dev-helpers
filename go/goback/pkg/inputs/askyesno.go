@@ -3,6 +3,7 @@ package inputs
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -28,12 +29,23 @@ func (i item) FilterValue() string { return "" }
 
 type itemDelegate struct{}
 
+func AskNoYesQuestion(q string) bool {
+	items := []list.Item{
+		item("No"),
+		item("Yes"),
+	}
+	return askQuestion(items, q)
+}
+
 func AskYesNoQuestion(q string) bool {
 	items := []list.Item{
 		item("Yes"),
 		item("No"),
 	}
+	return askQuestion(items, q)
+}
 
+func askQuestion(items []list.Item, q string) bool {
 	const defaultWidth = 5
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
@@ -77,7 +89,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	_, err := fmt.Fprint(w, fn(str))
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 }
 
