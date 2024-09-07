@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/reset"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/view"
 	"github.com/spf13/cobra"
@@ -13,6 +14,20 @@ var usageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
 		cobra.CheckErr(err)
+	},
+}
+
+var lastUsageCmd = &cobra.Command{
+	Use:   "last",
+	Short: "Show last goback's usage for each backup type",
+	Run: func(cmd *cobra.Command, args []string) {
+		e, err := cmd.Flags().GetInt("entries")
+		cobra.CheckErr(err)
+		if e < 1 {
+			cobra.CheckErr("Latest entries to show must be greater than 0")
+		}
+
+		last.Last(e)
 	},
 }
 
@@ -47,7 +62,7 @@ var resetUsageCmd = &cobra.Command{
 			k, err := cmd.Flags().GetInt("keep")
 			cobra.CheckErr(err)
 			if k < 0 {
-				cobra.CheckErr("Number of entries to keep must be greater than or equal to 0, right?")
+				cobra.CheckErr("Number of entries to keep must be greater than or equal to 0")
 			}
 			toKeep = k
 		}
@@ -62,9 +77,12 @@ var resetUsageCmd = &cobra.Command{
 }
 
 func init() {
+	usageCmd.AddCommand(lastUsageCmd)
 	usageCmd.AddCommand(viewUsageCmd)
 	usageCmd.AddCommand(resetUsageCmd)
 	RootCmd.AddCommand(usageCmd)
+
+	lastUsageCmd.Flags().IntP("entries", "e", 3, "Number of entries to show for each backup type")
 
 	resetUsageCmd.Flags().BoolP("all", "a", false, "Reset all usage (set --keep=0)")
 	resetUsageCmd.Flags().IntP("keep", "k", 20, "Number of entries to keep")

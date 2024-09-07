@@ -11,7 +11,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 )
 
-func sqlToText(rows *sql.Rows) {
+func SqlToText(rows *sql.Rows) {
 	t := table.NewWriter()
 	t.SetAllowedRowLength(120)
 	t.SetOutputMirror(os.Stdout)

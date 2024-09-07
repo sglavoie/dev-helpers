@@ -25,7 +25,7 @@ func View(e int, t string) {
 		cobra.CheckErr(err)
 	}(rows)
 
-	sqlToText(rows)
+	SqlToText(rows)
 }
 
 func queryAllBackupTypes(sqldb *sql.DB, e int) *sql.Rows {
