@@ -38,12 +38,12 @@ func SqlToTextSummary(rows *sql.Rows) {
 func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
 		var id int
-		var createdAt, backupType, executionTime, command string
-		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command)
+		var createdAt, backupType, execTime, command string
+		err := rows.Scan(&id, &createdAt, &backupType, &execTime, &command)
 		cobra.CheckErr(err)
-		execTime := getExecutionTime(executionTime)
-		cmd := getWrappedCommand(command)
-		t.AppendRow([]interface{}{id, createdAt, backupType, execTime, cmd})
+		execTimeTruncated := executionTime(execTime)
+		cmd := wrappedCommand(command)
+		t.AppendRow([]interface{}{id, createdAt, backupType, execTimeTruncated, cmd})
 		t.AppendSeparator()
 		hasData = true
 	}
@@ -57,7 +57,7 @@ func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command)
 		cobra.CheckErr(err)
 
-		relTime := printer.GetRelativeTime(createdAt)
+		relTime := printer.RelativeTime(createdAt)
 		t.AppendRow([]interface{}{id, createdAt, relTime, backupType})
 		t.AppendSeparator()
 		hasData = true
@@ -65,11 +65,11 @@ func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	return
 }
 
-func getExecutionTime(executionTime string) string {
+func executionTime(executionTime string) string {
 	return printer.TruncateExecTimeToNearest(executionTime, 2)
 }
 
-func getWrappedCommand(cmd string) string {
+func wrappedCommand(cmd string) string {
 	sb := &strings.Builder{}
 	sb.WriteString(cmd)
 	printer.WrapLongLinesWithBackslashes(sb, 60)

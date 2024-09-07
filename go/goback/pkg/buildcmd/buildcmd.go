@@ -74,7 +74,7 @@ func commandToRunDailyCheck() *RsyncBuilderDaily {
 }
 
 func commandToRunDailyNoCheck() *RsyncBuilderDaily {
-	src, dest := getSourceAndDestination()
+	src, dest := sourceAndDestination()
 	return commandToRunDaily(src, dest)
 }
 
@@ -97,7 +97,7 @@ func commandToRunWeeklyCheck() *RsyncBuilderWeekly {
 }
 
 func commandToRunWeeklyNoCheck() *RsyncBuilderWeekly {
-	src, dest := getSourceAndDestination()
+	src, dest := sourceAndDestination()
 	return commandToRunWeekly(src, dest)
 }
 
@@ -121,7 +121,7 @@ func commandToRunMonthlyCheck() *RsyncBuilderMonthly {
 }
 
 func commandToRunMonthlyNoCheck() *RsyncBuilderMonthly {
-	src, dest := getSourceAndDestination()
+	src, dest := sourceAndDestination()
 	return commandToRunMonthly(src, dest)
 }
 

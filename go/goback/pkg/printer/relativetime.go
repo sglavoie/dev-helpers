@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-// GetRelativeTime converts a string like `2024-09-07 10:38:26` to
+// RelativeTime converts a string like `2024-09-07 10:38:26` to
 // a relative time expressed in days, e.g. `2 days ago` or `today`.
-func GetRelativeTime(t string) string {
+func RelativeTime(t string) string {
 	parsedTime, err := time.Parse("2006-01-02 15:04:05", t)
 	if err != nil {
 		cobra.CheckErr(fmt.Sprintf("invalid time format: %v", err))
