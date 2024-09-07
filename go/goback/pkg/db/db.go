@@ -30,24 +30,33 @@ func CreateTableIfNotExists(db *sql.DB) {
 	cobra.CheckErr(err)
 }
 
-func Open() *sql.DB {
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-	var file = home + "/.goback.db"
-	db, err := sql.Open("sqlite3", file)
-	cobra.CheckErr(err)
-	checkTableExists(db)
-	return db
-}
-
 func WithDb(callback func(*sql.DB)) {
-	sqldb := Open()
+	sqldb := open()
 	defer func(sqldb *sql.DB) {
 		err := sqldb.Close()
 		cobra.CheckErr(err)
 	}(sqldb)
 
 	callback(sqldb)
+}
+
+func WithRows(rows *sql.Rows, callback func(*sql.Rows)) {
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		cobra.CheckErr(err)
+	}(rows)
+	callback(rows)
+}
+
+func WithQuery(query string, args ...any) *sql.Rows {
+	var rows *sql.Rows
+	WithDb(func(sqldb *sql.DB) {
+		var err error
+		rows, err = sqldb.Query(query, args...)
+		cobra.CheckErr(err)
+	})
+
+	return rows
 }
 
 func checkTableExists(db *sql.DB) {
@@ -58,4 +67,14 @@ func checkTableExists(db *sql.DB) {
 	if err != nil {
 		CreateTableIfNotExists(db)
 	}
+}
+
+func open() *sql.DB {
+	home, err := os.UserHomeDir()
+	cobra.CheckErr(err)
+	var file = home + "/.goback.db"
+	db, err := sql.Open("sqlite3", file)
+	cobra.CheckErr(err)
+	checkTableExists(db)
+	return db
 }
