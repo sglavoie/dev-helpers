@@ -13,21 +13,29 @@ import (
 
 func SqlToText(rows *sql.Rows) {
 	t := table.NewWriter()
-	t.SetAllowedRowLength(120)
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleColoredYellowWhiteOnBlack)
+	setTableProperties(t)
 	t.AppendHeader(table.Row{"ID", "Created at", "Backup type", "Execution time", "Command executed"})
 
-	rowCount := appendRows(rows, t)
-	if rowCount == 0 {
+	if !appendRows(rows, t) {
 		fmt.Println("No backups data found")
 		return
 	}
 	printer.Pager(t.Render(), "Latest backups")
 }
 
-func appendRows(rows *sql.Rows, t table.Writer) int {
-	rowCount := 0
+func SqlToTextSummary(rows *sql.Rows) {
+	t := table.NewWriter()
+	setTableProperties(t)
+	t.AppendHeader(table.Row{"ID", "Created at", "Relative time", "Backup type"})
+
+	if !appendSummaryRows(rows, t) {
+		fmt.Println("No backups data found")
+		return
+	}
+	t.Render()
+}
+
+func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
 		var id int
 		var createdAt, backupType, executionTime, command string
@@ -37,10 +45,24 @@ func appendRows(rows *sql.Rows, t table.Writer) int {
 		cmd := getWrappedCommand(command)
 		t.AppendRow([]interface{}{id, createdAt, backupType, execTime, cmd})
 		t.AppendSeparator()
-		rowCount++
+		hasData = true
 	}
+	return
+}
 
-	return rowCount
+func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
+	for rows.Next() {
+		var id int
+		var createdAt, backupType, executionTime, command string
+		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command)
+		cobra.CheckErr(err)
+
+		relTime := printer.GetRelativeTime(createdAt)
+		t.AppendRow([]interface{}{id, createdAt, relTime, backupType})
+		t.AppendSeparator()
+		hasData = true
+	}
+	return
 }
 
 func getExecutionTime(executionTime string) string {
@@ -52,4 +74,10 @@ func getWrappedCommand(cmd string) string {
 	sb.WriteString(cmd)
 	printer.WrapLongLinesWithBackslashes(sb, 60)
 	return sb.String()
+}
+
+func setTableProperties(t table.Writer) {
+	t.SetAllowedRowLength(120)
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredYellowWhiteOnBlack)
 }

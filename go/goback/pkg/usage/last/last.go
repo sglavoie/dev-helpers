@@ -13,6 +13,13 @@ func Last(e int) {
 	})
 }
 
+func Summary() {
+	rows := querySummaryBackupTypes()
+	db.WithRows(rows, func(rows *sql.Rows) {
+		view.SqlToTextSummary(rows)
+	})
+}
+
 func queryAllLatestBackupTypes(e int) *sql.Rows {
 	return db.WithQuery(`
 WITH ranked_backups AS (
@@ -24,4 +31,8 @@ SELECT id, created_at, backup_type, execution_time, command FROM ranked_backups
 WHERE row_num <= ?
 ORDER BY created_at DESC;
 	`, e)
+}
+
+func querySummaryBackupTypes() *sql.Rows {
+	return queryAllLatestBackupTypes(1)
 }

@@ -27,6 +27,12 @@ var lastUsageCmd = &cobra.Command{
 			cobra.CheckErr("Latest entries to show must be greater than 0")
 		}
 
+		s, err := cmd.Flags().GetBool("summary")
+		cobra.CheckErr(err)
+		if s {
+			last.Summary()
+			return
+		}
 		last.Last(e)
 	},
 }
@@ -83,6 +89,7 @@ func init() {
 	RootCmd.AddCommand(usageCmd)
 
 	lastUsageCmd.Flags().IntP("entries", "e", 3, "Number of entries to show for each backup type")
+	lastUsageCmd.Flags().BoolP("summary", "s", false, "Show when the last backup by type was done")
 
 	resetUsageCmd.Flags().BoolP("all", "a", false, "Reset all usage (set --keep=0)")
 	resetUsageCmd.Flags().IntP("keep", "k", 20, "Number of entries to keep")
