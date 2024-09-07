@@ -3,10 +3,10 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 	"io"
 	"os"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

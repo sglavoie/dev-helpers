@@ -2,9 +2,10 @@ package cleandb
 
 import (
 	"database/sql"
+	"strconv"
+
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/spf13/cobra"
-	"strconv"
 )
 
 func Remove(id string) {

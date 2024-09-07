@@ -3,6 +3,7 @@ package last
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/view"
 )

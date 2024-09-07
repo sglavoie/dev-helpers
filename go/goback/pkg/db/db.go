@@ -2,8 +2,9 @@ package db
 
 import (
 	"database/sql"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func CreateDatabaseFileIfNotExists() {

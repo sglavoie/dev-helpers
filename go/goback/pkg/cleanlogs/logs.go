@@ -2,10 +2,11 @@ package cleanlogs
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 // KeepLatestOf removes the oldest logs, keeping the n most recent ones for the given backup type.

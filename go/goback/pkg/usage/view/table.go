@@ -3,12 +3,12 @@ package view
 import (
 	"database/sql"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
+	"github.com/spf13/cobra"
 )
 
 func SqlToText(rows *sql.Rows) {

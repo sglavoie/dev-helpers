@@ -2,12 +2,12 @@ package buildcmd
 
 import (
 	"database/sql"
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/spf13/cobra"
 )
 

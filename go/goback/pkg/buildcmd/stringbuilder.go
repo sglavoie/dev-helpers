@@ -1,9 +1,10 @@
 package buildcmd
 
 import (
-	"github.com/spf13/viper"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 func (r *builder) CommandString() string {

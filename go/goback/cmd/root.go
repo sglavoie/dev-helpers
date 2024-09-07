@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 // RootCmd represents the base command when called without any subcommands

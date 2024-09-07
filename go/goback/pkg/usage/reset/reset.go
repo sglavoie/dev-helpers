@@ -3,7 +3,9 @@ package reset
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/cobra"
 )
 

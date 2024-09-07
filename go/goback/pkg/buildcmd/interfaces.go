@@ -3,6 +3,8 @@ package buildcmd
 import (
 	"database/sql"
 	"strings"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 )
 
 // builder is a struct that implements the builder interface.

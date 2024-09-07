@@ -2,8 +2,9 @@ package printer
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // RelativeTime converts a string like `2024-09-07 10:38:26` to
