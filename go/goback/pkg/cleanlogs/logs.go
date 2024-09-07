@@ -1,4 +1,4 @@
-package clean
+package cleanlogs
 
 import (
 	"fmt"
