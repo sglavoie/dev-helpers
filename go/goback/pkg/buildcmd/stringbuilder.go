@@ -68,7 +68,7 @@ func (r *builder) appendLogFile() {
 	r.sb.WriteString(" --log-file=")
 	r.sb.WriteString(strings.TrimSuffix(viper.ConfigFileUsed(), ".json"))
 	r.sb.WriteString("_")
-	r.sb.WriteString(r.builderType)
+	r.sb.WriteString(r.builderType.String())
 	r.sb.WriteString("_")
 	r.sb.WriteString(time.Now().Format("20060102_15_04_05"))
 }

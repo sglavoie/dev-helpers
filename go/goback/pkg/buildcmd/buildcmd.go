@@ -1,6 +1,10 @@
 package buildcmd
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
+)
 
 func BuildDaily() *RsyncBuilderDaily {
 	c := commandToRunDailyCheck()
@@ -18,33 +22,6 @@ func BuildMonthly() *RsyncBuilderMonthly {
 	c := commandToRunMonthlyCheck()
 	c.BuildCheck()
 	return c
-}
-
-func DailyBuilderType() string {
-	return RsyncBuilderDaily{
-		builder: builder{
-			sb:          &strings.Builder{},
-			builderType: "daily",
-		},
-	}.builderType
-}
-
-func WeeklyBuilderType() string {
-	return RsyncBuilderWeekly{
-		builder: builder{
-			sb:          &strings.Builder{},
-			builderType: "weekly",
-		},
-	}.builderType
-}
-
-func MonthlyBuilderType() string {
-	return RsyncBuilderMonthly{
-		builder: builder{
-			sb:          &strings.Builder{},
-			builderType: "monthly",
-		},
-	}.builderType
 }
 
 func PrintCommandDaily() {
@@ -85,7 +62,7 @@ func commandToRunDaily(src, dest string) *RsyncBuilderDaily {
 			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
-			builderType:    "daily",
+			builderType:    models.Daily{},
 		},
 	}
 	return b
@@ -109,7 +86,7 @@ func commandToRunWeekly(src, dest string) *RsyncBuilderWeekly {
 			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
-			builderType:    "weekly",
+			builderType:    models.Weekly{},
 		},
 	}
 	return b
@@ -133,7 +110,7 @@ func commandToRunMonthly(src, dest string) *RsyncBuilderMonthly {
 			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
-			builderType:    "monthly",
+			builderType:    models.Monthly{},
 		},
 	}
 	return b

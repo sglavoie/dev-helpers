@@ -7,10 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Reset(k int, t string) {
+func Reset(k int, t models.BackupTypes) {
 	db.WithDb(func(sqldb *sql.DB) {
 		var result sql.Result
-		if t == "" {
+		if _, ok := t.(models.NoBackupType); ok {
 			result = queryAllBackupTypes(sqldb, k)
 		} else {
 			result = queryBackupType(sqldb, k, t)
@@ -43,8 +43,8 @@ func queryAllBackupTypes(sqldb *sql.DB, k int) sql.Result {
 	return rows
 }
 
-func queryBackupType(sqldb *sql.DB, k int, t string) sql.Result {
-	rows, err := sqldb.Exec("DELETE FROM backups WHERE backup_type = ? AND id NOT IN (SELECT id FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?)", t, t, k)
+func queryBackupType(sqldb *sql.DB, k int, t models.BackupTypes) sql.Result {
+	rows, err := sqldb.Exec("DELETE FROM backups WHERE backup_type = ? AND id NOT IN (SELECT id FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?)", t.String(), t, k)
 	cobra.CheckErr(err)
 	return rows
 }

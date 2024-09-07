@@ -2,17 +2,29 @@ package models
 
 // BackupTypes is an attempt at using enums in Go
 type BackupTypes interface {
-	isBackupType()
+	String() string
 }
 
 type Daily struct{}
 
-func (Daily) isBackupType() {}
+func (Daily) String() string {
+	return "daily"
+}
 
 type Weekly struct{}
 
-func (Weekly) isBackupType() {}
+func (Weekly) String() string {
+	return "weekly"
+}
 
 type Monthly struct{}
 
-func (Monthly) isBackupType() {}
+func (Monthly) String() string {
+	return "monthly"
+}
+
+type NoBackupType struct{}
+
+func (NoBackupType) String() string {
+	return ""
+}

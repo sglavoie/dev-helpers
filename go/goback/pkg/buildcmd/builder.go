@@ -41,7 +41,7 @@ func (r *builder) build() {
 }
 
 func (r *builder) builderSettingsPrefix() string {
-	return "rsync." + r.builderType + "."
+	return "rsync." + r.builderType.String() + "."
 }
 
 func (r *builder) initBuilder() {
@@ -51,7 +51,7 @@ func (r *builder) initBuilder() {
 
 func (r *builder) insertIntoDb() {
 	createdAt := time.Now().Format("2006-01-02 15:04:05")
-	_, err := r.db.Exec("INSERT INTO backups VALUES(NULL,?,?,?,?);", createdAt, r.builderType, r.executionTime, r.CommandString())
+	_, err := r.db.Exec("INSERT INTO backups VALUES(NULL,?,?,?,?);", createdAt, r.builderType.String(), r.executionTime, r.CommandString())
 	cobra.CheckErr(err)
 }
 

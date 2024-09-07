@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/reset"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/view"
@@ -46,12 +46,7 @@ var viewUsageCmd = &cobra.Command{
 		if e < 1 {
 			cobra.CheckErr("Number of entries to view must be greater than 0, right?")
 		}
-		builderType := parseBuilderTypeFlags(cmd)
-		if builderType == "" {
-			view.View(e, "")
-		} else {
-			view.View(e, builderType)
-		}
+		view.View(e, parseBuilderTypeFlags(cmd))
 	},
 }
 
@@ -73,12 +68,7 @@ var resetUsageCmd = &cobra.Command{
 			toKeep = k
 		}
 
-		builderType := parseBuilderTypeFlags(cmd)
-		if builderType == "" {
-			reset.Reset(toKeep, "")
-		} else {
-			reset.Reset(toKeep, builderType)
-		}
+		reset.Reset(toKeep, parseBuilderTypeFlags(cmd))
 	},
 }
 
@@ -103,7 +93,7 @@ func init() {
 	viewUsageCmd.Flags().BoolP("monthly", "m", false, "Display by monthly usage")
 }
 
-func parseBuilderTypeFlags(cmd *cobra.Command) (builderType string) {
+func parseBuilderTypeFlags(cmd *cobra.Command) (builderType models.BackupTypes) {
 	d, err := cmd.Flags().GetBool("daily")
 	cobra.CheckErr(err)
 	w, err := cmd.Flags().GetBool("weekly")
@@ -126,13 +116,13 @@ func parseBuilderTypeFlags(cmd *cobra.Command) (builderType string) {
 	}
 
 	if d {
-		return buildcmd.DailyBuilderType()
+		return models.Daily{}
 	}
 	if w {
-		return buildcmd.WeeklyBuilderType()
+		return models.Weekly{}
 	}
 	if m {
-		return buildcmd.MonthlyBuilderType()
+		return models.Monthly{}
 	}
-	return ""
+	return models.NoBackupType{}
 }
