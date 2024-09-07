@@ -40,6 +40,16 @@ func Open() *sql.DB {
 	return db
 }
 
+func WithDb(callback func(*sql.DB)) {
+	sqldb := Open()
+	defer func(sqldb *sql.DB) {
+		err := sqldb.Close()
+		cobra.CheckErr(err)
+	}(sqldb)
+
+	callback(sqldb)
+}
+
 func checkTableExists(db *sql.DB) {
 	sqlStmt := `SELECT name FROM sqlite_master WHERE type='table' AND name='backups';`
 	row := db.QueryRow(sqlStmt)

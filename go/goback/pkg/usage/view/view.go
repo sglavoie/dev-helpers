@@ -8,24 +8,20 @@ import (
 )
 
 func View(e int, t string) {
-	sqldb := db.Open()
-	defer func(sqldb *sql.DB) {
-		err := sqldb.Close()
-		cobra.CheckErr(err)
-	}(sqldb)
+	db.WithDb(func(sqldb *sql.DB) {
+		var rows *sql.Rows
+		if t == "" {
+			rows = queryAllBackupTypes(sqldb, e)
+		} else {
+			rows = queryBackupType(sqldb, e, t)
+		}
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			cobra.CheckErr(err)
+		}(rows)
 
-	var rows *sql.Rows
-	if t == "" {
-		rows = queryAllBackupTypes(sqldb, e)
-	} else {
-		rows = queryBackupType(sqldb, e, t)
-	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		cobra.CheckErr(err)
-	}(rows)
-
-	SqlToText(rows)
+		SqlToText(rows)
+	})
 }
 
 func queryAllBackupTypes(sqldb *sql.DB, e int) *sql.Rows {

@@ -57,12 +57,10 @@ func (r *builder) insertIntoDb() {
 
 func (r *builder) updateDBWithUsage() {
 	db.CreateDatabaseFileIfNotExists()
-	sqldb := db.Open()
-	defer func(db *sql.DB) {
-		err := db.Close()
-		cobra.CheckErr(err)
-	}(sqldb)
-	db.CreateTableIfNotExists(sqldb)
-	r.db = sqldb
-	r.insertIntoDb()
+
+	db.WithDb(func(sqldb *sql.DB) {
+		db.CreateTableIfNotExists(sqldb)
+		r.db = sqldb
+		r.insertIntoDb()
+	})
 }

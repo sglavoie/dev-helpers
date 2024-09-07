@@ -8,19 +8,15 @@ import (
 )
 
 func Last(e int) {
-	sqldb := db.Open()
-	defer func(sqldb *sql.DB) {
-		err := sqldb.Close()
-		cobra.CheckErr(err)
-	}(sqldb)
-
-	var rows *sql.Rows
-	rows = queryAllBackupTypes(sqldb, e)
-	view.SqlToText(rows)
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		cobra.CheckErr(err)
-	}(rows)
+	db.WithDb(func(sqldb *sql.DB) {
+		var rows *sql.Rows
+		rows = queryAllBackupTypes(sqldb, e)
+		view.SqlToText(rows)
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			cobra.CheckErr(err)
+		}(rows)
+	})
 }
 
 func queryAllBackupTypes(sqldb *sql.DB, e int) *sql.Rows {

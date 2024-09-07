@@ -8,39 +8,33 @@ import (
 )
 
 func Reset(k int, t string) {
-	sqldb := db.Open()
-	defer func(sqldb *sql.DB) {
-		err := sqldb.Close()
+	db.WithDb(func(sqldb *sql.DB) {
+		var result sql.Result
+		if t == "" {
+			result = queryAllBackupTypes(sqldb, k)
+		} else {
+			result = queryBackupType(sqldb, k, t)
+		}
+
+		n, err := result.RowsAffected()
 		cobra.CheckErr(err)
-	}(sqldb)
+		var entriesToKeep string
+		if k == 0 {
+			entriesToKeep = ""
+		} else {
+			entriesToKeep = fmt.Sprint("(keeping at least ", k, ")")
+		}
 
-	var result sql.Result
-	if t == "" {
-		result = queryAllBackupTypes(sqldb, k)
-	} else {
-		result = queryBackupType(sqldb, k, t)
-	}
-
-	n, err := result.RowsAffected()
-	cobra.CheckErr(err)
-
-	var entriesToKeep string
-	if k == 0 {
-		entriesToKeep = ""
-	} else {
-		entriesToKeep = fmt.Sprint("(keeping at least ", k, ")")
-	}
-
-	if n == 0 {
-		fmt.Println("No entries to delete", entriesToKeep)
-		return
-	}
-	if n != 1 {
-		fmt.Printf("Deleted %d entries\n", n)
-		return
-	}
-
-	fmt.Println("Deleted 1 entry")
+		if n == 0 {
+			fmt.Println("No entries to delete", entriesToKeep)
+			return
+		}
+		if n != 1 {
+			fmt.Printf("Deleted %d entries\n", n)
+			return
+		}
+		fmt.Println("Deleted 1 entry")
+	})
 }
 
 func queryAllBackupTypes(sqldb *sql.DB, k int) sql.Result {
