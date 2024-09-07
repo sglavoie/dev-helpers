@@ -3,31 +3,26 @@ package clean
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"sort"
 	"strings"
 )
 
-// KeepLatest removes the oldest logs, keeping the n most recent ones.
-func KeepLatest(n int) {
-	if n < 0 {
-		log.Fatal("Number of logs to keep must be a positive integer")
-	}
-
+// KeepLatestOf removes the oldest logs, keeping the n most recent ones for the given backup type.
+func KeepLatestOf(n int, t string) {
 	home, err := os.UserHomeDir()
 	cobra.CheckErr(err)
 
 	f, err := os.ReadDir(home)
 	cobra.CheckErr(err)
 
-	files := filterLogs(f)
+	files := filterLogs(f, t)
 	sortLogs(home, files)
-	removeLogs(n, home, files)
+	removeLogs(n, home, files, t)
 }
 
-// filterLogs filters the files to keep only the logs.
-func filterLogs(files []os.DirEntry) []string {
+// filterLogs filters the files to keep only the logs of the given backup type.
+func filterLogs(files []os.DirEntry, t string) []string {
 	prefixPattern := ".goback"
 	var filtered []string
 	prefixLength := len(prefixPattern)
@@ -41,7 +36,7 @@ func filterLogs(files []os.DirEntry) []string {
 			continue
 		}
 
-		if fn[:7] == prefixPattern && !strings.Contains(fn[7:], ".") {
+		if fn[:7] == prefixPattern && !strings.Contains(fn[7:], ".") && strings.Contains(fn, t) {
 			filtered = append(filtered, file.Name())
 		}
 	}
@@ -49,13 +44,13 @@ func filterLogs(files []os.DirEntry) []string {
 	return filtered
 }
 
-// removeLogs removes the oldest logs, keeping the n most recent ones.
-func removeLogs(n int, home string, files []string) {
+// removeLogs removes the oldest logs, keeping the n most recent ones for the given backup type.
+func removeLogs(n int, home string, files []string, t string) {
 	var toRemove []string
 	if n < len(files) {
 		toRemove = files[n:]
 	} else {
-		fmt.Println("Nothing to remove: keeping", len(files))
+		fmt.Printf("[%s] Nothing to remove: keeping %d\n", t, len(files))
 		return
 	}
 
