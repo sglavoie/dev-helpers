@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +29,7 @@ var dailyCmdRun = &cobra.Command{
 	Long:  "Perform a daily, incremental backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		run.DailyBackup()
+		last.SummaryWithLineBreak()
 	},
 }
 
@@ -37,6 +39,7 @@ var weeklyCmdRun = &cobra.Command{
 	Long:  "Perform a weekly, incremental backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		run.WeeklyBackup()
+		last.SummaryWithLineBreak()
 	},
 }
 
@@ -46,5 +49,6 @@ var monthlyCmdRun = &cobra.Command{
 	Long:  "Perform a monthly, incremental, compressed backup from the weekly backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		run.MonthlyBackup()
+		last.SummaryWithLineBreak()
 	},
 }
