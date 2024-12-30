@@ -7,65 +7,69 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
+#   universal: false
 
 -e file:.
-aiohttp==3.9.5
-    # via microsoft-kiota-authentication-azure
-aiosignal==1.3.1
+aiohappyeyeballs==2.4.4
     # via aiohttp
-anyio==4.3.0
+aiohttp==3.11.11
+    # via microsoft-kiota-authentication-azure
+aiosignal==1.3.2
+    # via aiohttp
+anyio==4.7.0
     # via httpx
 appdirs==1.4.4
     # via ptpython
 arpeggio==2.0.2
     # via textx
-attrs==23.2.0
+attrs==24.3.0
     # via aiohttp
-azure-core==1.30.1
+azure-core==1.32.0
     # via azure-identity
     # via microsoft-kiota-authentication-azure
-azure-identity==1.16.0
+azure-identity==1.19.0
     # via msgraph-sdk
-bitarray==2.9.2
+bitarray==2.9.3
     # via bitstring
 bitmath==1.3.3.1
     # via osxphotos
-bitstring==4.2.1
+bitstring==4.2.3
     # via osxmetadata
 blessed==1.17.12
     # via objexplore
 bpylist2==4.1.1
     # via osxphotos
-certifi==2024.2.2
+certifi==2024.12.14
     # via httpcore
     # via httpx
     # via requests
-cffi==1.16.0
+cffi==1.17.1
     # via cryptography
     # via xattr
 cfgv==3.4.0
     # via pre-commit
-cgmetadata==0.1.6
+cgmetadata==0.2.0
     # via makelive
     # via osxphotos
-charset-normalizer==3.3.2
+charset-normalizer==3.4.1
     # via requests
-click==8.1.7
+click==8.1.8
     # via makelive
     # via osxmetadata
     # via osxphotos
     # via photos-backup
-cryptography==42.0.7
+cryptography==44.0.0
     # via azure-identity
     # via msal
     # via pyjwt
-deprecated==1.2.14
+deprecated==1.2.15
     # via opentelemetry-api
-distlib==0.3.8
+    # via opentelemetry-semantic-conventions
+distlib==0.3.9
     # via virtualenv
-filelock==3.14.0
+filelock==3.16.1
     # via virtualenv
-frozenlist==1.4.1
+frozenlist==1.5.0
     # via aiohttp
     # via aiosignal
 h11==0.14.0
@@ -74,37 +78,37 @@ h2==4.1.0
     # via httpx
 hpack==4.0.0
     # via h2
-httpcore==1.0.5
+httpcore==1.0.7
     # via httpx
-httpx==0.27.0
+httpx==0.28.1
     # via microsoft-kiota-http
     # via msgraph-core
 hyperframe==6.0.1
     # via h2
-identify==2.5.36
+identify==2.6.4
     # via pre-commit
-idna==3.7
+idna==3.10
     # via anyio
     # via httpx
     # via requests
     # via yarl
-importlib-metadata==7.0.0
+importlib-metadata==8.5.0
     # via opentelemetry-api
-jedi==0.19.1
+jedi==0.19.2
     # via ptpython
 mac-alias==2.2.2
     # via osxphotos
-makelive==0.6.1
+makelive==0.6.2
     # via osxphotos
 mako==1.2.4
     # via osxphotos
 markdown-it-py==3.0.0
     # via rich
-markupsafe==2.1.5
+markupsafe==3.0.2
     # via mako
 mdurl==0.1.2
     # via markdown-it-py
-microsoft-kiota-abstractions==1.3.2
+microsoft-kiota-abstractions==1.6.7
     # via microsoft-kiota-authentication-azure
     # via microsoft-kiota-http
     # via microsoft-kiota-serialization-form
@@ -113,78 +117,82 @@ microsoft-kiota-abstractions==1.3.2
     # via microsoft-kiota-serialization-text
     # via msgraph-core
     # via msgraph-sdk
-microsoft-kiota-authentication-azure==1.0.0
+microsoft-kiota-authentication-azure==1.6.7
     # via msgraph-core
     # via msgraph-sdk
-microsoft-kiota-http==1.3.1
+microsoft-kiota-http==1.6.7
     # via msgraph-core
     # via msgraph-sdk
-microsoft-kiota-serialization-form==0.1.0
+microsoft-kiota-serialization-form==1.6.7
     # via msgraph-sdk
-microsoft-kiota-serialization-json==1.3.0
+microsoft-kiota-serialization-json==1.6.7
     # via msgraph-sdk
-microsoft-kiota-serialization-multipart==0.1.0
+microsoft-kiota-serialization-multipart==1.6.7
     # via msgraph-sdk
-microsoft-kiota-serialization-text==1.0.0
+microsoft-kiota-serialization-text==1.6.7
     # via msgraph-sdk
 more-itertools==8.14.0
     # via osxphotos
-msal==1.28.0
+msal==1.31.1
     # via azure-identity
     # via msal-extensions
     # via office365-rest-python-client
-msal-extensions==1.1.0
+msal-extensions==1.2.0
     # via azure-identity
-msgraph-core==1.0.0
+msgraph-core==1.1.8
     # via msgraph-sdk
-msgraph-sdk==1.5.4
+msgraph-sdk==1.15.0
     # via photos-backup
-multidict==6.0.5
+multidict==6.1.0
     # via aiohttp
     # via yarl
-nodeenv==1.8.0
+nodeenv==1.9.1
     # via pre-commit
 objexplore==1.6.3
     # via osxphotos
-office365-rest-python-client==2.5.12
+office365-rest-python-client==2.5.14
     # via photos-backup
-opentelemetry-api==1.24.0
+opentelemetry-api==1.29.0
     # via microsoft-kiota-abstractions
     # via microsoft-kiota-authentication-azure
     # via microsoft-kiota-http
     # via opentelemetry-sdk
-opentelemetry-sdk==1.24.0
+    # via opentelemetry-semantic-conventions
+opentelemetry-sdk==1.29.0
     # via microsoft-kiota-abstractions
     # via microsoft-kiota-authentication-azure
     # via microsoft-kiota-http
-opentelemetry-semantic-conventions==0.45b0
+opentelemetry-semantic-conventions==0.50b0
     # via opentelemetry-sdk
-osxmetadata==1.3.4
+osxmetadata==1.4.0
     # via osxphotos
-osxphotos==0.68.5
+osxphotos==0.69.2
     # via photos-backup
-packaging==24.0
-    # via msal-extensions
+packaging==24.2
     # via osxphotos
 parso==0.8.4
     # via jedi
-pathvalidate==3.2.0
+pathvalidate==3.2.1
     # via osxphotos
 pendulum==3.0.0
     # via microsoft-kiota-serialization-form
     # via microsoft-kiota-serialization-json
-photoscript==0.3.1
+    # via microsoft-kiota-serialization-multipart
+photoscript==0.4.0
     # via osxphotos
-pip==24.0
+pip==24.3.1
     # via osxphotos
-platformdirs==4.2.1
+platformdirs==4.3.6
     # via virtualenv
-portalocker==2.8.2
+portalocker==2.10.1
     # via msal-extensions
-pre-commit==3.8.0
-prompt-toolkit==3.0.43
+pre-commit==4.0.1
+prompt-toolkit==3.0.48
     # via ptpython
-ptpython==3.0.26
+propcache==0.2.1
+    # via aiohttp
+    # via yarl
+ptpython==3.0.29
     # via osxphotos
 py-applescript==1.0.3
     # via osxmetadata
@@ -194,9 +202,9 @@ pycparser==2.22
 pygments==2.18.0
     # via ptpython
     # via rich
-pyjwt==2.8.0
+pyjwt==2.10.1
     # via msal
-pyobjc-core==10.2
+pyobjc-core==10.3.2
     # via cgmetadata
     # via makelive
     # via osxmetadata
@@ -220,22 +228,23 @@ pyobjc-core==10.2
     # via pyobjc-framework-scriptingbridge
     # via pyobjc-framework-uniformtypeidentifiers
     # via pyobjc-framework-vision
-pyobjc-framework-applescriptkit==10.2
+    # via utitools
+pyobjc-framework-applescriptkit==10.3.2
     # via osxmetadata
     # via osxphotos
     # via photoscript
     # via py-applescript
-pyobjc-framework-applescriptobjc==10.2
+pyobjc-framework-applescriptobjc==10.3.2
     # via osxmetadata
     # via osxphotos
     # via photoscript
     # via py-applescript
-pyobjc-framework-avfoundation==10.2
+pyobjc-framework-avfoundation==10.3.2
     # via cgmetadata
     # via makelive
     # via osxmetadata
     # via osxphotos
-pyobjc-framework-cocoa==10.2
+pyobjc-framework-cocoa==10.3.2
     # via osxphotos
     # via photoscript
     # via pyobjc-framework-applescriptkit
@@ -254,40 +263,40 @@ pyobjc-framework-cocoa==10.2
     # via pyobjc-framework-scriptingbridge
     # via pyobjc-framework-uniformtypeidentifiers
     # via pyobjc-framework-vision
-pyobjc-framework-contacts==10.2
+pyobjc-framework-contacts==10.3.2
     # via makelive
-pyobjc-framework-coreaudio==10.2
+pyobjc-framework-coreaudio==10.3.2
     # via pyobjc-framework-avfoundation
-pyobjc-framework-corelocation==10.2
+pyobjc-framework-corelocation==10.3.2
     # via cgmetadata
     # via makelive
-pyobjc-framework-coremedia==10.2
+pyobjc-framework-coremedia==10.3.2
     # via osxmetadata
     # via pyobjc-framework-avfoundation
-pyobjc-framework-coreml==10.2
+pyobjc-framework-coreml==10.3.2
     # via pyobjc-framework-vision
-pyobjc-framework-coreservices==10.2
+pyobjc-framework-coreservices==10.3.2
     # via osxmetadata
     # via osxphotos
-pyobjc-framework-fsevents==10.2
+    # via utitools
+pyobjc-framework-fsevents==10.3.2
     # via pyobjc-framework-coreservices
-pyobjc-framework-metal==10.2
+pyobjc-framework-metal==10.3.2
     # via osxphotos
-pyobjc-framework-photos==10.2
+pyobjc-framework-photos==10.3.2
     # via osxphotos
-pyobjc-framework-quartz==10.2
+pyobjc-framework-quartz==10.3.2
     # via cgmetadata
     # via makelive
     # via osxmetadata
     # via osxphotos
     # via pyobjc-framework-avfoundation
     # via pyobjc-framework-vision
-pyobjc-framework-scriptingbridge==10.2
+pyobjc-framework-scriptingbridge==10.3.2
     # via osxmetadata
-pyobjc-framework-uniformtypeidentifiers==10.2
-    # via cgmetadata
-    # via makelive
-pyobjc-framework-vision==10.2
+pyobjc-framework-uniformtypeidentifiers==9.2
+    # via utitools
+pyobjc-framework-vision==10.3.2
     # via osxphotos
 python-dateutil==2.9.0.post0
     # via microsoft-kiota-serialization-text
@@ -297,77 +306,81 @@ python-dotenv==1.0.1
     # via photos-backup
 pytimeparse2==1.7.1
     # via osxphotos
-pytz==2024.1
+pytz==2024.2
     # via office365-rest-python-client
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via osxphotos
     # via pre-commit
-requests==2.31.0
+requests==2.32.3
     # via azure-core
     # via msal
     # via office365-rest-python-client
     # via osxphotos
-rich==13.7.1
+rich==13.9.4
     # via cgmetadata
     # via objexplore
     # via osxphotos
     # via rich-theme-manager
 rich-theme-manager==0.11.0
     # via osxphotos
-ruff==0.6.1
-setuptools==69.5.1
-    # via nodeenv
+ruff==0.8.4
 shortuuid==1.0.13
     # via osxphotos
-six==1.16.0
+six==1.17.0
     # via azure-core
     # via blessed
     # via python-dateutil
 sniffio==1.3.1
     # via anyio
-    # via httpx
-std-uritemplate==0.0.57
+std-uritemplate==2.0.1
     # via microsoft-kiota-abstractions
-strpdatetime==0.3.0
+strpdatetime==0.4.0
     # via osxphotos
-tenacity==8.3.0
+tenacity==8.5.0
     # via osxphotos
-textx==4.0.1
+textx==4.1.0
     # via osxphotos
     # via strpdatetime
-time-machine==2.14.1
+time-machine==2.16.0
     # via pendulum
 toml==0.10.2
     # via osxphotos
-typing-extensions==4.11.0
+typing-extensions==4.12.2
+    # via anyio
     # via azure-core
+    # via azure-identity
     # via office365-rest-python-client
     # via opentelemetry-sdk
-tzdata==2024.1
+tzdata==2024.2
+    # via osxphotos
     # via pendulum
-urllib3==2.2.1
+urllib3==2.3.0
+    # via microsoft-kiota-http
     # via requests
-virtualenv==20.26.1
+utitools==0.3.0
+    # via cgmetadata
+    # via osxphotos
+virtualenv==20.28.0
     # via pre-commit
 wcwidth==0.2.13
     # via blessed
     # via prompt-toolkit
-wheel==0.43.0
+wheel==0.45.1
     # via cgmetadata
     # via makelive
     # via osxmetadata
-wrapt==1.16.0
+wrapt==1.17.0
     # via deprecated
     # via osxphotos
-wurlitzer==3.1.0
+wurlitzer==3.1.1
     # via cgmetadata
     # via makelive
     # via osxphotos
 xattr==1.1.0
     # via osxmetadata
-xdg-base-dirs==6.0.1
+xdg-base-dirs==6.0.2
     # via osxphotos
-yarl==1.9.4
+yarl==1.18.3
     # via aiohttp
-zipp==3.18.2
+zipp==3.21.0
     # via importlib-metadata
