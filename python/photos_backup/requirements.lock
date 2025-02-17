@@ -100,7 +100,7 @@ markupsafe==3.0.2
     # via mako
 mdurl==0.1.2
     # via markdown-it-py
-microsoft-kiota-abstractions==1.6.7
+microsoft-kiota-abstractions==1.9.2
     # via microsoft-kiota-authentication-azure
     # via microsoft-kiota-http
     # via microsoft-kiota-serialization-form
@@ -108,20 +108,17 @@ microsoft-kiota-abstractions==1.6.7
     # via microsoft-kiota-serialization-multipart
     # via microsoft-kiota-serialization-text
     # via msgraph-core
-    # via msgraph-sdk
-microsoft-kiota-authentication-azure==1.6.7
+microsoft-kiota-authentication-azure==1.9.2
     # via msgraph-core
-    # via msgraph-sdk
-microsoft-kiota-http==1.6.7
+microsoft-kiota-http==1.9.2
     # via msgraph-core
+microsoft-kiota-serialization-form==1.9.2
     # via msgraph-sdk
-microsoft-kiota-serialization-form==1.6.7
+microsoft-kiota-serialization-json==1.9.2
     # via msgraph-sdk
-microsoft-kiota-serialization-json==1.6.7
+microsoft-kiota-serialization-multipart==1.9.2
     # via msgraph-sdk
-microsoft-kiota-serialization-multipart==1.6.7
-    # via msgraph-sdk
-microsoft-kiota-serialization-text==1.6.7
+microsoft-kiota-serialization-text==1.9.2
     # via msgraph-sdk
 more-itertools==8.14.0
     # via osxphotos
@@ -131,9 +128,9 @@ msal==1.31.1
     # via office365-rest-python-client
 msal-extensions==1.2.0
     # via azure-identity
-msgraph-core==1.1.8
+msgraph-core==1.3.1
     # via msgraph-sdk
-msgraph-sdk==1.15.0
+msgraph-sdk==1.21.0
     # via photos-backup
 multidict==6.1.0
     # via aiohttp
@@ -164,10 +161,6 @@ parso==0.8.4
     # via jedi
 pathvalidate==3.2.1
     # via osxphotos
-pendulum==3.0.0
-    # via microsoft-kiota-serialization-form
-    # via microsoft-kiota-serialization-json
-    # via microsoft-kiota-serialization-multipart
 photoscript==0.4.0
     # via osxphotos
 pip==24.3.1
@@ -285,10 +278,6 @@ pyobjc-framework-uniformtypeidentifiers==9.2
     # via utitools
 pyobjc-framework-vision==10.3.2
     # via osxphotos
-python-dateutil==2.9.0.post0
-    # via microsoft-kiota-serialization-text
-    # via pendulum
-    # via time-machine
 python-dotenv==1.0.1
     # via photos-backup
 pytimeparse2==1.7.1
@@ -314,7 +303,6 @@ shortuuid==1.0.13
 six==1.17.0
     # via azure-core
     # via blessed
-    # via python-dateutil
 sniffio==1.3.1
     # via anyio
 std-uritemplate==2.0.1
@@ -326,8 +314,6 @@ tenacity==8.5.0
 textx==4.1.0
     # via osxphotos
     # via strpdatetime
-time-machine==2.16.0
-    # via pendulum
 toml==0.10.2
     # via osxphotos
 typing-extensions==4.12.2
@@ -338,9 +324,7 @@ typing-extensions==4.12.2
     # via opentelemetry-sdk
 tzdata==2024.2
     # via osxphotos
-    # via pendulum
 urllib3==2.3.0
-    # via microsoft-kiota-http
     # via requests
 utitools==0.3.0
     # via cgmetadata
