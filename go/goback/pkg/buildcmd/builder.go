@@ -2,6 +2,7 @@ package buildcmd
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -27,7 +28,9 @@ func (r *builder) Execute() {
 
 	start := time.Now()
 	err := cmd.Run()
-	cobra.CheckErr(err)
+	if err != nil {
+		fmt.Println("Error running rsync command: ", err)
+	}
 	r.executionTime = time.Since(start).String()
 	r.updateDBWithUsage()
 }
