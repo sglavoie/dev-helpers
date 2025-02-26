@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func (r *builder) BuildNoCheck() {
@@ -33,6 +35,10 @@ func (r *builder) Execute() {
 	}
 	r.executionTime = time.Since(start).String()
 	r.updateDBWithUsage()
+
+	if ejectCfg := viper.GetBool("ejectOnExit"); ejectCfg {
+		eject.Eject()
+	}
 }
 
 func (r *builder) build() {

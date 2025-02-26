@@ -4,6 +4,7 @@ import "github.com/spf13/viper"
 
 func setDefaultValues() {
 	viper.Set("confirmExec", true)
+	viper.Set("ejectOnExit", false)
 	setDaily()
 	setWeekly()
 }

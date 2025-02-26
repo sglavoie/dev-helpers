@@ -34,6 +34,7 @@ type rsync struct {
 
 type Config struct {
 	confirmExec      bool
+	ejectOnExit      bool
 	excludedPatterns []string
 	rsync            rsync
 	srcDest          map[string]string
