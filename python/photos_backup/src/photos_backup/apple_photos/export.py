@@ -21,7 +21,7 @@ class ApplePhotosExport:
             limit=self.limit,
             # Regular flags
             dest=str(self.dst_path),
-            download_missing=True,
+            download_missing=False,
             exiftool=True,
             directory="{created.year}/{created.mm}/{album[ ,_],}",
             filename_template="{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
