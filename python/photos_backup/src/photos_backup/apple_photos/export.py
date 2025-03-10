@@ -5,7 +5,9 @@ from osxphotos.cli.export import export_cli
 
 
 class ApplePhotosExport:
-    def __init__(self, testing: bool):
+    def __init__(self, dl_missing: bool, testing: bool):
+        self.dl_missing = dl_missing
+
         # Set a couple of flags when testing
         self.testing = testing
         self.limit = int(os.getenv("APPLE_PHOTOS_LIMIT_EXPORT", "0")) if testing else 0
@@ -21,7 +23,7 @@ class ApplePhotosExport:
             limit=self.limit,
             # Regular flags
             dest=str(self.dst_path),
-            download_missing=False,
+            download_missing=self.dl_missing,
             exiftool=True,
             directory="{created.year}/{created.mm}/{album[ ,_],}",
             filename_template="{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
