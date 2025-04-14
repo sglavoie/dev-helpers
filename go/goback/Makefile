@@ -12,6 +12,7 @@ clean:
 install:
 	make clean
 	go build
+	cp ~/.local/bin/$(APP_NAME) ~/.local/bin/$(APP_NAME).bak || true
 	rm -f ~/.local/bin/$(APP_NAME)
 	cp $(APP_NAME) ~/.local/bin/$(APP_NAME)
 uninstall:

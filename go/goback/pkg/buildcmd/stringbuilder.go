@@ -65,6 +65,7 @@ func (r *builder) appendExcludedPatterns() {
 	}
 }
 
+// NOTE: currently unused
 func (r *builder) appendLogFile() {
 	r.sb.WriteString(" --log-file=")
 	r.sb.WriteString(strings.TrimSuffix(viper.ConfigFileUsed(), ".json"))

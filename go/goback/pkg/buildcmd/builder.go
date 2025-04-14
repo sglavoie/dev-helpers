@@ -44,7 +44,7 @@ func (r *builder) Execute() {
 func (r *builder) build() {
 	r.initBuilder()
 	r.appendBooleanFlags()
-	r.appendLogFile()
+	// r.appendLogFile()
 	r.appendExcludedPatterns()
 	r.appendSrcDest()
 }
