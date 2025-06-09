@@ -4,11 +4,9 @@ version = "0.1.0"
 description = "Simple backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
-    "python-dotenv>=1.0.1",
-    "click>=8.1.8",
-    "osxphotos>=0.69.2",
-    "office365-rest-python-client>=2.5.14",
-    "msgraph-sdk>=1.21.0",
+    "python-dotenv>=1.1.0",
+    "click>=8.2.1",
+    "osxphotos>=0.71.0",
 ]
 readme = "README.md"  # `rye` doesn't know what do to with a `README.adoc`
 requires-python = ">= 3.12"
