@@ -60,7 +60,7 @@ objexplore==1.6.3
     # via osxphotos
 osxmetadata==1.4.0
     # via osxphotos
-osxphotos==0.71.0
+osxphotos==0.72.1
     # via photos-backup
 packaging==24.2
     # via osxphotos
@@ -178,7 +178,7 @@ pyobjc-framework-uniformtypeidentifiers==9.2
     # via utitools
 pyobjc-framework-vision==10.3.2
     # via osxphotos
-python-dotenv==1.1.0
+python-dotenv==1.1.1
     # via photos-backup
 pytimeparse2==1.7.1
     # via osxphotos
