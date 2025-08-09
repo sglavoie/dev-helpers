@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/filters"
@@ -125,22 +126,28 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// displayActiveTimers shows active timers in a table
+// displayActiveTimers shows active timers in a table with enhanced visual feedback
 func displayActiveTimers(entries []models.Entry) {
 	t := table.NewWriter()
 	t.SetStyle(table.StyleRounded)
 	t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "Started"})
 
 	for _, entry := range entries {
-		tagsStr := strings.Join(entry.Tags, ", ")
-		if tagsStr == "" {
-			tagsStr = "-"
-		}
+		currentDuration := entry.GetCurrentDuration()
+		
+		// Enhanced duration display with warnings
+		durationStr := formatDurationWithWarning(currentDuration, true)
+		
+		// Enhanced keyword display
+		keywordStr := formatKeywordWithStyle(entry.Keyword, true)
+		
+		// Enhanced tag display with colors
+		tagsStr := formatTagsWithColors(entry.Tags)
 
 		t.AppendRow(table.Row{
 			entry.ShortID,
-			entry.Keyword,
-			formatDuration(entry.GetCurrentDuration()),
+			keywordStr,
+			durationStr,
 			tagsStr,
 			entry.StartTime.Format("3:04 PM"),
 		})
@@ -149,21 +156,28 @@ func displayActiveTimers(entries []models.Entry) {
 	fmt.Println(t.Render())
 }
 
-// displayRecentEntries shows recent entries
+// displayRecentEntries shows recent entries with enhanced visual feedback
 func displayRecentEntries(entries []models.Entry) {
 	t := table.NewWriter()
 	t.SetStyle(table.StyleRounded)
 	t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "When"})
 
 	for _, entry := range entries {
-		tagsStr := strings.Join(entry.Tags, ", ")
-		if tagsStr == "" {
-			tagsStr = "-"
-		}
+		// Enhanced tag display with colors
+		tagsStr := formatTagsWithColors(entry.Tags)
 
+		// Enhanced status display
 		var whenStr string
 		if entry.Active {
-			whenStr = "Running"
+			activeStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("82")). // Green
+				Bold(true)
+			whenStr = activeStyle.Render("▶ Running")
+		} else if entry.Stashed {
+			stashedStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("214")). // Orange
+				Bold(true)
+			whenStr = stashedStyle.Render("⏸️ Stashed")
 		} else {
 			// Show relative time for completed entries
 			if entry.EndTime != nil {
@@ -178,10 +192,14 @@ func displayRecentEntries(entries []models.Entry) {
 			duration = entry.GetCurrentDuration()
 		}
 
+		// Enhanced duration and keyword display
+		durationStr := formatDurationWithWarning(duration, entry.Active)
+		keywordStr := formatKeywordWithStyle(entry.Keyword, entry.Active)
+
 		t.AppendRow(table.Row{
 			entry.ShortID,
-			entry.Keyword,
-			formatDuration(duration),
+			keywordStr,
+			durationStr,
 			tagsStr,
 			whenStr,
 		})

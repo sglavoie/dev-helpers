@@ -149,40 +149,56 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	for _, entry := range entries {
 		var status string
-		duration := formatDuration(entry.Duration)
-
+		var currentDuration int
+		
+		// Calculate current duration
+		if entry.Active {
+			currentDuration = entry.GetCurrentDuration()
+		} else {
+			currentDuration = entry.Duration
+		}
+		
+		// Enhanced status display
 		if entry.Stashed {
-			// Create styled status for stashed entries
 			stashedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("214")). // Orange
 				Bold(true)
 			status = stashedStyle.Render("⏸️ Stashed")
 		} else if entry.Active {
-			// Create styled status for running entries
-			runningStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("46")). // Green
-				Bold(true)
-			status = runningStyle.Render("🟢 Running")
-			duration = formatDuration(entry.GetCurrentDuration())
+			// Check for long-running warnings
+			if currentDuration > 28800 { // > 8 hours
+				warningStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("220")). // Yellow
+					Bold(true)
+				status = warningStyle.Render("⚠️ Long Run")
+			} else if currentDuration > 14400 { // > 4 hours
+				cautionStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("214")). // Orange
+					Bold(true)
+				status = cautionStyle.Render("🔶 Running")
+			} else {
+				runningStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("46")). // Green
+					Bold(true)
+				status = runningStyle.Render("🟢 Running")
+			}
 		} else {
-			// Create styled status for stopped entries
 			stoppedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("241")). // Gray
 				Bold(false)
 			status = stoppedStyle.Render("⏹️ Stopped")
 		}
 
-		tagsStr := strings.Join(entry.Tags, ", ")
-		if tagsStr == "" {
-			tagsStr = "-"
-		}
+		// Enhanced duration and tag display using shared utilities
+		durationStr := formatDurationWithWarning(currentDuration, entry.Active)
+		tagsStr := formatTagsWithColors(entry.Tags)
 
 		startedStr := entry.StartTime.Format("Jan 2 3:04 PM")
 
 		row := table.Row{
 			entry.ShortID,
 			entry.Keyword,
-			duration,
+			durationStr,
 			tagsStr,
 			startedStr,
 			status,
@@ -248,3 +264,4 @@ func outputEntriesAsJSON(entries []models.Entry) error {
 
 	return nil
 }
+
