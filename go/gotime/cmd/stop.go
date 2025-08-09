@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
@@ -17,13 +18,13 @@ var (
 var stopCmd = &cobra.Command{
 	Use:   "stop [keyword | ID | --all]",
 	Short: "Stop tracking time",
-	Long: `Stop time tracking for the specified entry.
-When no arguments are provided, displays an interactive table of active entries to select from.
+	Long: `Stop time tracking for the specified entry or entries.
+When no arguments are provided, displays an interactive multi-selection table of active entries.
 You can stop by keyword (stops the most recent active entry for that keyword),
-by ID number (1-1000), or stop all active entries.
+by ID number (1-1000), or stop all active entries at once.
 
 Examples:
-  gt stop                            # Interactive selection from active entries
+  gt stop                            # Interactive multi-selection from active entries
   gt stop coding                     # Stop the latest active "coding" entry
   gt stop 3                          # Stop entry with short ID 3
   gt stop --all                      # Stop all active entries`,
@@ -184,43 +185,81 @@ func runInteractiveStop(cfg *models.Config, configManager *config.Manager) error
 		})
 	}
 
-	// Show selector
-	selected, err := tui.RunSelector("Select active entry to stop:", items)
+	// Show multi-selector for stopping multiple entries
+	selectedItems, err := tui.RunMultiSelector("Select active entries to stop:", items)
 	if err != nil {
 		return err
 	}
 
-	// Get the selected entry and find it in the config
-	selectedID := selected.Data.(*models.Entry).ID
-	var targetEntry *models.Entry
+	if len(selectedItems) == 0 {
+		fmt.Println("No entries selected for stopping.")
+		return nil
+	}
 
-	for i := range cfg.Entries {
-		if cfg.Entries[i].ID == selectedID {
-			targetEntry = &cfg.Entries[i]
-			break
+	// Build confirmation message for multiple entries
+	var confirmMessage strings.Builder
+	if len(selectedItems) > 1 {
+		confirmMessage.WriteString("Are you sure you want to stop the following entries?\n\n")
+		
+		for i, item := range selectedItems {
+			entry := item.Data.(*models.Entry)
+			duration := formatDuration(entry.GetCurrentDuration())
+			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n", 
+				i+1, entry.Keyword, entry.Tags, entry.ShortID, duration))
+		}
+
+		confirmed, err := tui.RunConfirm(confirmMessage.String())
+		if err != nil {
+			return fmt.Errorf("confirmation failed: %w", err)
+		}
+		if !confirmed {
+			fmt.Println("Operation cancelled.")
+			return nil
 		}
 	}
 
-	if targetEntry == nil {
-		return fmt.Errorf("selected entry not found")
+	// Stop all selected entries
+	stoppedCount := 0
+	var stoppedEntries []string
+
+	for _, item := range selectedItems {
+		entry := item.Data.(*models.Entry)
+		
+		// Find the actual entry in the config and stop it
+		for i := range cfg.Entries {
+			if cfg.Entries[i].ID == entry.ID && cfg.Entries[i].Active {
+				cfg.Entries[i].Stop()
+				stoppedCount++
+				
+				duration := formatDuration(cfg.Entries[i].Duration)
+				stoppedEntries = append(stoppedEntries, 
+					fmt.Sprintf("%s %v - %s", cfg.Entries[i].Keyword, cfg.Entries[i].Tags, duration))
+				break
+			}
+		}
 	}
 
-	// Stop the entry
-	targetEntry.Stop()
+	// Display results
+	if stoppedCount > 0 {
+		if stoppedCount == 1 {
+			fmt.Printf("Stopped: %s\n", stoppedEntries[0])
+		} else {
+			fmt.Printf("Stopped %d entries:\n", stoppedCount)
+			for _, entryDesc := range stoppedEntries {
+				fmt.Printf("  • %s\n", entryDesc)
+			}
+		}
+		
+		// Save configuration
+		if err := configManager.Save(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
 
-	duration := formatDuration(targetEntry.Duration)
-	fmt.Printf("Stopped: %s %v - %s\n",
-		targetEntry.Keyword,
-		targetEntry.Tags,
-		duration)
-
-	// Save configuration
-	if err := configManager.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	if IsVerbose() {
-		fmt.Printf("Config saved to: %s\n", configManager.GetConfigPath())
+		if IsVerbose() {
+			fmt.Printf("Config saved to: %s\n", configManager.GetConfigPath())
+		}
+	} else {
+		fmt.Println("No entries were stopped.")
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
@@ -210,39 +211,102 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 		})
 	}
 
-	// Show selector
-	selected, err := tui.RunSelector("Select keyword to continue:", items)
+	// Show multi-selector for continuing multiple keywords
+	selectedItems, err := tui.RunMultiSelector("Select keywords to continue (multi-selection supported):", items)
 	if err != nil {
 		return err
 	}
 
-	// Get the selected entry
-	sourceEntry := selected.Data.(*models.Entry)
-
-	// Note: No need to check for active entries here since we filtered them out earlier
-	// Create new entry based on source entry
-	shortID := getNextShortID(cfg)
-	newEntry := models.NewEntry(sourceEntry.Keyword, sourceEntry.Tags, shortID)
-
-	// Add to configuration
-	cfg.AddEntry(newEntry)
-
-	// Save configuration
-	if err := configManager.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	if len(selectedItems) == 0 {
+		fmt.Println("No keywords selected for continuation.")
+		return nil
 	}
 
-	// Format output
-	timeStr := newEntry.StartTime.Format("3:04:05 PM")
-	if len(newEntry.Tags) > 0 {
-		fmt.Printf("Continued: %s %v at %s\n", newEntry.Keyword, newEntry.Tags, timeStr)
-	} else {
-		fmt.Printf("Continued: %s at %s\n", newEntry.Keyword, timeStr)
+	// Build confirmation message for multiple entries
+	var confirmMessage strings.Builder
+	if len(selectedItems) > 1 {
+		confirmMessage.WriteString("Are you sure you want to continue the following keywords?\n\n")
+		
+		for i, item := range selectedItems {
+			entry := item.Data.(*models.Entry)
+			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (last used: %s)\n", 
+				i+1, entry.Keyword, entry.Tags, entry.StartTime.Format("Jan 02 3:04PM")))
+		}
+
+		confirmed, err := tui.RunConfirm(confirmMessage.String())
+		if err != nil {
+			return fmt.Errorf("confirmation failed: %w", err)
+		}
+		if !confirmed {
+			fmt.Println("Operation cancelled.")
+			return nil
+		}
 	}
 
-	if IsVerbose() {
-		fmt.Printf("Based on entry ID: %s\n", sourceEntry.ID)
-		fmt.Printf("New entry ID: %s (Short ID: %d)\n", newEntry.ID, newEntry.ShortID)
+	// Continue all selected keywords
+	continuedCount := 0
+	var continuedEntries []string
+	var skippedEntries []string
+
+	for _, item := range selectedItems {
+		sourceEntry := item.Data.(*models.Entry)
+		
+		// Double-check that there's no active entry for this keyword
+		if cfg.HasActiveEntryForKeyword(sourceEntry.Keyword) {
+			skippedEntries = append(skippedEntries,
+				fmt.Sprintf("%s %v (already has active timer)", sourceEntry.Keyword, sourceEntry.Tags))
+			continue
+		}
+
+		// Create new entry based on source entry
+		shortID := getNextShortID(cfg)
+		newEntry := models.NewEntry(sourceEntry.Keyword, sourceEntry.Tags, shortID)
+
+		// Add to configuration
+		cfg.AddEntry(newEntry)
+		continuedCount++
+
+		timeStr := newEntry.StartTime.Format("3:04:05 PM")
+		if len(newEntry.Tags) > 0 {
+			continuedEntries = append(continuedEntries,
+				fmt.Sprintf("%s %v at %s", newEntry.Keyword, newEntry.Tags, timeStr))
+		} else {
+			continuedEntries = append(continuedEntries,
+				fmt.Sprintf("%s at %s", newEntry.Keyword, timeStr))
+		}
+	}
+
+	// Save configuration if any entries were continued
+	if continuedCount > 0 {
+		if err := configManager.Save(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+	}
+
+	// Display results
+	if continuedCount > 0 {
+		if continuedCount == 1 {
+			fmt.Printf("Continued: %s\n", continuedEntries[0])
+		} else {
+			fmt.Printf("Continued %d entries:\n", continuedCount)
+			for _, entryDesc := range continuedEntries {
+				fmt.Printf("  • %s\n", entryDesc)
+			}
+		}
+	}
+
+	if len(skippedEntries) > 0 {
+		fmt.Printf("\nSkipped %d entries:\n", len(skippedEntries))
+		for _, entryDesc := range skippedEntries {
+			fmt.Printf("  • %s\n", entryDesc)
+		}
+	}
+
+	if continuedCount == 0 && len(skippedEntries) == 0 {
+		fmt.Println("No entries were continued.")
+	}
+
+	if IsVerbose() && continuedCount > 0 {
 		fmt.Printf("Config saved to: %s\n", configManager.GetConfigPath())
 	}
 

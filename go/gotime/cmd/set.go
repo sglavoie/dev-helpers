@@ -15,20 +15,19 @@ import (
 // setCmd represents the set command
 var setCmd = &cobra.Command{
 	Use:   "set [keyword | ID] [field value]",
-	Short: "Set or update entry fields",
-	Long: `Set or update fields for a time tracking entry.
-When called without arguments, displays an interactive table to select an entry to edit.
+	Short: "Set or update entry fields (supports bulk editing)",
+	Long: `Set or update fields for one or multiple time tracking entries.
+When called without arguments, displays an interactive multi-selection table to select entries to edit.
 When called without field arguments, opens an interactive field editor showing all available fields.
 You can also directly set specific fields by providing field and value arguments.
-If multiple entries exist for a keyword, you'll be prompted to choose which one to edit.
-If called on a running entry and edited, the changes will take effect immediately and the entry will
-be stopped to avoid ambiguity with the end time.
+If multiple entries exist for a keyword, you'll be prompted to choose which ones to edit.
+If called on running entries, they will be stopped to avoid ambiguity with the end time.
 
 Examples:
-  gt set                             # Interactive entry selection and field editor
-  gt set coding                      # Interactive field editor for "coding"
+  gt set                             # Interactive multi-selection and field editor
+  gt set coding                      # Interactive field editor for "coding" entries
   gt set 3                           # Interactive field editor for entry ID 3
-  gt set coding duration 3600        # Set duration to 3600 seconds (1 hour)
+  gt set coding duration 3600        # Set duration to 3600 seconds (1 hour) for all "coding" entries
   gt set 3 keyword development       # Change keyword to "development"`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runSet,
@@ -201,9 +200,9 @@ func runDirectFieldSet(entry *models.Entry, args []string, configManager *config
 }
 
 func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Manager) error {
-	// Create selector items from all entries
+	// Create selector items from all non-stashed entries
 	var items []tui.SelectorItem
-	for _, entry := range cfg.Entries {
+	for _, entry := range cfg.GetNonStashedEntries() {
 		status := "completed"
 		duration := formatDuration(entry.Duration)
 		if entry.Active {
@@ -233,29 +232,42 @@ func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Mana
 		})
 	}
 
-	// Show selector
-	selected, err := tui.RunSelector("Select entry to edit:", items)
+	// Show multi-selector for bulk editing
+	selectedItems, err := tui.RunMultiSelector("Select entries to edit (supports bulk editing):", items)
 	if err != nil {
 		return err
 	}
 
-	// Get the selected entry
-	selectedID := selected.Data.(*models.Entry).ID
-	var targetEntry *models.Entry
+	if len(selectedItems) == 0 {
+		fmt.Println("No entries selected for editing.")
+		return nil
+	}
 
-	for i := range cfg.Entries {
-		if cfg.Entries[i].ID == selectedID {
-			targetEntry = &cfg.Entries[i]
-			break
+	// Get the selected entries
+	var targetEntries []*models.Entry
+	for _, item := range selectedItems {
+		entry := item.Data.(*models.Entry)
+		// Find the actual entry in the config
+		for i := range cfg.Entries {
+			if cfg.Entries[i].ID == entry.ID {
+				targetEntries = append(targetEntries, &cfg.Entries[i])
+				break
+			}
 		}
 	}
 
-	if targetEntry == nil {
-		return fmt.Errorf("selected entry not found")
+	if len(targetEntries) == 0 {
+		return fmt.Errorf("no valid entries found")
 	}
 
-	// Open interactive field editor
-	return runInteractiveFieldEditor(targetEntry, configManager, cfg)
+	// Handle single vs bulk editing
+	if len(targetEntries) == 1 {
+		// Single entry - use existing field editor
+		return runInteractiveFieldEditor(targetEntries[0], configManager, cfg)
+	} else {
+		// Multiple entries - bulk edit mode
+		return runBulkFieldEditor(targetEntries, configManager, cfg)
+	}
 }
 
 func runInteractiveEntrySelectionFromList(entries []*models.Entry, keyword string) (*models.Entry, error) {
@@ -300,4 +312,186 @@ func runInteractiveEntrySelectionFromList(entries []*models.Entry, keyword strin
 
 	// Return the selected entry
 	return selected.Data.(*models.Entry), nil
+}
+
+// runBulkFieldEditor handles bulk editing of multiple entries
+func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, cfg *models.Config) error {
+	fmt.Printf("Bulk editing %d entries:\n", len(entries))
+	for i, entry := range entries {
+		fmt.Printf("  %d. %s %v (ID: %d)\n", i+1, entry.Keyword, entry.Tags, entry.ShortID)
+	}
+	fmt.Println()
+
+	// Ask which field to bulk edit
+	fmt.Println("Available fields for bulk editing:")
+	fmt.Println("  1. keyword    - Change keyword for all selected entries")
+	fmt.Println("  2. tags       - Replace tags for all selected entries")
+	fmt.Println("  3. duration   - Set duration (in seconds) for all selected entries")
+	fmt.Println("  4. starttime  - Set start time (YYYY-MM-DD HH:MM:SS) for all selected entries")
+	fmt.Println()
+
+	// Map digit to field name
+	fieldMap := map[string]string{
+		"1": "keyword",
+		"2": "tags",
+		"3": "duration",
+		"4": "starttime",
+	}
+	var fieldInput string
+	var field string
+
+	// Prompt for a valid field selection (1-4) in a loop
+	for {
+		fmt.Print("Enter field name to edit (1-4): ")
+		fmt.Scanln(&fieldInput)
+		fieldInput = strings.TrimSpace(fieldInput)
+		if fieldInput == "" {
+			fmt.Println("Operation cancelled.")
+			return nil
+		}
+		if mapped, ok := fieldMap[fieldInput]; ok {
+			field = mapped
+			break
+		}
+		// If not a digit, assume user entered the field name directly
+		field = strings.ToLower(fieldInput)
+		if field == "keyword" || field == "tags" || field == "duration" || field == "starttime" {
+			break
+		}
+		fmt.Println("Invalid selection. Please enter a number between 1 and 4.")
+	}
+
+	fmt.Printf("Enter new value for '%s': ", field)
+	var value string
+	fmt.Scanln(&value)
+
+	if value == "" {
+		fmt.Println("Operation cancelled.")
+		return nil
+	}
+
+	// Build confirmation message
+	var confirmMessage strings.Builder
+	confirmMessage.WriteString(fmt.Sprintf("Are you sure you want to set '%s' to '%s' for the following %d entries?\n\n",
+		field, value, len(entries)))
+
+	for i, entry := range entries {
+		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d)\n",
+			i+1, entry.Keyword, entry.Tags, entry.ShortID))
+	}
+
+	confirmed, err := tui.RunConfirm(confirmMessage.String())
+	if err != nil {
+		return fmt.Errorf("confirmation failed: %w", err)
+	}
+	if !confirmed {
+		fmt.Println("Bulk edit cancelled.")
+		return nil
+	}
+
+	// Apply the field change to all selected entries
+	modifiedCount := 0
+	var modifiedEntries []string
+
+	for _, entry := range entries {
+		// Stop active entries before modifying them
+		wasActive := entry.Active
+		if wasActive {
+			entry.Stop()
+		}
+
+		// Apply the field change
+		err := setFieldValue(entry, field, value)
+		if err != nil {
+			fmt.Printf("Warning: Failed to set %s for entry %d: %v\n", field, entry.ShortID, err)
+			continue
+		}
+
+		modifiedCount++
+		status := "completed"
+		if wasActive {
+			status = "was running (now stopped)"
+		}
+		modifiedEntries = append(modifiedEntries,
+			fmt.Sprintf("%s %v (ID: %d) - %s", entry.Keyword, entry.Tags, entry.ShortID, status))
+	}
+
+	// Display results
+	if modifiedCount > 0 {
+		fmt.Printf("Successfully modified %d entries:\n", modifiedCount)
+		for _, entryDesc := range modifiedEntries {
+			fmt.Printf("  • %s\n", entryDesc)
+		}
+
+		// Save configuration
+		if err := configManager.Save(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+
+		if IsVerbose() {
+			fmt.Printf("Config saved to: %s\n", configManager.GetConfigPath())
+		}
+	} else {
+		fmt.Println("No entries were modified.")
+	}
+
+	return nil
+}
+
+// setFieldValue applies a field change to a single entry
+func setFieldValue(entry *models.Entry, field, value string) error {
+	field = strings.ToLower(field)
+
+	switch field {
+	case "keyword":
+		entry.Keyword = value
+
+	case "duration":
+		duration, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid duration value: %s", value)
+		}
+		if duration < 0 {
+			return fmt.Errorf("duration cannot be negative")
+		}
+
+		if entry.Active {
+			// For active entries, adjust the start time
+			now := time.Now()
+			newStartTime := now.Add(-time.Duration(duration) * time.Second)
+			entry.StartTime = newStartTime
+		} else {
+			entry.Duration = duration
+		}
+
+	case "tags":
+		// Parse comma-separated tags
+		tags := strings.Split(value, ",")
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+
+		// Remove empty tags
+		var cleanTags []string
+		for _, tag := range tags {
+			if tag != "" {
+				cleanTags = append(cleanTags, tag)
+			}
+		}
+
+		entry.Tags = cleanTags
+
+	case "starttime":
+		// Parse start time in YYYY-MM-DD HH:MM:SS format
+		startTime, err := time.Parse("2006-01-02 15:04:05", value)
+		if err != nil {
+			return fmt.Errorf("invalid start time format (expected YYYY-MM-DD HH:MM:SS): %s", value)
+		}
+		entry.StartTime = startTime
+
+	default:
+		return fmt.Errorf("unsupported field: %s (supported: keyword, duration, tags, starttime)", field)
+	}
+
+	return nil
 }
