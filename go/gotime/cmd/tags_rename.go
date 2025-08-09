@@ -60,9 +60,12 @@ func runTagsRename(cmd *cobra.Command, args []string) error {
 	entriesModified := 0
 	totalOccurrences := 0
 
-	// Process each entry
+	// Process each non-stashed entry
 	for i := range cfg.Entries {
 		entry := &cfg.Entries[i]
+		if entry.Stashed {
+			continue
+		}
 		modified := false
 
 		// Look for the old tag in this entry

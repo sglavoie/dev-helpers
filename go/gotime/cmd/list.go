@@ -46,7 +46,8 @@ Examples:
   gt list --invert-tags meeting         # Show entries without "meeting" tag
   gt list --days 7                      # Show last 7 days
   gt list --between 2025-08-01,2025-08-07  # Custom date range`,
-	RunE: runList,
+	RunE:    runList,
+	Aliases: []string{"ls", "l"},
 }
 
 func init() {
@@ -131,6 +132,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	filter.InvertTags = listInvertTags
 	filter.ActiveOnly = listActiveOnly
 	filter.NoActive = listNoActive
+	filter.IncludeStashed = true // List command should show stashed entries
 
 	// Apply filters
 	entries := filter.Apply(cfg.Entries)
@@ -149,7 +151,13 @@ func runList(cmd *cobra.Command, args []string) error {
 		var status string
 		duration := formatDuration(entry.Duration)
 
-		if entry.Active {
+		if entry.Stashed {
+			// Create styled status for stashed entries
+			stashedStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("214")). // Orange
+				Bold(true)
+			status = stashedStyle.Render("⏸️ Stashed")
+		} else if entry.Active {
 			// Create styled status for running entries
 			runningStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("46")). // Green
@@ -161,7 +169,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			stoppedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("241")). // Gray
 				Bold(false)
-			status = stoppedStyle.Render("⏹️  Stopped")
+			status = stoppedStyle.Render("⏹️ Stopped")
 		}
 
 		tagsStr := strings.Join(entry.Tags, ", ")

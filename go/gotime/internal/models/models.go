@@ -6,11 +6,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// Stash represents a collection of stashed entries
+type Stash struct {
+	ID        string    `json:"id"`         // Unique stash identifier
+	EntryIDs  []string  `json:"entry_ids"`  // IDs of stashed entries
+	CreatedAt time.Time `json:"created_at"` // When stash was created
+}
+
 // Config represents the application configuration and state
 type Config struct {
 	Entries     []Entry `json:"entries"`
 	NextShortID int     `json:"next_short_id"`
 	LastKeyword string  `json:"last_entry_keyword"`
+	Stashes     []Stash `json:"stashes"` // Currently only one supported
 }
 
 // Entry represents a time tracking entry
@@ -23,6 +31,7 @@ type Entry struct {
 	EndTime   *time.Time `json:"end_time"`   // When tracking stopped (nil if active)
 	Duration  int        `json:"duration"`   // Cached seconds for completed entries
 	Active    bool       `json:"active"`     // Currently running flag
+	Stashed   bool       `json:"stashed"`    // Indicates if entry is part of a stash
 }
 
 // NewEntry creates a new entry with generated ID
@@ -36,6 +45,7 @@ func NewEntry(keyword string, tags []string, shortID int) *Entry {
 		EndTime:   nil,
 		Duration:  0,
 		Active:    true,
+		Stashed:   false,
 	}
 }
 
@@ -83,6 +93,7 @@ func NewConfig() *Config {
 		Entries:     []Entry{},
 		NextShortID: 1,
 		LastKeyword: "",
+		Stashes:     []Stash{},
 	}
 }
 
@@ -139,6 +150,17 @@ func (c *Config) GetEntriesPtrsByKeyword(keyword string) []*Entry {
 	return matches
 }
 
+// GetNonStashedEntriesPtrsByKeyword returns pointers to non-stashed entries matching a keyword
+func (c *Config) GetNonStashedEntriesPtrsByKeyword(keyword string) []*Entry {
+	var matches []*Entry
+	for i := range c.Entries {
+		if c.Entries[i].Keyword == keyword && !c.Entries[i].Stashed {
+			matches = append(matches, &c.Entries[i])
+		}
+	}
+	return matches
+}
+
 // HasActiveEntryForKeyword checks if there's already an active entry for the given keyword
 func (c *Config) HasActiveEntryForKeyword(keyword string) bool {
 	for _, entry := range c.Entries {
@@ -155,6 +177,20 @@ func (c *Config) GetLastEntryByKeyword(keyword string) *Entry {
 	for i := range c.Entries {
 		entry := &c.Entries[i]
 		if entry.Keyword == keyword {
+			if lastEntry == nil || entry.StartTime.After(lastEntry.StartTime) {
+				lastEntry = entry
+			}
+		}
+	}
+	return lastEntry
+}
+
+// GetLastNonStashedEntryByKeyword returns the most recent non-stashed entry for a keyword
+func (c *Config) GetLastNonStashedEntryByKeyword(keyword string) *Entry {
+	var lastEntry *Entry
+	for i := range c.Entries {
+		entry := &c.Entries[i]
+		if entry.Keyword == keyword && !entry.Stashed {
 			if lastEntry == nil || entry.StartTime.After(lastEntry.StartTime) {
 				lastEntry = entry
 			}
@@ -223,10 +259,100 @@ func (c *Config) updateShortIDs() {
 func (c *Config) RemoveEntry(id string) bool {
 	for i, entry := range c.Entries {
 		if entry.ID == id {
+			// If the entry is stashed, also remove it from any stashes
+			if entry.Stashed {
+				c.removeFromStashes(id)
+			}
 			c.Entries = append(c.Entries[:i], c.Entries[i+1:]...)
 			c.updateShortIDs()
 			return true
 		}
 	}
 	return false
+}
+
+// removeFromStashes removes an entry ID from all stashes and cleans up empty stashes
+func (c *Config) removeFromStashes(entryID string) {
+	for i := len(c.Stashes) - 1; i >= 0; i-- {
+		stash := &c.Stashes[i]
+		// Remove the entry ID from this stash
+		for j, id := range stash.EntryIDs {
+			if id == entryID {
+				stash.EntryIDs = append(stash.EntryIDs[:j], stash.EntryIDs[j+1:]...)
+				break
+			}
+		}
+		// If stash is now empty, remove it
+		if len(stash.EntryIDs) == 0 {
+			c.Stashes = append(c.Stashes[:i], c.Stashes[i+1:]...)
+		}
+	}
+}
+
+// HasActiveStash returns true if there is an active stash
+func (c *Config) HasActiveStash() bool {
+	return len(c.Stashes) > 0
+}
+
+// GetActiveStash returns the active stash (only one supported)
+func (c *Config) GetActiveStash() *Stash {
+	if len(c.Stashes) > 0 {
+		return &c.Stashes[0]
+	}
+	return nil
+}
+
+// CreateStash creates a new stash from the given entry IDs
+func (c *Config) CreateStash(entryIDs []string) *Stash {
+	stash := Stash{
+		ID:        uuid.NewString(),
+		EntryIDs:  entryIDs,
+		CreatedAt: time.Now(),
+	}
+	c.Stashes = []Stash{stash} // Only one stash supported
+	return &c.Stashes[0]
+}
+
+// RemoveStash removes a stash by its ID
+func (c *Config) RemoveStash(stashID string) bool {
+	for i, stash := range c.Stashes {
+		if stash.ID == stashID {
+			c.Stashes = append(c.Stashes[:i], c.Stashes[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// GetStashedEntries returns all stashed entries
+func (c *Config) GetStashedEntries() []Entry {
+	var stashed []Entry
+	for _, entry := range c.Entries {
+		if entry.Stashed {
+			stashed = append(stashed, entry)
+		}
+	}
+	return stashed
+}
+
+// GetStashedEntriesPtr returns pointers to all stashed entries
+func (c *Config) GetStashedEntriesPtr() []*Entry {
+	var stashed []*Entry
+	for i := range c.Entries {
+		if c.Entries[i].Stashed {
+			stashed = append(stashed, &c.Entries[i])
+		}
+	}
+	return stashed
+}
+
+// GetNonStashedEntries returns all entries that are not stashed
+func (c *Config) GetNonStashedEntries() []Entry {
+	var nonStashed []Entry
+	for _, entry := range c.Entries {
+		if !entry.Stashed {
+			nonStashed = append(nonStashed, entry)
+		}
+	}
+	return nonStashed
 }

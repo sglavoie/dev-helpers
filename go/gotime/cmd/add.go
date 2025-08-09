@@ -27,8 +27,9 @@ The form will allow you to set:
 
 Examples:
   gt add                            # Interactive form to add a new entry`,
-	Args: cobra.NoArgs,
-	RunE: runAdd,
+	Args:    cobra.NoArgs,
+	RunE:    runAdd,
+	Aliases: []string{"a"},
 }
 
 func init() {

@@ -21,6 +21,8 @@ When called without arguments, displays an interactive table to select an entry 
 When called without field arguments, opens an interactive field editor showing all available fields.
 You can also directly set specific fields by providing field and value arguments.
 If multiple entries exist for a keyword, you'll be prompted to choose which one to edit.
+If called on a running entry and edited, the changes will take effect immediately and the entry will
+be stopped to avoid ambiguity with the end time.
 
 Examples:
   gt set                             # Interactive entry selection and field editor
@@ -67,7 +69,7 @@ func runSet(cmd *cobra.Command, args []string) error {
 	} else {
 		// Set by keyword
 		keyword := parsedArg.Keyword
-		entries := cfg.GetEntriesPtrsByKeyword(keyword)
+		entries := cfg.GetNonStashedEntriesPtrsByKeyword(keyword)
 		if len(entries) == 0 {
 			return fmt.Errorf("no entries found for keyword '%s'", keyword)
 		}

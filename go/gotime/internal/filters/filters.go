@@ -22,15 +22,16 @@ const (
 
 // Filter represents filtering criteria for entries
 type Filter struct {
-	TimeRange  TimeRange
-	DaysBack   int
-	StartDate  *time.Time
-	EndDate    *time.Time
-	Keyword    string
-	Tags       []string
-	InvertTags bool
-	ActiveOnly bool
-	NoActive   bool
+	TimeRange     TimeRange
+	DaysBack      int
+	StartDate     *time.Time
+	EndDate       *time.Time
+	Keyword       string
+	Tags          []string
+	InvertTags    bool
+	ActiveOnly    bool
+	NoActive      bool
+	IncludeStashed bool // Whether to include stashed entries in results
 }
 
 // NewFilter creates a new filter with default values (current week)
@@ -54,6 +55,11 @@ func (f *Filter) Apply(entries []models.Entry) []models.Entry {
 }
 
 func (f *Filter) matchesEntry(entry *models.Entry) bool {
+	// Handle stashed entries based on IncludeStashed flag
+	if entry.Stashed && !f.IncludeStashed {
+		return false
+	}
+
 	// Check active status filters
 	if f.ActiveOnly && !entry.Active {
 		return false

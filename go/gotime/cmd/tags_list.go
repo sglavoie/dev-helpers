@@ -53,7 +53,7 @@ func runTagsList(cmd *cobra.Command, args []string) error {
 	// Collect all tags with their usage information
 	tagUsage := make(map[string]*TagInfo)
 
-	for _, entry := range cfg.Entries {
+	for _, entry := range cfg.GetNonStashedEntries() {
 		for _, tag := range entry.Tags {
 			if tagUsage[tag] == nil {
 				tagUsage[tag] = &TagInfo{

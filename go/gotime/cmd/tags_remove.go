@@ -81,6 +81,11 @@ func runTagsRemove(cmd *cobra.Command, args []string) error {
 	for i := range cfg.Entries {
 		entry := &cfg.Entries[i]
 
+		// Skip stashed entries
+		if entry.Stashed {
+			continue
+		}
+
 		// Check if this entry should be processed
 		shouldProcess := false
 

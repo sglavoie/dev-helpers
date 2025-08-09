@@ -40,7 +40,8 @@ Examples:
   gt report --keyword coding             # Only "coding" entries
   gt report --tags golang,cli            # Entries with "golang" or "cli" tags
   gt report --between 2025-08-01,2025-08-07  # Custom date range`,
-	RunE: runReport,
+	RunE:    runReport,
+	Aliases: []string{"rep", "r"},
 }
 
 func init() {

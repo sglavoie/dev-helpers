@@ -24,8 +24,9 @@ Examples:
   gt delete                          # Interactive multi-selection
   gt delete coding                   # Delete all "coding" entries
   gt delete 5                        # Delete entry with short ID 5`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runDelete,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    runDelete,
+	Aliases: []string{"del", "d"},
 }
 
 func init() {
@@ -132,7 +133,9 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 	for _, entry := range cfg.Entries {
 		status := "completed"
 		duration := formatDuration(entry.Duration)
-		if entry.Active {
+		if entry.Stashed {
+			status = "stashed"
+		} else if entry.Active {
 			status = "running"
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
@@ -173,15 +176,15 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 	// Build confirmation message
 	var confirmMessage strings.Builder
 	confirmMessage.WriteString("Are you sure you want to delete the following entries?\n\n")
-	
+
 	for i, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
 		duration := formatDuration(entry.Duration)
 		if entry.Active {
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
-		
-		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n", 
+
+		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n",
 			i+1, entry.Keyword, entry.Tags, entry.ShortID, duration))
 	}
 
@@ -200,15 +203,15 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 
 	for _, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
-		
+
 		// Capture display info before removal (RemoveEntry updates short IDs)
 		keyword := entry.Keyword
 		tags := entry.Tags
 		shortID := entry.ShortID
-		
+
 		if cfg.RemoveEntry(entry.ID) {
 			deletedCount++
-			deletedEntries = append(deletedEntries, 
+			deletedEntries = append(deletedEntries,
 				fmt.Sprintf("%s %v (ID: %d)", keyword, tags, shortID))
 		}
 	}

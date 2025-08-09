@@ -38,7 +38,8 @@ Examples:
 
 		return nil
 	},
-	RunE: runContinue,
+	RunE:    runContinue,
+	Aliases: []string{"cont", "c"},
 }
 
 func init() {
@@ -63,10 +64,10 @@ func runContinue(cmd *cobra.Command, args []string) error {
 	}
 
 	if continueLast {
-		// Find the most recent stopped entry
+		// Find the most recent stopped entry (excluding stashed entries)
 		for i := range cfg.Entries {
 			entry := &cfg.Entries[i]
-			if !entry.Active {
+			if !entry.Active && !entry.Stashed {
 				if sourceEntry == nil || entry.StartTime.After(sourceEntry.StartTime) {
 					sourceEntry = entry
 				}
@@ -105,7 +106,7 @@ func runContinue(cmd *cobra.Command, args []string) error {
 		} else {
 			// Continue by keyword
 			keyword := parsedArg.Keyword
-			sourceEntry = cfg.GetLastEntryByKeyword(keyword)
+			sourceEntry = cfg.GetLastNonStashedEntryByKeyword(keyword)
 
 			if sourceEntry == nil {
 				return fmt.Errorf("no previous entries found for keyword '%s'", keyword)
@@ -164,10 +165,10 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 	keywordEntries := make(map[string]*models.Entry)
 
 	// Find the most recent entry for each keyword within the last month
-	// but exclude keywords that already have active timers
+	// but exclude keywords that already have active timers and exclude stashed entries
 	for i := range cfg.Entries {
 		entry := &cfg.Entries[i]
-		if entry.StartTime.After(oneMonthAgo) && !entry.Active {
+		if entry.StartTime.After(oneMonthAgo) && !entry.Active && !entry.Stashed {
 			// Skip this keyword if there's already an active timer for it
 			if cfg.HasActiveEntryForKeyword(entry.Keyword) {
 				continue
