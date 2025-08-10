@@ -1,16 +1,17 @@
 # GoTime (gt) - Personal Time Tracking CLI
 
-A fast and simple time tracking CLI tool designed to replace commercial solutions like Clockify. Built with Go, featuring multiple concurrent stopwatches, keyword-based organization, tag filtering, and powerful reporting capabilities.
+A fast, simple time tracking CLI tool designed to replace commercial solutions like Clockify for personal use. Built with Go for speed and reliability.
 
-## Features
+## Key Features
 
 - ⏱️ **Multiple Concurrent Timers**: Run unlimited stopwatches simultaneously
-- 🏷️ **Keywords & Tags**: Organize activities with primary keywords and secondary tags
-- 📊 **Rich Reporting**: Weekly, monthly, yearly reports with advanced filtering
-- 🔄 **Continue Tracking**: Resume previous activities easily
-- 📈 **Live Dashboard**: Real-time monitoring of active timers
+- 🏷️ **Keywords & Tags**: Organize activities with primary keywords and secondary tags  
+- 📊 **Advanced Filtering**: Duration filters, date ranges, tag filtering, and more
+- 🔄 **Continue & Stash**: Resume previous work or temporarily pause running timers
+- ↩️ **Undo Operations**: Reverse destructive operations like deletes and bulk edits
 - 🎯 **Smart ID System**: Short IDs (1-10) for quick reference + permanent UUIDs
 - 💾 **JSON Storage**: Simple, portable configuration file
+- 🏷️ **Tag Management**: List, rename, and remove tags across all entries
 
 ## Installation
 
@@ -42,15 +43,17 @@ gt stop coding
 
 # Generate reports
 gt report --today
-gt report --week
-gt report --keyword coding
+gt report --week --keyword coding
 
 # Continue previous work
 gt continue coding
 gt continue --last
 
-# Live dashboard
-gt watch
+# Stash running timers temporarily
+gt stash
+
+# Undo mistakes
+gt undo
 ```
 
 ## Commands
@@ -60,28 +63,38 @@ gt watch
 - `gt start <keyword> [tags...]` - Start new timer
 - `gt stop [keyword | --id N | --all]` - Stop timer(s)
 - `gt continue [keyword | --last | --id N]` - Resume previous timer
+- `gt stash [show|apply|clear]` - Temporarily pause/manage running timers
 
 ### Entry Management
 
-- `gt list [filters...]` - List entries with filtering
+- `gt list [filters...]` - List entries with advanced filtering
 - `gt add` - Add retroactive entries (interactive form)
-- `gt set [keyword | --id N] [field value]` - Update entry fields
+- `gt set [keyword | --id N] [field value]` - Update entry fields (supports bulk editing)
 - `gt delete [keyword | --id N]` - Delete entries
 
-### Reporting
+### Advanced Features
 
-- `gt report [time-range] [filters...]` - Generate reports
-- `gt watch` - Live dashboard
+- `gt report [time-range] [filters...]` - Generate detailed reports
+- `gt undo [--list]` - Undo destructive operations or list undo history
+- `gt tags [list|rename|remove]` - Manage tags across all entries
+- `gt pop` - Resume stashed entries
 
-## Filtering Options
+## Advanced Filtering
 
 ### Time Ranges
 
-- Default: Current week (Sunday-Saturday)
+- Default: Today's entries
 - `--today` / `--yesterday` - Single day
+- `--week` / `--month` / `--year` - Calendar periods  
 - `--days N` - Last N days
-- `--month` / `--year` - Calendar periods
 - `--between YYYY-MM-DD,YYYY-MM-DD` - Custom range
+- `--from YYYY-MM-DD --to YYYY-MM-DD` - Flexible date range
+
+### Duration Filters
+
+- `--min-duration 1h` - Entries >= 1 hour (supports `1h30m`, `90m`, `5400` seconds)
+- `--max-duration 4h` - Entries <= 4 hours  
+- Combined: `--min-duration 30m --max-duration 2h` - Duration range
 
 ### Content Filters
 
@@ -99,45 +112,47 @@ gt watch
 gt start coding golang cli
 gt start meeting team planning
 
-# Check status
+# Check status and filter by duration
 gt list --active
+gt list --min-duration 1h  # Show entries >= 1 hour
 
-# Stop specific timer
-gt stop --id 1
+# Temporarily pause all running timers
+gt stash
 
-# Weekly report
-gt report
+# Resume work later
+gt pop
 ```
 
 ### Advanced Filtering
 
 ```bash
-# Coding activities last 30 days
-gt report --days 30 --keyword coding
+# Duration-based filtering
+gt list --min-duration 30m --max-duration 2h  # 30min - 2 hour entries
+gt report --week --min-duration 1h            # Weekly report, entries >= 1h
 
-# All team-related entries this month
-gt report --month --tags team
+# Date range filtering  
+gt list --from 2025-08-01 --to 2025-08-07     # Specific date range
+gt report --month --keyword coding            # Monthly coding report
 
-# Everything except personal activities
-gt report --tags personal --invert-tags
+# Tag filtering
+gt list --tags team,urgent                    # Team OR urgent entries
+gt report --invert-tags personal --week       # Exclude personal entries
 ```
 
-### Entry Management
+### Advanced Operations
 
 ```bash
-# Add retroactive entries
-gt add
+# Tag management
+gt tags list --count                          # List tags with usage counts  
+gt tags rename old-name new-name              # Rename tag across all entries
+gt tags remove deprecated-tag                 # Remove tag from all entries
 
-# Interactive time setting
-gt set coding
+# Undo operations
+gt undo                                       # Undo last destructive operation
+gt undo --list                               # Show available undo operations
 
-# Direct field updates
-gt set --id 5 duration 3600
-gt set coding keyword development
-
-# Continue previous work
-gt continue --last
-gt continue coding
+# Bulk editing
+gt set --keyword coding duration 7200         # Set all "coding" entries to 2 hours
 ```
 
 ## Configuration
@@ -150,18 +165,21 @@ Example configuration structure:
 {
   "entries": [
     {
-      "id": "uuid-v7-here",
+      "id": "01234567-89ab-7def-0123-456789abcdef",
       "short_id": 1,
       "keyword": "coding",
       "tags": ["golang", "cli"],
-      "start_time": "2025-08-08T10:00:00Z",
-      "end_time": "2025-08-08T12:30:00Z",
+      "start_time": "2025-08-08T10:00:00-04:00",
+      "end_time": "2025-08-08T12:30:00-04:00", 
       "duration": 9000,
-      "active": false
+      "active": false,
+      "stashed": false
     }
   ],
   "next_short_id": 2,
-  "last_entry_keyword": "coding"
+  "last_entry_keyword": "coding",
+  "stashes": [],
+  "undo_history": []
 }
 ```
 
@@ -199,23 +217,3 @@ make dev            # Build with race detection
 make fmt            # Format code
 make lint           # Lint code (requires golangci-lint)
 ```
-
-### Built with
-
-- [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Viper](https://github.com/spf13/viper) - Configuration management
-- [go-pretty](https://github.com/jedib0t/go-pretty) - Table formatting
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI components
-- [UUID](https://github.com/google/uuid) - UUIDv7 generation
-
-### Recent Updates
-
-- Added `gt add` command for retroactive entry creation
-- Enhanced field editor with end_time field for completed entries
-- **Fixed critical timezone issues**: Time parsing now correctly uses local timezone instead of UTC
-    - Field editor now parses start_time and end_time as local time
-    - Date range parsing (--between flag) now uses local dates
-    - Duration calculations are now accurate across all timezones
-- Fixed duration calculation issues with retrospective entries
-- Added comprehensive test coverage for duration handling and timezone behavior
-- Improved default values for retroactive entries (1-hour completed entries)
