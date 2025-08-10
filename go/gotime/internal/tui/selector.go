@@ -210,30 +210,38 @@ func (m *SelectorModel) rebuildTable() {
 	m.table.SetRows(rows)
 }
 
-// filterItems filters the items based on the search query
+// filterItems filters the items based on the search query using space-delimited fuzzy search
 func (m *SelectorModel) filterItems(query string) {
 	if query == "" {
 		m.filteredItems = m.items
 	} else {
 		var filtered []SelectorItem
-		query = strings.ToLower(query)
-		for _, item := range m.items {
-			found := false
 
-			// Search in columns if available
-			if len(item.Columns) > 0 {
-				for _, col := range item.Columns {
-					if strings.Contains(strings.ToLower(col), query) {
-						found = true
-						break
-					}
+		// Split query into individual terms for fuzzy search
+		queryTerms := strings.Fields(strings.ToLower(query))
+
+		for _, item := range m.items {
+			// Combine all columns into a single searchable string
+			var textBuilder strings.Builder
+			for i, col := range item.Columns {
+				if i > 0 {
+					textBuilder.WriteString(" ")
 				}
-			} else {
-				// Fall back to DisplayText search for legacy items
-				found = strings.Contains(strings.ToLower(item.DisplayText), query)
+				textBuilder.WriteString(strings.ToLower(col))
+			}
+			searchableText := textBuilder.String()
+
+			// Check if all query terms match somewhere in the searchable text
+			allTermsMatch := true
+			for _, term := range queryTerms {
+				if !strings.Contains(searchableText, term) {
+					allTermsMatch = false
+					break
+				}
 			}
 
-			if found {
+			// Only include items where all terms were found
+			if allTermsMatch {
 				filtered = append(filtered, item)
 			}
 		}
