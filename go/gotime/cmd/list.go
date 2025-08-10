@@ -16,17 +16,21 @@ import (
 )
 
 var (
-	listActiveOnly bool
-	listNoActive   bool
-	listKeyword    string
-	listTags       string
-	listInvertTags bool
-	listDays       int
-	listWeek       bool
-	listMonth      bool
-	listYear       bool
-	listYesterday  bool
-	listBetween    string
+	listActiveOnly  bool
+	listNoActive    bool
+	listKeyword     string
+	listTags        string
+	listInvertTags  bool
+	listDays        int
+	listWeek        bool
+	listMonth       bool
+	listYear        bool
+	listYesterday   bool
+	listBetween     string
+	listMinDuration string
+	listMaxDuration string
+	listFromDate    string
+	listToDate      string
 )
 
 // listCmd represents the list command
@@ -45,7 +49,11 @@ Examples:
   gt list --tags golang,cli             # Show entries with "golang" or "cli" tags
   gt list --invert-tags meeting         # Show entries without "meeting" tag
   gt list --days 7                      # Show last 7 days
-  gt list --between 2025-08-01,2025-08-07  # Custom date range`,
+  gt list --between 2025-08-01,2025-08-07  # Custom date range
+  gt list --from 2025-08-01 --to 2025-08-07 # Date range with separate flags
+  gt list --min-duration 1h             # Show entries >= 1 hour
+  gt list --max-duration 4h             # Show entries <= 4 hours
+  gt list --min-duration 30m --max-duration 2h # Duration range`,
 	RunE:    runList,
 	Aliases: []string{"ls", "l"},
 }
@@ -69,12 +77,23 @@ func init() {
 	listCmd.Flags().BoolVar(&listYear, "year", false, "show current year")
 	listCmd.Flags().BoolVar(&listYesterday, "yesterday", false, "show yesterday's entries")
 	listCmd.Flags().StringVar(&listBetween, "between", "", "show entries between dates (YYYY-MM-DD,YYYY-MM-DD)")
+	listCmd.Flags().StringVar(&listFromDate, "from", "", "show entries from date (YYYY-MM-DD)")
+	listCmd.Flags().StringVar(&listToDate, "to", "", "show entries to date (YYYY-MM-DD)")
+
+	// Duration filters
+	listCmd.Flags().StringVar(&listMinDuration, "min-duration", "", "minimum duration filter (e.g., '1h', '30m', '3600')")
+	listCmd.Flags().StringVar(&listMaxDuration, "max-duration", "", "maximum duration filter (e.g., '4h', '2h30m', '14400')")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
 	// Validate flags
 	if listActiveOnly && listNoActive {
 		return fmt.Errorf("cannot use both --active and --no-active flags")
+	}
+
+	// Validate that --from/--to are not used with --between
+	if listBetween != "" && (listFromDate != "" || listToDate != "") {
+		return fmt.Errorf("cannot use --between with --from/--to flags")
 	}
 
 	// Load configuration
@@ -116,6 +135,12 @@ func runList(cmd *cobra.Command, args []string) error {
 		}
 		timeRangeCount++
 	}
+	if listFromDate != "" || listToDate != "" {
+		if err := ParseFromToDateRange(filter, listFromDate, listToDate); err != nil {
+			return err
+		}
+		timeRangeCount++
+	}
 
 	if timeRangeCount > 1 {
 		return fmt.Errorf("cannot specify multiple time range filters")
@@ -133,6 +158,22 @@ func runList(cmd *cobra.Command, args []string) error {
 	filter.ActiveOnly = listActiveOnly
 	filter.NoActive = listNoActive
 	filter.IncludeStashed = true // List command should show stashed entries
+
+	// Set duration filters
+	if listMinDuration != "" {
+		minDur, err := filters.ParseDuration(listMinDuration)
+		if err != nil {
+			return fmt.Errorf("invalid min-duration: %w", err)
+		}
+		filter.MinDuration = minDur
+	}
+	if listMaxDuration != "" {
+		maxDur, err := filters.ParseDuration(listMaxDuration)
+		if err != nil {
+			return fmt.Errorf("invalid max-duration: %w", err)
+		}
+		filter.MaxDuration = maxDur
+	}
 
 	// Apply filters
 	entries := filter.Apply(cfg.Entries)

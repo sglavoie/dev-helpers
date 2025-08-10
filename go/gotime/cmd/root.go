@@ -330,3 +330,41 @@ func ParseDateRange(filter *filters.Filter, rangeStr string) error {
 	filter.SetDateRange(startDate, endDate)
 	return nil
 }
+
+// ParseFromToDateRange parses separate from and to date strings and sets them on a filter
+func ParseFromToDateRange(filter *filters.Filter, fromStr, toStr string) error {
+	var startDate, endDate time.Time
+	var err error
+
+	// Parse from date
+	if fromStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", strings.TrimSpace(fromStr), time.Local)
+		if err != nil {
+			return fmt.Errorf("invalid from date: %w", err)
+		}
+	} else {
+		// If no from date, use a very old date (effectively no start limit)
+		startDate = time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local)
+	}
+
+	// Parse to date
+	if toStr != "" {
+		endDate, err = time.ParseInLocation("2006-01-02", strings.TrimSpace(toStr), time.Local)
+		if err != nil {
+			return fmt.Errorf("invalid to date: %w", err)
+		}
+		// Set end date to end of day
+		endDate = endDate.Add(24*time.Hour - time.Second)
+	} else {
+		// If no to date, use current time + some margin (effectively no end limit)
+		endDate = time.Now().Add(24 * time.Hour)
+	}
+
+	// Validate that from is before to
+	if fromStr != "" && toStr != "" && startDate.After(endDate) {
+		return fmt.Errorf("from date must be before to date")
+	}
+
+	filter.SetDateRange(startDate, endDate)
+	return nil
+}

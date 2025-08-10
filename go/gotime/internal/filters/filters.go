@@ -1,6 +1,8 @@
 package filters
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +34,8 @@ type Filter struct {
 	ActiveOnly    bool
 	NoActive      bool
 	IncludeStashed bool // Whether to include stashed entries in results
+	MinDuration   int   // Minimum duration in seconds
+	MaxDuration   int   // Maximum duration in seconds (0 means no limit)
 }
 
 // NewFilter creates a new filter with default values (current week)
@@ -89,6 +93,11 @@ func (f *Filter) matchesEntry(entry *models.Entry) bool {
 		return false
 	}
 
+	// Check duration filters
+	if !f.matchesDuration(entry) {
+		return false
+	}
+
 	return true
 }
 
@@ -139,6 +148,28 @@ func (f *Filter) matchesTimeRange(entry *models.Entry) bool {
 	return true
 }
 
+func (f *Filter) matchesDuration(entry *models.Entry) bool {
+	// Get the entry's duration (either current duration if active, or stored duration)
+	var entryDuration int
+	if entry.Active {
+		entryDuration = entry.GetCurrentDuration()
+	} else {
+		entryDuration = entry.Duration
+	}
+
+	// Check minimum duration
+	if f.MinDuration > 0 && entryDuration < f.MinDuration {
+		return false
+	}
+
+	// Check maximum duration (0 means no limit)
+	if f.MaxDuration > 0 && entryDuration > f.MaxDuration {
+		return false
+	}
+
+	return true
+}
+
 // SetTags sets the tag filter from a comma-separated string
 func (f *Filter) SetTags(tagsStr string) {
 	if tagsStr == "" {
@@ -176,4 +207,24 @@ func getWeekStart(t time.Time) time.Time {
 	weekStart := t.AddDate(0, 0, -daysBack)
 	// Set to start of day
 	return time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+}
+
+// ParseDuration parses a duration string like "1h", "30m", "2h30m", "3600" (seconds)
+// Returns duration in seconds
+func ParseDuration(durationStr string) (int, error) {
+	if durationStr == "" {
+		return 0, nil
+	}
+
+	// Try parsing as Go duration first (supports "1h30m", "45m", etc.)
+	if duration, err := time.ParseDuration(durationStr); err == nil {
+		return int(duration.Seconds()), nil
+	}
+
+	// Try parsing as plain seconds
+	if seconds, err := strconv.Atoi(durationStr); err == nil {
+		return seconds, nil
+	}
+
+	return 0, fmt.Errorf("invalid duration format: %s (use formats like '1h', '30m', '1h30m', or seconds)", durationStr)
 }
