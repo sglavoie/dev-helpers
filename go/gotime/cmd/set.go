@@ -389,6 +389,16 @@ func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, 
 		return nil
 	}
 
+	// Record original state for undo before making changes
+	var originalEntries []models.Entry
+	for _, entry := range entries {
+		originalEntries = append(originalEntries, *entry) // Create snapshot
+	}
+
+	undoData := map[string]interface{}{
+		"original_entries": originalEntries,
+	}
+
 	// Apply the field change to all selected entries
 	modifiedCount := 0
 	var modifiedEntries []string
@@ -418,7 +428,11 @@ func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, 
 
 	// Display results
 	if modifiedCount > 0 {
-		fmt.Printf("Successfully modified %d entries:\n", modifiedCount)
+		// Add undo record for bulk edit
+		description := fmt.Sprintf("Bulk edited %d entries (field: %s)", modifiedCount, field)
+		cfg.AddUndoRecord(models.UndoOperationBulkEdit, description, undoData)
+
+		fmt.Printf("Successfully modified %d entries. Use 'gt undo' to restore.\n", modifiedCount)
 		for _, entryDesc := range modifiedEntries {
 			fmt.Printf("  • %s\n", entryDesc)
 		}

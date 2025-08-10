@@ -68,9 +68,20 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		tags := entry.Tags
 		shortID := entry.ShortID
 
+		// Record undo information before deletion
+		entrySnapshot := *entry // Create a copy
+		undoData := map[string]interface{}{
+			"entries": []models.Entry{entrySnapshot},
+		}
+		
 		if cfg.RemoveEntry(entry.ID) {
 			deletedCount = 1
-			fmt.Printf("Deleted entry: %s %v (ID: %d)\n",
+			
+			// Add undo record
+			description := fmt.Sprintf("Deleted entry: %s %v (ID: %d)", keyword, tags, shortID)
+			cfg.AddUndoRecord(models.UndoOperationDelete, description, undoData)
+			
+			fmt.Printf("Deleted entry: %s %v (ID: %d). Use 'gt undo' to restore.\n",
 				keyword, tags, shortID)
 		}
 
@@ -78,11 +89,13 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		// Delete by keyword
 		keyword := parsedArg.Keyword
 
-		// Collect entries to delete
+		// Collect entries to delete and save snapshots for undo
 		var toDelete []string
+		var entriesToDelete []models.Entry
 		for _, entry := range cfg.Entries {
 			if entry.Keyword == keyword {
 				toDelete = append(toDelete, entry.ID)
+				entriesToDelete = append(entriesToDelete, entry) // Create snapshot for undo
 			}
 		}
 
@@ -103,6 +116,11 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		// Record undo information before deletion
+		undoData := map[string]interface{}{
+			"entries": entriesToDelete,
+		}
+
 		// Delete entries
 		for _, id := range toDelete {
 			if cfg.RemoveEntry(id) {
@@ -110,7 +128,13 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		fmt.Printf("Deleted %d entries for keyword '%s'\n", deletedCount, keyword)
+		if deletedCount > 0 {
+			// Add undo record
+			description := fmt.Sprintf("Deleted %d entries for keyword '%s'", deletedCount, keyword)
+			cfg.AddUndoRecord(models.UndoOperationDelete, description, undoData)
+			
+			fmt.Printf("Deleted %d entries for keyword '%s'. Use 'gt undo' to restore.\n", deletedCount, keyword)
+		}
 	}
 
 	// Save configuration
@@ -197,10 +221,23 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 		return nil
 	}
 
-	// Delete all selected entries
+	// Delete all selected entries and record undo information
 	deletedCount := 0
 	var deletedEntries []string
+	var entriesToDelete []models.Entry
 
+	// First, collect snapshots of all entries to delete
+	for _, item := range selectedItems {
+		entry := item.Data.(*models.Entry)
+		entriesToDelete = append(entriesToDelete, *entry) // Create snapshot for undo
+	}
+
+	// Record undo information before deletion
+	undoData := map[string]interface{}{
+		"entries": entriesToDelete,
+	}
+
+	// Now delete the entries
 	for _, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
 
@@ -216,8 +253,14 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 		}
 	}
 
+	// Add undo record if any entries were deleted
+	if deletedCount > 0 {
+		description := fmt.Sprintf("Deleted %d entries (interactive)", deletedCount)
+		cfg.AddUndoRecord(models.UndoOperationDelete, description, undoData)
+	}
+
 	// Display results
-	fmt.Printf("Deleted %d entries:\n", deletedCount)
+	fmt.Printf("Deleted %d entries. Use 'gt undo' to restore.\n", deletedCount)
 	for _, entryDesc := range deletedEntries {
 		fmt.Printf("  • %s\n", entryDesc)
 	}

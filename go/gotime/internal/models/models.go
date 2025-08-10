@@ -13,12 +13,32 @@ type Stash struct {
 	CreatedAt time.Time `json:"created_at"` // When stash was created
 }
 
+// UndoOperation represents different types of operations that can be undone
+type UndoOperation string
+
+const (
+	UndoOperationDelete   UndoOperation = "delete"
+	UndoOperationBulkEdit UndoOperation = "bulk_edit"
+	UndoOperationStash    UndoOperation = "stash"
+	UndoOperationClear    UndoOperation = "clear"
+)
+
+// UndoRecord represents a single undoable operation
+type UndoRecord struct {
+	ID          string                 `json:"id"`          // Unique record identifier
+	Operation   UndoOperation          `json:"operation"`   // Type of operation
+	Timestamp   time.Time              `json:"timestamp"`   // When operation occurred
+	Description string                 `json:"description"` // Human-readable description
+	Data        map[string]interface{} `json:"data"`        // Operation-specific data for restoration
+}
+
 // Config represents the application configuration and state
 type Config struct {
-	Entries     []Entry `json:"entries"`
-	NextShortID int     `json:"next_short_id"`
-	LastKeyword string  `json:"last_entry_keyword"`
-	Stashes     []Stash `json:"stashes"` // Currently only one supported
+	Entries     []Entry      `json:"entries"`
+	NextShortID int          `json:"next_short_id"`
+	LastKeyword string       `json:"last_entry_keyword"`
+	Stashes     []Stash      `json:"stashes"`      // Currently only one supported
+	UndoHistory []UndoRecord `json:"undo_history"` // Recent destructive operations for undo
 }
 
 // Entry represents a time tracking entry
@@ -355,4 +375,45 @@ func (c *Config) GetNonStashedEntries() []Entry {
 		}
 	}
 	return nonStashed
+}
+
+// --- Undo System Methods ---
+
+// AddUndoRecord adds a new undo record and maintains history limit
+func (c *Config) AddUndoRecord(operation UndoOperation, description string, data map[string]interface{}) {
+	record := UndoRecord{
+		ID:          uuid.NewString(),
+		Operation:   operation,
+		Timestamp:   time.Now(),
+		Description: description,
+		Data:        data,
+	}
+	
+	// Add to front of history
+	c.UndoHistory = append([]UndoRecord{record}, c.UndoHistory...)
+	
+	// Keep only last 10 operations
+	if len(c.UndoHistory) > 10 {
+		c.UndoHistory = c.UndoHistory[:10]
+	}
+}
+
+// GetLastUndoRecord returns the most recent undo record
+func (c *Config) GetLastUndoRecord() *UndoRecord {
+	if len(c.UndoHistory) == 0 {
+		return nil
+	}
+	return &c.UndoHistory[0]
+}
+
+// RemoveLastUndoRecord removes the most recent undo record after it's been used
+func (c *Config) RemoveLastUndoRecord() {
+	if len(c.UndoHistory) > 0 {
+		c.UndoHistory = c.UndoHistory[1:]
+	}
+}
+
+// HasUndoHistory returns true if there are operations that can be undone
+func (c *Config) HasUndoHistory() bool {
+	return len(c.UndoHistory) > 0
 }

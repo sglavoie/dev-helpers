@@ -59,6 +59,7 @@ func init() {
 			rootCmd.Help()
 		},
 	}
+	helpCmd.Hidden = true
 	rootCmd.AddCommand(helpCmd)
 
 	// Global flags
@@ -134,13 +135,13 @@ func displayActiveTimers(entries []models.Entry) {
 
 	for _, entry := range entries {
 		currentDuration := entry.GetCurrentDuration()
-		
+
 		// Enhanced duration display with warnings
 		durationStr := formatDurationWithWarning(currentDuration, true)
-		
+
 		// Enhanced keyword display
 		keywordStr := formatKeywordWithStyle(entry.Keyword, true)
-		
+
 		// Enhanced tag display with colors
 		tagsStr := formatTagsWithColors(entry.Tags)
 
