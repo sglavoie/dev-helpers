@@ -2,10 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 	"github.com/spf13/cobra"
+)
+
+var (
+	popBackdate string
 )
 
 // popCmd represents the pop command
@@ -16,11 +21,19 @@ var popCmd = &cobra.Command{
 When no arguments are provided, resumes all stashed entries.
 When arguments are provided, resumes only the matching stashed entries.
 
+The --backdate flag allows you to resume timers with a time offset, useful when you
+forgot to resume tracking but know when you actually began working again.
+
 Examples:
   gt pop                             # Resume all stashed entries
   gt pop coding                      # Resume stashed "coding" entries
   gt pop 5                           # Resume stashed entry with ID 5
-  gt pop coding 3 meeting            # Resume multiple specific entries`,
+  gt pop coding 3 meeting            # Resume multiple specific entries
+  gt pop --backdate 5m               # Resume all stashed, started 5 minutes ago
+  gt pop coding --backdate 1h30m     # Resume "coding", started 1h30m ago
+  gt pop 5 --backdate 10             # Resume entry ID 5, started 10 minutes ago
+
+Backdate formats: 5, 5m, 30s, 1h, 1h30, 1h30m, 2h30m30s (no unit defaults to minutes)`,
 	Args:    cobra.ArbitraryArgs,
 	RunE:    runPop,
 	Aliases: []string{"p"},
@@ -28,6 +41,8 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(popCmd)
+	
+	popCmd.Flags().StringVar(&popBackdate, "backdate", "", "resume timers with a time offset (e.g., 5m, 1h30m, 10)")
 }
 
 func runPop(cmd *cobra.Command, args []string) error {
@@ -62,6 +77,18 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 		return nil
 	}
 
+	// Parse backdate offset if provided
+	var startTime time.Time
+	if popBackdate != "" {
+		offset, err := ParseDuration(popBackdate)
+		if err != nil {
+			return fmt.Errorf("invalid backdate format: %w", err)
+		}
+		startTime = time.Now().Add(-offset)
+	} else {
+		startTime = time.Now()
+	}
+
 	var resumedEntries []string
 
 	// Resume all stashed entries
@@ -77,9 +104,9 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 		// entry.Active remains false since it's a completed entry
 		// entry.StartTime, entry.EndTime, and entry.Duration are preserved
 
-		// Create a new entry with the same keyword and tags but new start time
+		// Create a new entry with the same keyword and tags but custom start time
 		shortID := getNextShortID(cfg)
-		newEntry := models.NewEntry(entry.Keyword, entry.Tags, shortID)
+		newEntry := models.NewEntryWithStartTime(entry.Keyword, entry.Tags, shortID, startTime)
 		cfg.AddEntry(newEntry)
 
 		// Prepare display info
@@ -154,6 +181,18 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 		}
 	}
 
+	// Parse backdate offset if provided
+	var startTime time.Time
+	if popBackdate != "" {
+		offset, err := ParseDuration(popBackdate)
+		if err != nil {
+			return fmt.Errorf("invalid backdate format: %w", err)
+		}
+		startTime = time.Now().Add(-offset)
+	} else {
+		startTime = time.Now()
+	}
+
 	// Now resume all validated entries
 	var resumedEntries []string
 	var skippedEntries []string
@@ -174,9 +213,9 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 		// entry.Active remains false since it's a completed entry
 		// entry.StartTime, entry.EndTime, and entry.Duration are preserved
 
-		// Create a new entry with the same keyword and tags but new start time
+		// Create a new entry with the same keyword and tags but custom start time
 		shortID := getNextShortID(cfg)
-		newEntry := models.NewEntry(entry.Keyword, entry.Tags, shortID)
+		newEntry := models.NewEntryWithStartTime(entry.Keyword, entry.Tags, shortID, startTime)
 		cfg.AddEntry(newEntry)
 
 		// Prepare display info

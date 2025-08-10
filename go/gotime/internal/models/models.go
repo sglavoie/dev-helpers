@@ -69,6 +69,21 @@ func NewEntry(keyword string, tags []string, shortID int) *Entry {
 	}
 }
 
+// NewEntryWithStartTime creates a new entry with a custom start time
+func NewEntryWithStartTime(keyword string, tags []string, shortID int, startTime time.Time) *Entry {
+	return &Entry{
+		ID:        uuid.NewString(),
+		ShortID:   shortID,
+		Keyword:   keyword,
+		Tags:      tags,
+		StartTime: startTime,
+		EndTime:   nil,
+		Duration:  0,
+		Active:    true,
+		Stashed:   false,
+	}
+}
+
 // Stop stops the entry and calculates duration
 func (e *Entry) Stop() {
 	if e.Active {

@@ -2,12 +2,17 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/logic"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/tui"
 	"github.com/spf13/cobra"
+)
+
+var (
+	startBackdate string
 )
 
 // startCmd represents the start command
@@ -18,17 +23,27 @@ var startCmd = &cobra.Command{
 When no arguments are provided, displays an interactive interface to set keyword and tags.
 You can add multiple tags to categorize the activity further.
 
+The --backdate flag allows you to start the timer with a time offset, useful when you
+forgot to start tracking but know when you actually began working.
+
 Examples:
   gt start                           # Interactive input for keyword and tags
   gt start coding                    # Start tracking "coding"
   gt start coding golang cli         # Start "coding" with tags "golang" and "cli"
-  gt start meeting team planning     # Start "meeting" with tags "team" and "planning"`,
+  gt start meeting team planning     # Start "meeting" with tags "team" and "planning"
+  gt start coding --backdate 5m      # Start "coding", started 5 minutes ago
+  gt start meeting --backdate 1h30m  # Start "meeting", started 1h30m ago
+  gt start coding --backdate 10      # Start "coding", started 10 minutes ago
+
+Backdate formats: 5, 5m, 30s, 1h, 1h30, 1h30m, 2h30m30s (no unit defaults to minutes)`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runStart,
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+	
+	startCmd.Flags().StringVar(&startBackdate, "backdate", "", "start the timer with a time offset (e.g., 5m, 1h30m, 10)")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -63,9 +78,21 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("keyword cannot be a number")
 	}
 
+	// Parse backdate offset if provided
+	var startTime time.Time
+	if startBackdate != "" {
+		offset, err := ParseDuration(startBackdate)
+		if err != nil {
+			return fmt.Errorf("invalid backdate format: %w", err)
+		}
+		startTime = time.Now().Add(-offset)
+	} else {
+		startTime = time.Now()
+	}
+
 	// Create new entry
 	shortID := getNextShortID(cfg)
-	entry := models.NewEntry(keyword, tags, shortID)
+	entry := models.NewEntryWithStartTime(keyword, tags, shortID, startTime)
 
 	// Add to configuration
 	cfg.AddEntry(entry)
