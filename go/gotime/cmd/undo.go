@@ -29,13 +29,14 @@ Examples:
   gt undo --list                     # List all available undo operations
   
 Note: Only the most recent operation can be undone. Undo history is maintained for the last 10 operations.`,
-	Args: cobra.NoArgs,
-	RunE: runUndo,
+	Args:    cobra.NoArgs,
+	RunE:    runUndo,
+	Aliases: []string{"u"},
 }
 
 func init() {
 	rootCmd.AddCommand(undoCmd)
-	
+
 	undoCmd.Flags().BoolVarP(&undoList, "list", "l", false, "list available undo operations")
 }
 
@@ -92,7 +93,7 @@ func undoDelete(cfg *models.Config, configManager *config.Manager, record *model
 	if err != nil {
 		return fmt.Errorf("failed to process undo data: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(entriesBytes, &deletedEntries); err != nil {
 		return fmt.Errorf("failed to restore deleted entries: %w", err)
 	}
@@ -100,12 +101,12 @@ func undoDelete(cfg *models.Config, configManager *config.Manager, record *model
 	// Restore the entries
 	restoredCount := 0
 	var restoredDescriptions []string
-	
+
 	for _, entry := range deletedEntries {
 		// Add the entry back
 		cfg.Entries = append(cfg.Entries, entry)
 		restoredCount++
-		
+
 		// Prepare display info
 		tags := ""
 		if len(entry.Tags) > 0 {
@@ -118,7 +119,7 @@ func undoDelete(cfg *models.Config, configManager *config.Manager, record *model
 		} else if entry.Stashed {
 			status = "stashed"
 		}
-		restoredDescriptions = append(restoredDescriptions, 
+		restoredDescriptions = append(restoredDescriptions,
 			fmt.Sprintf("  • %s%s (ID: %d) - %s - %s", entry.Keyword, tags, entry.ShortID, duration, status))
 	}
 
@@ -161,7 +162,7 @@ func undoBulkEdit(cfg *models.Config, configManager *config.Manager, record *mod
 	if err != nil {
 		return fmt.Errorf("failed to process undo data: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(entriesBytes, &originalEntries); err != nil {
 		return fmt.Errorf("failed to restore original entries: %w", err)
 	}
@@ -169,14 +170,14 @@ func undoBulkEdit(cfg *models.Config, configManager *config.Manager, record *mod
 	// Restore the original state of the entries
 	restoredCount := 0
 	var restoredDescriptions []string
-	
+
 	for _, originalEntry := range originalEntries {
 		// Find and replace the current entry with the original
 		for i := range cfg.Entries {
 			if cfg.Entries[i].ID == originalEntry.ID {
 				cfg.Entries[i] = originalEntry
 				restoredCount++
-				
+
 				// Prepare display info
 				tags := ""
 				if len(originalEntry.Tags) > 0 {
@@ -189,7 +190,7 @@ func undoBulkEdit(cfg *models.Config, configManager *config.Manager, record *mod
 				} else if originalEntry.Stashed {
 					status = "stashed"
 				}
-				restoredDescriptions = append(restoredDescriptions, 
+				restoredDescriptions = append(restoredDescriptions,
 					fmt.Sprintf("  • %s%s (ID: %d) - %s - %s", originalEntry.Keyword, tags, originalEntry.ShortID, duration, status))
 				break
 			}
@@ -235,7 +236,7 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 	if err != nil {
 		return fmt.Errorf("failed to process undo data: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(entriesBytes, &clearedEntries); err != nil {
 		return fmt.Errorf("failed to restore cleared entries: %w", err)
 	}
@@ -247,11 +248,11 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 		if err != nil {
 			return fmt.Errorf("failed to process stash undo data: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(stashesBytes, &clearedStashes); err != nil {
 			return fmt.Errorf("failed to restore stashes: %w", err)
 		}
-		
+
 		// Restore the stashes
 		cfg.Stashes = append(cfg.Stashes, clearedStashes...)
 	}
@@ -259,12 +260,12 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 	// Restore the entries
 	restoredCount := 0
 	var restoredDescriptions []string
-	
+
 	for _, entry := range clearedEntries {
 		// Add the entry back
 		cfg.Entries = append(cfg.Entries, entry)
 		restoredCount++
-		
+
 		// Prepare display info
 		tags := ""
 		if len(entry.Tags) > 0 {
@@ -277,7 +278,7 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 		} else if entry.Stashed {
 			status = "stashed"
 		}
-		restoredDescriptions = append(restoredDescriptions, 
+		restoredDescriptions = append(restoredDescriptions,
 			fmt.Sprintf("  • %s%s (ID: %d) - %s - %s", entry.Keyword, tags, entry.ShortID, duration, status))
 	}
 
@@ -305,6 +306,7 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 
 	return nil
 }
+
 // runUndoList displays available undo operations as JSON
 func runUndoList(cfg *models.Config) error {
 	if !cfg.HasUndoHistory() {

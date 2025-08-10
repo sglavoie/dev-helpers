@@ -191,14 +191,14 @@ func runList(cmd *cobra.Command, args []string) error {
 	for _, entry := range entries {
 		var status string
 		var currentDuration int
-		
+
 		// Calculate current duration
 		if entry.Active {
 			currentDuration = entry.GetCurrentDuration()
 		} else {
 			currentDuration = entry.Duration
 		}
-		
+
 		// Enhanced status display
 		if entry.Stashed {
 			stashedStyle := lipgloss.NewStyle().
@@ -305,4 +305,3 @@ func outputEntriesAsJSON(entries []models.Entry) error {
 
 	return nil
 }
-

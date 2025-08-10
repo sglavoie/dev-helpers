@@ -24,18 +24,18 @@ const (
 
 // Filter represents filtering criteria for entries
 type Filter struct {
-	TimeRange     TimeRange
-	DaysBack      int
-	StartDate     *time.Time
-	EndDate       *time.Time
-	Keyword       string
-	Tags          []string
-	InvertTags    bool
-	ActiveOnly    bool
-	NoActive      bool
+	TimeRange      TimeRange
+	DaysBack       int
+	StartDate      *time.Time
+	EndDate        *time.Time
+	Keyword        string
+	Tags           []string
+	InvertTags     bool
+	ActiveOnly     bool
+	NoActive       bool
 	IncludeStashed bool // Whether to include stashed entries in results
-	MinDuration   int   // Minimum duration in seconds
-	MaxDuration   int   // Maximum duration in seconds (0 means no limit)
+	MinDuration    int  // Minimum duration in seconds
+	MaxDuration    int  // Maximum duration in seconds (0 means no limit)
 }
 
 // NewFilter creates a new filter with default values (current week)

@@ -73,14 +73,14 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		undoData := map[string]interface{}{
 			"entries": []models.Entry{entrySnapshot},
 		}
-		
+
 		if cfg.RemoveEntry(entry.ID) {
 			deletedCount = 1
-			
+
 			// Add undo record
 			description := fmt.Sprintf("Deleted entry: %s %v (ID: %d)", keyword, tags, shortID)
 			cfg.AddUndoRecord(models.UndoOperationDelete, description, undoData)
-			
+
 			fmt.Printf("Deleted entry: %s %v (ID: %d). Use 'gt undo' to restore.\n",
 				keyword, tags, shortID)
 		}
@@ -132,7 +132,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			// Add undo record
 			description := fmt.Sprintf("Deleted %d entries for keyword '%s'", deletedCount, keyword)
 			cfg.AddUndoRecord(models.UndoOperationDelete, description, undoData)
-			
+
 			fmt.Printf("Deleted %d entries for keyword '%s'. Use 'gt undo' to restore.\n", deletedCount, keyword)
 		}
 	}

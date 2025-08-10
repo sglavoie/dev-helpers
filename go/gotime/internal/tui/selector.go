@@ -33,7 +33,7 @@ type SelectorModel struct {
 	showHelp      bool
 	searchMode    bool
 	searchInput   textinput.Model
-	
+
 	// Multi-selection support
 	multiSelect   bool
 	selectedItems map[string]bool // Map of item IDs to selection state
@@ -140,7 +140,7 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 func NewMultiSelectorModel(title string, items []SelectorItem) SelectorModel {
 	model := NewSelectorModel(title, items)
 	model.multiSelect = true
-	
+
 	// Update table columns to include selection indicator
 	if len(items) > 0 && len(items[0].Columns) > 0 {
 		// Multi-column mode - add selection column as first column
@@ -160,10 +160,10 @@ func NewMultiSelectorModel(title string, items []SelectorItem) SelectorModel {
 		}
 		model.table.SetColumns(newCols)
 	}
-	
+
 	// Rebuild the table to include the checkbox indicators in the initial display
 	model.rebuildTable()
-	
+
 	return model
 }
 

@@ -226,10 +226,10 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 	var confirmMessage strings.Builder
 	if len(selectedItems) > 1 {
 		confirmMessage.WriteString("Are you sure you want to continue the following keywords?\n\n")
-		
+
 		for i, item := range selectedItems {
 			entry := item.Data.(*models.Entry)
-			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (last used: %s)\n", 
+			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (last used: %s)\n",
 				i+1, entry.Keyword, entry.Tags, entry.StartTime.Format("Jan 02 3:04PM")))
 		}
 
@@ -250,7 +250,7 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 
 	for _, item := range selectedItems {
 		sourceEntry := item.Data.(*models.Entry)
-		
+
 		// Double-check that there's no active entry for this keyword
 		if cfg.HasActiveEntryForKeyword(sourceEntry.Keyword) {
 			skippedEntries = append(skippedEntries,

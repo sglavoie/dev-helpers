@@ -23,8 +23,8 @@ Examples:
   gt stash show                      # View and manage stashed entries
   gt stash apply                     # Unstash entries as stopped entries
   gt stash clear                     # Delete all stashed entries`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runStash,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    runStash,
 	Aliases: []string{"s"},
 }
 
@@ -61,7 +61,7 @@ func runStash(cmd *cobra.Command, args []string) error {
 func runStashDefault(cfg *models.Config, configManager *config.Manager) error {
 	// Get all active entries
 	activeEntries := cfg.GetActiveEntries()
-	
+
 	if len(activeEntries) == 0 {
 		fmt.Println("No entries to stash.")
 		fmt.Println("Use 'gt stash show' to view existing stashes.")
@@ -76,7 +76,7 @@ func runStashDefault(cfg *models.Config, configManager *config.Manager) error {
 	// Collect entry IDs and stop all active entries
 	var entryIDs []string
 	var stashedEntries []string
-	
+
 	for i := range cfg.Entries {
 		entry := &cfg.Entries[i]
 		if entry.Active {
@@ -164,11 +164,11 @@ func runStashShow(cfg *models.Config, configManager *config.Manager) error {
 	// Build confirmation message
 	var confirmMessage strings.Builder
 	confirmMessage.WriteString("Are you sure you want to delete the following stashed entries?\n\n")
-	
+
 	for i, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
 		duration := formatDuration(entry.Duration)
-		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n", 
+		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n",
 			i+1, entry.Keyword, entry.Tags, entry.ShortID, duration))
 	}
 
@@ -187,16 +187,16 @@ func runStashShow(cfg *models.Config, configManager *config.Manager) error {
 
 	for _, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
-		
+
 		// Capture display info before removal
 		keyword := entry.Keyword
 		tags := entry.Tags
 		shortID := entry.ShortID
 		duration := formatDuration(entry.Duration)
-		
+
 		if cfg.RemoveEntry(entry.ID) {
 			deletedCount++
-			deletedEntries = append(deletedEntries, 
+			deletedEntries = append(deletedEntries,
 				fmt.Sprintf("%s %v (ID: %d) - %s", keyword, tags, shortID, duration))
 		}
 	}
@@ -232,14 +232,14 @@ func runStashApply(cfg *models.Config, configManager *config.Manager) error {
 
 	var appliedEntries []string
 	appliedCount := 0
-	
+
 	// Apply all stashed entries (convert to stopped entries)
 	for _, entry := range stashedEntries {
 		// Unstash the entry by setting Stashed = false
 		// Keep Active = false so it remains a stopped entry
 		entry.Stashed = false
 		appliedCount++
-		
+
 		// Prepare display info
 		tags := ""
 		if len(entry.Tags) > 0 {
@@ -284,10 +284,10 @@ func runStashClear(cfg *models.Config, configManager *config.Manager) error {
 	// Build confirmation message
 	var confirmMessage strings.Builder
 	confirmMessage.WriteString(fmt.Sprintf("Are you sure you want to delete all %d stashed entries?\n\n", len(stashedEntries)))
-	
+
 	for i, entry := range stashedEntries {
 		duration := formatDuration(entry.Duration)
-		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n", 
+		confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n",
 			i+1, entry.Keyword, entry.Tags, entry.ShortID, duration))
 	}
 
@@ -305,7 +305,7 @@ func runStashClear(cfg *models.Config, configManager *config.Manager) error {
 	if stash := cfg.GetActiveStash(); stash != nil {
 		currentStashes = append(currentStashes, *stash)
 	}
-	
+
 	undoData := map[string]interface{}{
 		"entries": stashedEntries,
 		"stashes": currentStashes,
@@ -321,10 +321,10 @@ func runStashClear(cfg *models.Config, configManager *config.Manager) error {
 		tags := entry.Tags
 		shortID := entry.ShortID
 		duration := formatDuration(entry.Duration)
-		
+
 		if cfg.RemoveEntry(entry.ID) {
 			deletedCount++
-			deletedEntries = append(deletedEntries, 
+			deletedEntries = append(deletedEntries,
 				fmt.Sprintf("%s %v (ID: %d) - %s", keyword, tags, shortID, duration))
 		}
 	}

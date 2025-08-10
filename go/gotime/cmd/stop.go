@@ -200,11 +200,11 @@ func runInteractiveStop(cfg *models.Config, configManager *config.Manager) error
 	var confirmMessage strings.Builder
 	if len(selectedItems) > 1 {
 		confirmMessage.WriteString("Are you sure you want to stop the following entries?\n\n")
-		
+
 		for i, item := range selectedItems {
 			entry := item.Data.(*models.Entry)
 			duration := formatDuration(entry.GetCurrentDuration())
-			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n", 
+			confirmMessage.WriteString(fmt.Sprintf("%d. %s %v (ID: %d) - %s\n",
 				i+1, entry.Keyword, entry.Tags, entry.ShortID, duration))
 		}
 
@@ -224,15 +224,15 @@ func runInteractiveStop(cfg *models.Config, configManager *config.Manager) error
 
 	for _, item := range selectedItems {
 		entry := item.Data.(*models.Entry)
-		
+
 		// Find the actual entry in the config and stop it
 		for i := range cfg.Entries {
 			if cfg.Entries[i].ID == entry.ID && cfg.Entries[i].Active {
 				cfg.Entries[i].Stop()
 				stoppedCount++
-				
+
 				duration := formatDuration(cfg.Entries[i].Duration)
-				stoppedEntries = append(stoppedEntries, 
+				stoppedEntries = append(stoppedEntries,
 					fmt.Sprintf("%s %v - %s", cfg.Entries[i].Keyword, cfg.Entries[i].Tags, duration))
 				break
 			}
@@ -249,7 +249,7 @@ func runInteractiveStop(cfg *models.Config, configManager *config.Manager) error
 				fmt.Printf("  • %s\n", entryDesc)
 			}
 		}
-		
+
 		// Save configuration
 		if err := configManager.Save(cfg); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)

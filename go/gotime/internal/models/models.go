@@ -388,10 +388,10 @@ func (c *Config) AddUndoRecord(operation UndoOperation, description string, data
 		Description: description,
 		Data:        data,
 	}
-	
+
 	// Add to front of history
 	c.UndoHistory = append([]UndoRecord{record}, c.UndoHistory...)
-	
+
 	// Keep only last 10 operations
 	if len(c.UndoHistory) > 10 {
 		c.UndoHistory = c.UndoHistory[:10]

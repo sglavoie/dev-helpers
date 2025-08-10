@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
@@ -22,8 +21,8 @@ Examples:
   gt pop coding                      # Resume stashed "coding" entries
   gt pop 5                           # Resume stashed entry with ID 5
   gt pop coding 3 meeting            # Resume multiple specific entries`,
-	Args: cobra.ArbitraryArgs,
-	RunE: runPop,
+	Args:    cobra.ArbitraryArgs,
+	RunE:    runPop,
 	Aliases: []string{"p"},
 }
 
@@ -57,14 +56,14 @@ func runPop(cmd *cobra.Command, args []string) error {
 func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 	// Get all stashed entries
 	stashedEntries := cfg.GetStashedEntriesPtr()
-	
+
 	if len(stashedEntries) == 0 {
 		fmt.Println("No stash to pop.")
 		return nil
 	}
 
 	var resumedEntries []string
-	
+
 	// Resume all stashed entries
 	for _, entry := range stashedEntries {
 		// Check if there's already an active entry for this keyword
@@ -72,13 +71,17 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 			fmt.Printf("Warning: Skipping '%s' - an active entry for this keyword already exists\n", entry.Keyword)
 			continue
 		}
-		
-		// Resume the entry
+
+		// Keep the original stashed entry as a completed entry (don't modify it)
 		entry.Stashed = false
-		entry.Active = true
-		entry.StartTime = time.Now()
-		entry.EndTime = nil
-		
+		// entry.Active remains false since it's a completed entry
+		// entry.StartTime, entry.EndTime, and entry.Duration are preserved
+
+		// Create a new entry with the same keyword and tags but new start time
+		shortID := getNextShortID(cfg)
+		newEntry := models.NewEntry(entry.Keyword, entry.Tags, shortID)
+		cfg.AddEntry(newEntry)
+
 		// Prepare display info
 		tags := ""
 		if len(entry.Tags) > 0 {
@@ -117,7 +120,7 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []string) error {
 	// Validate all arguments first (fail-fast approach)
 	var targetEntries []*models.Entry
-	
+
 	for _, arg := range args {
 		parsedArg, err := ParseKeywordOrID(arg, cfg)
 		if err != nil {
@@ -137,7 +140,7 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 			// Pop by keyword - find stashed entries for this keyword
 			keyword := parsedArg.Keyword
 			stashedEntries := cfg.GetStashedEntriesPtr()
-			
+
 			for _, entry := range stashedEntries {
 				if entry.Keyword == keyword {
 					targetEntries = append(targetEntries, entry)
@@ -145,7 +148,7 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 				}
 			}
 		}
-		
+
 		if !found {
 			return fmt.Errorf("no stashed entries found for '%s'", arg)
 		}
@@ -154,7 +157,7 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 	// Now resume all validated entries
 	var resumedEntries []string
 	var skippedEntries []string
-	
+
 	for _, entry := range targetEntries {
 		// Check if there's already an active entry for this keyword
 		if cfg.HasActiveEntryForKeyword(entry.Keyword) {
@@ -165,13 +168,17 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 			skippedEntries = append(skippedEntries, fmt.Sprintf("  • %s%s (active entry already exists)", entry.Keyword, tags))
 			continue
 		}
-		
-		// Resume the entry
+
+		// Keep the original stashed entry as a completed entry (don't modify it)
 		entry.Stashed = false
-		entry.Active = true
-		entry.StartTime = time.Now()
-		entry.EndTime = nil
-		
+		// entry.Active remains false since it's a completed entry
+		// entry.StartTime, entry.EndTime, and entry.Duration are preserved
+
+		// Create a new entry with the same keyword and tags but new start time
+		shortID := getNextShortID(cfg)
+		newEntry := models.NewEntry(entry.Keyword, entry.Tags, shortID)
+		cfg.AddEntry(newEntry)
+
 		// Prepare display info
 		tags := ""
 		if len(entry.Tags) > 0 {
@@ -200,7 +207,7 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 			fmt.Println(entryDesc)
 		}
 	}
-	
+
 	if len(skippedEntries) > 0 {
 		fmt.Printf("\nSkipped %d entries:\n", len(skippedEntries))
 		for _, entryDesc := range skippedEntries {

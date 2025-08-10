@@ -17,7 +17,7 @@ func formatTagsWithColors(tags []string) string {
 		coloredTag := colorizeTag(tag)
 		coloredTags = append(coloredTags, coloredTag)
 	}
-	
+
 	return strings.Join(coloredTags, ", ")
 }
 
@@ -25,7 +25,7 @@ func formatTagsWithColors(tags []string) string {
 func colorizeTag(tag string) string {
 	// Define color schemes for different tag categories
 	var tagStyle lipgloss.Style
-	
+
 	// Technical/programming tags
 	if isMatchingTag(tag, []string{"go", "golang", "rust", "python", "javascript", "typescript", "java", "cpp", "c++", "c#", "php", "ruby", "swift", "kotlin"}) {
 		tagStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75")) // Light blue
@@ -49,7 +49,7 @@ func colorizeTag(tag string) string {
 		// Default tag color
 		tagStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("243")) // Light gray
 	}
-	
+
 	return tagStyle.Render(tag)
 }
 
@@ -67,7 +67,7 @@ func isMatchingTag(tag string, keywords []string) bool {
 // formatDurationWithWarning formats duration with visual warnings for long durations
 func formatDurationWithWarning(durationSeconds int, isActive bool) string {
 	durationStr := formatDuration(durationSeconds)
-	
+
 	if isActive {
 		if durationSeconds > 28800 { // > 8 hours
 			warningStyle := lipgloss.NewStyle().
