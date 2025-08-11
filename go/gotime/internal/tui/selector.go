@@ -33,6 +33,7 @@ type SelectorModel struct {
 	showHelp      bool
 	searchMode    bool
 	searchInput   textinput.Model
+	searchFocused bool // true when search input has focus, false when table has focus
 
 	// Multi-selection support
 	multiSelect   bool
@@ -131,6 +132,7 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 		showHelp:      true,
 		searchMode:    false,
 		searchInput:   searchInput,
+		searchFocused: false,
 		multiSelect:   false,
 		selectedItems: make(map[string]bool),
 	}
@@ -221,15 +223,22 @@ func (m *SelectorModel) filterItems(query string) {
 		queryTerms := strings.Fields(strings.ToLower(query))
 
 		for _, item := range m.items {
-			// Combine all columns into a single searchable string
-			var textBuilder strings.Builder
-			for i, col := range item.Columns {
-				if i > 0 {
-					textBuilder.WriteString(" ")
+			// Create searchable text from columns or fallback to DisplayText
+			var searchableText string
+			if len(item.Columns) > 0 {
+				// Combine all columns into a single searchable string
+				var textBuilder strings.Builder
+				for i, col := range item.Columns {
+					if i > 0 {
+						textBuilder.WriteString(" ")
+					}
+					textBuilder.WriteString(strings.ToLower(col))
 				}
-				textBuilder.WriteString(strings.ToLower(col))
+				searchableText = textBuilder.String()
+			} else {
+				// Fall back to DisplayText search for legacy items
+				searchableText = strings.ToLower(item.DisplayText)
 			}
-			searchableText := textBuilder.String()
 
 			// Check if all query terms match somewhere in the searchable text
 			allTermsMatch := true
@@ -263,39 +272,103 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				// Exit search mode
 				m.searchMode = false
+				m.searchFocused = false
 				m.searchInput.Blur()
 				m.searchInput.SetValue("")
 				m.filterItems("")
 				return m, nil
 			case "enter":
-				// Exit search mode and select current item
-				if len(m.filteredItems) > 0 {
-					selectedRow := m.table.Cursor()
-					if selectedRow < len(m.filteredItems) {
-						m.done = true
-						m.selectedItem = &m.filteredItems[selectedRow]
-						return m, tea.Quit
+				if m.searchFocused {
+					// Switch focus from search input to table
+					m.searchFocused = false
+					m.searchInput.Blur()
+					return m, nil
+				} else {
+					// Handle selection from table
+					if len(m.filteredItems) > 0 {
+						selectedRow := m.table.Cursor()
+						if selectedRow < len(m.filteredItems) {
+							if m.multiSelect {
+								// In multi-select mode, enter finalizes selection
+								m.done = true
+								return m, tea.Quit
+							} else {
+								// Single select mode
+								m.done = true
+								m.selectedItem = &m.filteredItems[selectedRow]
+								return m, tea.Quit
+							}
+						}
 					}
 				}
+			case "tab":
+				// Toggle focus between search input and table
+				m.searchFocused = !m.searchFocused
+				if m.searchFocused {
+					m.searchInput.Focus()
+				} else {
+					m.searchInput.Blur()
+				}
+				return m, textinput.Blink
 			case "up", "ctrl+p":
-				// Let table handle navigation in search mode
+				if m.searchFocused {
+					// If search input is focused, switch to table and navigate
+					m.searchFocused = false
+					m.searchInput.Blur()
+				}
+				// Let table handle navigation
 				m.table, cmd = m.table.Update(msg)
 				return m, cmd
 			case "down", "ctrl+n":
-				// Let table handle navigation in search mode
+				if m.searchFocused {
+					// If search input is focused, switch to table and navigate
+					m.searchFocused = false
+					m.searchInput.Blur()
+				}
+				// Let table handle navigation
 				m.table, cmd = m.table.Update(msg)
 				return m, cmd
-			default:
-				// Update search input
-				oldValue := m.searchInput.Value()
-				m.searchInput, cmd = m.searchInput.Update(msg)
-				newValue := m.searchInput.Value()
-
-				// If search query changed, filter items
-				if oldValue != newValue {
-					m.filterItems(newValue)
+			case " ", "space":
+				if m.searchFocused {
+					// Space goes to search input
+					oldValue := m.searchInput.Value()
+					m.searchInput, cmd = m.searchInput.Update(msg)
+					newValue := m.searchInput.Value()
+					if oldValue != newValue {
+						m.filterItems(newValue)
+					}
+					return m, cmd
+				} else {
+					// Space toggles selection in table
+					if m.multiSelect && len(m.filteredItems) > 0 {
+						selectedRow := m.table.Cursor()
+						if selectedRow < len(m.filteredItems) {
+							item := &m.filteredItems[selectedRow]
+							// Toggle selection
+							m.selectedItems[item.ID] = !m.selectedItems[item.ID]
+							// Rebuild table to show selection changes
+							m.rebuildTable()
+							return m, nil
+						}
+					}
 				}
-				return m, cmd
+			default:
+				if m.searchFocused {
+					// Update search input only when it has focus
+					oldValue := m.searchInput.Value()
+					m.searchInput, cmd = m.searchInput.Update(msg)
+					newValue := m.searchInput.Value()
+
+					// If search query changed, filter items
+					if oldValue != newValue {
+						m.filterItems(newValue)
+					}
+					return m, cmd
+				} else {
+					// When table has focus, let it handle other navigation keys
+					m.table, cmd = m.table.Update(msg)
+					return m, cmd
+				}
 			}
 		} else {
 			// Handle normal navigation mode keys
@@ -339,6 +412,7 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "f":
 				// Enter search mode
 				m.searchMode = true
+				m.searchFocused = true
 				m.searchInput.Focus()
 				return m, textinput.Blink
 
@@ -427,10 +501,20 @@ func (m SelectorModel) View() string {
 
 		var help string
 		if m.searchMode {
-			if m.multiSelect {
-				help = "Type to search • ↑/↓: Navigate • Space: Toggle • Enter: Confirm • Esc: Exit search"
+			if m.searchFocused {
+				// Search input has focus
+				if m.multiSelect {
+					help = "Type to search • Tab/↑/↓: Focus table • Enter: Focus table • Esc: Exit search"
+				} else {
+					help = "Type to search • Tab/↑/↓: Focus table • Enter: Focus table • Esc: Exit search • ?/h: Help"
+				}
 			} else {
-				help = "Type to search • ↑/↓: Navigate • Enter: Select • Esc: Exit search • ?/h: Help"
+				// Table has focus in search mode
+				if m.multiSelect {
+					help = "Tab: Focus search • ↑/↓: Navigate • Space: Toggle • Enter: Confirm • Esc: Exit search"
+				} else {
+					help = "Tab: Focus search • ↑/↓: Navigate • Enter: Select • Esc: Exit search • ?/h: Help"
+				}
 			}
 		} else {
 			if m.multiSelect {
