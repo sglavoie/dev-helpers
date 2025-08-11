@@ -200,9 +200,13 @@ func runDirectFieldSet(entry *models.Entry, args []string, configManager *config
 }
 
 func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Manager) error {
-	// Create selector items from all non-stashed entries
+	// Get all non-stashed entries and sort by StartTime descending (most recent first)
+	entries := cfg.GetNonStashedEntries()
+	SortEntriesByStartTimeDesc(entries)
+
+	// Create selector items from sorted entries
 	var items []tui.SelectorItem
-	for _, entry := range cfg.GetNonStashedEntries() {
+	for _, entry := range entries {
 		status := "completed"
 		duration := formatDuration(entry.Duration)
 		if entry.Active {
@@ -263,7 +267,10 @@ func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Mana
 }
 
 func runInteractiveEntrySelectionFromList(entries []*models.Entry, keyword string) (*models.Entry, error) {
-	// Create selector items from the provided entries
+	// Sort entries by StartTime descending (most recent first)
+	SortEntriesPtrsByStartTimeDesc(entries)
+
+	// Create selector items from the sorted entries
 	var items []tui.SelectorItem
 	for _, entry := range entries {
 		status := "completed"

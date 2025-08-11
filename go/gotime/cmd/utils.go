@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -132,4 +133,28 @@ func ParseDuration(input string) (time.Duration, error) {
 	}
 
 	return duration, nil
+}
+
+// SortEntriesByStartTimeDesc sorts entries by StartTime in descending order (most recent first)
+// This is used by continue, delete, and set commands to show latest entries first
+func SortEntriesByStartTimeDesc(entries []models.Entry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].StartTime.After(entries[j].StartTime)
+	})
+}
+
+// SortEntriesPtrsByStartTimeDesc sorts entry pointers by StartTime in descending order (most recent first)
+// This is used when working with slices of entry pointers
+func SortEntriesPtrsByStartTimeDesc(entries []*models.Entry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].StartTime.After(entries[j].StartTime)
+	})
+}
+
+// SortEntriesByShortIDAsc sorts entries by ShortID in ascending order (1, 2, 3...)
+// This is used by the list command to show entries in ID order
+func SortEntriesByShortIDAsc(entries []models.Entry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].ShortID < entries[j].ShortID
+	})
 }

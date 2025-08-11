@@ -209,16 +209,25 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 		return nil
 	}
 
+	// Convert map to slice for sorting
+	var sortableEntries []*models.Entry
+	for _, entry := range keywordEntries {
+		sortableEntries = append(sortableEntries, entry)
+	}
+
+	// Sort by StartTime descending (most recent first)
+	SortEntriesPtrsByStartTimeDesc(sortableEntries)
+
 	// Create selector items
 	var items []tui.SelectorItem
-	for keyword, entry := range keywordEntries {
+	for _, entry := range sortableEntries {
 		duration := formatDuration(entry.Duration)
 
 		items = append(items, tui.SelectorItem{
 			ID:   entry.ID,
 			Data: entry,
 			Columns: []string{
-				keyword,
+				entry.Keyword,
 				fmt.Sprintf("%v", entry.Tags),
 				entry.StartTime.Format("Jan 02 3:04PM"),
 				duration,

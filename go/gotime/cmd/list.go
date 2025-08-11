@@ -183,6 +183,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	SortEntriesByShortIDAsc(entries)
+
 	// Create table
 	t := table.NewWriter()
 	t.SetStyle(table.StyleRounded)

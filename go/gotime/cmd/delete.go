@@ -152,9 +152,14 @@ func runDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) error {
-	// Create selector items from all entries
+	// Get all entries and sort by StartTime descending (most recent first)
+	entries := make([]models.Entry, len(cfg.Entries))
+	copy(entries, cfg.Entries)
+	SortEntriesByStartTimeDesc(entries)
+
+	// Create selector items from sorted entries
 	var items []tui.SelectorItem
-	for _, entry := range cfg.Entries {
+	for _, entry := range entries {
 		status := "completed"
 		duration := formatDuration(entry.Duration)
 		if entry.Stashed {
@@ -165,9 +170,18 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 		}
 
 
+		// Find the original entry pointer in cfg.Entries for deletion
+		var originalEntry *models.Entry
+		for i := range cfg.Entries {
+			if cfg.Entries[i].ID == entry.ID {
+				originalEntry = &cfg.Entries[i]
+				break
+			}
+		}
+
 		items = append(items, tui.SelectorItem{
 			ID:   entry.ID,
-			Data: &entry,
+			Data: originalEntry, // Use pointer to original entry for deletion
 			Columns: []string{
 				fmt.Sprintf("%d", entry.ShortID),
 				entry.Keyword,
