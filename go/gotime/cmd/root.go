@@ -62,6 +62,19 @@ func init() {
 	helpCmd.Hidden = true
 	rootCmd.AddCommand(helpCmd)
 
+	// Add '.' as a hidden alias for 'stop --all'
+	dotCmd := &cobra.Command{
+		Use:   ".",
+		Short: "Stop all active entries (alias for 'stop --all')",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Set the stopAll flag to true and call runStop
+			stopAll = true
+			return runStop(cmd, args)
+		},
+	}
+	dotCmd.Hidden = true
+	rootCmd.AddCommand(dotCmd)
+
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "config file path (default: ~/.gotime.json)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")

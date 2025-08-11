@@ -27,7 +27,8 @@ Examples:
   gt stop                            # Interactive multi-selection from active entries
   gt stop coding                     # Stop the latest active "coding" entry
   gt stop 3                          # Stop entry with short ID 3
-  gt stop --all                      # Stop all active entries`,
+  gt stop --all                      # Stop all active entries
+  gt .                               # Hidden alias for "gt stop --all"`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Either provide a keyword/ID argument or use --all flag, or no args for interactive
 		hasArgument := len(args) > 0
