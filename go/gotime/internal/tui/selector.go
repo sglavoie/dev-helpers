@@ -51,7 +51,16 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 	columnCount := len(items[0].Columns)
 
 	// Create columns with appropriate headers and widths
-	if columnCount == 5 { // ID, Keyword, Tags, Status, Duration format
+	if columnCount == 5 && len(items) > 0 && (strings.Contains(items[0].Columns[1], "delete") || strings.Contains(items[0].Columns[1], "bulk_edit") || strings.Contains(items[0].Columns[1], "clear")) {
+		// Undo operations format: Index, Operation, Description, Timestamp, Relative Time
+		columns = []table.Column{
+			{Title: "Index", Width: 6},
+			{Title: "Operation", Width: 12},
+			{Title: "Description", Width: 30},
+			{Title: "Timestamp", Width: 15},
+			{Title: "Relative", Width: 12},
+		}
+	} else if columnCount == 5 { // ID, Keyword, Tags, Status, Duration format
 		columns = []table.Column{
 			{Title: "ID", Width: 4},
 			{Title: "Keyword", Width: 15},

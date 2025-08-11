@@ -6,9 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
+	"github.com/sglavoie/dev-helpers/go/gotime/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -59,24 +61,8 @@ func runUndo(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Get the last operation
-	lastRecord := cfg.GetLastUndoRecord()
-	if lastRecord == nil {
-		fmt.Println("No operations to undo.")
-		return nil
-	}
-
-	// Perform the undo based on operation type
-	switch lastRecord.Operation {
-	case models.UndoOperationDelete:
-		return undoDelete(cfg, configManager, lastRecord)
-	case models.UndoOperationBulkEdit:
-		return undoBulkEdit(cfg, configManager, lastRecord)
-	case models.UndoOperationClear:
-		return undoClear(cfg, configManager, lastRecord)
-	default:
-		return fmt.Errorf("unsupported undo operation: %s", lastRecord.Operation)
-	}
+	// Run interactive table view for undo selection
+	return runInteractiveUndo(cfg, configManager)
 }
 
 // undoDelete restores deleted entries
@@ -125,9 +111,6 @@ func undoDelete(cfg *models.Config, configManager *config.Manager, record *model
 
 	// Update short IDs
 	cfg.UpdateShortIDs()
-
-	// Remove the undo record
-	cfg.RemoveLastUndoRecord()
 
 	// Save configuration
 	if err := configManager.Save(cfg); err != nil {
@@ -196,9 +179,6 @@ func undoBulkEdit(cfg *models.Config, configManager *config.Manager, record *mod
 			}
 		}
 	}
-
-	// Remove the undo record
-	cfg.RemoveLastUndoRecord()
 
 	// Save configuration
 	if err := configManager.Save(cfg); err != nil {
@@ -285,9 +265,6 @@ func undoClear(cfg *models.Config, configManager *config.Manager, record *models
 	// Update short IDs
 	cfg.UpdateShortIDs()
 
-	// Remove the undo record
-	cfg.RemoveLastUndoRecord()
-
 	// Save configuration
 	if err := configManager.Save(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
@@ -339,6 +316,106 @@ func runUndoList(cfg *models.Config) error {
 		}
 
 		fmt.Println(string(prettyData))
+	}
+
+	return nil
+}
+
+// runInteractiveUndo displays available undo operations in a table and allows selection
+func runInteractiveUndo(cfg *models.Config, configManager *config.Manager) error {
+	if len(cfg.UndoHistory) == 0 {
+		fmt.Println("No operations available to undo.")
+		return nil
+	}
+
+	// Create selector items from undo history (reverse order to show most recent first)
+	var items []tui.SelectorItem
+	for i := len(cfg.UndoHistory) - 1; i >= 0; i-- {
+		record := cfg.UndoHistory[i]
+		
+		// Format the operation for display
+		operationDisplay := string(record.Operation)
+		timestampDisplay := record.Timestamp.Format("Jan 02 3:04PM")
+		
+		// Create relative time display
+		timeSince := time.Since(record.Timestamp)
+		var relativeTime string
+		if timeSince < time.Hour {
+			relativeTime = fmt.Sprintf("%dm ago", int(timeSince.Minutes()))
+		} else if timeSince < 24*time.Hour {
+			relativeTime = fmt.Sprintf("%dh ago", int(timeSince.Hours()))
+		} else {
+			days := int(timeSince.Hours() / 24)
+			if days == 1 {
+				relativeTime = "1 day ago"
+			} else {
+				relativeTime = fmt.Sprintf("%d days ago", days)
+			}
+		}
+
+		items = append(items, tui.SelectorItem{
+			ID:   record.ID,
+			Data: &record,
+			Columns: []string{
+				fmt.Sprintf("#%d", len(cfg.UndoHistory)-i), // Index (from most recent)
+				operationDisplay,                           // Operation type
+				record.Description,                         // Description
+				timestampDisplay,                           // Timestamp
+				relativeTime,                              // Relative time
+			},
+		})
+	}
+
+	// Show selector for choosing which operation to undo
+	selectedItem, err := tui.RunSelector("Select an undo operation to restore (any order supported):", items)
+	if err != nil {
+		return err
+	}
+
+	if selectedItem == nil {
+		fmt.Println("No operation selected for undo.")
+		return nil
+	}
+
+	// Get the selected record
+	record := selectedItem.Data.(*models.UndoRecord)
+
+	// Find the index of this record in the UndoHistory slice
+	recordIndex := -1
+	for i, r := range cfg.UndoHistory {
+		if r.ID == record.ID {
+			recordIndex = i
+			break
+		}
+	}
+
+	if recordIndex == -1 {
+		return fmt.Errorf("selected undo record not found in history")
+	}
+
+	// Perform the undo based on operation type
+	var undoErr error
+	switch record.Operation {
+	case models.UndoOperationDelete:
+		undoErr = undoDelete(cfg, configManager, record)
+	case models.UndoOperationBulkEdit:
+		undoErr = undoBulkEdit(cfg, configManager, record)
+	case models.UndoOperationClear:
+		undoErr = undoClear(cfg, configManager, record)
+	default:
+		return fmt.Errorf("unsupported undo operation: %s", record.Operation)
+	}
+
+	if undoErr != nil {
+		return undoErr
+	}
+
+	// Remove the specific undo record from history (not necessarily the last one)
+	cfg.UndoHistory = append(cfg.UndoHistory[:recordIndex], cfg.UndoHistory[recordIndex+1:]...)
+
+	// Save configuration again to remove the undo record
+	if err := configManager.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save config after removing undo record: %w", err)
 	}
 
 	return nil
