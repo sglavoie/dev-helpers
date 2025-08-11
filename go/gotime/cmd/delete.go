@@ -164,18 +164,10 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
 
-		displayText := fmt.Sprintf("ID:%d | %s %v | %s | %s",
-			entry.ShortID,
-			entry.Keyword,
-			entry.Tags,
-			status,
-			duration,
-		)
 
 		items = append(items, tui.SelectorItem{
-			ID:          entry.ID,
-			DisplayText: displayText,
-			Data:        &entry,
+			ID:   entry.ID,
+			Data: &entry,
 			Columns: []string{
 				fmt.Sprintf("%d", entry.ShortID),
 				entry.Keyword,

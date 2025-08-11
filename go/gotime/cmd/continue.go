@@ -213,17 +213,10 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 	var items []tui.SelectorItem
 	for keyword, entry := range keywordEntries {
 		duration := formatDuration(entry.Duration)
-		displayText := fmt.Sprintf("%s %v | %s | %s",
-			keyword,
-			entry.Tags,
-			entry.StartTime.Format("Jan 02 3:04PM"),
-			duration,
-		)
 
 		items = append(items, tui.SelectorItem{
-			ID:          entry.ID,
-			DisplayText: displayText,
-			Data:        entry,
+			ID:   entry.ID,
+			Data: entry,
 			Columns: []string{
 				keyword,
 				fmt.Sprintf("%v", entry.Tags),

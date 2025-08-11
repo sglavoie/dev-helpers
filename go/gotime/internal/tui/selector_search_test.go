@@ -9,11 +9,11 @@ import (
 func TestSelectorSearchFunctionality(t *testing.T) {
 	// Create test items
 	items := []SelectorItem{
-		{ID: "1", DisplayText: "meeting with client", Data: "data1"},
-		{ID: "2", DisplayText: "coding session", Data: "data2"},
-		{ID: "3", DisplayText: "team meeting", Data: "data3"},
-		{ID: "4", DisplayText: "documentation review", Data: "data4"},
-		{ID: "5", DisplayText: "client presentation", Data: "data5"},
+		{ID: "1", Data: "data1", Columns: []string{"meeting with client"}},
+		{ID: "2", Data: "data2", Columns: []string{"coding session"}},
+		{ID: "3", Data: "data3", Columns: []string{"team meeting"}},
+		{ID: "4", Data: "data4", Columns: []string{"documentation review"}},
+		{ID: "5", Data: "data5", Columns: []string{"client presentation"}},
 	}
 
 	model := NewSelectorModel("Test Selector", items)
@@ -52,7 +52,7 @@ func TestSelectorSearchFunctionality(t *testing.T) {
 	if len(model.filteredItems) != 2 {
 		t.Errorf("Expected 2 filtered items for 'meeting', got %d", len(model.filteredItems))
 		for i, item := range model.filteredItems {
-			t.Logf("Filtered item %d: %s", i, item.DisplayText)
+			t.Logf("Filtered item %d: %s", i, item.Columns[0])
 		}
 	}
 
@@ -60,8 +60,8 @@ func TestSelectorSearchFunctionality(t *testing.T) {
 	expectedItems := []string{"meeting with client", "team meeting"}
 	if len(model.filteredItems) == 2 {
 		for i, expectedText := range expectedItems {
-			if model.filteredItems[i].DisplayText != expectedText {
-				t.Errorf("Expected filtered item %d to be '%s', got '%s'", i, expectedText, model.filteredItems[i].DisplayText)
+			if model.filteredItems[i].Columns[0] != expectedText {
+				t.Errorf("Expected filtered item %d to be '%s', got '%s'", i, expectedText, model.filteredItems[i].Columns[0])
 			}
 		}
 	}
@@ -79,11 +79,11 @@ func TestSelectorSearchFunctionality(t *testing.T) {
 	if len(model.filteredItems) != 1 {
 		t.Errorf("Expected 1 filtered item for 'meeting with', got %d", len(model.filteredItems))
 		for i, item := range model.filteredItems {
-			t.Logf("Remaining filtered item %d: %s", i, item.DisplayText)
+			t.Logf("Remaining filtered item %d: %s", i, item.Columns[0])
 		}
 	}
-	if len(model.filteredItems) == 1 && model.filteredItems[0].DisplayText != "meeting with client" {
-		t.Errorf("Expected filtered item to be 'meeting with client', got '%s'", model.filteredItems[0].DisplayText)
+	if len(model.filteredItems) == 1 && model.filteredItems[0].Columns[0] != "meeting with client" {
+		t.Errorf("Expected filtered item to be 'meeting with client', got '%s'", model.filteredItems[0].Columns[0])
 	}
 
 	t.Log("=== TESTING SEARCH CLEAR ===")
@@ -127,10 +127,10 @@ func TestSelectorSearchFunctionality(t *testing.T) {
 func TestSelectorNavigationInSearchMode(t *testing.T) {
 	// Create test items
 	items := []SelectorItem{
-		{ID: "1", DisplayText: "apple", Data: "data1"},
-		{ID: "2", DisplayText: "application", Data: "data2"},
-		{ID: "3", DisplayText: "apply", Data: "data3"},
-		{ID: "4", DisplayText: "banana", Data: "data4"},
+		{ID: "1", Data: "data1", Columns: []string{"apple"}},
+		{ID: "2", Data: "data2", Columns: []string{"application"}},
+		{ID: "3", Data: "data3", Columns: []string{"apply"}},
+		{ID: "4", Data: "data4", Columns: []string{"banana"}},
 	}
 
 	model := NewSelectorModel("Test Selector", items)
@@ -192,18 +192,18 @@ func TestSelectorNavigationInSearchMode(t *testing.T) {
 	}
 	if model.selectedItem == nil {
 		t.Error("Selected item should not be nil")
-	} else if model.selectedItem.DisplayText != "application" {
-		t.Errorf("Expected selected item to be 'application', got '%s'", model.selectedItem.DisplayText)
+	} else if model.selectedItem.Columns[0] != "application" {
+		t.Errorf("Expected selected item to be 'application', got '%s'", model.selectedItem.Columns[0])
 	}
 }
 
 func TestFilterItemsFunction(t *testing.T) {
 	// Test the filterItems function directly
 	items := []SelectorItem{
-		{ID: "1", DisplayText: "Meeting with Client", Data: "data1"},
-		{ID: "2", DisplayText: "Code Review Session", Data: "data2"},
-		{ID: "3", DisplayText: "Client Presentation", Data: "data3"},
-		{ID: "4", DisplayText: "Team Meeting", Data: "data4"},
+		{ID: "1", Data: "data1", Columns: []string{"Meeting with Client"}},
+		{ID: "2", Data: "data2", Columns: []string{"Code Review Session"}},
+		{ID: "3", Data: "data3", Columns: []string{"Client Presentation"}},
+		{ID: "4", Data: "data4", Columns: []string{"Team Meeting"}},
 	}
 
 	model := NewSelectorModel("Test", items)

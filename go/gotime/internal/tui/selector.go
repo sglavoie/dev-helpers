@@ -12,11 +12,8 @@ import (
 
 // SelectorItem represents an item that can be selected in the table
 type SelectorItem struct {
-	ID          string // Unique identifier
-	DisplayText string // Text to show in the table (legacy single-column format)
-	Data        any    // Additional data associated with the item
-
-	// Multi-column fields (optional, when provided will use columnar display)
+	ID      string   // Unique identifier
+	Data    any      // Additional data associated with the item
 	Columns []string // Column values for multi-column display
 }
 
@@ -47,60 +44,44 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 	searchInput.CharLimit = 50
 	searchInput.Width = 40
 
-	// Determine if we should use multi-column layout
-	useColumns := len(items) > 0 && len(items[0].Columns) > 0
-
 	var columns []table.Column
 	var rows []table.Row
 
-	if useColumns {
-		// Detect column headers and widths based on content
-		columnCount := len(items[0].Columns)
+	// Detect column headers and widths based on content
+	columnCount := len(items[0].Columns)
 
-		// Create columns with appropriate headers and widths
-		if columnCount == 5 { // ID, Keyword, Tags, Status, Duration format
-			columns = []table.Column{
-				{Title: "ID", Width: 4},
-				{Title: "Keyword", Width: 15},
-				{Title: "Tags", Width: 20},
-				{Title: "Status", Width: 10},
-				{Title: "Duration", Width: 12},
-			}
-		} else if columnCount == 4 { // Keyword, Tags, StartTime, Duration format (continue)
-			columns = []table.Column{
-				{Title: "Keyword", Width: 15},
-				{Title: "Tags", Width: 20},
-				{Title: "Start Time", Width: 15},
-				{Title: "Duration", Width: 12},
-			}
-		} else {
-			// Generic column layout for other cases
-			columns = make([]table.Column, columnCount)
-			baseWidth := 80 / columnCount
-			for i := 0; i < columnCount; i++ {
-				columns[i] = table.Column{
-					Title: fmt.Sprintf("Col %d", i+1),
-					Width: baseWidth,
-				}
-			}
+	// Create columns with appropriate headers and widths
+	if columnCount == 5 { // ID, Keyword, Tags, Status, Duration format
+		columns = []table.Column{
+			{Title: "ID", Width: 4},
+			{Title: "Keyword", Width: 15},
+			{Title: "Tags", Width: 20},
+			{Title: "Status", Width: 10},
+			{Title: "Duration", Width: 12},
 		}
-
-		// Convert items to multi-column table rows
-		rows = make([]table.Row, len(items))
-		for i, item := range items {
-			rows[i] = table.Row(item.Columns)
+	} else if columnCount == 4 { // Keyword, Tags, StartTime, Duration format (continue)
+		columns = []table.Column{
+			{Title: "Keyword", Width: 15},
+			{Title: "Tags", Width: 20},
+			{Title: "Start Time", Width: 15},
+			{Title: "Duration", Width: 12},
 		}
 	} else {
-		// Legacy single-column layout
-		columns = []table.Column{
-			{Title: "Selection", Width: 80},
+		// Generic column layout for other cases
+		columns = make([]table.Column, columnCount)
+		baseWidth := 80 / columnCount
+		for i := 0; i < columnCount; i++ {
+			columns[i] = table.Column{
+				Title: fmt.Sprintf("Col %d", i+1),
+				Width: baseWidth,
+			}
 		}
+	}
 
-		// Convert items to single-column table rows
-		rows = make([]table.Row, len(items))
-		for i, item := range items {
-			rows[i] = table.Row{item.DisplayText}
-		}
+	// Convert items to multi-column table rows
+	rows = make([]table.Row, len(items))
+	for i, item := range items {
+		rows[i] = table.Row(item.Columns)
 	}
 
 	// Create table with styling
@@ -175,37 +156,21 @@ func (m SelectorModel) Init() tea.Cmd {
 
 // rebuildTable recreates the table with the current filtered items
 func (m *SelectorModel) rebuildTable() {
-	// Determine if we should use multi-column layout
-	useColumns := len(m.filteredItems) > 0 && len(m.filteredItems[0].Columns) > 0
-
 	// Convert filtered items to table rows
 	rows := make([]table.Row, len(m.filteredItems))
 	for i, item := range m.filteredItems {
-		if useColumns {
-			if m.multiSelect {
-				// Add selection indicator as first column
-				indicator := "☐"
-				if m.selectedItems[item.ID] {
-					indicator = "☑"
-				}
-				row := make(table.Row, len(item.Columns)+1)
-				row[0] = indicator
-				copy(row[1:], item.Columns)
-				rows[i] = row
-			} else {
-				rows[i] = table.Row(item.Columns)
+		if m.multiSelect {
+			// Add selection indicator as first column
+			indicator := "☐"
+			if m.selectedItems[item.ID] {
+				indicator = "☑"
 			}
+			row := make(table.Row, len(item.Columns)+1)
+			row[0] = indicator
+			copy(row[1:], item.Columns)
+			rows[i] = row
 		} else {
-			if m.multiSelect {
-				// Add selection indicator to display text
-				indicator := "☐ "
-				if m.selectedItems[item.ID] {
-					indicator = "☑ "
-				}
-				rows[i] = table.Row{indicator + item.DisplayText}
-			} else {
-				rows[i] = table.Row{item.DisplayText}
-			}
+			rows[i] = table.Row(item.Columns)
 		}
 	}
 
@@ -223,22 +188,15 @@ func (m *SelectorModel) filterItems(query string) {
 		queryTerms := strings.Fields(strings.ToLower(query))
 
 		for _, item := range m.items {
-			// Create searchable text from columns or fallback to DisplayText
-			var searchableText string
-			if len(item.Columns) > 0 {
-				// Combine all columns into a single searchable string
-				var textBuilder strings.Builder
-				for i, col := range item.Columns {
-					if i > 0 {
-						textBuilder.WriteString(" ")
-					}
-					textBuilder.WriteString(strings.ToLower(col))
+			// Combine all columns into a single searchable string
+			var textBuilder strings.Builder
+			for i, col := range item.Columns {
+				if i > 0 {
+					textBuilder.WriteString(" ")
 				}
-				searchableText = textBuilder.String()
-			} else {
-				// Fall back to DisplayText search for legacy items
-				searchableText = strings.ToLower(item.DisplayText)
+				textBuilder.WriteString(strings.ToLower(col))
 			}
+			searchableText := textBuilder.String()
 
 			// Check if all query terms match somewhere in the searchable text
 			allTermsMatch := true

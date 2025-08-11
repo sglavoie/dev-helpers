@@ -163,18 +163,10 @@ func runInteractiveStop(cfg *models.Config, configManager *config.Manager) error
 	var items []tui.SelectorItem
 	for _, entry := range activeEntries {
 		duration := formatDuration(entry.GetCurrentDuration())
-		displayText := fmt.Sprintf("ID:%d | %s %v | %s | %s",
-			entry.ShortID,
-			entry.Keyword,
-			entry.Tags,
-			entry.StartTime.Format("3:04PM"),
-			duration,
-		)
 
 		items = append(items, tui.SelectorItem{
-			ID:          entry.ID,
-			DisplayText: displayText,
-			Data:        &entry,
+			ID:   entry.ID,
+			Data: &entry,
 			Columns: []string{
 				fmt.Sprintf("%d", entry.ShortID),
 				entry.Keyword,
