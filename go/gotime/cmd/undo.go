@@ -332,11 +332,11 @@ func runInteractiveUndo(cfg *models.Config, configManager *config.Manager) error
 	var items []tui.SelectorItem
 	for i := len(cfg.UndoHistory) - 1; i >= 0; i-- {
 		record := cfg.UndoHistory[i]
-		
+
 		// Format the operation for display
 		operationDisplay := string(record.Operation)
 		timestampDisplay := record.Timestamp.Format("Jan 02 3:04PM")
-		
+
 		// Create relative time display
 		timeSince := time.Since(record.Timestamp)
 		var relativeTime string
@@ -358,10 +358,10 @@ func runInteractiveUndo(cfg *models.Config, configManager *config.Manager) error
 			Data: &record,
 			Columns: []string{
 				fmt.Sprintf("#%d", len(cfg.UndoHistory)-i), // Index (from most recent)
-				operationDisplay,                           // Operation type
-				record.Description,                         // Description
-				timestampDisplay,                           // Timestamp
-				relativeTime,                              // Relative time
+				operationDisplay,   // Operation type
+				record.Description, // Description
+				timestampDisplay,   // Timestamp
+				relativeTime,       // Relative time
 			},
 		})
 	}

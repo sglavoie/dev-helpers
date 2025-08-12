@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,12 +17,27 @@ var (
 	continueBackdate string
 )
 
+// makeUniqueKey creates a unique key from keyword and tags
+// Tags are sorted to ensure consistent keys regardless of input order
+func makeUniqueKey(keyword string, tags []string) string {
+	if len(tags) == 0 {
+		return keyword
+	}
+
+	// Create a copy of tags to avoid modifying the original slice
+	tagsCopy := make([]string, len(tags))
+	copy(tagsCopy, tags)
+	sort.Strings(tagsCopy)
+
+	return keyword + "|" + strings.Join(tagsCopy, ",")
+}
+
 // continueCmd represents the continue command
 var continueCmd = &cobra.Command{
 	Use:   "continue [keyword | ID | --last]",
 	Short: "Continue tracking time from a previous entry",
 	Long: `Continue time tracking by creating a new entry based on a previous one.
-When no arguments are provided, displays an interactive table of unique keywords from the last month.
+When no arguments are provided, displays an interactive table of unique keywords from the last 3 months.
 You can continue the last stopped entry, continue by keyword (most recent for that keyword),
 or continue by ID number.
 
@@ -183,35 +199,36 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 		return nil
 	}
 
-	// Get unique keywords from the last month
-	oneMonthAgo := time.Now().AddDate(0, -1, 0)
-	keywordEntries := make(map[string]*models.Entry)
+	// Get unique keyword+tags combinations from the 3 months
+	threeMonthsAgo := time.Now().AddDate(0, -3, 0)
+	uniqueEntries := make(map[string]*models.Entry)
 
-	// Find the most recent entry for each keyword within the last month
+	// Find the most recent entry for each unique keyword+tags combination within the last 3 months
 	// but exclude keywords that already have active timers and exclude stashed entries
 	for i := range cfg.Entries {
 		entry := &cfg.Entries[i]
-		if entry.StartTime.After(oneMonthAgo) && !entry.Active && !entry.Stashed {
+		if entry.StartTime.After(threeMonthsAgo) && !entry.Active && !entry.Stashed {
 			// Skip this keyword if there's already an active timer for it
 			if cfg.HasActiveEntryForKeyword(entry.Keyword) {
 				continue
 			}
 
-			if existing, exists := keywordEntries[entry.Keyword]; !exists || entry.StartTime.After(existing.StartTime) {
-				keywordEntries[entry.Keyword] = entry
+			uniqueKey := makeUniqueKey(entry.Keyword, entry.Tags)
+			if existing, exists := uniqueEntries[uniqueKey]; !exists || entry.StartTime.After(existing.StartTime) {
+				uniqueEntries[uniqueKey] = entry
 			}
 		}
 	}
 
-	if len(keywordEntries) == 0 {
-		fmt.Println("No entries from the last month available to continue.")
+	if len(uniqueEntries) == 0 {
+		fmt.Println("No entries from the last 3 months available to continue.")
 		fmt.Println("(Keywords with active timers are not shown)")
 		return nil
 	}
 
 	// Convert map to slice for sorting
 	var sortableEntries []*models.Entry
-	for _, entry := range keywordEntries {
+	for _, entry := range uniqueEntries {
 		sortableEntries = append(sortableEntries, entry)
 	}
 

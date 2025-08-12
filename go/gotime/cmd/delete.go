@@ -169,7 +169,6 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
 
-
 		// Find the original entry pointer in cfg.Entries for deletion
 		var originalEntry *models.Entry
 		for i := range cfg.Entries {

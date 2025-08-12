@@ -446,3 +446,166 @@ func TestInteractiveContinueAllKeywordsActive(t *testing.T) {
 
 	t.Log("✅ Interactive continue all active test completed successfully")
 }
+
+func TestMakeUniqueKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		keyword  string
+		tags     []string
+		expected string
+	}{
+		{
+			name:     "keyword only",
+			keyword:  "coding",
+			tags:     []string{},
+			expected: "coding",
+		},
+		{
+			name:     "keyword with one tag",
+			keyword:  "coding",
+			tags:     []string{"frontend"},
+			expected: "coding|frontend",
+		},
+		{
+			name:     "keyword with multiple tags sorted",
+			keyword:  "coding",
+			tags:     []string{"backend", "api"},
+			expected: "coding|api,backend",
+		},
+		{
+			name:     "keyword with tags in different order should be same",
+			keyword:  "coding",
+			tags:     []string{"frontend", "backend"},
+			expected: "coding|backend,frontend",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := makeUniqueKey(tt.keyword, tt.tags)
+			if result != tt.expected {
+				t.Errorf("makeUniqueKey(%s, %v) = %s, want %s", tt.keyword, tt.tags, result, tt.expected)
+			}
+		})
+	}
+
+	// Test that same tags in different order produce same key
+	t.Run("tags order independence", func(t *testing.T) {
+		key1 := makeUniqueKey("coding", []string{"frontend", "backend", "api"})
+		key2 := makeUniqueKey("coding", []string{"api", "frontend", "backend"})
+		key3 := makeUniqueKey("coding", []string{"backend", "api", "frontend"})
+
+		if key1 != key2 || key2 != key3 {
+			t.Errorf("Keys should be identical regardless of tag order: %s, %s, %s", key1, key2, key3)
+		}
+	})
+}
+
+func TestContinueUniqueKeywordTags(t *testing.T) {
+	// Create temporary config file
+	tmpDir, err := ioutil.TempDir("", "gotime_unique_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "test_config.json")
+	configManager := config.NewManager(configPath)
+
+	// Create test data with same keywords but different tags
+	now := time.Now()
+	recentTime1 := now.Add(-24 * time.Hour)
+	recentTime2 := now.Add(-48 * time.Hour)
+	recentTime3 := now.Add(-72 * time.Hour)
+	recentTime4 := now.Add(-96 * time.Hour)
+
+	cfg := &models.Config{
+		Entries: []models.Entry{
+			{
+				ID:        "entry1",
+				ShortID:   1,
+				Keyword:   "coding",
+				Tags:      []string{"frontend"},
+				Duration:  3600,
+				Active:    false,
+				StartTime: recentTime1,
+			},
+			{
+				ID:        "entry2",
+				ShortID:   2,
+				Keyword:   "coding",            // Same keyword
+				Tags:      []string{"backend"}, // Different tags
+				Duration:  1800,
+				Active:    false,
+				StartTime: recentTime2,
+			},
+			{
+				ID:        "entry3",
+				ShortID:   3,
+				Keyword:   "coding",                        // Same keyword again
+				Tags:      []string{"frontend", "testing"}, // Different tag combination
+				Duration:  2400,
+				Active:    false,
+				StartTime: recentTime3,
+			},
+			{
+				ID:        "entry4",
+				ShortID:   4,
+				Keyword:   "documentation",      // Different keyword
+				Tags:      []string{"frontend"}, // Same tag as entry1 but different keyword
+				Duration:  1200,
+				Active:    false,
+				StartTime: recentTime4,
+			},
+		},
+	}
+
+	if err := configManager.Save(cfg); err != nil {
+		t.Fatalf("Failed to save test config: %v", err)
+	}
+
+	// Test the unique entry logic from runInteractiveContinue
+	oneMonthAgo := time.Now().AddDate(0, -1, 0)
+	uniqueEntries := make(map[string]*models.Entry)
+
+	for i := range cfg.Entries {
+		entry := &cfg.Entries[i]
+		if entry.StartTime.After(oneMonthAgo) && !entry.Active && !entry.Stashed {
+			// Skip if there's already an active timer for this keyword
+			if cfg.HasActiveEntryForKeyword(entry.Keyword) {
+				continue
+			}
+
+			uniqueKey := makeUniqueKey(entry.Keyword, entry.Tags)
+			if existing, exists := uniqueEntries[uniqueKey]; !exists || entry.StartTime.After(existing.StartTime) {
+				uniqueEntries[uniqueKey] = entry
+			}
+		}
+	}
+
+	// Verify we have all unique keyword+tags combinations
+	expectedKeys := map[string]bool{
+		"coding|frontend":         true, // entry1
+		"coding|backend":          true, // entry2
+		"coding|frontend,testing": true, // entry3
+		"documentation|frontend":  true, // entry4
+	}
+
+	if len(uniqueEntries) != len(expectedKeys) {
+		t.Errorf("Expected %d unique entries, got %d", len(expectedKeys), len(uniqueEntries))
+	}
+
+	for key := range uniqueEntries {
+		if !expectedKeys[key] {
+			t.Errorf("Unexpected key found: %s", key)
+		}
+	}
+
+	for expectedKey := range expectedKeys {
+		if _, exists := uniqueEntries[expectedKey]; !exists {
+			t.Errorf("Expected key not found: %s", expectedKey)
+		}
+	}
+
+	t.Log("✅ Unique keyword+tags test completed successfully")
+}

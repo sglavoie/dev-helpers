@@ -42,7 +42,7 @@ Backdate formats: 5, 5m, 30s, 1h, 1h30, 1h30m, 2h30m30s (no unit defaults to min
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	
+
 	startCmd.Flags().StringVar(&startBackdate, "backdate", "", "start the timer with a time offset (e.g., 5m, 1h30m, 10)")
 }
 

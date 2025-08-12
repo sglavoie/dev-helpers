@@ -214,7 +214,6 @@ func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Mana
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
 
-
 		items = append(items, tui.SelectorItem{
 			ID:   entry.ID,
 			Data: &entry,
@@ -279,7 +278,6 @@ func runInteractiveEntrySelectionFromList(entries []*models.Entry, keyword strin
 			status = "running"
 			duration = formatDuration(entry.GetCurrentDuration())
 		}
-
 
 		items = append(items, tui.SelectorItem{
 			ID:   entry.ID,

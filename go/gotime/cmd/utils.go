@@ -85,7 +85,7 @@ func ParseDuration(input string) (time.Duration, error) {
 	// Note: Minutes without 'm' are only allowed when preceded by hours (e.g., 1h30)
 	re := regexp.MustCompile(`^(?:(\d+)h(?:(\d+)m?)?)?(?:(\d+)m)?(?:(\d+)s)?$`)
 	matches := re.FindStringSubmatch(input)
-	
+
 	if matches == nil {
 		return 0, fmt.Errorf("invalid duration format: %s (supported formats: 5, 5m, 1h, 1h30, 1h30m, 2h30m30s)", input)
 	}
