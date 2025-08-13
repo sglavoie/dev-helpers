@@ -226,6 +226,16 @@ func (m *SelectorModel) filterItems(query string) {
 
 	// Rebuild the table with filtered items
 	m.rebuildTable()
+
+	// Reset cursor position if it's beyond the filtered results
+	currentCursor := m.table.Cursor()
+	if len(m.filteredItems) == 0 {
+		// No items to select, cursor will be handled by table component
+		// (table typically sets cursor to -1 when no rows available)
+	} else if currentCursor >= len(m.filteredItems) {
+		// Cursor is beyond available filtered items, reset to first item
+		m.table.SetCursor(0)
+	}
 }
 
 func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

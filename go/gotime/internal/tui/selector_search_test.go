@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -227,5 +228,82 @@ func TestFilterItemsFunction(t *testing.T) {
 	model.filterItems("")
 	if len(model.filteredItems) != len(model.items) {
 		t.Errorf("Expected all items for empty query, got %d", len(model.filteredItems))
+	}
+}
+
+func TestCursorResetAfterFiltering(t *testing.T) {
+	// Test the bug fix: cursor position should reset when filtering reduces items
+	items := make([]SelectorItem, 20) // Create 20 items to allow scrolling
+	for i := 0; i < 20; i++ {
+		items[i] = SelectorItem{
+			ID:      fmt.Sprintf("%d", i+1),
+			Data:    fmt.Sprintf("data%d", i+1),
+			Columns: []string{fmt.Sprintf("Item %d", i+1)},
+		}
+	}
+	// Add a special item that will match search
+	items[19] = SelectorItem{ID: "20", Data: "data20", Columns: []string{"Special Meeting"}}
+
+	model := NewSelectorModel("Test Cursor Reset", items)
+
+	t.Log("=== TESTING CURSOR RESET BUG FIX ===")
+
+	// Simulate scrolling down by setting cursor to position 15 (beyond what will be filtered)
+	model.table.SetCursor(15)
+	initialCursor := model.table.Cursor()
+	if initialCursor != 15 {
+		t.Errorf("Expected cursor to be at position 15, got %d", initialCursor)
+	}
+
+	// Filter to only show the special item (should result in 1 item)
+	model.filterItems("Special")
+	if len(model.filteredItems) != 1 {
+		t.Errorf("Expected 1 filtered item for 'Special', got %d", len(model.filteredItems))
+	}
+
+	// Check that cursor was reset to 0 (first valid position)
+	finalCursor := model.table.Cursor()
+	if finalCursor != 0 {
+		t.Errorf("Expected cursor to be reset to 0 after filtering, got %d", finalCursor)
+	}
+
+	t.Log("=== TESTING CURSOR RESET WITH NO RESULTS ===")
+
+	// Set cursor to a valid position in filtered results
+	model.table.SetCursor(0)
+	
+	// Filter to show no results
+	model.filterItems("NonExistent")
+	if len(model.filteredItems) != 0 {
+		t.Errorf("Expected 0 filtered items for 'NonExistent', got %d", len(model.filteredItems))
+	}
+
+	// Check that cursor is 0 with no results (table component behavior)
+	noCursor := model.table.Cursor()
+	if noCursor != 0 {
+		t.Errorf("Expected cursor to be 0 with no results, got %d", noCursor)
+	}
+
+	t.Log("=== TESTING CURSOR PRESERVATION WHEN VALID ===")
+
+	// Reset to show all items
+	model.filterItems("")
+	if len(model.filteredItems) != len(model.items) {
+		t.Errorf("Expected all items after clearing filter, got %d", len(model.filteredItems))
+	}
+
+	// Set cursor to position 2
+	model.table.SetCursor(2)
+	
+	// Filter to show multiple results that include cursor position
+	model.filterItems("Item") // Should match most items including position 2
+	if len(model.filteredItems) < 3 {
+		t.Errorf("Expected at least 3 filtered items for 'Item', got %d", len(model.filteredItems))
+	}
+
+	// Cursor should remain at 2 since it's still valid
+	preservedCursor := model.table.Cursor()
+	if preservedCursor != 2 {
+		t.Errorf("Expected cursor to remain at 2 when still valid, got %d", preservedCursor)
 	}
 }
