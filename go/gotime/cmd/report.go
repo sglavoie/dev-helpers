@@ -14,15 +14,16 @@ import (
 )
 
 var (
-	reportDays       int
-	reportMonth      bool
-	reportYear       bool
-	reportToday      bool
-	reportYesterday  bool
-	reportBetween    string
-	reportKeyword    string
-	reportTags       string
-	reportInvertTags bool
+	reportDays            int
+	reportMonth           bool
+	reportYear            bool
+	reportToday           bool
+	reportYesterday       bool
+	reportBetween         string
+	reportKeywords        string
+	reportExcludeKeywords string
+	reportTags            string
+	reportExcludeTags     string
 )
 
 // reportCmd represents the report command
@@ -37,8 +38,10 @@ Examples:
   gt report --today                      # Today's report
   gt report --days 30                    # Last 30 days
   gt report --month                      # Current month
-  gt report --keyword coding             # Only "coding" entries
-  gt report --tags golang,cli            # Entries with "golang" or "cli" tags
+  gt report --keywords coding,meeting    # Only "coding" OR "meeting" entries
+  gt report --exclude-keywords meeting   # Exclude "meeting" entries
+  gt report --tags golang,cli            # Entries with "golang" OR "cli" tags
+  gt report --exclude-tags meeting,work  # Exclude entries with "meeting" OR "work" tags
   gt report --between 2025-08-01,2025-08-07  # Custom date range`,
 	RunE:    runReport,
 	Aliases: []string{"rep", "r"},
@@ -53,12 +56,18 @@ func init() {
 	reportCmd.Flags().BoolVar(&reportToday, "today", false, "report for today")
 	reportCmd.Flags().BoolVar(&reportYesterday, "yesterday", false, "report for yesterday")
 	reportCmd.Flags().StringVar(&reportBetween, "between", "", "report between dates (YYYY-MM-DD,YYYY-MM-DD)")
-	reportCmd.Flags().StringVar(&reportKeyword, "keyword", "", "filter by keyword")
+	reportCmd.Flags().StringVar(&reportKeywords, "keywords", "", "filter by keywords (comma-separated)")
+	reportCmd.Flags().StringVar(&reportExcludeKeywords, "exclude-keywords", "", "exclude entries with specified keywords (comma-separated)")
 	reportCmd.Flags().StringVar(&reportTags, "tags", "", "filter by tags (comma-separated)")
-	reportCmd.Flags().BoolVar(&reportInvertTags, "invert-tags", false, "exclude entries with specified tags")
+	reportCmd.Flags().StringVar(&reportExcludeTags, "exclude-tags", "", "exclude entries with specified tags (comma-separated)")
+
+	reportCmd.MarkFlagsMutuallyExclusive("exclude-keywords", "keywords")
+	reportCmd.MarkFlagsMutuallyExclusive("exclude-tags", "tags")
 }
 
 func runReport(cmd *cobra.Command, args []string) error {
+	// Validate flags (mutual exclusivity is handled by Cobra)
+
 	// Load configuration
 	configManager := config.NewManager(GetConfigPath())
 	cfg, err := configManager.LoadOrCreate()
@@ -104,9 +113,21 @@ func runReport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set content filters
-	filter.Keyword = reportKeyword
-	filter.SetTags(reportTags)
-	filter.InvertTags = reportInvertTags
+	if reportKeywords != "" {
+		filter.SetKeywords(reportKeywords)
+		filter.ExcludeKeywords = false
+	} else if reportExcludeKeywords != "" {
+		filter.SetKeywords(reportExcludeKeywords)
+		filter.ExcludeKeywords = true
+	}
+	
+	if reportTags != "" {
+		filter.SetTags(reportTags)
+		filter.ExcludeTags = false
+	} else if reportExcludeTags != "" {
+		filter.SetTags(reportExcludeTags)  
+		filter.ExcludeTags = true
+	}
 
 	// Apply filters
 	entries := filter.Apply(cfg.Entries)

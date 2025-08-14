@@ -16,21 +16,22 @@ import (
 )
 
 var (
-	listActiveOnly  bool
-	listNoActive    bool
-	listKeyword     string
-	listTags        string
-	listInvertTags  bool
-	listDays        int
-	listWeek        bool
-	listMonth       bool
-	listYear        bool
-	listYesterday   bool
-	listBetween     string
-	listMinDuration string
-	listMaxDuration string
-	listFromDate    string
-	listToDate      string
+	listActiveOnly      bool
+	listNoActive        bool
+	listKeywords        string
+	listExcludeKeywords string
+	listTags            string
+	listExcludeTags     string
+	listDays            int
+	listWeek            bool
+	listMonth           bool
+	listYear            bool
+	listYesterday       bool
+	listBetween         string
+	listMinDuration     string
+	listMaxDuration     string
+	listFromDate        string
+	listToDate          string
 )
 
 // listCmd represents the list command
@@ -45,9 +46,10 @@ Examples:
   gt list --week                         # List current week's entries
   gt list --active                       # Show only active entries
   gt list --no-active                   # Show only stopped entries
-  gt list --keyword coding              # Show entries for "coding" keyword
-  gt list --tags golang,cli             # Show entries with "golang" or "cli" tags
-  gt list --invert-tags meeting         # Show entries without "meeting" tag
+  gt list --keywords coding,meeting     # Show entries for "coding" OR "meeting" keywords
+  gt list --exclude-keywords meeting    # Show entries EXCEPT "meeting" keyword
+  gt list --tags golang,cli             # Show entries with "golang" OR "cli" tags
+  gt list --exclude-tags meeting,work   # Show entries WITHOUT "meeting" OR "work" tags
   gt list --days 7                      # Show last 7 days
   gt list --between 2025-08-01,2025-08-07  # Custom date range
   gt list --from 2025-08-01 --to 2025-08-07 # Date range with separate flags
@@ -66,9 +68,10 @@ func init() {
 	listCmd.Flags().BoolVar(&listNoActive, "no-active", false, "show only stopped entries")
 
 	// Content filters
-	listCmd.Flags().StringVar(&listKeyword, "keyword", "", "filter by keyword")
+	listCmd.Flags().StringVar(&listKeywords, "keywords", "", "filter by keywords (comma-separated)")
+	listCmd.Flags().StringVar(&listExcludeKeywords, "exclude-keywords", "", "exclude entries with specified keywords (comma-separated)")
 	listCmd.Flags().StringVar(&listTags, "tags", "", "filter by tags (comma-separated)")
-	listCmd.Flags().BoolVar(&listInvertTags, "invert-tags", false, "exclude entries with specified tags")
+	listCmd.Flags().StringVar(&listExcludeTags, "exclude-tags", "", "exclude entries with specified tags (comma-separated)")
 
 	// Time filters
 	listCmd.Flags().IntVar(&listDays, "days", 0, "show last N days")
@@ -83,10 +86,14 @@ func init() {
 	// Duration filters
 	listCmd.Flags().StringVar(&listMinDuration, "min-duration", "", "minimum duration filter (e.g., '1h', '30m', '3600')")
 	listCmd.Flags().StringVar(&listMaxDuration, "max-duration", "", "maximum duration filter (e.g., '4h', '2h30m', '14400')")
+
+	listCmd.MarkFlagsMutuallyExclusive("active", "no-active")
+	listCmd.MarkFlagsMutuallyExclusive("exclude-keywords", "keywords")
+	listCmd.MarkFlagsMutuallyExclusive("exclude-tags", "tags")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	// Validate flags
+	// Validate flags (mutual exclusivity is handled by Cobra)
 	if listActiveOnly && listNoActive {
 		return fmt.Errorf("cannot use both --active and --no-active flags")
 	}
@@ -152,9 +159,22 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set content filters
-	filter.Keyword = listKeyword
-	filter.SetTags(listTags)
-	filter.InvertTags = listInvertTags
+	if listKeywords != "" {
+		filter.SetKeywords(listKeywords)
+		filter.ExcludeKeywords = false
+	} else if listExcludeKeywords != "" {
+		filter.SetKeywords(listExcludeKeywords)
+		filter.ExcludeKeywords = true
+	}
+	
+	if listTags != "" {
+		filter.SetTags(listTags)
+		filter.ExcludeTags = false
+	} else if listExcludeTags != "" {
+		filter.SetTags(listExcludeTags)  
+		filter.ExcludeTags = true
+	}
+	
 	filter.ActiveOnly = listActiveOnly
 	filter.NoActive = listNoActive
 	filter.IncludeStashed = true // List command should show stashed entries

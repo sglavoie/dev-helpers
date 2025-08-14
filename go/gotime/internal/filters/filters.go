@@ -24,18 +24,19 @@ const (
 
 // Filter represents filtering criteria for entries
 type Filter struct {
-	TimeRange      TimeRange
-	DaysBack       int
-	StartDate      *time.Time
-	EndDate        *time.Time
-	Keyword        string
-	Tags           []string
-	InvertTags     bool
-	ActiveOnly     bool
-	NoActive       bool
-	IncludeStashed bool // Whether to include stashed entries in results
-	MinDuration    int  // Minimum duration in seconds
-	MaxDuration    int  // Maximum duration in seconds (0 means no limit)
+	TimeRange       TimeRange
+	DaysBack        int
+	StartDate       *time.Time
+	EndDate         *time.Time
+	Keywords        []string
+	ExcludeKeywords bool
+	Tags            []string
+	ExcludeTags     bool
+	ActiveOnly      bool
+	NoActive        bool
+	IncludeStashed  bool // Whether to include stashed entries in results
+	MinDuration     int  // Minimum duration in seconds
+	MaxDuration     int  // Maximum duration in seconds (0 means no limit)
 }
 
 // NewFilter creates a new filter with default values (current week)
@@ -72,18 +73,24 @@ func (f *Filter) matchesEntry(entry *models.Entry) bool {
 		return false
 	}
 
-	// Check keyword filter
-	if f.Keyword != "" && entry.Keyword != f.Keyword {
-		return false
+	// Check keyword filters
+	if len(f.Keywords) > 0 {
+		hasMatchingKeyword := f.entryHasAnyKeyword(entry, f.Keywords)
+		if f.ExcludeKeywords && hasMatchingKeyword {
+			return false
+		}
+		if !f.ExcludeKeywords && !hasMatchingKeyword {
+			return false
+		}
 	}
 
 	// Check tag filters
 	if len(f.Tags) > 0 {
 		hasMatchingTag := entry.HasAnyTag(f.Tags)
-		if f.InvertTags && hasMatchingTag {
+		if f.ExcludeTags && hasMatchingTag {
 			return false
 		}
-		if !f.InvertTags && !hasMatchingTag {
+		if !f.ExcludeTags && !hasMatchingTag {
 			return false
 		}
 	}
@@ -170,6 +177,20 @@ func (f *Filter) matchesDuration(entry *models.Entry) bool {
 	return true
 }
 
+// SetKeywords sets the keyword filter from a comma-separated string
+func (f *Filter) SetKeywords(keywordsStr string) {
+	if keywordsStr == "" {
+		f.Keywords = nil
+		return
+	}
+
+	keywords := strings.Split(keywordsStr, ",")
+	f.Keywords = make([]string, len(keywords))
+	for i, keyword := range keywords {
+		f.Keywords[i] = strings.TrimSpace(keyword)
+	}
+}
+
 // SetTags sets the tag filter from a comma-separated string
 func (f *Filter) SetTags(tagsStr string) {
 	if tagsStr == "" {
@@ -189,6 +210,16 @@ func (f *Filter) SetDateRange(start, end time.Time) {
 	f.TimeRange = TimeRangeBetween
 	f.StartDate = &start
 	f.EndDate = &end
+}
+
+// entryHasAnyKeyword checks if the entry has any of the specified keywords
+func (f *Filter) entryHasAnyKeyword(entry *models.Entry, keywords []string) bool {
+	for _, keyword := range keywords {
+		if entry.Keyword == keyword {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper functions
