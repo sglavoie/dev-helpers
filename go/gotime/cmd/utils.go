@@ -135,6 +135,22 @@ func ParseDuration(input string) (time.Duration, error) {
 	return duration, nil
 }
 
+// SortEntriesPtrsByEndTimeDesc sorts entry pointers by EndTime in descending order (most recent first)
+func SortEntriesPtrsByEndTimeDesc(entries []*models.Entry) {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].EndTime == nil && entries[j].EndTime == nil {
+			return false
+		}
+		if entries[i].EndTime == nil {
+			return false
+		}
+		if entries[j].EndTime == nil {
+			return true
+		}
+		return entries[i].EndTime.After(*entries[j].EndTime)
+	})
+}
+
 // SortEntriesByStartTimeDesc sorts entries by StartTime in descending order (most recent first)
 // This is used by continue, delete, and set commands to show latest entries first
 func SortEntriesByStartTimeDesc(entries []models.Entry) {

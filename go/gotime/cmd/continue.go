@@ -232,8 +232,8 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 		sortableEntries = append(sortableEntries, entry)
 	}
 
-	// Sort by StartTime descending (most recent first)
-	SortEntriesPtrsByStartTimeDesc(sortableEntries)
+	// Sort by EndTime descending (most recent first)
+	SortEntriesPtrsByEndTimeDesc(sortableEntries)
 
 	// Create selector items
 	var items []tui.SelectorItem
@@ -246,7 +246,7 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 			Columns: []string{
 				entry.Keyword,
 				fmt.Sprintf("%v", entry.Tags),
-				entry.StartTime.Format("Jan 02 3:04PM"),
+				entry.EndTime.Format("Jan 02 3:04PM"),
 				duration,
 			},
 		})

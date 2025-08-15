@@ -72,7 +72,7 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 		columns = []table.Column{
 			{Title: "Keyword", Width: 15},
 			{Title: "Tags", Width: 20},
-			{Title: "Start Time", Width: 15},
+			{Title: "End Time", Width: 15},
 			{Title: "Duration", Width: 12},
 		}
 	} else {
