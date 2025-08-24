@@ -10,6 +10,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// TableConfig represents the configuration for table columns
+type TableConfig struct {
+	Columns []table.Column
+}
+
 // SelectorItem represents an item that can be selected in the table
 type SelectorItem struct {
 	ID      string   // Unique identifier
@@ -58,7 +63,7 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 			{Title: "Operation", Width: 12},
 			{Title: "Description", Width: 30},
 			{Title: "Timestamp", Width: 15},
-			{Title: "Relative", Width: 12},
+			{Title: "Relative", Width: 16},
 		}
 	} else if columnCount == 5 { // ID, Keyword, Tags, Status, Duration format
 		columns = []table.Column{
@@ -79,7 +84,7 @@ func NewSelectorModel(title string, items []SelectorItem) SelectorModel {
 		// Generic column layout for other cases
 		columns = make([]table.Column, columnCount)
 		baseWidth := 80 / columnCount
-		for i := 0; i < columnCount; i++ {
+		for i := range columnCount {
 			columns[i] = table.Column{
 				Title: fmt.Sprintf("Col %d", i+1),
 				Width: baseWidth,
@@ -150,6 +155,77 @@ func NewMultiSelectorModel(title string, items []SelectorItem) SelectorModel {
 		if len(newCols) > 0 {
 			newCols[0].Width += 3
 		}
+		model.table.SetColumns(newCols)
+	}
+
+	// Rebuild the table to include the checkbox indicators in the initial display
+	model.rebuildTable()
+
+	return model
+}
+
+// NewSelectorModelWithConfig creates a new selector model with explicit column configuration
+func NewSelectorModelWithConfig(title string, items []SelectorItem, config TableConfig) SelectorModel {
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Type to search..."
+	searchInput.CharLimit = 50
+	searchInput.Width = 40
+
+	var rows []table.Row
+
+	// Convert items to table rows
+	rows = make([]table.Row, len(items))
+	for i, item := range items {
+		rows[i] = table.Row(item.Columns)
+	}
+
+	// Create table with provided configuration
+	t := table.New(
+		table.WithColumns(config.Columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(10), // Show up to 10 items
+	)
+
+	// Set table styles
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	return SelectorModel{
+		title:         title,
+		items:         items,
+		filteredItems: items, // Initially show all items
+		table:         t,
+		showHelp:      true,
+		searchMode:    false,
+		searchInput:   searchInput,
+		searchFocused: false,
+		multiSelect:   false,
+		selectedItems: make(map[string]bool),
+	}
+}
+
+// NewMultiSelectorModelWithConfig creates a new multi-selection selector model with explicit column configuration
+func NewMultiSelectorModelWithConfig(title string, items []SelectorItem, config TableConfig) SelectorModel {
+	model := NewSelectorModelWithConfig(title, items, config)
+	model.multiSelect = true
+
+	// Update table columns to include selection indicator
+	if len(config.Columns) > 0 {
+		// Add selection column as first column
+		currentCols := model.table.Columns()
+		newCols := make([]table.Column, len(currentCols)+1)
+		newCols[0] = table.Column{Title: "☐", Width: 3}
+		copy(newCols[1:], currentCols)
 		model.table.SetColumns(newCols)
 	}
 
@@ -542,6 +618,58 @@ func (m SelectorModel) GetSelectedItems() []*SelectorItem {
 // IsMultiSelect returns whether this selector is in multi-select mode
 func (m SelectorModel) IsMultiSelect() bool {
 	return m.multiSelect
+}
+
+// RunSelectorWithConfig runs the selector TUI with explicit column configuration
+func RunSelectorWithConfig(title string, items []SelectorItem, config TableConfig) (*SelectorItem, error) {
+	if len(items) == 0 {
+		return nil, fmt.Errorf("no items to select from")
+	}
+
+	model := NewSelectorModelWithConfig(title, items, config)
+
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run selector TUI: %w", err)
+	}
+
+	selectorModel := finalModel.(SelectorModel)
+	if selectorModel.GetError() != nil {
+		return nil, selectorModel.GetError()
+	}
+
+	if selectorModel.IsCancelled() {
+		return nil, fmt.Errorf("cancelled")
+	}
+
+	return selectorModel.GetSelectedItem(), nil
+}
+
+// RunMultiSelectorWithConfig runs the multi-selector TUI with explicit column configuration
+func RunMultiSelectorWithConfig(title string, items []SelectorItem, config TableConfig) ([]*SelectorItem, error) {
+	if len(items) == 0 {
+		return nil, fmt.Errorf("no items to select from")
+	}
+
+	model := NewMultiSelectorModelWithConfig(title, items, config)
+
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run multi-selector TUI: %w", err)
+	}
+
+	selectorModel := finalModel.(SelectorModel)
+	if selectorModel.GetError() != nil {
+		return nil, selectorModel.GetError()
+	}
+
+	if selectorModel.IsCancelled() {
+		return nil, fmt.Errorf("cancelled")
+	}
+
+	return selectorModel.GetSelectedItems(), nil
 }
 
 // RunSelector runs the selector TUI and returns the selected item

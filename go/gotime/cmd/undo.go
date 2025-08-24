@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/tui"
@@ -371,8 +372,20 @@ func runInteractiveUndo(cfg *models.Config, configManager *config.Manager) error
 		}
 	}
 
+	// Define explicit column configuration for undo entries
+	tableConfig := tui.TableConfig{
+		Columns: []table.Column{
+			{Title: "#", Width: 4},         // Operation number
+			{Title: "Type", Width: 10},     // Operation type
+			{Title: "Keyword", Width: 15},  // Entry keyword
+			{Title: "Tags", Width: 26},     // Entry tags
+			{Title: "Duration", Width: 12}, // Entry duration
+			{Title: "Time", Width: 16},     // Time ago
+		},
+	}
+
 	// Show multi-selector for choosing which entries to restore
-	selectedItems, err := tui.RunMultiSelector("Select entries to restore:", items)
+	selectedItems, err := tui.RunMultiSelectorWithConfig("Select entries to restore:", items, tableConfig)
 	if err != nil {
 		return err
 	}
