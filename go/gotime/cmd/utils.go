@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 )
 
@@ -135,42 +136,90 @@ func ParseDuration(input string) (time.Duration, error) {
 	return duration, nil
 }
 
-// SortEntriesPtrsByEndTimeDesc sorts entry pointers by EndTime in descending order (most recent first)
-func SortEntriesPtrsByEndTimeDesc(entries []*models.Entry) {
+
+// SortOrder represents the sorting direction
+type SortOrder int
+
+const (
+	Ascending SortOrder = iota
+	Descending
+)
+
+// SortField represents what field to sort by
+type SortField int
+
+const (
+	ByStartTime SortField = iota
+	ByEndTime
+	ByShortID
+)
+
+// SortEntries provides a unified sorting interface for both []Entry and []*Entry
+func SortEntries[T models.Entry | *models.Entry](entries []T, field SortField, order SortOrder) {
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].EndTime == nil && entries[j].EndTime == nil {
+		var ei, ej *models.Entry
+		
+		// Handle both Entry and *Entry types
+		switch v := any(entries[i]).(type) {
+		case models.Entry:
+			entry := v
+			ei = &entry
+			entryJ := any(entries[j]).(models.Entry)
+			ej = &entryJ
+		case *models.Entry:
+			ei = v
+			ej = any(entries[j]).(*models.Entry)
+		}
+		
+		switch field {
+		case ByStartTime:
+			if order == Descending {
+				return ei.StartTime.After(ej.StartTime)
+			}
+			return ei.StartTime.Before(ej.StartTime)
+			
+		case ByEndTime:
+			// Handle nil EndTime values
+			if ei.EndTime == nil && ej.EndTime == nil {
+				return false
+			}
+			if ei.EndTime == nil {
+				return order == Ascending
+			}
+			if ej.EndTime == nil {
+				return order == Descending
+			}
+			if order == Descending {
+				return ei.EndTime.After(*ej.EndTime)
+			}
+			return ei.EndTime.Before(*ej.EndTime)
+			
+		case ByShortID:
+			if order == Ascending {
+				return ei.ShortID < ej.ShortID
+			}
+			return ei.ShortID > ej.ShortID
+			
+		default:
 			return false
 		}
-		if entries[i].EndTime == nil {
-			return false
-		}
-		if entries[j].EndTime == nil {
-			return true
-		}
-		return entries[i].EndTime.After(*entries[j].EndTime)
 	})
 }
 
-// SortEntriesByStartTimeDesc sorts entries by StartTime in descending order (most recent first)
-// This is used by continue, delete, and set commands to show latest entries first
-func SortEntriesByStartTimeDesc(entries []models.Entry) {
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].StartTime.After(entries[j].StartTime)
-	})
+// LoadConfig loads the configuration using the global config path
+func LoadConfig() (*models.Config, *config.Manager, error) {
+	configManager := config.NewManager(GetConfigPath())
+	cfg, err := configManager.LoadOrCreate()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	return cfg, configManager, nil
 }
 
-// SortEntriesPtrsByStartTimeDesc sorts entry pointers by StartTime in descending order (most recent first)
-// This is used when working with slices of entry pointers
-func SortEntriesPtrsByStartTimeDesc(entries []*models.Entry) {
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].StartTime.After(entries[j].StartTime)
-	})
-}
-
-// SortEntriesByShortIDAsc sorts entries by ShortID in ascending order (1, 2, 3...)
-// This is used by the list command to show entries in ID order
-func SortEntriesByShortIDAsc(entries []models.Entry) {
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].ShortID < entries[j].ShortID
-	})
+// SaveConfig saves the configuration
+func SaveConfig(configManager *config.Manager, cfg *models.Config) error {
+	if err := configManager.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+	return nil
 }

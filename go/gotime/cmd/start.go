@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/logic"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/tui"
@@ -63,10 +62,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load configuration
-	configManager := config.NewManager(GetConfigPath())
-	cfg, err := configManager.LoadOrCreate()
+	cfg, configManager, err := LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
 	// Check if there's already an active entry for this keyword
@@ -98,8 +96,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 	cfg.AddEntry(entry)
 
 	// Save configuration
-	if err := configManager.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	if err := SaveConfig(configManager, cfg); err != nil {
+		return err
 	}
 
 	// Format output

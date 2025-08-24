@@ -202,7 +202,7 @@ func runDirectFieldSet(entry *models.Entry, args []string, configManager *config
 func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Manager) error {
 	// Get all non-stashed entries and sort by StartTime descending (most recent first)
 	entries := cfg.GetNonStashedEntries()
-	SortEntriesByStartTimeDesc(entries)
+	SortEntries(entries, ByStartTime, Descending)
 
 	// Create selector items from sorted entries
 	var items []tui.SelectorItem
@@ -267,7 +267,7 @@ func runInteractiveEntrySelection(cfg *models.Config, configManager *config.Mana
 
 func runInteractiveEntrySelectionFromList(entries []*models.Entry, keyword string) (*models.Entry, error) {
 	// Sort entries by StartTime descending (most recent first)
-	SortEntriesPtrsByStartTimeDesc(entries)
+	SortEntries(entries, ByStartTime, Descending)
 
 	// Create selector items from the sorted entries
 	var items []tui.SelectorItem

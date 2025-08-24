@@ -233,7 +233,7 @@ func runInteractiveContinue(cfg *models.Config, configManager *config.Manager) e
 	}
 
 	// Sort by EndTime descending (most recent first)
-	SortEntriesPtrsByEndTimeDesc(sortableEntries)
+	SortEntries(sortableEntries, ByEndTime, Descending)
 
 	// Create selector items
 	var items []tui.SelectorItem

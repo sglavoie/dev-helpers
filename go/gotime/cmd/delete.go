@@ -155,7 +155,7 @@ func runInteractiveDelete(cfg *models.Config, configManager *config.Manager) err
 	// Get all entries and sort by StartTime descending (most recent first)
 	entries := make([]models.Entry, len(cfg.Entries))
 	copy(entries, cfg.Entries)
-	SortEntriesByStartTimeDesc(entries)
+	SortEntries(entries, ByStartTime, Descending)
 
 	// Create selector items from sorted entries
 	var items []tui.SelectorItem
