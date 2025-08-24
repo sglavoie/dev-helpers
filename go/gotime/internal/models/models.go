@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -270,14 +271,10 @@ func (c *Config) updateShortIDs() {
 		entries[i] = &c.Entries[i]
 	}
 
-	// Simple bubble sort by start time (descending)
-	for i := 0; i < len(entries)-1; i++ {
-		for j := 0; j < len(entries)-i-1; j++ {
-			if entries[j].StartTime.Before(entries[j+1].StartTime) {
-				entries[j], entries[j+1] = entries[j+1], entries[j]
-			}
-		}
-	}
+	// Sort by start time (descending)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].StartTime.After(entries[j].StartTime)
+	})
 
 	// Reset all short IDs
 	for i := range c.Entries {
