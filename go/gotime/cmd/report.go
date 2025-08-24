@@ -133,10 +133,10 @@ func runReport(cmd *cobra.Command, args []string) error {
 	entries := filter.Apply(cfg.Entries)
 
 	// Generate report
-	return generateReport(entries, filter)
+	return GenerateReport(entries, filter)
 }
 
-func generateReport(entries []models.Entry, filter *filters.Filter) error {
+func GenerateReport(entries []models.Entry, filter *filters.Filter) error {
 	if len(entries) == 0 {
 		fmt.Println("No entries found for the specified criteria")
 		return nil
@@ -165,19 +165,19 @@ func generateReport(entries []models.Entry, filter *filters.Filter) error {
 	// Generate completed entries summary
 	if len(completedEntries) > 0 {
 		fmt.Println("COMPLETED ENTRIES")
-		generateKeywordSummary(completedEntries, false)
+		GenerateKeywordSummary(completedEntries, false)
 		fmt.Println()
 	}
 
 	// Show active entries
 	if len(activeEntries) > 0 {
 		fmt.Println("ACTIVE ENTRIES")
-		generateActiveEntriesTable(activeEntries)
+		GenerateActiveEntriesTable(activeEntries)
 		fmt.Println()
 	}
 
 	// Grand total
-	printGrandTotal(completedEntries, activeEntries)
+	PrintGrandTotal(completedEntries, activeEntries)
 
 	return nil
 }
@@ -217,7 +217,7 @@ func printReportHeader(filter *filters.Filter) {
 	fmt.Println()
 }
 
-func generateKeywordSummary(entries []models.Entry, includeActive bool) {
+func GenerateKeywordSummary(entries []models.Entry, includeActive bool) {
 	// Group by keyword
 	keywordMap := make(map[string][]models.Entry)
 	for _, entry := range entries {
@@ -291,7 +291,7 @@ func generateKeywordSummary(entries []models.Entry, includeActive bool) {
 	fmt.Println(t.Render())
 }
 
-func generateActiveEntriesTable(entries []models.Entry) {
+func GenerateActiveEntriesTable(entries []models.Entry) {
 	t := table.NewWriter()
 	t.SetStyle(table.StyleRounded)
 	t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "Started"})
@@ -314,7 +314,7 @@ func generateActiveEntriesTable(entries []models.Entry) {
 	fmt.Println(t.Render())
 }
 
-func printGrandTotal(completedEntries, activeEntries []models.Entry) {
+func PrintGrandTotal(completedEntries, activeEntries []models.Entry) {
 	completedDuration := 0
 	for _, entry := range completedEntries {
 		completedDuration += entry.Duration

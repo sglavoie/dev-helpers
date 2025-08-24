@@ -110,22 +110,6 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Display header
-	fmt.Println("GoTime Status Summary")
-	fmt.Println("=====================")
-	fmt.Println()
-
-	// Show active timers
-	activeEntries := cfg.GetActiveEntries()
-	if len(activeEntries) > 0 {
-		fmt.Println("🟢 ACTIVE TIMERS")
-		displayActiveTimers(activeEntries)
-		fmt.Println()
-	} else {
-		fmt.Println("⏸️  No active timers running")
-		fmt.Println()
-	}
-
 	// Show recent entries (last 5)
 	recentEntries := getRecentEntries(cfg.Entries, 5)
 	if len(recentEntries) > 0 {
@@ -134,8 +118,21 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	// Show today's summary
-	displayTodaySummary(cfg.Entries)
+	// Show today's report
+	if err := displayTodaysReport(cfg.Entries); err != nil {
+		return fmt.Errorf("failed to generate today's report: %w", err)
+	}
+
+	// Show active timers
+	activeEntries := cfg.GetActiveEntries()
+	if len(activeEntries) > 0 {
+		fmt.Println()
+		fmt.Println("🟢 ACTIVE TIMERS")
+		displayActiveTimers(activeEntries)
+	} else {
+		fmt.Println()
+		fmt.Println("⏸️  No active timers running")
+	}
 
 	return nil
 }
@@ -222,35 +219,40 @@ func displayRecentEntries(entries []models.Entry) {
 	fmt.Println(t.Render())
 }
 
-// displayTodaySummary shows today's time tracking summary
-func displayTodaySummary(entries []models.Entry) {
-	today := time.Now()
-	todayDuration := 0
-	activeDuration := 0
-	todayEntries := 0
+// displayTodaysReport shows today's detailed time tracking report
+func displayTodaysReport(entries []models.Entry) error {
+	// Create filter for today
+	filter := filters.NewFilter()
+	filter.TimeRange = filters.TimeRangeToday
 
-	for _, entry := range entries {
-		if isSameDay(entry.StartTime, today) {
-			todayEntries++
-			if entry.Active {
-				activeDuration += entry.GetCurrentDuration()
-			} else {
-				todayDuration += entry.Duration
-			}
+	// Apply filter to get today's entries
+	todayEntries := filter.Apply(entries)
+
+	if len(todayEntries) == 0 {
+		fmt.Println("📊 TODAY'S REPORT")
+		fmt.Println("No entries for today")
+		return nil
+	}
+
+	// Separate active and completed entries
+	var completedEntries []models.Entry
+	var activeEntries []models.Entry
+
+	for _, entry := range todayEntries {
+		if entry.Active {
+			activeEntries = append(activeEntries, entry)
+		} else {
+			completedEntries = append(completedEntries, entry)
 		}
 	}
 
-	totalToday := todayDuration + activeDuration
-
-	fmt.Println("📊 TODAY'S SUMMARY")
-	fmt.Printf("   Entries: %d\n", todayEntries)
-	fmt.Printf("   Completed: %s\n", formatDuration(todayDuration))
-	if activeDuration > 0 {
-		fmt.Printf("   Active: %s\n", formatDuration(activeDuration))
-		fmt.Printf("   Total: %s\n", formatDuration(totalToday))
-	} else {
-		fmt.Printf("   Total: %s\n", formatDuration(todayDuration))
+	// Generate completed entries summary
+	if len(completedEntries) > 0 {
+		fmt.Println("✅ COMPLETED ENTRIES")
+		GenerateKeywordSummary(completedEntries, false)
 	}
+
+	return nil
 }
 
 // Helper functions
@@ -311,13 +313,6 @@ func getRelativeTime(t time.Time) string {
 		}
 		return fmt.Sprintf("%dd ago", days)
 	}
-}
-
-// isSameDay checks if two times are on the same day
-func isSameDay(t1, t2 time.Time) bool {
-	y1, m1, d1 := t1.Date()
-	y2, m2, d2 := t2.Date()
-	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
 // ParseDateRange parses a date range string and sets it on a filter
