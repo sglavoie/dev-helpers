@@ -131,7 +131,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		displayActiveTimers(activeEntries)
 	} else {
 		fmt.Println()
-		fmt.Println("⏸️  No active timers running")
+		fmt.Println("⏸️ No active timers running")
 	}
 
 	return nil
