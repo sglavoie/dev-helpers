@@ -69,7 +69,7 @@ func TestPopStashBug(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Now pop the stash (this is where the bug occurs)
-	err = runPopAll(cfg, configManager)
+	err = runStashPopAll(cfg, configManager)
 	require.NoError(t, err)
 
 	// After pop, we should have:
@@ -171,7 +171,7 @@ func TestPopSpecificEntries(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Pop only the "coding" entry
-	err = runPopSpecific(cfg, configManager, []string{"coding"})
+	err = runStashPopSpecific(cfg, configManager, []string{"coding"})
 	require.NoError(t, err)
 
 	// Should have 3 entries: 2 original (1 still stashed, 1 completed) + 1 new active

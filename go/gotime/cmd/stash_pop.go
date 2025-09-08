@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	popBackdate string
+	stashPopBackdate string
 )
 
-// popCmd represents the pop command
-var popCmd = &cobra.Command{
+// stashPopCmd represents the stash pop command
+var stashPopCmd = &cobra.Command{
 	Use:   "pop [keyword | ID]...",
 	Short: "Resume stashed entries",
 	Long: `Resume all stashed entries or specific entries by keyword or ID.
@@ -25,27 +25,26 @@ The --backdate flag allows you to resume timers with a time offset, useful when 
 forgot to resume tracking but know when you actually began working again.
 
 Examples:
-  gt pop                             # Resume all stashed entries
-  gt pop coding                      # Resume stashed "coding" entries
-  gt pop 5                           # Resume stashed entry with ID 5
-  gt pop coding 3 meeting            # Resume multiple specific entries
-  gt pop --backdate 5m               # Resume all stashed, started 5 minutes ago
-  gt pop coding --backdate 1h30m     # Resume "coding", started 1h30m ago
-  gt pop 5 --backdate 10             # Resume entry ID 5, started 10 minutes ago
+  gt stash pop                             # Resume all stashed entries
+  gt stash pop coding                      # Resume stashed "coding" entries
+  gt stash pop 5                           # Resume stashed entry with ID 5
+  gt stash pop coding 3 meeting            # Resume multiple specific entries
+  gt stash pop --backdate 5m               # Resume all stashed, started 5 minutes ago
+  gt stash pop coding --backdate 1h30m     # Resume "coding", started 1h30m ago
+  gt stash pop 5 --backdate 10             # Resume entry ID 5, started 10 minutes ago
 
 Backdate formats: 5, 5m, 30s, 1h, 1h30, 1h30m, 2h30m30s (no unit defaults to minutes)`,
-	Args:    cobra.ArbitraryArgs,
-	RunE:    runPop,
-	Aliases: []string{"p"},
+	Args: cobra.ArbitraryArgs,
+	RunE: runStashPop,
 }
 
 func init() {
-	rootCmd.AddCommand(popCmd)
+	stashCmd.AddCommand(stashPopCmd)
 
-	popCmd.Flags().StringVarP(&popBackdate, "backdate", "b", "", "resume timers with a time offset (e.g., 5m, 1h30m, 10)")
+	stashPopCmd.Flags().StringVarP(&stashPopBackdate, "backdate", "b", "", "resume timers with a time offset (e.g., 5m, 1h30m, 10)")
 }
 
-func runPop(cmd *cobra.Command, args []string) error {
+func runStashPop(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	configManager := config.NewManager(GetConfigPath())
 	cfg, err := configManager.LoadOrCreate()
@@ -61,14 +60,14 @@ func runPop(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		// Pop all stashed entries
-		return runPopAll(cfg, configManager)
+		return runStashPopAll(cfg, configManager)
 	} else {
 		// Pop specific entries
-		return runPopSpecific(cfg, configManager, args)
+		return runStashPopSpecific(cfg, configManager, args)
 	}
 }
 
-func runPopAll(cfg *models.Config, configManager *config.Manager) error {
+func runStashPopAll(cfg *models.Config, configManager *config.Manager) error {
 	// Get all stashed entries
 	stashedEntries := cfg.GetStashedEntriesPtr()
 
@@ -79,8 +78,8 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 
 	// Parse backdate offset if provided
 	var startTime time.Time
-	if popBackdate != "" {
-		offset, err := ParseDuration(popBackdate)
+	if stashPopBackdate != "" {
+		offset, err := ParseDuration(stashPopBackdate)
 		if err != nil {
 			return fmt.Errorf("invalid backdate format: %w", err)
 		}
@@ -144,7 +143,7 @@ func runPopAll(cfg *models.Config, configManager *config.Manager) error {
 	return nil
 }
 
-func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []string) error {
+func runStashPopSpecific(cfg *models.Config, configManager *config.Manager, args []string) error {
 	// Validate all arguments first (fail-fast approach)
 	var targetEntries []*models.Entry
 
@@ -183,8 +182,8 @@ func runPopSpecific(cfg *models.Config, configManager *config.Manager, args []st
 
 	// Parse backdate offset if provided
 	var startTime time.Time
-	if popBackdate != "" {
-		offset, err := ParseDuration(popBackdate)
+	if stashPopBackdate != "" {
+		offset, err := ParseDuration(stashPopBackdate)
 		if err != nil {
 			return fmt.Errorf("invalid backdate format: %w", err)
 		}
