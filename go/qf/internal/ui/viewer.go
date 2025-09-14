@@ -250,11 +250,8 @@ func (vm *ViewerModel) View() string {
 	// Join lines and apply container style
 	content := strings.Join(lines, "\n")
 
-	// Apply focus-appropriate border
-	if vm.focused {
-		return vm.focusedStyle.Width(vm.width).Height(vm.height).Render(content)
-	}
-	return vm.unfocusedStyle.Width(vm.width).Height(vm.height).Render(content)
+	// Return content without borders - parent handles borders
+	return content
 }
 
 // Message handling methods
@@ -655,10 +652,8 @@ func (vm *ViewerModel) renderEmptyState() string {
 		Height(vm.height).
 		Align(lipgloss.Center, lipgloss.Center)
 
-	if vm.focused {
-		return vm.focusedStyle.Render(style.Render(emptyMsg))
-	}
-	return vm.unfocusedStyle.Render(style.Render(emptyMsg))
+	// Return empty state without borders - parent handles borders
+	return style.Render(emptyMsg)
 }
 
 // renderLine renders a single display line with highlighting and formatting
@@ -885,4 +880,10 @@ func (vm *ViewerModel) LoadFileTab(tab *file.FileTab) {
 	vm.resetViewport()
 	vm.adjustLineNumberWidth(tab.GetLineCount())
 	vm.refreshDisplayLines()
+}
+
+// SetDimensions updates the component dimensions
+func (vm *ViewerModel) SetDimensions(width, height int) {
+	vm.width = width
+	vm.height = height
 }

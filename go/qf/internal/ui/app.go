@@ -98,7 +98,7 @@ func NewAppModel(initialFiles []string) *AppModel {
 	)
 
 	app := &AppModel{
-		// Initialize with reasonable defaults
+		// Initialize with reasonable defaults (will be updated on first WindowSizeMsg)
 		width:  80,
 		height: 24,
 
@@ -183,8 +183,7 @@ func (m *AppModel) initStyles() {
 		StatusBar: lipgloss.NewStyle().
 			Foreground(primaryColor).
 			Background(borderColor).
-			Padding(0, 1).
-			Width(80),
+			Padding(0, 1),
 
 		ErrorStyle: lipgloss.NewStyle().
 			Foreground(errorColor).
@@ -206,9 +205,12 @@ func (m *AppModel) initStyles() {
 func (m *AppModel) initComponents() {
 	// Create filter pane with current session's filter set
 	m.filterPane = NewFilterPaneModel()
+	m.filterPane.SetStandalone(false) // Disable standalone rendering - parent handles borders
+	m.filterPane.SetDimensions(m.width, m.height)
 
 	// Create viewer with empty content initially
 	m.viewer = NewViewerModel()
+	m.viewer.SetDimensions(m.width, m.height)
 
 	// Create tabs model with session's open files
 	m.tabs = NewTabsModel(m.session.OpenFiles)
@@ -392,6 +394,15 @@ func (m *AppModel) handleBuiltinMessages(msg tea.Msg) tea.Cmd {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.layoutInvalid = true
+
+		// Update component dimensions directly
+		if m.filterPane != nil {
+			m.filterPane.SetDimensions(m.width, m.height)
+		}
+		if m.viewer != nil {
+			m.viewer.SetDimensions(m.width, m.height)
+		}
+
 		// Propagate resize to all components
 		return m.propagateToComponents(NewWindowResizeMsg(m.width, m.height))
 	}
@@ -973,38 +984,63 @@ func (m *AppModel) renderMainContent() string {
 	}
 
 	availableHeight := m.height - usedHeight
-	if availableHeight < 5 {
-		availableHeight = 5
+	if availableHeight < 10 { // Increase minimum to account for borders
+		availableHeight = 10
 	}
 
-	// Split height between filter pane and viewer
-	var filterPaneHeight int
-	showLineNumbers := m.config.GetUISettings().ShowLineNumbers // Use config for dynamic sizing
-	if showLineNumbers {
-		filterPaneHeight = availableHeight / 3 // 1/3 for filters
-	} else {
-		filterPaneHeight = availableHeight / 4 // 1/4 for filters
+	// Better height distribution - more space for viewer, less for filters
+	// Account for borders: each component loses 2 lines to borders
+	filterPaneHeight := 8 // Fixed reasonable height for filter panes
+	if availableHeight < 18 {
+		filterPaneHeight = 6 // Smaller in very tight spaces
 	}
 
 	viewerHeight := availableHeight - filterPaneHeight
 
-	// Render filter pane
+	// Ensure both components get reasonable space
+	if viewerHeight < 8 {
+		viewerHeight = 8
+		filterPaneHeight = availableHeight - viewerHeight
+	}
+
+	// Enforce minimum heights
+	if filterPaneHeight < 6 {
+		filterPaneHeight = 6
+	}
+	if viewerHeight < 8 {
+		viewerHeight = 8
+	}
+
+	// Render filter pane (single unified pane with both include/exclude)
 	var filterPaneView string
 	if m.filterPane != nil {
-		// Create side-by-side filter panes
-		includeView := m.renderFilterPane("include", filterPaneHeight)
-		excludeView := m.renderFilterPane("exclude", filterPaneHeight)
+		// Set correct dimensions for the filter pane before rendering
+		m.filterPane.SetDimensions(m.width-4, filterPaneHeight-2) // Account for borders and padding
 
-		filterPaneView = lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			includeView,
-			excludeView,
-		)
+		// Determine focus state
+		focused := (m.focused == FocusIncludeFilter) || (m.focused == FocusExcludeFilter)
+
+		style := m.styles.InactiveBorder
+		if focused {
+			style = m.styles.FocusedBorder
+		}
+
+		// Get content from filter pane component (now returns unstyled content)
+		content := m.filterPane.View()
+
+		// Apply border and sizing
+		filterPaneView = style.
+			Width(m.width - 2). // Account for border
+			Height(filterPaneHeight).
+			Render(content)
 	}
 
 	// Render viewer
 	var viewerView string
 	if m.viewer != nil {
+		// Set correct dimensions for the viewer before rendering
+		m.viewer.SetDimensions(m.width-4, viewerHeight-2) // Account for borders and padding
+
 		style := m.styles.InactiveBorder
 		if m.focused == FocusViewer {
 			style = m.styles.FocusedBorder
@@ -1023,32 +1059,6 @@ func (m *AppModel) renderMainContent() string {
 		filterPaneView,
 		viewerView,
 	)
-}
-
-func (m *AppModel) renderFilterPane(paneType string, height int) string {
-	if m.filterPane == nil {
-		return ""
-	}
-
-	// Determine focus state
-	focused := (paneType == "include" && m.focused == FocusIncludeFilter) ||
-		(paneType == "exclude" && m.focused == FocusExcludeFilter)
-
-	style := m.styles.InactiveBorder
-	if focused {
-		style = m.styles.FocusedBorder
-	}
-
-	// Get content from filter pane component
-	content := m.filterPane.View()
-
-	title := strings.ToUpper(paneType) + " PATTERNS"
-	titledContent := fmt.Sprintf("%s\n%s", title, content)
-
-	return style.
-		Width(m.width/2 - 1).
-		Height(height).
-		Render(titledContent)
 }
 
 func (m *AppModel) renderStatusBar() string {

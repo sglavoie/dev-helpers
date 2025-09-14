@@ -19,11 +19,12 @@ import (
 // It displays include and exclude patterns with vim-style navigation and editing.
 type FilterPaneModel struct {
 	// State management
-	filterSet FilterSet // Current filter configuration
-	mode      Mode      // Current mode (Normal/Insert)
-	focused   bool      // Whether this component has focus
-	width     int       // Available width for rendering
-	height    int       // Available height for rendering
+	filterSet  FilterSet // Current filter configuration
+	mode       Mode      // Current mode (Normal/Insert)
+	focused    bool      // Whether this component has focus
+	width      int       // Available width for rendering
+	height     int       // Available height for rendering
+	standalone bool      // Whether to render as standalone (with own borders) or child component
 
 	// Navigation and selection
 	cursor       int                    // Current cursor position in pattern list
@@ -60,6 +61,7 @@ func NewFilterPaneModel() *FilterPaneModel {
 		showHelp:      false,
 		lastKeyPress:  "",
 		componentType: "filter_pane",
+		standalone:    true, // Default to standalone rendering
 	}
 }
 
@@ -293,16 +295,14 @@ func (m FilterPaneModel) View() string {
 	title := m.renderTitle()
 	content.WriteString(title + "\n")
 
-	// Pattern lists
+	// Pattern lists - show both include and exclude sections
 	includeSection := m.renderIncludePatterns()
 	excludeSection := m.renderExcludePatterns()
 
-	// Main content area based on selected type
-	if m.selectedType == core.FilterInclude {
-		content.WriteString(includeSection)
-	} else {
-		content.WriteString(excludeSection)
-	}
+	// Show both sections separated by a line
+	content.WriteString(includeSection)
+	content.WriteString("\n") // Add separator line
+	content.WriteString(excludeSection)
 
 	// Input area (in insert mode)
 	if m.mode == ModeInsert {
@@ -320,9 +320,14 @@ func (m FilterPaneModel) View() string {
 		content.WriteString("\n" + helpText)
 	}
 
-	// Apply container styling
-	containerStyle := m.getContainerStyle()
-	return containerStyle.Render(content.String())
+	// Apply container styling only if standalone
+	if m.standalone {
+		containerStyle := m.getContainerStyle()
+		return containerStyle.Render(content.String())
+	}
+
+	// Return content without container styling for child component usage
+	return content.String()
 }
 
 // renderTitle creates the pane title with current mode and stats
@@ -804,4 +809,15 @@ func (m *FilterPaneModel) SetMode(mode Mode) {
 	if mode == ModeNormal {
 		m.inputBuffer = ""
 	}
+}
+
+// SetStandalone sets whether the component renders as standalone or child
+func (m *FilterPaneModel) SetStandalone(standalone bool) {
+	m.standalone = standalone
+}
+
+// SetDimensions updates the component dimensions
+func (m *FilterPaneModel) SetDimensions(width, height int) {
+	m.width = width
+	m.height = height
 }
