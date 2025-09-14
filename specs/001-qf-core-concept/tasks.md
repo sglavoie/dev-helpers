@@ -37,142 +37,142 @@
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Create Go project structure with cmd/qf/ and internal/ directories
-- [ ] T002 Initialize Go module and install Bubble Tea dependencies (v1.3.9, Lipgloss v1.1.0, Bubbles v0.21.0)
-- [ ] T003 Configure linting tools (golangci-lint) and formatting (gofmt)
+- [x] T001 Create Go project structure with cmd/qf/ and internal/ directories
+- [x] T002 Initialize Go module and install Bubble Tea dependencies (v1.3.9, Lipgloss v1.1.0, Bubbles v0.21.0)
+- [x] T003 Configure linting tools (golangci-lint) and formatting (gofmt)
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
-- [ ] T004 [P] Contract test for FileReader interface in tests/contract/file_operations_test.go
+- [x] T004 [P] Contract test for FileReader interface in tests/contract/file_operations_test.go
     - **Test Requirements:** ReadFile returns channel of Line structs, handles files >100MB with streaming mode, context cancellation stops reading, returns error for non-existent files, supports UTF-8 and handles encoding errors
     - **Must assert:** Channel closes on completion, line numbers sequential
 
-- [ ] T005 [P] Contract test for FilterEngine interface in tests/contract/filtering_engine_test.go
+- [x] T005 [P] Contract test for FilterEngine interface in tests/contract/filtering_engine_test.go
     - **Test Requirements:** Include patterns use OR logic, exclude patterns use veto logic, empty includes = show all (minus excludes), pattern compilation caching works, invalid regex returns validation error
     - **Must assert:** Performance <150ms for 10K lines
 
-- [ ] T006 [P] Contract test for UI Message handling in tests/contract/ui_messages_test.go
+- [x] T006 [P] Contract test for UI Message handling in tests/contract/ui_messages_test.go
     - **Test Requirements:** FilterUpdateMsg propagates filter changes, KeyMsg handles Normal/Insert mode transitions, ErrorMsg displays user-friendly errors, FileOpenMsg loads content correctly
     - **Must assert:** Message passing between components
 
-- [ ] T007 [P] Integration test for basic log filtering workflow in tests/integration/basic_filtering_test.go
+- [x] T007 [P] Integration test for basic log filtering workflow in tests/integration/basic_filtering_test.go
     - **Scenario:** From quickstart.md - basic filtering with include/exclude patterns
 
-- [ ] T008 [P] Integration test for multi-file analysis in tests/integration/multi_file_test.go
+- [x] T008 [P] Integration test for multi-file analysis in tests/integration/multi_file_test.go
     - **Scenario:** From quickstart.md - tab management and shared filter sets
 
-- [ ] T009 [P] Integration test for large file handling in tests/integration/large_file_test.go
+- [x] T009 [P] Integration test for large file handling in tests/integration/large_file_test.go
     - **Scenario:** From quickstart.md - streaming mode activation and performance
 
-- [ ] T010 [P] Integration test for configuration management in tests/integration/config_test.go
+- [x] T010 [P] Integration test for configuration management in tests/integration/config_test.go
     - **Scenario:** From quickstart.md - config editing and hot-reload
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
-- [ ] T011 [P] Pattern model in internal/core/pattern.go
+- [x] T011 [P] Pattern model in internal/core/pattern.go
     - Implement Pattern struct with UUID generation
     - Use standard `regexp` package (not regexp2)
     - Include validation method returning bool + error
     - Color field uses hex format validation
 
-- [ ] T012 [P] FilterSet model in internal/core/filter_set.go
+- [x] T012 [P] FilterSet model in internal/core/filter_set.go
     - Include/Exclude pattern collections
     - Validation for unique pattern IDs
     - Name and description fields
 
-- [ ] T013 [P] FileTab model in internal/file/file_tab.go
+- [x] T013 [P] FileTab model in internal/file/file_tab.go
     - File metadata and view state
     - Display name and path handling
     - Modified flag tracking
 
-- [ ] T014 [P] Session model in internal/session/session.go
+- [x] T014 [P] Session model in internal/session/session.go
     - Complete workspace state
     - FilterSet and file tab management
     - UI state persistence
 
-- [ ] T015 [P] Config model in internal/config/config.go
+- [x] T015 [P] Config model in internal/config/config.go
     - Configuration struct with validation tags
     - Default value initialization
     - JSON marshaling support
 
-- [ ] T016 [P] FileReader implementation in internal/file/reader.go
+- [x] T016 [P] FileReader implementation in internal/file/reader.go
     - Implement streaming for files >100MB (configurable)
     - Use buffered reader with 64KB chunks
     - Return `chan Line` for async processing
     - Support context cancellation via `select` statement
 
-- [ ] T017 [P] FilterEngine implementation in internal/core/filter.go
+- [x] T017 [P] FilterEngine implementation in internal/core/filter.go
     - Implement include OR logic: `if any(include.Match(line)) { show }`
     - Implement exclude veto: `if any(exclude.Match(line)) { hide }`
     - Cache compiled patterns using sync.Map
     - Debounce filter updates (150ms default)
 
-- [ ] T018 [P] PatternManager with LRU cache in internal/core/pattern_manager.go
+- [x] T018 [P] PatternManager with LRU cache in internal/core/pattern_manager.go
     - Use container/list for LRU implementation
     - Max 100 patterns (configurable)
     - Thread-safe with sync.RWMutex
     - Track hit/miss statistics
-- [ ] T019 Filter pane Bubble Tea component in internal/ui/filter_pane.go
-- [ ] T020 Content viewer Bubble Tea component in internal/ui/viewer.go
-- [ ] T021 Tab manager Bubble Tea component in internal/ui/tabs.go
-- [ ] T022 Status bar Bubble Tea component in internal/ui/statusbar.go
-- [ ] T023 Main application Bubble Tea model in internal/ui/app.go
-- [ ] T024 CLI command parsing and main function in cmd/qf/main.go
+- [x] T019 Filter pane Bubble Tea component in internal/ui/filter_pane.go
+- [x] T020 Content viewer Bubble Tea component in internal/ui/viewer.go
+- [x] T021 Tab manager Bubble Tea component in internal/ui/tabs.go
+- [x] T022 Status bar Bubble Tea component in internal/ui/statusbar.go
+- [x] T023 Main application Bubble Tea model in internal/ui/app.go
+- [x] T024 CLI command parsing and main function in cmd/qf/main.go
 
 ## Phase 3.3.5: Modal Interface
 
-- [ ] T024a Modal state manager in internal/ui/mode.go
+- [x] T024a Modal state manager in internal/ui/mode.go
     - Implement Normal/Insert mode state machine
     - Handle Escape key for mode exit
     - Track which pane has focus
 
-- [ ] T024b Keyboard shortcut handler in internal/ui/keyboard.go
+- [x] T024b Keyboard shortcut handler in internal/ui/keyboard.go
     - Map keys to commands based on current mode
     - Implement vim-style navigation (j/k, gg/G, n/N)
     - Handle Tab for pane switching
     - **Tab navigation:** Use left/right arrow keys to switch between file tabs when multiple files are open
     - Number keys (1-9) for direct tab access
 
-- [ ] T024c Pattern testing overlay in internal/ui/overlay.go
+- [x] T024c Pattern testing overlay in internal/ui/overlay.go
     - Floating UI component for pattern testing
     - Shows live matches before adding pattern
     - Choose include/exclude on confirmation
 
 ## Phase 3.4: Integration (Enhanced with Implementation Details)
 
-- [ ] T025 File streaming and buffer management in internal/file/buffer.go
+- [x] T025 File streaming and buffer management in internal/file/buffer.go
     - Circular buffer for last 10K lines
     - Load-on-demand for context lines
     - Memory-mapped files for >1GB files
     - Progress indicator for initial load
 
-- [ ] T026 Session persistence and auto-save in internal/session/persistence.go
+- [x] T026 Session persistence and auto-save in internal/session/persistence.go
     - JSON format at `~/.config/qf/sessions/`
     - Atomic writes with temp file + rename
     - Auto-save every 30 seconds (configurable)
     - Keep 3 backup versions
 
-- [ ] T027 Configuration hot-reload and validation in internal/config/manager.go
+- [x] T027 Configuration hot-reload and validation in internal/config/manager.go
     - File watcher using fsnotify or polling
     - Validate before applying changes
     - Send ConfigUpdateMsg to all components
     - Log rejected invalid values
 
-- [ ] T028 Pattern highlighting and match display in internal/core/highlighter.go
+- [x] T028 Pattern highlighting and match display in internal/core/highlighter.go
     - ANSI escape sequences for terminal colors
     - Non-overlapping highlights (priority: exclude > include)
     - Support 256-color and true-color terminals
     - Fallback to basic 8 colors
 
-- [ ] T029 Export functionality (text, ripgrep commands) in internal/export/exporter.go
+- [x] T029 Export functionality (text, ripgrep commands) in internal/export/exporter.go
     - Plain text with optional line numbers
     - Generate ripgrep command: `rg '(pattern1|pattern2)' --invert-match 'exclude'`
     - Clipboard support via clipboard package
     - File export with timestamp suffix
 
-- [ ] T030 Keyboard shortcuts and modal interface handling in internal/ui/input.go
+- [x] T030 Keyboard shortcuts and modal interface handling in internal/ui/input.go
     - Bubble Tea KeyMsg handling
     - Mode-aware command dispatch
     - Help overlay with context-sensitive shortcuts
@@ -180,35 +180,35 @@
 
 ## Phase 3.5: Polish (Enhanced with Concrete Targets)
 
-- [ ] T031 [P] Unit tests for pattern validation in tests/unit/pattern_validation_test.go
+- [x] T031 [P] Unit tests for pattern validation in tests/unit/pattern_validation_test.go
     - **Target:** 90% coverage
 
-- [ ] T032 [P] Unit tests for filtering logic in tests/unit/filter_logic_test.go
+- [x] T032 [P] Unit tests for filtering logic in tests/unit/filter_logic_test.go
     - **Target:** 95% coverage
 
-- [ ] T033 [P] Unit tests for session management in tests/unit/session_test.go
+- [x] T033 [P] Unit tests for session management in tests/unit/session_test.go
     - **Target:** 85% coverage
 
-- [ ] T034 [P] Performance benchmarks for large file processing in tests/performance/streaming_test.go
+- [x] T034 [P] Performance benchmarks for large file processing in tests/performance/streaming_test.go
     - **Target:** 100MB file loads in <3 seconds
     - Streaming maintains <100MB memory usage
     - Smooth scrolling at 60fps
 
-- [ ] T035 [P] Performance benchmarks for regex caching in tests/performance/cache_test.go
+- [x] T035 [P] Performance benchmarks for regex caching in tests/performance/cache_test.go
     - **Target:** >80% cache hit rate
     - Pattern compilation <20ms
     - 100K lines/sec for simple patterns
 
-- [ ] T036 Vim-style keybinding documentation in docs/keybindings.md
+- [x] T036 Vim-style keybinding documentation in docs/keybindings.md
 
-- [ ] T037 Code optimization
+- [x] T037 Code optimization
     - **Specific targets:**
         - Extract duplicate filter logic to shared function
         - Consolidate file I/O error handling
         - Refactor Bubble Tea Update methods >100 lines
         - Profile and optimize hot paths
 
-- [ ] T038 Execute quickstart manual testing scenarios from quickstart.md
+- [x] T038 Execute quickstart manual testing scenarios from quickstart.md
 
 ## Dependencies
 

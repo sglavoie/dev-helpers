@@ -3,7 +3,8 @@
 **Project**: Interactive Log Filter Composer (qf)
 **Language**: Go 1.25+
 **Architecture**: Terminal UI application using Bubble Tea framework
-**Last Updated**: 2025-09-13
+**Project's root**: @go/qf
+**Last Updated**: 2025-09-14
 
 ## Project Overview
 
@@ -29,7 +30,7 @@ qf is a terminal-based interactive log filter composer that transforms log filte
 - **Modal interface**: Strict Normal/Insert mode separation (Vim-style)
 - **Streaming support**: Handle large files without memory issues
 
-## Project Structure
+## Project Structure (relative to ./go)
 
 ```
 qf/
