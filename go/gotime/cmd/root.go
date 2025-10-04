@@ -315,6 +315,31 @@ func getRelativeTime(t time.Time) string {
 	}
 }
 
+// formatGapDuration formats a duration between entries in a readable format
+func formatGapDuration(d time.Duration) string {
+	if d < time.Minute {
+		seconds := int(d.Seconds())
+		return fmt.Sprintf("%ds", seconds)
+	} else if d < time.Hour {
+		minutes := int(d.Minutes())
+		return fmt.Sprintf("%dm", minutes)
+	} else if d < 24*time.Hour {
+		hours := int(d.Hours())
+		minutes := int(d.Minutes()) % 60
+		if minutes == 0 {
+			return fmt.Sprintf("%dh", hours)
+		}
+		return fmt.Sprintf("%dh%dm", hours, minutes)
+	} else {
+		days := int(d.Hours() / 24)
+		hours := int(d.Hours()) % 24
+		if hours == 0 {
+			return fmt.Sprintf("%dd", days)
+		}
+		return fmt.Sprintf("%dd%dh", days, hours)
+	}
+}
+
 // ParseDateRange parses a date range string and sets it on a filter
 func ParseDateRange(filter *filters.Filter, rangeStr string) error {
 	parts := strings.Split(rangeStr, ",")

@@ -32,6 +32,7 @@ var (
 	listMaxDuration     string
 	listFromDate        string
 	listToDate          string
+	listShowGaps        bool
 )
 
 // listCmd represents the list command
@@ -86,6 +87,9 @@ func init() {
 	// Duration filters
 	listCmd.Flags().StringVar(&listMinDuration, "min-duration", "", "minimum duration filter (e.g., '1h', '30m', '3600')")
 	listCmd.Flags().StringVar(&listMaxDuration, "max-duration", "", "maximum duration filter (e.g., '4h', '2h30m', '14400')")
+
+	// Display options
+	listCmd.Flags().BoolVar(&listShowGaps, "show-gaps", false, "show ENDED and GAP columns")
 
 	listCmd.MarkFlagsMutuallyExclusive("active", "no-active")
 	listCmd.MarkFlagsMutuallyExclusive("exclude-keywords", "keywords")
@@ -166,15 +170,15 @@ func runList(cmd *cobra.Command, args []string) error {
 		filter.SetKeywords(listExcludeKeywords)
 		filter.ExcludeKeywords = true
 	}
-	
+
 	if listTags != "" {
 		filter.SetTags(listTags)
 		filter.ExcludeTags = false
 	} else if listExcludeTags != "" {
-		filter.SetTags(listExcludeTags)  
+		filter.SetTags(listExcludeTags)
 		filter.ExcludeTags = true
 	}
-	
+
 	filter.ActiveOnly = listActiveOnly
 	filter.NoActive = listNoActive
 	filter.IncludeStashed = true // List command should show stashed entries
@@ -203,14 +207,24 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	SortEntries(entries, ByShortID, Ascending)
+	// Sort by start time (oldest first) for chronological display
+	SortEntries(entries, ByStartTime, Ascending)
+
+	// Determine if we should show gaps (flag OR config setting)
+	showGaps := listShowGaps || cfg.ListShowGaps
 
 	// Create table
 	t := table.NewWriter()
 	t.SetStyle(table.StyleRounded)
-	t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "Started", "Status"})
 
-	for _, entry := range entries {
+	// Build header based on showGaps setting
+	if showGaps {
+		t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "Started", "Ended", "Gap", "Status"})
+	} else {
+		t.AppendHeader(table.Row{"ID", "Keyword", "Duration", "Tags", "Started", "Status"})
+	}
+
+	for i, entry := range entries {
 		var status string
 		var currentDuration int
 
@@ -258,13 +272,59 @@ func runList(cmd *cobra.Command, args []string) error {
 
 		startedStr := entry.StartTime.Format("Jan 2 3:04 PM")
 
-		row := table.Row{
-			entry.ShortID,
-			entry.Keyword,
-			durationStr,
-			tagsStr,
-			startedStr,
-			status,
+		// Build row based on showGaps setting
+		var row table.Row
+		if showGaps {
+			// Calculate ENDED column
+			var endedStr string
+			if entry.EndTime != nil {
+				endedStr = entry.EndTime.Format("Jan 2 3:04 PM")
+			} else {
+				endedStr = "-"
+			}
+
+			// Calculate GAP column
+			var gapStr string
+			if i == 0 {
+				// First entry has no previous entry
+				gapStr = "-"
+			} else {
+				prevEntry := entries[i-1]
+				if prevEntry.EndTime == nil {
+					// Previous entry is active/stashed, no gap can be calculated
+					gapStr = "-"
+				} else {
+					// Calculate gap between previous entry's end and current entry's start
+					gap := entry.StartTime.Sub(*prevEntry.EndTime)
+					if gap < 0 {
+						// Overlapping entries
+						gapStr = "overlap"
+					} else {
+						// Format gap duration (not relative to now, but the actual gap duration)
+						gapStr = formatGapDuration(gap)
+					}
+				}
+			}
+
+			row = table.Row{
+				entry.ShortID,
+				entry.Keyword,
+				durationStr,
+				tagsStr,
+				startedStr,
+				endedStr,
+				gapStr,
+				status,
+			}
+		} else {
+			row = table.Row{
+				entry.ShortID,
+				entry.Keyword,
+				durationStr,
+				tagsStr,
+				startedStr,
+				status,
+			}
 		}
 
 		t.AppendRow(row)

@@ -35,11 +35,12 @@ type UndoRecord struct {
 
 // Config represents the application configuration and state
 type Config struct {
-	Entries     []Entry      `json:"entries"`
-	NextShortID int          `json:"next_short_id"`
-	LastKeyword string       `json:"last_entry_keyword"`
-	Stashes     []Stash      `json:"stashes"`      // Currently only one supported
-	UndoHistory []UndoRecord `json:"undo_history"` // Recent destructive operations for undo
+	Entries      []Entry      `json:"entries"`
+	NextShortID  int          `json:"next_short_id"`
+	LastKeyword  string       `json:"last_entry_keyword"`
+	Stashes      []Stash      `json:"stashes"`       // Currently only one supported
+	UndoHistory  []UndoRecord `json:"undo_history"`  // Recent destructive operations for undo
+	ListShowGaps bool         `json:"listShowsGaps"` // Show ENDED and GAP columns in list by default
 }
 
 // Entry represents a time tracking entry
