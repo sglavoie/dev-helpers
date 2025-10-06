@@ -22,7 +22,7 @@ certifi==2025.8.3
 cffi==1.17.1
 cgmetadata==0.2.0
 charset-normalizer==3.4.3
-click==8.2.1
+click==8.3.0
 idna==3.10
 jedi==0.19.2
 mac-alias==2.2.2
@@ -35,7 +35,7 @@ mdurl==0.1.2
 more-itertools==8.14.0
 objexplore==1.6.3
 osxmetadata==1.4.0
-osxphotos==0.72.3
+osxphotos==0.73.1
 packaging==25.0
 parso==0.8.5
 pathvalidate==3.3.1
