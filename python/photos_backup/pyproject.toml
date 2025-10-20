@@ -5,7 +5,7 @@ description = "Simple backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
     "click>=8.3.0",
-    "osxphotos>=0.73.1",
+    "osxphotos>=0.73.4",
     "python-dotenv>=1.1.1",
 ]
 readme = "README.md"  # `rye` doesn't know what do to with a `README.adoc`

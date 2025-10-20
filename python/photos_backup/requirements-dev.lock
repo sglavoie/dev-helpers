@@ -40,7 +40,7 @@ more-itertools==8.14.0
 nodeenv==1.9.1
 objexplore==1.6.3
 osxmetadata==1.4.0
-osxphotos==0.73.1
+osxphotos==0.73.4
 packaging==25.0
 parso==0.8.5
 pathvalidate==3.3.1
