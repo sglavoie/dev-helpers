@@ -1,0 +1,72 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "gotime",
+  "title": "GoTime - Time Tracker",
+  "description": "Manage your time tracking with gotime CLI",
+  "icon": "icon.png",
+  "author": "sglavoie",
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "gotime",
+      "title": "GoTime",
+      "description": "Time tracking hub - access all GoTime commands",
+      "mode": "view"
+    },
+    {
+      "name": "active-timers",
+      "title": "GoTime: Active Timers",
+      "description": "View and manage active timers",
+      "mode": "view"
+    },
+    {
+      "name": "weekly-report",
+      "title": "GoTime: Weekly Report",
+      "description": "View weekly time tracking report",
+      "mode": "view"
+    },
+    {
+      "name": "start-timer",
+      "title": "GoTime: Start Timer",
+      "description": "Start a new timer",
+      "mode": "view"
+    },
+    {
+      "name": "continue-timer",
+      "title": "GoTime: Continue Timer",
+      "description": "Continue a previous timer",
+      "mode": "view"
+    },
+    {
+      "name": "delete-timer",
+      "title": "GoTime: Delete Timer",
+      "description": "Delete a timer entry",
+      "mode": "view"
+    }
+  ],
+  "preferences": [],
+  "dependencies": {
+    "@raycast/api": "^1.103.4",
+    "@raycast/utils": "^2.2.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "24.9.1",
+    "@types/react": "19.2.2",
+    "eslint": "^9.38.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}

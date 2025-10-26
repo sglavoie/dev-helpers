@@ -33,6 +33,7 @@ var (
 	listFromDate        string
 	listToDate          string
 	listShowGaps        bool
+	listJSON            bool
 )
 
 // listCmd represents the list command
@@ -90,6 +91,7 @@ func init() {
 
 	// Display options
 	listCmd.Flags().BoolVar(&listShowGaps, "show-gaps", false, "show ENDED and GAP columns")
+	listCmd.Flags().BoolVar(&listJSON, "json", false, "output entries as JSON")
 
 	listCmd.MarkFlagsMutuallyExclusive("active", "no-active")
 	listCmd.MarkFlagsMutuallyExclusive("exclude-keywords", "keywords")
@@ -330,7 +332,14 @@ func runList(cmd *cobra.Command, args []string) error {
 		t.AppendRow(row)
 	}
 
-	if IsVerbose() {
+	if listJSON {
+		// Output as clean JSON (no extra text)
+		jsonData, err := json.MarshalIndent(entries, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal entries to JSON: %w", err)
+		}
+		fmt.Println(string(jsonData))
+	} else if IsVerbose() {
 		// Output entries as pretty-printed JSON
 		if err := outputEntriesAsJSON(entries); err != nil {
 			return fmt.Errorf("failed to output JSON: %w", err)

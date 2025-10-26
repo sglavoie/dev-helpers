@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ var (
 	reportExcludeKeywords string
 	reportTags            string
 	reportExcludeTags     string
+	reportJSON            bool
 )
 
 // reportCmd represents the report command
@@ -60,6 +62,7 @@ func init() {
 	reportCmd.Flags().StringVar(&reportExcludeKeywords, "exclude-keywords", "", "exclude entries with specified keywords (comma-separated)")
 	reportCmd.Flags().StringVar(&reportTags, "tags", "", "filter by tags (comma-separated)")
 	reportCmd.Flags().StringVar(&reportExcludeTags, "exclude-tags", "", "exclude entries with specified tags (comma-separated)")
+	reportCmd.Flags().BoolVar(&reportJSON, "json", false, "output report as JSON")
 
 	reportCmd.MarkFlagsMutuallyExclusive("exclude-keywords", "keywords")
 	reportCmd.MarkFlagsMutuallyExclusive("exclude-tags", "tags")
@@ -136,10 +139,52 @@ func runReport(cmd *cobra.Command, args []string) error {
 	return GenerateReport(entries, filter)
 }
 
+// ReportJSON represents the JSON structure for a report
+type ReportJSON struct {
+	Title             string                 `json:"title"`
+	TimeRange         string                 `json:"time_range"`
+	CompletedEntries  []KeywordSummaryJSON   `json:"completed_entries,omitempty"`
+	ActiveEntries     []models.Entry         `json:"active_entries,omitempty"`
+	WeeklyData        *WeeklyReportJSON      `json:"weekly_data,omitempty"`
+	TotalDuration     int                    `json:"total_duration"`
+	CompletedDuration int                    `json:"completed_duration"`
+	ActiveDuration    int                    `json:"active_duration"`
+}
+
+// KeywordSummaryJSON represents keyword summary for JSON output
+type KeywordSummaryJSON struct {
+	Keyword  string   `json:"keyword"`
+	Duration int      `json:"duration"`
+	Entries  int      `json:"entries"`
+	Tags     []string `json:"tags"`
+}
+
+// WeeklyReportJSON represents weekly report data
+type WeeklyReportJSON struct {
+	Keywords    []WeeklyKeywordJSON `json:"keywords"`
+	DailyTotals [7]int              `json:"daily_totals"`
+	GrandTotal  int                 `json:"grand_total"`
+}
+
+// WeeklyKeywordJSON represents a keyword's weekly data
+type WeeklyKeywordJSON struct {
+	Keyword      string `json:"keyword"`
+	DailyData    [7]int `json:"daily_data"`
+	KeywordTotal int    `json:"keyword_total"`
+}
+
 func GenerateReport(entries []models.Entry, filter *filters.Filter) error {
 	if len(entries) == 0 {
-		fmt.Println("No entries found for the specified criteria")
+		if reportJSON {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No entries found for the specified criteria")
+		}
 		return nil
+	}
+
+	if reportJSON {
+		return generateJSONReport(entries, filter)
 	}
 
 	// Print report header
@@ -180,6 +225,223 @@ func GenerateReport(entries []models.Entry, filter *filters.Filter) error {
 	PrintGrandTotal(completedEntries, activeEntries)
 
 	return nil
+}
+
+func generateJSONReport(entries []models.Entry, filter *filters.Filter) error {
+	report := ReportJSON{
+		Title:     getReportTitle(filter),
+		TimeRange: getTimeRangeString(filter),
+	}
+
+	// Special handling for weekly reports
+	if filter.TimeRange == filters.TimeRangeWeek {
+		weeklyData := generateWeeklyReportJSON(entries)
+		report.WeeklyData = &weeklyData
+		report.TotalDuration = weeklyData.GrandTotal
+
+		jsonData, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal report to JSON: %w", err)
+		}
+		fmt.Println(string(jsonData))
+		return nil
+	}
+
+	// Separate active and completed entries
+	var completedEntries []models.Entry
+	var activeEntries []models.Entry
+
+	for _, entry := range entries {
+		if entry.Active {
+			activeEntries = append(activeEntries, entry)
+		} else {
+			completedEntries = append(completedEntries, entry)
+		}
+	}
+
+	// Generate completed entries summary
+	if len(completedEntries) > 0 {
+		report.CompletedEntries = generateKeywordSummaryJSON(completedEntries)
+	}
+
+	// Include active entries
+	if len(activeEntries) > 0 {
+		report.ActiveEntries = activeEntries
+	}
+
+	// Calculate totals
+	completedDuration := 0
+	for _, entry := range completedEntries {
+		completedDuration += entry.Duration
+	}
+	report.CompletedDuration = completedDuration
+
+	activeDuration := 0
+	for _, entry := range activeEntries {
+		activeDuration += entry.GetCurrentDuration()
+	}
+	report.ActiveDuration = activeDuration
+	report.TotalDuration = completedDuration + activeDuration
+
+	jsonData, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal report to JSON: %w", err)
+	}
+	fmt.Println(string(jsonData))
+	return nil
+}
+
+func getReportTitle(filter *filters.Filter) string {
+	now := time.Now()
+	switch filter.TimeRange {
+	case filters.TimeRangeToday:
+		return fmt.Sprintf("Today's Report (%s)", now.Format("Jan 2, 2006"))
+	case filters.TimeRangeYesterday:
+		yesterday := now.AddDate(0, 0, -1)
+		return fmt.Sprintf("Yesterday's Report (%s)", yesterday.Format("Jan 2, 2006"))
+	case filters.TimeRangeWeek:
+		weekStart := getWeekStart(now)
+		weekEnd := weekStart.AddDate(0, 0, 6)
+		return fmt.Sprintf("Weekly Report (%s - %s)",
+			weekStart.Format("Jan 2"), weekEnd.Format("Jan 2, 2006"))
+	case filters.TimeRangeMonth:
+		return fmt.Sprintf("Monthly Report (%s)", now.Format("January 2006"))
+	case filters.TimeRangeYear:
+		return fmt.Sprintf("Yearly Report (%d)", now.Year())
+	case filters.TimeRangeDays:
+		return fmt.Sprintf("Last %d Days Report", filter.DaysBack)
+	case filters.TimeRangeBetween:
+		if filter.StartDate != nil && filter.EndDate != nil {
+			return fmt.Sprintf("Custom Report (%s - %s)",
+				filter.StartDate.Format("Jan 2"), filter.EndDate.Format("Jan 2, 2006"))
+		}
+	}
+	return "Time Tracking Report"
+}
+
+func getTimeRangeString(filter *filters.Filter) string {
+	switch filter.TimeRange {
+	case filters.TimeRangeToday:
+		return "today"
+	case filters.TimeRangeYesterday:
+		return "yesterday"
+	case filters.TimeRangeWeek:
+		return "week"
+	case filters.TimeRangeMonth:
+		return "month"
+	case filters.TimeRangeYear:
+		return "year"
+	case filters.TimeRangeDays:
+		return fmt.Sprintf("last_%d_days", filter.DaysBack)
+	case filters.TimeRangeBetween:
+		return "custom"
+	}
+	return "unknown"
+}
+
+func generateKeywordSummaryJSON(entries []models.Entry) []KeywordSummaryJSON {
+	// Group by keyword
+	keywordMap := make(map[string][]models.Entry)
+	for _, entry := range entries {
+		keywordMap[entry.Keyword] = append(keywordMap[entry.Keyword], entry)
+	}
+
+	// Sort keywords
+	var keywords []string
+	for keyword := range keywordMap {
+		keywords = append(keywords, keyword)
+	}
+	sort.Strings(keywords)
+
+	var summaries []KeywordSummaryJSON
+	for _, keyword := range keywords {
+		keywordEntries := keywordMap[keyword]
+		keywordDuration := 0
+		tagSet := make(map[string]bool)
+
+		for _, entry := range keywordEntries {
+			keywordDuration += entry.Duration
+			for _, tag := range entry.Tags {
+				tagSet[tag] = true
+			}
+		}
+
+		// Collect unique tags
+		var tags []string
+		for tag := range tagSet {
+			tags = append(tags, tag)
+		}
+		sort.Strings(tags)
+
+		summaries = append(summaries, KeywordSummaryJSON{
+			Keyword:  keyword,
+			Duration: keywordDuration,
+			Entries:  len(keywordEntries),
+			Tags:     tags,
+		})
+	}
+
+	return summaries
+}
+
+func generateWeeklyReportJSON(entries []models.Entry) WeeklyReportJSON {
+	now := time.Now()
+	weekStart := getWeekStart(now)
+
+	keywordData := make(map[string][7]int)
+	dailyTotals := [7]int{}
+
+	for _, entry := range entries {
+		daysDiff := int(entry.StartTime.Sub(weekStart).Hours() / 24)
+		if daysDiff < 0 || daysDiff > 6 {
+			continue
+		}
+
+		duration := entry.Duration
+		if entry.Active {
+			duration = entry.GetCurrentDuration()
+		}
+
+		if _, exists := keywordData[entry.Keyword]; !exists {
+			keywordData[entry.Keyword] = [7]int{}
+		}
+
+		dayData := keywordData[entry.Keyword]
+		dayData[daysDiff] += duration
+		keywordData[entry.Keyword] = dayData
+		dailyTotals[daysDiff] += duration
+	}
+
+	// Sort keywords
+	keywords := make([]string, 0, len(keywordData))
+	for keyword := range keywordData {
+		keywords = append(keywords, keyword)
+	}
+	sort.Strings(keywords)
+
+	grandTotal := 0
+	var weeklyKeywords []WeeklyKeywordJSON
+
+	for _, keyword := range keywords {
+		dayData := keywordData[keyword]
+		keywordTotal := 0
+		for day := 0; day < 7; day++ {
+			keywordTotal += dayData[day]
+		}
+		grandTotal += keywordTotal
+
+		weeklyKeywords = append(weeklyKeywords, WeeklyKeywordJSON{
+			Keyword:      keyword,
+			DailyData:    dayData,
+			KeywordTotal: keywordTotal,
+		})
+	}
+
+	return WeeklyReportJSON{
+		Keywords:    weeklyKeywords,
+		DailyTotals: dailyTotals,
+		GrandTotal:  grandTotal,
+	}
 }
 
 func printReportHeader(filter *filters.Filter) {
