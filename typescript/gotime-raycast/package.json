@@ -46,6 +46,12 @@
       "title": "GoTime: Delete Timer",
       "description": "Delete a timer entry",
       "mode": "view"
+    },
+    {
+      "name": "set-entry",
+      "title": "GoTime: Edit Entry",
+      "description": "Edit timer entry fields (keyword, tags, duration, timestamps)",
+      "mode": "view"
     }
   ],
   "preferences": [],

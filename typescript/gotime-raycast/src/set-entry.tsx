@@ -1,7 +1,9 @@
 import {
   Action,
   ActionPanel,
+  Alert,
   Color,
+  confirmAlert,
   Form,
   Icon,
   List,
@@ -11,8 +13,20 @@ import {
   showToast,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { execSync } from "child_process";
+import {
+  parseDuration,
+  formatDuration,
+  formatDurationCompact,
+  calculateDuration,
+} from "./utils/duration";
+import {
+  parseTimeInput,
+  formatTime,
+  applyTimeToDate,
+  getTimeValidationError,
+} from "./utils/time";
 
 interface Entry {
   id: string;
@@ -24,19 +38,6 @@ interface Entry {
   duration: number;
   active: boolean;
   stashed: boolean;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  const parts: string[] = [];
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0) parts.push(`${minutes}m`);
-  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-
-  return parts.join(" ");
 }
 
 function formatRelativeTime(dateString: string | null): string {
@@ -68,28 +69,154 @@ function getCurrentDuration(entry: Entry): number {
   return elapsed;
 }
 
+function formatDateTime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 interface EditFormProps {
   entry: Entry;
+  allKeywords: string[];
+  allTags: string[];
   onComplete: () => void;
 }
 
-function EditEntryForm({ entry, onComplete }: EditFormProps) {
+function EditEntryForm({
+  entry,
+  allKeywords,
+  allTags,
+  onComplete,
+}: EditFormProps) {
   const [keywordError, setKeywordError] = useState<string | undefined>();
+  const [keywordSearchText, setKeywordSearchText] = useState<string>("");
+  const [durationInput, setDurationInput] = useState<string>(
+    formatDurationCompact(entry.duration),
+  );
+  const [durationError, setDurationError] = useState<string | undefined>();
+  const [calculatedDuration, setCalculatedDuration] = useState<number>(
+    entry.duration,
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(entry.tags);
+  const [startDateTime, setStartDateTime] = useState<Date>(
+    new Date(entry.start_time),
+  );
+  const [endDateTime, setEndDateTime] = useState<Date | undefined>(
+    entry.end_time ? new Date(entry.end_time) : undefined,
+  );
+  const [timestampsChanged, setTimestampsChanged] = useState<boolean>(false);
+  const [startTimeInput, setStartTimeInput] = useState<string>(
+    formatTime(new Date(entry.start_time)),
+  );
+  const [endTimeInput, setEndTimeInput] = useState<string>(
+    entry.end_time ? formatTime(new Date(entry.end_time)) : "",
+  );
+  const [startTimeError, setStartTimeError] = useState<string | undefined>();
+  const [endTimeError, setEndTimeError] = useState<string | undefined>();
 
-  async function handleSubmit(values: {
-    keyword: string;
-    tags: string;
-    startDate: Date;
-    startTime: Date;
-    endDate?: Date;
-    endTime?: Date;
-  }) {
-    const keyword = values.keyword.trim();
+  // Update calculated duration when start or end time changes
+  useEffect(() => {
+    if (startDateTime && endDateTime) {
+      try {
+        const duration = calculateDuration(startDateTime, endDateTime);
+        setCalculatedDuration(duration);
+        setDurationInput(formatDurationCompact(duration));
+        setDurationError(undefined);
+      } catch (error) {
+        setDurationError(
+          error instanceof Error ? error.message : "Invalid time range",
+        );
+      }
+    }
+  }, [startDateTime, endDateTime]);
+
+  // Detect timestamp changes
+  useEffect(() => {
+    const originalStart = new Date(entry.start_time);
+    const originalEnd = entry.end_time ? new Date(entry.end_time) : null;
+
+    const startChanged = startDateTime.getTime() !== originalStart.getTime();
+    const endChanged = endDateTime
+      ? originalEnd
+        ? endDateTime.getTime() !== originalEnd.getTime()
+        : true
+      : false;
+
+    setTimestampsChanged(startChanged || endChanged);
+  }, [startDateTime, endDateTime, entry]);
+
+  function handleDurationChange(value: string) {
+    setDurationInput(value);
+    setDurationError(undefined);
+
+    try {
+      const seconds = parseDuration(value);
+      setCalculatedDuration(seconds);
+
+      // Update end time based on new duration
+      if (startDateTime) {
+        const newEnd = new Date(startDateTime.getTime() + seconds * 1000);
+        setEndDateTime(newEnd);
+        setEndTimeInput(formatTime(newEnd));
+      }
+    } catch (error) {
+      setDurationError(
+        error instanceof Error ? error.message : "Invalid duration",
+      );
+    }
+  }
+
+  function handleStartTimeChange(value: string) {
+    setStartTimeInput(value);
+    setStartTimeError(undefined);
+
+    if (!value.trim()) {
+      return;
+    }
+
+    const parsed = parseTimeInput(value);
+    if (parsed) {
+      const newDateTime = applyTimeToDate(startDateTime, parsed);
+      setStartDateTime(newDateTime);
+    } else {
+      setStartTimeError(getTimeValidationError(value));
+    }
+  }
+
+  function handleEndTimeChange(value: string) {
+    setEndTimeInput(value);
+    setEndTimeError(undefined);
+
+    if (!value.trim()) {
+      setEndDateTime(undefined);
+      return;
+    }
+
+    const parsed = parseTimeInput(value);
+    if (parsed) {
+      const baseDate = endDateTime || startDateTime;
+      const newDateTime = applyTimeToDate(baseDate, parsed);
+      setEndDateTime(newDateTime);
+    } else {
+      setEndTimeError(getTimeValidationError(value));
+    }
+  }
+
+  async function handleSubmit(values: { keyword: string }) {
+    // Use search text if available (for new keywords), otherwise use selected value
+    const keyword = (keywordSearchText || values.keyword).trim();
+
     if (!keyword) {
       setKeywordError("Keyword is required");
       return;
     }
 
+    // Validate keyword format
     if (!/^[a-zA-Z0-9_-]+$/.test(keyword)) {
       setKeywordError(
         "Keyword can only contain letters, numbers, dashes, and underscores",
@@ -97,12 +224,8 @@ function EditEntryForm({ entry, onComplete }: EditFormProps) {
       return;
     }
 
-    const tags = values.tags
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    for (const tag of tags) {
+    // Validate tags
+    for (const tag of selectedTags) {
       if (!/^[a-zA-Z0-9_-]+$/.test(tag)) {
         await showToast({
           style: Toast.Style.Failure,
@@ -113,79 +236,43 @@ function EditEntryForm({ entry, onComplete }: EditFormProps) {
       }
     }
 
+    // Validate duration
+    if (durationError) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Invalid duration",
+        message: durationError,
+      });
+      return;
+    }
+
+    // Validate start time
+    if (startTimeError) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Invalid start time",
+        message: startTimeError,
+      });
+      return;
+    }
+
+    // Validate end time
+    if (endTimeError) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Invalid end time",
+        message: endTimeError,
+      });
+      return;
+    }
+
     try {
-      await showToast({
-        style: Toast.Style.Animated,
-        title: "Updating entry...",
-      });
-
-      // Combine date and time for start
-      const startDateTime = new Date(values.startDate);
-      startDateTime.setHours(values.startTime.getHours());
-      startDateTime.setMinutes(values.startTime.getMinutes());
-      startDateTime.setSeconds(values.startTime.getSeconds());
-
-      const commands: string[] = [];
-
-      // Update keyword if changed
-      if (keyword !== entry.keyword) {
-        commands.push(
-          `/Users/sglavoie/.local/bin/gt set ${entry.short_id} keyword ${keyword}`,
-        );
+      // If timestamps changed, use delete+recreate workflow
+      if (timestampsChanged) {
+        await handleTimestampEdit(keyword);
+      } else {
+        await handleSimpleEdit(keyword);
       }
-
-      // Update tags if changed
-      const currentTags = entry.tags.sort().join(",");
-      const newTags = tags.sort().join(",");
-      if (newTags !== currentTags) {
-        commands.push(
-          `/Users/sglavoie/.local/bin/gt set ${entry.short_id} tags ${newTags || '""'}`,
-        );
-      }
-
-      // Update start time if changed
-      const newStartTime = startDateTime.toISOString();
-      if (newStartTime !== entry.start_time) {
-        commands.push(
-          `/Users/sglavoie/.local/bin/gt set ${entry.short_id} start_time "${newStartTime}"`,
-        );
-      }
-
-      // Update end time if provided and changed
-      if (values.endDate && values.endTime) {
-        const endDateTime = new Date(values.endDate);
-        endDateTime.setHours(values.endTime.getHours());
-        endDateTime.setMinutes(values.endTime.getMinutes());
-        endDateTime.setSeconds(values.endTime.getSeconds());
-        const newEndTime = endDateTime.toISOString();
-
-        if (newEndTime !== entry.end_time) {
-          commands.push(
-            `/Users/sglavoie/.local/bin/gt set ${entry.short_id} end_time "${newEndTime}"`,
-          );
-        }
-      }
-
-      if (commands.length === 0) {
-        await showToast({
-          style: Toast.Style.Success,
-          title: "No changes to apply",
-        });
-        await popToRoot();
-        await closeMainWindow();
-        return;
-      }
-
-      // Execute all commands
-      for (const command of commands) {
-        execSync(command, { encoding: "utf-8" });
-      }
-
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Entry updated",
-        message: `Updated ${commands.length} field${commands.length > 1 ? "s" : ""}`,
-      });
 
       onComplete();
       await popToRoot();
@@ -199,6 +286,126 @@ function EditEntryForm({ entry, onComplete }: EditFormProps) {
     }
   }
 
+  async function handleSimpleEdit(keyword: string) {
+    await showToast({
+      style: Toast.Style.Animated,
+      title: "Updating entry...",
+    });
+
+    const commands: string[] = [];
+
+    // Update keyword if changed
+    if (keyword !== entry.keyword) {
+      commands.push(
+        `/Users/sglavoie/.local/bin/gt set ${entry.short_id} keyword ${keyword}`,
+      );
+    }
+
+    // Update tags if changed
+    const currentTags = entry.tags.sort().join(",");
+    const newTags = selectedTags.sort().join(",");
+    if (newTags !== currentTags) {
+      const tagsArg = newTags || '""';
+      commands.push(
+        `/Users/sglavoie/.local/bin/gt set ${entry.short_id} tags ${tagsArg}`,
+      );
+    }
+
+    // Update duration if changed
+    if (calculatedDuration !== entry.duration) {
+      commands.push(
+        `/Users/sglavoie/.local/bin/gt set ${entry.short_id} duration ${calculatedDuration}`,
+      );
+    }
+
+    if (commands.length === 0) {
+      await showToast({
+        style: Toast.Style.Success,
+        title: "No changes to apply",
+      });
+      return;
+    }
+
+    // Execute all commands
+    for (const command of commands) {
+      execSync(command, { encoding: "utf-8" });
+    }
+
+    await showToast({
+      style: Toast.Style.Success,
+      title: "Entry updated",
+      message: `Updated ${commands.length} field${commands.length > 1 ? "s" : ""}`,
+    });
+  }
+
+  async function handleTimestampEdit(keyword: string) {
+    // Confirm with user
+    const confirmed = await confirmAlert({
+      title: "Recreate Entry?",
+      message:
+        "Changing timestamps requires recreating the entry with a new ID. The original entry will be deleted. Continue?",
+      icon: Icon.ExclamationMark,
+      primaryAction: {
+        title: "Recreate Entry",
+        style: Alert.ActionStyle.Destructive,
+      },
+    });
+
+    if (!confirmed) {
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Update cancelled",
+      });
+      return;
+    }
+
+    await showToast({
+      style: Toast.Style.Animated,
+      title: "Recreating entry...",
+    });
+
+    // Step 1: Create new entry with backdated start time
+    const startTimeFormatted = formatDateTime(startDateTime);
+    const tagsArg = selectedTags.length > 0 ? selectedTags.join(" ") : "";
+    const createCommand = `/Users/sglavoie/.local/bin/gt start ${keyword} ${tagsArg} --backdate "${startTimeFormatted}"`;
+
+    execSync(createCommand, { encoding: "utf-8" });
+
+    // Step 2: Get the newly created entry's ID
+    const listOutput = execSync(
+      `/Users/sglavoie/.local/bin/gt list --active --json`,
+      { encoding: "utf-8" },
+    );
+    const activeEntries = JSON.parse(listOutput.trim()) as Entry[];
+    const newEntry = activeEntries.find((e) => e.keyword === keyword);
+
+    if (!newEntry) {
+      throw new Error("Failed to find newly created entry");
+    }
+
+    // Step 3: Set the duration to match the calculated duration
+    execSync(
+      `/Users/sglavoie/.local/bin/gt set ${newEntry.short_id} duration ${calculatedDuration}`,
+      { encoding: "utf-8" },
+    );
+
+    // Step 4: Delete the old entry
+    execSync(`/Users/sglavoie/.local/bin/gt delete ${entry.short_id}`, {
+      encoding: "utf-8",
+    });
+
+    await showToast({
+      style: Toast.Style.Success,
+      title: "Entry recreated",
+      message: `New ID: ${newEntry.short_id}`,
+    });
+  }
+
+  // Combine existing tags with selected tags for autocomplete
+  const availableTags = useMemo(() => {
+    return Array.from(new Set([...allTags, ...selectedTags])).sort();
+  }, [allTags, selectedTags]);
+
   const startTime = new Date(entry.start_time);
   const endTime = entry.end_time ? new Date(entry.end_time) : null;
 
@@ -210,49 +417,151 @@ function EditEntryForm({ entry, onComplete }: EditFormProps) {
         </ActionPanel>
       }
     >
-      <Form.TextField
+      <Form.Description
+        text={
+          entry.active
+            ? "⚠️ This is an ACTIVE entry. Changes will stop the timer."
+            : timestampsChanged
+              ? "⚠️ Changing timestamps will RECREATE the entry with a new ID"
+              : "Edit entry fields below"
+        }
+      />
+
+      <Form.Dropdown
         id="keyword"
         title="Keyword"
-        placeholder="e.g., coding, meeting"
-        defaultValue={entry.keyword}
         error={keywordError}
+        defaultValue={entry.keyword}
+        info="Type to filter existing keywords or enter a new one"
         onChange={() => setKeywordError(undefined)}
-      />
-      <Form.TextField
+        onSearchTextChange={setKeywordSearchText}
+        filtering={true}
+        throttle={true}
+      >
+        {keywordSearchText && !allKeywords.includes(keywordSearchText) && (
+          <Form.Dropdown.Item
+            value={keywordSearchText}
+            title={`Create "${keywordSearchText}"`}
+            icon={Icon.Plus}
+          />
+        )}
+        {allKeywords.map((kw) => (
+          <Form.Dropdown.Item
+            key={kw}
+            value={kw}
+            title={kw}
+            icon={Icon.Clock}
+          />
+        ))}
+      </Form.Dropdown>
+
+      <Form.TagPicker
         id="tags"
         title="Tags"
-        placeholder="e.g., golang, cli, project-name"
-        defaultValue={entry.tags.join(", ")}
-        info="Comma-separated tags"
-      />
+        value={selectedTags}
+        onChange={setSelectedTags}
+        placeholder="Select tags for this entry"
+      >
+        {availableTags.length > 0 ? (
+          availableTags.map((tag) => (
+            <Form.TagPicker.Item
+              key={tag}
+              value={tag}
+              title={tag}
+              icon={Icon.Tag}
+            />
+          ))
+        ) : (
+          <Form.TagPicker.Item value="" title="No tags available" />
+        )}
+      </Form.TagPicker>
+
       <Form.Separator />
+
+      <Form.TextField
+        id="duration"
+        title="Duration"
+        placeholder="e.g., 1h30m or 90"
+        value={durationInput}
+        error={durationError}
+        info="Enter as: 1h30m, 90m, 2h, or 90 (minutes)"
+        onChange={handleDurationChange}
+      />
+
+      <Form.Description
+        text={`Calculated: ${formatDuration(calculatedDuration)}`}
+      />
+
+      <Form.Separator />
+
       <Form.DatePicker
         id="startDate"
         title="Start Date"
-        defaultValue={startTime}
+        type={Form.DatePicker.Type.Date}
+        value={startDateTime}
+        onChange={(date) => {
+          if (date) {
+            // Preserve the time component when date changes
+            const newDate = new Date(date);
+            newDate.setHours(startDateTime.getHours());
+            newDate.setMinutes(startDateTime.getMinutes());
+            newDate.setSeconds(startDateTime.getSeconds());
+            setStartDateTime(newDate);
+          }
+        }}
       />
-      <Form.DatePicker
+
+      <Form.TextField
         id="startTime"
         title="Start Time"
-        type={Form.DatePicker.Type.DateTime}
-        defaultValue={startTime}
+        placeholder="14:30 or 2:30 PM"
+        value={startTimeInput}
+        error={startTimeError}
+        info="Enter time in 24-hour (14:30) or 12-hour (2:30 PM) format"
+        onChange={handleStartTimeChange}
       />
-      <Form.Separator />
+
       <Form.DatePicker
         id="endDate"
         title="End Date"
-        defaultValue={endTime || undefined}
-        info="Leave empty for active entry"
+        type={Form.DatePicker.Type.Date}
+        value={endDateTime}
+        onChange={(date) => {
+          if (date && endDateTime) {
+            // Preserve the time component when date changes
+            const newDate = new Date(date);
+            newDate.setHours(endDateTime.getHours());
+            newDate.setMinutes(endDateTime.getMinutes());
+            newDate.setSeconds(endDateTime.getSeconds());
+            setEndDateTime(newDate);
+          } else if (date) {
+            // If no end time was set, use end of day
+            const newDate = new Date(date);
+            newDate.setHours(23);
+            newDate.setMinutes(59);
+            newDate.setSeconds(59);
+            setEndDateTime(newDate);
+            setEndTimeInput(formatTime(newDate));
+          }
+        }}
       />
-      <Form.DatePicker
+
+      <Form.TextField
         id="endTime"
         title="End Time"
-        type={Form.DatePicker.Type.DateTime}
-        defaultValue={endTime || undefined}
-        info="Leave empty for active entry"
+        placeholder="14:30 or 2:30 PM"
+        value={endTimeInput}
+        error={endTimeError}
+        info={
+          entry.active
+            ? "Setting an end time will stop the active timer. Format: 14:30 or 2:30 PM"
+            : "Enter time in 24-hour (14:30) or 12-hour (2:30 PM) format"
+        }
+        onChange={handleEndTimeChange}
       />
+
       <Form.Description
-        text={`💡 Current duration: ${formatDuration(entry.duration)} • ${entry.active ? "Active" : "Stopped"}`}
+        text={`Original: ${formatDuration(entry.duration)} • ${entry.active ? "Active" : `Ended ${formatRelativeTime(entry.end_time)}`}`}
       />
     </Form>
   );
@@ -286,6 +595,26 @@ export default function Command() {
       },
     },
   );
+
+  // Extract unique keywords and tags for autocomplete
+  const { keywords, tags } = useMemo(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return { keywords: [], tags: [] };
+    }
+
+    const keywordSet = new Set<string>();
+    const tagSet = new Set<string>();
+
+    data.forEach((entry) => {
+      keywordSet.add(entry.keyword);
+      entry.tags.forEach((tag) => tagSet.add(tag));
+    });
+
+    return {
+      keywords: Array.from(keywordSet).sort(),
+      tags: Array.from(tagSet).sort(),
+    };
+  }, [data]);
 
   // Update durations every second for active timers
   useEffect(() => {
@@ -365,6 +694,8 @@ export default function Command() {
                           target={
                             <EditEntryForm
                               entry={entry}
+                              allKeywords={keywords}
+                              allTags={tags}
                               onComplete={() => revalidate()}
                             />
                           }
