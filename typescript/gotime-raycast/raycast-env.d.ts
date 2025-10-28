@@ -27,6 +27,8 @@ declare namespace Preferences {
   export type DeleteTimer = ExtensionPreferences & {}
   /** Preferences accessible in the `set-entry` command */
   export type SetEntry = ExtensionPreferences & {}
+  /** Preferences accessible in the `list-entries` command */
+  export type ListEntries = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -44,5 +46,7 @@ declare namespace Arguments {
   export type DeleteTimer = {}
   /** Arguments passed to the `set-entry` command */
   export type SetEntry = {}
+  /** Arguments passed to the `list-entries` command */
+  export type ListEntries = {}
 }
 

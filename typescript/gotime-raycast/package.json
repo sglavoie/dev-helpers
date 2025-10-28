@@ -52,6 +52,12 @@
       "title": "GoTime: Edit Entry",
       "description": "Edit timer entry fields (keyword, tags, duration, timestamps)",
       "mode": "view"
+    },
+    {
+      "name": "list-entries",
+      "title": "GoTime: List Entries",
+      "description": "List and filter time tracking entries with advanced search",
+      "mode": "view"
     }
   ],
   "preferences": [],

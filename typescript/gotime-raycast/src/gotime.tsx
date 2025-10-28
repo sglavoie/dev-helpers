@@ -8,6 +8,7 @@ import {
   Toast,
   confirmAlert,
   showToast,
+  Keyboard,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { execSync } from "child_process";
@@ -20,6 +21,7 @@ import TagsList from "./tags-list";
 import TagsRename from "./tags-rename";
 import TagsRemove from "./tags-remove";
 import SetEntry from "./set-entry";
+import ListEntries from "./list-entries";
 
 interface Entry {
   id: string;
@@ -40,7 +42,7 @@ interface CommandItem {
   icon: Icon;
   iconColor: Color;
   component: React.ComponentType;
-  shortcut?: { modifiers: string[]; key: string };
+  shortcut?: Keyboard.Shortcut;
 }
 
 export default function Command() {
@@ -134,6 +136,15 @@ export default function Command() {
   ];
 
   const reportCommands: CommandItem[] = [
+    {
+      id: "list-entries",
+      title: "List Entries",
+      description: "List and filter time tracking entries",
+      icon: Icon.List,
+      iconColor: Color.Blue,
+      component: ListEntries,
+      shortcut: { modifiers: ["cmd", "shift"], key: "l" },
+    },
     {
       id: "weekly-report",
       title: "Weekly Report",

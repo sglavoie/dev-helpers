@@ -200,7 +200,7 @@ export default function Command() {
                   title={entry.keyword}
                   subtitle={durationStr}
                   accessories={[
-                    ...entry.tags.slice(0, 3).map((tag) => ({
+                    ...entry.tags.slice(0, 3).map((tag: string) => ({
                       tag: { value: tag, color: Color.Blue },
                     })),
                     ...(entry.tags.length > 3
