@@ -55,7 +55,7 @@ function formatRelativeTime(dateString: string | null): string {
 export default function Command() {
   const { isLoading, data, error, revalidate } = useExec(
     "/Users/sglavoie/.local/bin/gt",
-    ["list", "--no-active", "--days", "7", "--json"],
+    ["list", "--days", "7", "--json"],
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -63,18 +63,26 @@ export default function Command() {
           return [];
         }
         const entries = JSON.parse(trimmed) as Entry[];
-        // Sort by end_time descending (most recently stopped first)
-        const sorted = entries.sort((a, b) => {
-          if (!a.end_time) return 1;
-          if (!b.end_time) return -1;
-          return (
-            new Date(b.end_time).getTime() - new Date(a.end_time).getTime()
-          );
-        });
+
+        // Build set of keywords that have active timers
+        const activeKeywords = new Set(
+          entries.filter((e) => e.active).map((e) => e.keyword),
+        );
+
+        // Filter to stopped timers whose keywords aren't currently active
+        const stoppedFiltered = entries
+          .filter((e) => !e.active && !activeKeywords.has(e.keyword))
+          .sort((a, b) => {
+            if (!a.end_time) return 1;
+            if (!b.end_time) return -1;
+            return (
+              new Date(b.end_time).getTime() - new Date(a.end_time).getTime()
+            );
+          });
 
         // Filter to keep only unique keyword + tag combinations (most recent first)
         const seen = new Set<string>();
-        return sorted.filter((entry) => {
+        return stoppedFiltered.filter((entry) => {
           const sortedTags = [...entry.tags].sort().join(",");
           const key = `${entry.keyword}:${sortedTags}`;
           if (seen.has(key)) {
