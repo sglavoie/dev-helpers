@@ -2,12 +2,15 @@ import {
   Action,
   ActionPanel,
   Color,
+  Form,
   Icon,
   List,
   Toast,
   showToast,
+  useNavigation,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
+import { useState } from "react";
 import { execSync } from "child_process";
 
 interface Entry {
@@ -95,33 +98,6 @@ export default function Command() {
     },
   );
 
-  async function handleContinueTimer(entry: Entry) {
-    try {
-      await showToast({
-        style: Toast.Style.Animated,
-        title: "Continuing timer...",
-      });
-
-      execSync(`/Users/sglavoie/.local/bin/gt continue ${entry.short_id}`, {
-        encoding: "utf-8",
-      });
-
-      await showToast({
-        style: Toast.Style.Success,
-        title: "Timer continued",
-        message: `Resumed "${entry.keyword}"`,
-      });
-
-      revalidate();
-    } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Failed to continue timer",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
   if (error) {
     return (
       <List>
@@ -168,11 +144,9 @@ export default function Command() {
                 actions={
                   <ActionPanel>
                     <ActionPanel.Section title="Timer Actions">
-                      <Action
-                        title="Continue Timer"
-                        icon={Icon.Play}
-                        shortcut={{ modifiers: ["cmd"], key: "c" }}
-                        onAction={() => handleContinueTimer(entry)}
+                      <ContinueTimerAction
+                        entry={entry}
+                        onComplete={revalidate}
                       />
                     </ActionPanel.Section>
                     <ActionPanel.Section title="Actions">
@@ -191,5 +165,146 @@ export default function Command() {
         </>
       )}
     </List>
+  );
+}
+
+interface BackdateFormValues {
+  backdate: string;
+  customBackdate: string;
+}
+
+function ContinueTimerAction(props: { entry: Entry; onComplete: () => void }) {
+  const { push } = useNavigation();
+
+  return (
+    <Action
+      title="Continue Timer"
+      icon={Icon.Play}
+      shortcut={{ modifiers: ["cmd"], key: "c" }}
+      onAction={() => {
+        push(
+          <BackdateForm entry={props.entry} onComplete={props.onComplete} />,
+        );
+      }}
+    />
+  );
+}
+
+function BackdateForm(props: { entry: Entry; onComplete: () => void }) {
+  const { pop } = useNavigation();
+
+  async function handleSubmit(values: BackdateFormValues) {
+    const backdateValue =
+      values.backdate === "custom"
+        ? values.customBackdate.trim()
+        : values.backdate;
+
+    try {
+      await showToast({
+        style: Toast.Style.Animated,
+        title: "Continuing timer...",
+      });
+
+      // Build command
+      let command = `/Users/sglavoie/.local/bin/gt continue ${props.entry.short_id}`;
+
+      // Add backdate flag if present
+      if (backdateValue && backdateValue !== "none") {
+        command += ` --backdate ${backdateValue}`;
+      }
+
+      execSync(command, { encoding: "utf-8" });
+
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Timer continued",
+        message: `Resumed "${props.entry.keyword}"`,
+      });
+
+      props.onComplete();
+      pop();
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to continue timer",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Continue Timer" onSubmit={handleSubmit} />
+        </ActionPanel>
+      }
+    >
+      <Form.Description
+        title="Continue Timer"
+        text={`Continuing "${props.entry.keyword}" with tags: ${props.entry.tags.length > 0 ? props.entry.tags.join(", ") : "none"}`}
+      />
+
+      <Form.Dropdown
+        id="backdate"
+        title="Backdate"
+        info="Start the timer as if it began in the past (optional)"
+        defaultValue="none"
+      >
+        <Form.Dropdown.Item
+          value="none"
+          title="No backdate (start now)"
+          icon={Icon.Clock}
+        />
+        <Form.Dropdown.Section title="Quick Options">
+          <Form.Dropdown.Item
+            value="5m"
+            title="5 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+          <Form.Dropdown.Item
+            value="10m"
+            title="10 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+          <Form.Dropdown.Item
+            value="15m"
+            title="15 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+          <Form.Dropdown.Item
+            value="20m"
+            title="20 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+          <Form.Dropdown.Item
+            value="25m"
+            title="25 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+          <Form.Dropdown.Item
+            value="30m"
+            title="30 minutes ago"
+            icon={Icon.ChevronDown}
+          />
+        </Form.Dropdown.Section>
+        <Form.Dropdown.Section title="Custom">
+          <Form.Dropdown.Item
+            value="custom"
+            title="Custom value..."
+            icon={Icon.Pencil}
+          />
+        </Form.Dropdown.Section>
+      </Form.Dropdown>
+
+      <Form.TextField
+        id="customBackdate"
+        title="Custom Backdate"
+        placeholder="e.g., 45m, 1h, 1h30m"
+        info="Enter custom backdate value (e.g., 45m, 1h, 1h30m)"
+      />
+
+      <Form.Description text="💡 Backdate allows you to start the timer as if it began in the past." />
+    </Form>
   );
 }

@@ -8,10 +8,10 @@ import {
   Toast,
   confirmAlert,
   showToast,
-} from "@raycast/api";
-import { useExec } from "@raycast/utils";
-import { useState, useEffect } from "react";
-import { execSync } from "child_process";
+} from '@raycast/api';
+import { useExec } from '@raycast/utils';
+import { useState, useEffect } from 'react';
+import { execSync } from 'child_process';
 
 interface Entry {
   id: string;
@@ -35,7 +35,7 @@ function formatDuration(seconds: number): string {
   if (minutes > 0) parts.push(`${minutes}m`);
   if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
 
-  return parts.join(" ");
+  return parts.join(' ');
 }
 
 function getCurrentDuration(entry: Entry): number {
@@ -52,12 +52,12 @@ function getCurrentDuration(entry: Entry): number {
 
 export default function Command() {
   const [currentDurations, setCurrentDurations] = useState<Map<string, number>>(
-    new Map(),
+    new Map()
   );
 
   const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
-    ["list", "--active", "--json"],
+    '/Users/sglavoie/.local/bin/gt',
+    ['list', '--active', '--json'],
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -68,11 +68,11 @@ export default function Command() {
           const parsed = JSON.parse(trimmed);
           return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
-          console.error("Failed to parse JSON:", e);
+          console.error('Failed to parse JSON:', e);
           return [];
         }
       },
-    },
+    }
   );
 
   // Update durations every second for active timers
@@ -94,10 +94,10 @@ export default function Command() {
 
   async function handleStopTimer(entry: Entry) {
     const confirmed = await confirmAlert({
-      title: "Stop Timer",
+      title: 'Stop Timer',
       message: `Stop timer for "${entry.keyword}"?`,
       primaryAction: {
-        title: "Stop",
+        title: 'Stop',
         style: Alert.ActionStyle.Destructive,
       },
     });
@@ -107,16 +107,16 @@ export default function Command() {
     try {
       await showToast({
         style: Toast.Style.Animated,
-        title: "Stopping timer...",
+        title: 'Stopping timer...',
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt stop --id ${entry.short_id}`, {
-        encoding: "utf-8",
+      execSync(`/Users/sglavoie/.local/bin/gt stop ${entry.short_id}`, {
+        encoding: 'utf-8',
       });
 
       await showToast({
         style: Toast.Style.Success,
-        title: "Timer stopped",
+        title: 'Timer stopped',
         message: `Stopped "${entry.keyword}"`,
       });
 
@@ -124,7 +124,7 @@ export default function Command() {
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Failed to stop timer",
+        title: 'Failed to stop timer',
         message: error instanceof Error ? error.message : String(error),
       });
     }
@@ -134,10 +134,10 @@ export default function Command() {
     if (!data || data.length === 0) return;
 
     const confirmed = await confirmAlert({
-      title: "Stop All Timers",
+      title: 'Stop All Timers',
       message: `Stop all ${data.length} active timer(s)?`,
       primaryAction: {
-        title: "Stop All",
+        title: 'Stop All',
         style: Alert.ActionStyle.Destructive,
       },
     });
@@ -147,23 +147,23 @@ export default function Command() {
     try {
       await showToast({
         style: Toast.Style.Animated,
-        title: "Stopping all timers...",
+        title: 'Stopping all timers...',
       });
 
       execSync(`/Users/sglavoie/.local/bin/gt stop --all`, {
-        encoding: "utf-8",
+        encoding: 'utf-8',
       });
 
       await showToast({
         style: Toast.Style.Success,
-        title: "All timers stopped",
+        title: 'All timers stopped',
       });
 
       revalidate();
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Failed to stop all timers",
+        title: 'Failed to stop all timers',
         message: error instanceof Error ? error.message : String(error),
       });
     }
@@ -172,7 +172,7 @@ export default function Command() {
   if (error) {
     return (
       <List>
-        <List.Item title="Error" subtitle={error.message} />
+        <List.Item title='Error' subtitle={error.message} />
       </List>
     );
   }
@@ -182,7 +182,7 @@ export default function Command() {
       {!isLoading && (!data || !Array.isArray(data) || data.length === 0) ? (
         <List.EmptyView
           icon={Icon.Clock}
-          title="No Active Timers"
+          title='No Active Timers'
           description="Start a timer with 'Start Timer' command or gt CLI"
         />
       ) : (
@@ -216,29 +216,29 @@ export default function Command() {
                   ]}
                   actions={
                     <ActionPanel>
-                      <ActionPanel.Section title="Timer Actions">
+                      <ActionPanel.Section title='Timer Actions'>
                         <Action
-                          title="Stop Timer"
+                          title='Stop Timer'
                           icon={Icon.Stop}
                           style={Action.Style.Destructive}
-                          shortcut={{ modifiers: ["cmd"], key: "s" }}
+                          shortcut={{ modifiers: ['cmd'], key: 's' }}
                           onAction={() => handleStopTimer(entry)}
                         />
                         {data && data.length > 1 && (
                           <Action
-                            title="Stop All Timers"
+                            title='Stop All Timers'
                             icon={Icon.XMarkCircle}
                             style={Action.Style.Destructive}
-                            shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
+                            shortcut={{ modifiers: ['cmd', 'shift'], key: 's' }}
                             onAction={handleStopAll}
                           />
                         )}
                       </ActionPanel.Section>
-                      <ActionPanel.Section title="Actions">
+                      <ActionPanel.Section title='Actions'>
                         <Action
-                          title="Refresh"
+                          title='Refresh'
                           icon={Icon.ArrowClockwise}
-                          shortcut={{ modifiers: ["cmd"], key: "r" }}
+                          shortcut={{ modifiers: ['cmd'], key: 'r' }}
                           onAction={() => revalidate()}
                         />
                       </ActionPanel.Section>
