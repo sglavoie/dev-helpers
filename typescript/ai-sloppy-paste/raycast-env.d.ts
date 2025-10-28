@@ -7,7 +7,10 @@
 
 /* eslint-disable @typescript-eslint/ban-types */
 
-type ExtensionPreferences = {}
+type ExtensionPreferences = {
+  /** Max Placeholder History Values - Maximum number of values to display in dropdown (storage keeps up to 100 values to prevent data loss) */
+  "maxPlaceholderHistoryValues": "5" | "10" | "20" | "30" | "50" | "100"
+}
 
 /** Preferences accessible in all the extension's commands */
 declare type Preferences = ExtensionPreferences

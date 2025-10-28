@@ -15,6 +15,7 @@ export interface StorageData {
   version: number;
   snippets: Snippet[];
   tags: string[];
+  placeholderHistory: PlaceholderHistory;
 }
 
 export interface SnippetFormValues {
@@ -28,12 +29,26 @@ export interface ExportData {
   exportedAt: number;
   snippets: Snippet[];
   tags: string[];
+  placeholderHistory: PlaceholderHistory;
 }
 
 export interface Placeholder {
   key: string;
   defaultValue?: string;
   isRequired: boolean;
+}
+
+export interface PlaceholderHistoryValue {
+  value: string;
+  useCount: number;
+  lastUsed: number; // Timestamp
+  createdAt: number; // Timestamp
+}
+
+export interface PlaceholderHistory {
+  // Key: placeholder key (e.g., "name", "email")
+  // Value: array of historical values
+  [key: string]: PlaceholderHistoryValue[];
 }
 
 export enum SortOption {

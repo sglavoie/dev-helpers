@@ -10,6 +10,42 @@
     "Developer Tools"
   ],
   "license": "MIT",
+  "preferences": [
+    {
+      "name": "maxPlaceholderHistoryValues",
+      "type": "dropdown",
+      "required": false,
+      "title": "Max Placeholder History Values",
+      "description": "Maximum number of values to display in dropdown (storage keeps up to 100 values to prevent data loss)",
+      "default": "20",
+      "data": [
+        {
+          "title": "5 values",
+          "value": "5"
+        },
+        {
+          "title": "10 values",
+          "value": "10"
+        },
+        {
+          "title": "20 values (default)",
+          "value": "20"
+        },
+        {
+          "title": "30 values",
+          "value": "30"
+        },
+        {
+          "title": "50 values",
+          "value": "50"
+        },
+        {
+          "title": "100 values",
+          "value": "100"
+        }
+      ]
+    }
+  ],
   "commands": [
     {
       "name": "index",

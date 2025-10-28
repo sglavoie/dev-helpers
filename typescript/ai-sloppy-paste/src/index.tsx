@@ -32,6 +32,7 @@ import { extractPlaceholders } from "./utils/placeholders";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
 import { PlaceholderForm } from "./components/PlaceholderForm";
 import { ManageTagsView } from "./components/ManageTagsView";
+import { ManagePlaceholderHistoryView } from "./components/ManagePlaceholderHistoryView";
 import { ImportForm } from "./components/ImportForm";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { isChildOf, expandTagsWithParents } from "./utils/tags";
@@ -434,6 +435,9 @@ export default function Command() {
             <ActionPanel.Section title="Tags">
               <ManageTagsAction onUpdated={loadData} />
             </ActionPanel.Section>
+            <ActionPanel.Section title="Placeholder History">
+              <ManagePlaceholderHistoryAction onUpdated={loadData} />
+            </ActionPanel.Section>
             <ActionPanel.Section title="Data">
               <Action
                 title="Export All Snippets"
@@ -772,6 +776,21 @@ function ManageTagsAction(props: { onUpdated: () => void }) {
       shortcut={{ modifiers: ["cmd"], key: "t" }}
       onAction={() => {
         push(<ManageTagsView onUpdated={props.onUpdated} />);
+      }}
+    />
+  );
+}
+
+function ManagePlaceholderHistoryAction(props: { onUpdated: () => void }) {
+  const { push } = useNavigation();
+
+  return (
+    <Action
+      title="Manage Placeholder History"
+      icon={Icon.Clock}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "h" }}
+      onAction={() => {
+        push(<ManagePlaceholderHistoryView onUpdated={props.onUpdated} />);
       }}
     />
   );

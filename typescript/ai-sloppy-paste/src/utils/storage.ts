@@ -1,9 +1,29 @@
-import { LocalStorage } from "@raycast/api";
-import { Snippet, ExportData, StorageData } from "../types";
+import { LocalStorage, getPreferenceValues } from "@raycast/api";
+import { Snippet, ExportData, StorageData, PlaceholderHistory, PlaceholderHistoryValue } from "../types";
 import { normalizeTags, deduplicateTags, removeRedundantParents } from "./tags";
 
 const STORAGE_KEY = "storage_v2";
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
+
+interface Preferences {
+  maxPlaceholderHistoryValues?: string;
+}
+
+/**
+ * Maximum values stored in database (hard limit to prevent unbounded growth)
+ * This is separate from the UI display preference
+ */
+const MAX_STORED_VALUES_PER_KEY = 100;
+
+/**
+ * Get the maximum number of placeholder history values for UI display from preferences
+ * Note: Storage always keeps up to 100 values, this only affects UI filtering
+ */
+export function getMaxPlaceholderHistoryValues(): number {
+  const preferences = getPreferenceValues<Preferences>();
+  const value = parseInt(preferences.maxPlaceholderHistoryValues || "20", 10);
+  return isNaN(value) ? 20 : value;
+}
 
 /**
  * Migration functions for upgrading data between versions
@@ -36,6 +56,14 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
         ...snippet,
         tags: deduplicateTags(normalizeTags(snippet.tags || [])),
       })),
+    };
+  },
+  4: (data: any) => {
+    // Migration from v4 to v5 - Add placeholder history
+    return {
+      ...data,
+      version: 5,
+      placeholderHistory: {},
     };
   },
 };
@@ -79,6 +107,7 @@ async function loadStorageData(): Promise<StorageData> {
     version: CURRENT_VERSION,
     snippets: [],
     tags: [],
+    placeholderHistory: {},
   };
 }
 
@@ -327,6 +356,176 @@ export async function mergeTags(sourceTag: string, targetTag: string): Promise<n
   return affectedCount;
 }
 
+/**
+ * ========================================
+ * Placeholder History Management Functions
+ * ========================================
+ */
+
+/**
+ * Get all placeholder history
+ */
+export async function getPlaceholderHistory(): Promise<PlaceholderHistory> {
+  const data = await loadStorageData();
+  return data.placeholderHistory || {};
+}
+
+/**
+ * Get placeholder history for a specific key
+ */
+export async function getPlaceholderHistoryForKey(key: string): Promise<PlaceholderHistoryValue[]> {
+  const history = await getPlaceholderHistory();
+  return history[key] || [];
+}
+
+/**
+ * Get all placeholder keys that have history
+ */
+export async function getAllPlaceholderKeys(): Promise<string[]> {
+  const history = await getPlaceholderHistory();
+  return Object.keys(history).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Add or update a placeholder value in history
+ * Implements LRU eviction when limit (20) is reached
+ */
+export async function addPlaceholderValue(key: string, value: string): Promise<void> {
+  if (!key || !value.trim()) return;
+
+  const data = await loadStorageData();
+  const history = data.placeholderHistory || {};
+
+  if (!history[key]) {
+    history[key] = [];
+  }
+
+  const now = Date.now();
+
+  // Check if value already exists
+  const existingIndex = history[key].findIndex((item) => item.value === value);
+
+  if (existingIndex !== -1) {
+    // Update existing value's usage stats
+    history[key][existingIndex].useCount += 1;
+    history[key][existingIndex].lastUsed = now;
+  } else {
+    // Add new value
+    const newValue: PlaceholderHistoryValue = {
+      value,
+      useCount: 1,
+      lastUsed: now,
+      createdAt: now,
+    };
+
+    history[key].push(newValue);
+
+    // Enforce storage limit: always keep up to 100 values regardless of UI preference
+    // This prevents data loss when users change their preference setting
+    if (history[key].length > MAX_STORED_VALUES_PER_KEY) {
+      // Sort by lastUsed (oldest first) and remove the oldest
+      history[key].sort((a, b) => a.lastUsed - b.lastUsed);
+      history[key].shift(); // Remove first (oldest)
+    }
+  }
+
+  data.placeholderHistory = history;
+  await saveStorageData(data);
+}
+
+/**
+ * Update usage stats for a placeholder value (increment useCount, update lastUsed)
+ */
+export async function updatePlaceholderValueUsage(key: string, value: string): Promise<void> {
+  const data = await loadStorageData();
+  const history = data.placeholderHistory || {};
+
+  if (!history[key]) return;
+
+  const valueIndex = history[key].findIndex((item) => item.value === value);
+  if (valueIndex !== -1) {
+    history[key][valueIndex].useCount += 1;
+    history[key][valueIndex].lastUsed = Date.now();
+
+    data.placeholderHistory = history;
+    await saveStorageData(data);
+  }
+}
+
+/**
+ * Delete a specific value from placeholder history
+ */
+export async function deletePlaceholderValue(key: string, value: string): Promise<void> {
+  const data = await loadStorageData();
+  const history = data.placeholderHistory || {};
+
+  if (!history[key]) return;
+
+  history[key] = history[key].filter((item) => item.value !== value);
+
+  // Remove key entirely if no values left
+  if (history[key].length === 0) {
+    delete history[key];
+  }
+
+  data.placeholderHistory = history;
+  await saveStorageData(data);
+}
+
+/**
+ * Update/rename a placeholder value
+ */
+export async function updatePlaceholderValue(key: string, oldValue: string, newValue: string): Promise<void> {
+  if (!newValue.trim()) {
+    throw new Error("New value cannot be empty");
+  }
+
+  const data = await loadStorageData();
+  const history = data.placeholderHistory || {};
+
+  if (!history[key]) {
+    throw new Error("Placeholder key not found");
+  }
+
+  const valueIndex = history[key].findIndex((item) => item.value === oldValue);
+  if (valueIndex === -1) {
+    throw new Error("Value not found");
+  }
+
+  // Check for duplicate
+  const duplicateIndex = history[key].findIndex((item) => item.value === newValue);
+  if (duplicateIndex !== -1 && duplicateIndex !== valueIndex) {
+    throw new Error("A value with this name already exists");
+  }
+
+  history[key][valueIndex].value = newValue;
+
+  data.placeholderHistory = history;
+  await saveStorageData(data);
+}
+
+/**
+ * Clear all values for a specific placeholder key
+ */
+export async function clearPlaceholderHistoryForKey(key: string): Promise<void> {
+  const data = await loadStorageData();
+  const history = data.placeholderHistory || {};
+
+  delete history[key];
+
+  data.placeholderHistory = history;
+  await saveStorageData(data);
+}
+
+/**
+ * Clear all placeholder history
+ */
+export async function clearAllPlaceholderHistory(): Promise<void> {
+  const data = await loadStorageData();
+  data.placeholderHistory = {};
+  await saveStorageData(data);
+}
+
 export async function exportData(): Promise<ExportData> {
   const data = await loadStorageData();
 
@@ -335,6 +534,7 @@ export async function exportData(): Promise<ExportData> {
     exportedAt: Date.now(),
     snippets: data.snippets,
     tags: data.tags,
+    placeholderHistory: data.placeholderHistory || {},
   };
 }
 
@@ -359,6 +559,31 @@ export async function importData(importedData: ExportData, merge: boolean = fals
     // Tags are computed dynamically, no need to merge master list
     // Keep data.tags for backward compatibility but it won't be used
 
+    // Merge placeholder history
+    if (importedData.placeholderHistory) {
+      const mergedHistory = { ...currentData.placeholderHistory };
+
+      for (const [key, values] of Object.entries(importedData.placeholderHistory)) {
+        if (!mergedHistory[key]) {
+          mergedHistory[key] = values;
+        } else {
+          // Merge values, avoiding duplicates by value string
+          const existingValues = new Set(mergedHistory[key].map((v) => v.value));
+          const newValues = values.filter((v) => !existingValues.has(v.value));
+          mergedHistory[key] = [...mergedHistory[key], ...newValues];
+
+          // Enforce storage limit per key (always keep up to 100 values)
+          if (mergedHistory[key].length > MAX_STORED_VALUES_PER_KEY) {
+            // Sort by lastUsed and keep top 100 most recently used
+            mergedHistory[key].sort((a, b) => b.lastUsed - a.lastUsed);
+            mergedHistory[key] = mergedHistory[key].slice(0, MAX_STORED_VALUES_PER_KEY);
+          }
+        }
+      }
+
+      currentData.placeholderHistory = mergedHistory;
+    }
+
     await saveStorageData(currentData);
   } else {
     // Replace all data - ensure imported snippets are properly formatted
@@ -373,6 +598,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       version: CURRENT_VERSION,
       snippets: sanitizedSnippets,
       tags: [], // Empty tags list - will be computed dynamically
+      placeholderHistory: importedData.placeholderHistory || {},
     };
 
     await saveStorageData(newData);
