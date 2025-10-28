@@ -364,14 +364,25 @@ function EditEntryForm({
       title: "Recreating entry...",
     });
 
-    // Step 1: Create new entry with backdated start time
-    const startTimeFormatted = formatDateTime(startDateTime);
+    // Step 1: Calculate duration for backdate (gt expects relative duration, not absolute timestamp)
+    const now = new Date();
+    const diffMs = now.getTime() - startDateTime.getTime();
+
+    // Validate that start time is not in the future
+    if (diffMs < 0) {
+      throw new Error("Start time cannot be in the future");
+    }
+
+    // Convert to minutes and round to avoid precision issues
+    const diffMinutes = Math.round(diffMs / 60000);
+
+    // Step 2: Create new entry with backdated start time
     const tagsArg = selectedTags.length > 0 ? selectedTags.join(" ") : "";
-    const createCommand = `/Users/sglavoie/.local/bin/gt start ${keyword} ${tagsArg} --backdate "${startTimeFormatted}"`;
+    const createCommand = `/Users/sglavoie/.local/bin/gt start ${keyword} ${tagsArg} --backdate ${diffMinutes}m`;
 
     execSync(createCommand, { encoding: "utf-8" });
 
-    // Step 2: Get the newly created entry's ID
+    // Step 3: Get the newly created entry's ID
     const listOutput = execSync(
       `/Users/sglavoie/.local/bin/gt list --active --json`,
       { encoding: "utf-8" },
@@ -383,13 +394,13 @@ function EditEntryForm({
       throw new Error("Failed to find newly created entry");
     }
 
-    // Step 3: Set the duration to match the calculated duration
+    // Step 4: Set the duration to match the calculated duration (this also stops the timer)
     execSync(
       `/Users/sglavoie/.local/bin/gt set ${newEntry.short_id} duration ${calculatedDuration}`,
       { encoding: "utf-8" },
     );
 
-    // Step 4: Delete the old entry
+    // Step 5: Delete the old entry
     execSync(`/Users/sglavoie/.local/bin/gt delete ${entry.short_id}`, {
       encoding: "utf-8",
     });
