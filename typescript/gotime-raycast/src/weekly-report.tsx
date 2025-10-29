@@ -1,5 +1,6 @@
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useExec } from "@raycast/utils";
+import { useMemo, useState } from "react";
 
 interface ReportData {
   title: string;
@@ -7,9 +8,18 @@ interface ReportData {
   completed_entries?: KeywordSummary[];
   active_entries?: Entry[];
   weekly_data?: WeeklyData;
+  time_series?: TimeSeriesData;
   total_duration: number;
   completed_duration: number;
   active_duration: number;
+  filters_applied?: FiltersApplied;
+}
+
+interface FiltersApplied {
+  keywords?: string[];
+  tags?: string[];
+  exclude_keywords?: boolean;
+  exclude_tags?: boolean;
 }
 
 interface KeywordSummary {
@@ -43,7 +53,29 @@ interface WeeklyKeyword {
   keyword_total: number;
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+interface TimeSeriesData {
+  keywords: TimeSeriesKeyword[];
+  period_totals: number[];
+  period_labels: string[];
+  grand_total: number;
+}
+
+interface TimeSeriesKeyword {
+  keyword: string;
+  period_data: number[];
+  keyword_total: number;
+}
+
+interface KeywordListItem {
+  keyword: string;
+  entries: number;
+  total_duration: number;
+}
+
+interface TagListItem {
+  tag: string;
+  count: number;
+}
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -67,9 +99,91 @@ function formatDurationCompact(seconds: number): string {
 }
 
 export default function Command() {
+  // Filter state
+  const [selectedFilter, setSelectedFilter] = useState<string>("week||");
+
+  // Parse filter components from compound value (timeRange|keyword|tag)
+  const { timeRange, keywordFilter, tagFilter } = useMemo(() => {
+    const [time, keyword, tag] = selectedFilter.split("|");
+    return {
+      timeRange: time || "week",
+      keywordFilter: keyword || "",
+      tagFilter: tag || "",
+    };
+  }, [selectedFilter]);
+
+  // Fetch available keywords
+  const { data: keywordsList } = useExec(
+    "/Users/sglavoie/.local/bin/gt",
+    ["keywords", "list", "--json"],
+    {
+      parseOutput: ({ stdout }) => {
+        const trimmed = stdout.trim();
+        if (!trimmed || trimmed === "[]") return [];
+        return JSON.parse(trimmed) as KeywordListItem[];
+      },
+    },
+  );
+
+  // Fetch available tags
+  const { data: tagsList } = useExec(
+    "/Users/sglavoie/.local/bin/gt",
+    ["list", "--week", "--json"],
+    {
+      parseOutput: ({ stdout }) => {
+        const trimmed = stdout.trim();
+        if (!trimmed || trimmed === "[]") return [];
+        const entries = JSON.parse(trimmed) as Entry[];
+        // Extract unique tags from entries
+        const tagSet = new Set<string>();
+        entries.forEach((entry) => {
+          entry.tags.forEach((tag) => tagSet.add(tag));
+        });
+        return Array.from(tagSet)
+          .sort()
+          .map((tag) => ({ tag, count: 0 }));
+      },
+    },
+  );
+
+  // Build dynamic command arguments based on filters
+  const commandArgs = useMemo(() => {
+    const args = ["report", "--json"];
+
+    // Add time range flag
+    if (timeRange !== "week") {
+      if (timeRange === "today") {
+        args.push("--today");
+      } else if (timeRange === "yesterday") {
+        args.push("--yesterday");
+      } else if (timeRange === "month") {
+        args.push("--month");
+      } else if (timeRange === "last-week") {
+        // For last week, we'll use --days 7 and adjust
+        // Note: This is approximate. A proper implementation might need a --last-week flag
+        args.push("--days", "7");
+      } else if (timeRange === "last-30-days") {
+        args.push("--days", "30");
+      }
+    }
+
+    // Add keyword filter
+    if (keywordFilter) {
+      args.push("--keywords", keywordFilter);
+    }
+
+    // Add tag filter
+    if (tagFilter) {
+      args.push("--tags", tagFilter);
+    }
+
+    return args;
+  }, [timeRange, keywordFilter, tagFilter]);
+
+  // Fetch report data with dynamic filters
   const { isLoading, data, error, revalidate } = useExec(
     "/Users/sglavoie/.local/bin/gt",
-    ["report", "--json"],
+    commandArgs,
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -102,19 +216,106 @@ export default function Command() {
     );
   }
 
-  const weeklyData = data?.weekly_data;
+  // Use time_series data (new unified format) or convert weekly_data for backwards compatibility
+  const timeSeriesData: TimeSeriesData | undefined =
+    data?.time_series ||
+    (data?.weekly_data
+      ? {
+          keywords: data.weekly_data.keywords.map((kw) => ({
+            keyword: kw.keyword,
+            period_data: kw.daily_data,
+            keyword_total: kw.keyword_total,
+          })),
+          period_totals: data.weekly_data.daily_totals,
+          period_labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          grand_total: data.weekly_data.grand_total,
+        }
+      : undefined);
+
   const totalDuration = data?.total_duration || 0;
+  const periodLabels = timeSeriesData?.period_labels || [];
+
+  // Build filter status for display
+  const filterStatus = useMemo(() => {
+    const parts: string[] = [];
+    if (keywordFilter) parts.push(`Keyword: ${keywordFilter}`);
+    if (tagFilter) parts.push(`Tag: ${tagFilter}`);
+    if (timeRange !== "week") {
+      const timeRangeLabels: Record<string, string> = {
+        today: "Today",
+        yesterday: "Yesterday",
+        month: "This Month",
+        "last-week": "Last Week",
+        "last-30-days": "Last 30 Days",
+      };
+      parts.push(timeRangeLabels[timeRange] || timeRange);
+    }
+    return parts.length > 0 ? parts.join(" • ") : undefined;
+  }, [timeRange, keywordFilter, tagFilter]);
 
   return (
     <List
       isLoading={isLoading}
-      navigationTitle={data?.title || "Weekly Report"}
+      navigationTitle={data?.title || "Report"}
+      searchBarAccessory={
+        <List.Dropdown
+          tooltip="Filter Report"
+          value={selectedFilter}
+          onChange={setSelectedFilter}
+        >
+          {/* Time Range Section */}
+          <List.Dropdown.Section title="Time Range">
+            <List.Dropdown.Item title="This Week" value="week||" />
+            <List.Dropdown.Item title="Today" value="today||" />
+            <List.Dropdown.Item title="Yesterday" value="yesterday||" />
+            <List.Dropdown.Item title="This Month" value="month||" />
+            <List.Dropdown.Item title="Last 7 Days" value="last-week||" />
+            <List.Dropdown.Item title="Last 30 Days" value="last-30-days||" />
+          </List.Dropdown.Section>
+
+          {/* Keywords Section */}
+          {keywordsList && keywordsList.length > 0 && (
+            <List.Dropdown.Section title="By Keyword">
+              <List.Dropdown.Item
+                title="All Keywords"
+                value={`${timeRange}||`}
+              />
+              {keywordsList.map((kw) => (
+                <List.Dropdown.Item
+                  key={kw.keyword}
+                  title={kw.keyword}
+                  value={`${timeRange}|${kw.keyword}|`}
+                />
+              ))}
+            </List.Dropdown.Section>
+          )}
+
+          {/* Tags Section */}
+          {tagsList && tagsList.length > 0 && (
+            <List.Dropdown.Section title="By Tag">
+              <List.Dropdown.Item title="All Tags" value={`${timeRange}||`} />
+              {tagsList.map((tag) => (
+                <List.Dropdown.Item
+                  key={tag.tag}
+                  title={tag.tag}
+                  value={`${timeRange}||${tag.tag}`}
+                />
+              ))}
+            </List.Dropdown.Section>
+          )}
+        </List.Dropdown>
+      }
     >
-      {!isLoading && (!weeklyData || weeklyData.keywords.length === 0) ? (
+      {!isLoading &&
+      (!timeSeriesData || timeSeriesData.keywords.length === 0) ? (
         <List.EmptyView
           icon={Icon.Document}
-          title="No Data for This Week"
-          description="Start tracking time to see your weekly report"
+          title={filterStatus ? "No Matching Data" : "No Data Available"}
+          description={
+            filterStatus
+              ? `No entries match the selected filters. Try adjusting your filters.`
+              : "Start tracking time to see your report"
+          }
         />
       ) : (
         <>
@@ -133,10 +334,10 @@ export default function Command() {
           </List.Section>
 
           {/* Keywords section */}
-          {weeklyData && weeklyData.keywords.length > 0 && (
+          {timeSeriesData && timeSeriesData.keywords.length > 0 && (
             <List.Section title="By Keyword">
-              {weeklyData.keywords.map((keyword) => {
-                const activeDays = keyword.daily_data.filter(
+              {timeSeriesData.keywords.map((keyword) => {
+                const activePeriods = keyword.period_data.filter(
                   (d) => d > 0,
                 ).length;
 
@@ -148,7 +349,7 @@ export default function Command() {
                     accessories={[
                       {
                         text: formatDuration(keyword.keyword_total),
-                        tooltip: `${activeDays} day${activeDays !== 1 ? "s" : ""}`,
+                        tooltip: `${activePeriods} period${activePeriods !== 1 ? "s" : ""}`,
                       },
                     ]}
                     detail={
@@ -160,17 +361,22 @@ export default function Command() {
                               text={formatDuration(keyword.keyword_total)}
                             />
                             <List.Item.Detail.Metadata.Separator />
-                            {keyword.daily_data.map((duration, dayIndex) => (
-                              <List.Item.Detail.Metadata.Label
-                                key={dayIndex}
-                                title={DAY_NAMES[dayIndex]}
-                                text={
-                                  duration > 0
-                                    ? formatDurationCompact(duration)
-                                    : "-"
-                                }
-                              />
-                            ))}
+                            {keyword.period_data.map(
+                              (duration, periodIndex) => (
+                                <List.Item.Detail.Metadata.Label
+                                  key={periodIndex}
+                                  title={
+                                    periodLabels[periodIndex] ||
+                                    `Period ${periodIndex + 1}`
+                                  }
+                                  text={
+                                    duration > 0
+                                      ? formatDurationCompact(duration)
+                                      : "-"
+                                  }
+                                />
+                              ),
+                            )}
                           </List.Item.Detail.Metadata>
                         }
                       />
@@ -196,15 +402,17 @@ export default function Command() {
             </List.Section>
           )}
 
-          {/* Daily totals section */}
-          {weeklyData && weeklyData.daily_totals.length > 0 && (
-            <List.Section title="By Day">
-              {weeklyData.daily_totals.map((duration, dayIndex) => {
+          {/* Period totals section */}
+          {timeSeriesData && timeSeriesData.period_totals.length > 0 && (
+            <List.Section title="By Period">
+              {timeSeriesData.period_totals.map((duration, periodIndex) => {
                 const hasData = duration > 0;
+                const label =
+                  periodLabels[periodIndex] || `Period ${periodIndex + 1}`;
                 return (
                   <List.Item
-                    key={dayIndex}
-                    title={DAY_NAMES[dayIndex]}
+                    key={periodIndex}
+                    title={label}
                     icon={{
                       source: Icon.Calendar,
                       tintColor: hasData ? Color.Blue : Color.SecondaryText,

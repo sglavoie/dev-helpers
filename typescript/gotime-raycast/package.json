@@ -25,8 +25,8 @@
     },
     {
       "name": "weekly-report",
-      "title": "GoTime: Weekly Report",
-      "description": "View weekly time tracking report",
+      "title": "GoTime: Reports",
+      "description": "View time tracking reports with flexible filtering",
       "mode": "view"
     },
     {

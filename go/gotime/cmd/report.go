@@ -123,12 +123,12 @@ func runReport(cmd *cobra.Command, args []string) error {
 		filter.SetKeywords(reportExcludeKeywords)
 		filter.ExcludeKeywords = true
 	}
-	
+
 	if reportTags != "" {
 		filter.SetTags(reportTags)
 		filter.ExcludeTags = false
 	} else if reportExcludeTags != "" {
-		filter.SetTags(reportExcludeTags)  
+		filter.SetTags(reportExcludeTags)
 		filter.ExcludeTags = true
 	}
 
@@ -141,14 +141,24 @@ func runReport(cmd *cobra.Command, args []string) error {
 
 // ReportJSON represents the JSON structure for a report
 type ReportJSON struct {
-	Title             string                 `json:"title"`
-	TimeRange         string                 `json:"time_range"`
-	CompletedEntries  []KeywordSummaryJSON   `json:"completed_entries,omitempty"`
-	ActiveEntries     []models.Entry         `json:"active_entries,omitempty"`
-	WeeklyData        *WeeklyReportJSON      `json:"weekly_data,omitempty"`
-	TotalDuration     int                    `json:"total_duration"`
-	CompletedDuration int                    `json:"completed_duration"`
-	ActiveDuration    int                    `json:"active_duration"`
+	Title             string                `json:"title"`
+	TimeRange         string                `json:"time_range"`
+	CompletedEntries  []KeywordSummaryJSON  `json:"completed_entries,omitempty"` // Deprecated: kept for backwards compatibility
+	ActiveEntries     []models.Entry        `json:"active_entries,omitempty"`    // Deprecated: kept for backwards compatibility
+	WeeklyData        *WeeklyReportJSON     `json:"weekly_data,omitempty"`       // Deprecated: use TimeSeries instead
+	TimeSeries        *TimeSeriesReportJSON `json:"time_series,omitempty"`       // New: unified time-based data
+	TotalDuration     int                   `json:"total_duration"`
+	CompletedDuration int                   `json:"completed_duration"`
+	ActiveDuration    int                   `json:"active_duration"`
+	FiltersApplied    *FiltersMetadata      `json:"filters_applied,omitempty"`
+}
+
+// FiltersMetadata represents the filters that were applied to generate this report
+type FiltersMetadata struct {
+	Keywords        []string `json:"keywords,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	ExcludeKeywords bool     `json:"exclude_keywords,omitempty"`
+	ExcludeTags     bool     `json:"exclude_tags,omitempty"`
 }
 
 // KeywordSummaryJSON represents keyword summary for JSON output
@@ -170,6 +180,21 @@ type WeeklyReportJSON struct {
 type WeeklyKeywordJSON struct {
 	Keyword      string `json:"keyword"`
 	DailyData    [7]int `json:"daily_data"`
+	KeywordTotal int    `json:"keyword_total"`
+}
+
+// TimeSeriesReportJSON represents time-based report data (flexible for different time ranges)
+type TimeSeriesReportJSON struct {
+	Keywords     []TimeSeriesKeywordJSON `json:"keywords"`
+	PeriodTotals []int                   `json:"period_totals"` // Totals for each time period
+	PeriodLabels []string                `json:"period_labels"` // Labels for each period (e.g., "Mon", "Oct 28", etc.)
+	GrandTotal   int                     `json:"grand_total"`
+}
+
+// TimeSeriesKeywordJSON represents a keyword's time-series data
+type TimeSeriesKeywordJSON struct {
+	Keyword      string `json:"keyword"`
+	PeriodData   []int  `json:"period_data"` // Duration for each time period
 	KeywordTotal int    `json:"keyword_total"`
 }
 
@@ -233,18 +258,25 @@ func generateJSONReport(entries []models.Entry, filter *filters.Filter) error {
 		TimeRange: getTimeRangeString(filter),
 	}
 
-	// Special handling for weekly reports
+	// Add filter metadata if any filters were applied
+	if len(filter.Keywords) > 0 || len(filter.Tags) > 0 {
+		report.FiltersApplied = &FiltersMetadata{
+			Keywords:        filter.Keywords,
+			Tags:            filter.Tags,
+			ExcludeKeywords: filter.ExcludeKeywords,
+			ExcludeTags:     filter.ExcludeTags,
+		}
+	}
+
+	// Generate time series data for ALL report types (unified format)
+	timeSeriesData := generateTimeSeriesReportJSON(entries, filter)
+	report.TimeSeries = &timeSeriesData
+	report.TotalDuration = timeSeriesData.GrandTotal
+
+	// Keep weekly_data for backwards compatibility with existing code
 	if filter.TimeRange == filters.TimeRangeWeek {
 		weeklyData := generateWeeklyReportJSON(entries)
 		report.WeeklyData = &weeklyData
-		report.TotalDuration = weeklyData.GrandTotal
-
-		jsonData, err := json.MarshalIndent(report, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal report to JSON: %w", err)
-		}
-		fmt.Println(string(jsonData))
-		return nil
 	}
 
 	// Separate active and completed entries
@@ -382,6 +414,174 @@ func generateKeywordSummaryJSON(entries []models.Entry) []KeywordSummaryJSON {
 	}
 
 	return summaries
+}
+
+// generateTimeSeriesReportJSON creates a time-series report for any time range
+func generateTimeSeriesReportJSON(entries []models.Entry, filter *filters.Filter) TimeSeriesReportJSON {
+	if len(entries) == 0 {
+		return TimeSeriesReportJSON{
+			Keywords:     []TimeSeriesKeywordJSON{},
+			PeriodTotals: []int{},
+			PeriodLabels: []string{},
+			GrandTotal:   0,
+		}
+	}
+
+	// Determine time periods based on filter type
+	var periodStart time.Time
+	var periodCount int
+	var periodLabels []string
+
+	now := time.Now()
+
+	switch filter.TimeRange {
+	case filters.TimeRangeWeek:
+		// 7 days: Sun-Sat
+		periodStart = getWeekStart(now)
+		periodCount = 7
+		periodLabels = []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+
+	case filters.TimeRangeToday:
+		// 1 period: today
+		periodStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		periodCount = 1
+		periodLabels = []string{now.Format("Jan 2")}
+
+	case filters.TimeRangeYesterday:
+		// 1 period: yesterday
+		yesterday := now.AddDate(0, 0, -1)
+		periodStart = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, yesterday.Location())
+		periodCount = 1
+		periodLabels = []string{yesterday.Format("Jan 2")}
+
+	case filters.TimeRangeMonth:
+		// Days in current month
+		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		lastOfMonth := firstOfMonth.AddDate(0, 1, -1)
+		periodStart = firstOfMonth
+		periodCount = lastOfMonth.Day()
+		for i := 1; i <= periodCount; i++ {
+			day := firstOfMonth.AddDate(0, 0, i-1)
+			periodLabels = append(periodLabels, day.Format("Jan 2"))
+		}
+
+	case filters.TimeRangeYear:
+		// 12 months
+		yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		periodStart = yearStart
+		periodCount = 12
+		for i := 0; i < 12; i++ {
+			month := yearStart.AddDate(0, i, 0)
+			periodLabels = append(periodLabels, month.Format("Jan"))
+		}
+
+	case filters.TimeRangeDays:
+		// Last N days
+		periodCount = filter.DaysBack
+		periodStart = now.AddDate(0, 0, -periodCount+1)
+		periodStart = time.Date(periodStart.Year(), periodStart.Month(), periodStart.Day(), 0, 0, 0, 0, periodStart.Location())
+		for i := 0; i < periodCount; i++ {
+			day := periodStart.AddDate(0, 0, i)
+			periodLabels = append(periodLabels, day.Format("Jan 2"))
+		}
+
+	case filters.TimeRangeBetween:
+		// Custom date range - create daily periods
+		if filter.StartDate != nil && filter.EndDate != nil {
+			periodStart = time.Date(filter.StartDate.Year(), filter.StartDate.Month(), filter.StartDate.Day(), 0, 0, 0, 0, filter.StartDate.Location())
+			endDate := time.Date(filter.EndDate.Year(), filter.EndDate.Month(), filter.EndDate.Day(), 0, 0, 0, 0, filter.EndDate.Location())
+			periodCount = int(endDate.Sub(periodStart).Hours()/24) + 1
+			for i := 0; i < periodCount; i++ {
+				day := periodStart.AddDate(0, 0, i)
+				periodLabels = append(periodLabels, day.Format("Jan 2"))
+			}
+		} else {
+			// Fallback to single period
+			periodStart = now
+			periodCount = 1
+			periodLabels = []string{now.Format("Jan 2")}
+		}
+
+	default:
+		// Default to single period
+		periodStart = now
+		periodCount = 1
+		periodLabels = []string{now.Format("Jan 2")}
+	}
+
+	// Initialize data structures
+	keywordData := make(map[string][]int)
+	periodTotals := make([]int, periodCount)
+
+	// Process entries and assign to appropriate periods
+	for _, entry := range entries {
+		duration := entry.Duration
+		if entry.Active {
+			duration = entry.GetCurrentDuration()
+		}
+
+		// Calculate which period this entry belongs to
+		var periodIndex int
+
+		switch filter.TimeRange {
+		case filters.TimeRangeYear:
+			// Month-based periods
+			monthsDiff := int(entry.StartTime.Month()) - int(periodStart.Month())
+			yearsDiff := entry.StartTime.Year() - periodStart.Year()
+			periodIndex = monthsDiff + (yearsDiff * 12)
+
+		default:
+			// Day-based periods
+			daysDiff := int(entry.StartTime.Sub(periodStart).Hours() / 24)
+			periodIndex = daysDiff
+		}
+
+		// Skip if outside period range
+		if periodIndex < 0 || periodIndex >= periodCount {
+			continue
+		}
+
+		// Initialize keyword data if needed
+		if _, exists := keywordData[entry.Keyword]; !exists {
+			keywordData[entry.Keyword] = make([]int, periodCount)
+		}
+
+		// Add duration to appropriate period
+		keywordData[entry.Keyword][periodIndex] += duration
+		periodTotals[periodIndex] += duration
+	}
+
+	// Build result
+	keywords := make([]string, 0, len(keywordData))
+	for keyword := range keywordData {
+		keywords = append(keywords, keyword)
+	}
+	sort.Strings(keywords)
+
+	grandTotal := 0
+	var timeSeriesKeywords []TimeSeriesKeywordJSON
+
+	for _, keyword := range keywords {
+		periodData := keywordData[keyword]
+		keywordTotal := 0
+		for _, duration := range periodData {
+			keywordTotal += duration
+		}
+		grandTotal += keywordTotal
+
+		timeSeriesKeywords = append(timeSeriesKeywords, TimeSeriesKeywordJSON{
+			Keyword:      keyword,
+			PeriodData:   periodData,
+			KeywordTotal: keywordTotal,
+		})
+	}
+
+	return TimeSeriesReportJSON{
+		Keywords:     timeSeriesKeywords,
+		PeriodTotals: periodTotals,
+		PeriodLabels: periodLabels,
+		GrandTotal:   grandTotal,
+	}
 }
 
 func generateWeeklyReportJSON(entries []models.Entry) WeeklyReportJSON {

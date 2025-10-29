@@ -9,19 +9,19 @@ import {
   confirmAlert,
   showToast,
   Keyboard,
-} from "@raycast/api";
-import { useExec } from "@raycast/utils";
-import { execSync } from "child_process";
-import ActiveTimers from "./active-timers";
-import ContinueTimer from "./continue-timer";
-import DeleteTimer from "./delete-timer";
-import StartTimer from "./start-timer";
-import WeeklyReport from "./weekly-report";
-import TagsList from "./tags-list";
-import TagsRename from "./tags-rename";
-import TagsRemove from "./tags-remove";
-import SetEntry from "./set-entry";
-import ListEntries from "./list-entries";
+} from '@raycast/api';
+import { useExec } from '@raycast/utils';
+import { execSync } from 'child_process';
+import ActiveTimers from './active-timers';
+import ContinueTimer from './continue-timer';
+import DeleteTimer from './delete-timer';
+import StartTimer from './start-timer';
+import WeeklyReport from './weekly-report';
+import TagsList from './tags-list';
+import TagsRename from './tags-rename';
+import TagsRemove from './tags-remove';
+import SetEntry from './set-entry';
+import ListEntries from './list-entries';
 
 interface Entry {
   id: string;
@@ -47,8 +47,8 @@ interface CommandItem {
 
 export default function Command() {
   const { data: activeTimers, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
-    ["list", "--active", "--json"],
+    '/Users/sglavoie/.local/bin/gt',
+    ['list', '--active', '--json'],
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -59,21 +59,21 @@ export default function Command() {
           const parsed = JSON.parse(trimmed);
           return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
-          console.error("Failed to parse JSON:", e);
+          console.error('Failed to parse JSON:', e);
           return [];
         }
       },
-    },
+    }
   );
 
   async function handleStopAll() {
     if (!activeTimers || activeTimers.length === 0) return;
 
     const confirmed = await confirmAlert({
-      title: "Stop All Timers",
+      title: 'Stop All Timers',
       message: `Stop all ${activeTimers.length} active timer(s)?`,
       primaryAction: {
-        title: "Stop All",
+        title: 'Stop All',
         style: Alert.ActionStyle.Destructive,
       },
     });
@@ -83,23 +83,23 @@ export default function Command() {
     try {
       await showToast({
         style: Toast.Style.Animated,
-        title: "Stopping all timers...",
+        title: 'Stopping all timers...',
       });
 
       execSync(`/Users/sglavoie/.local/bin/gt stop --all`, {
-        encoding: "utf-8",
+        encoding: 'utf-8',
       });
 
       await showToast({
         style: Toast.Style.Success,
-        title: "All timers stopped",
+        title: 'All timers stopped',
       });
 
       revalidate();
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
-        title: "Failed to stop all timers",
+        title: 'Failed to stop all timers',
         message: error instanceof Error ? error.message : String(error),
       });
     }
@@ -107,100 +107,100 @@ export default function Command() {
 
   const timerCommands: CommandItem[] = [
     {
-      id: "start-timer",
-      title: "Start Timer",
-      description: "Start a new timer with keyword and tags",
+      id: 'start-timer',
+      title: 'Start Timer',
+      description: 'Start a new timer with keyword and tags',
       icon: Icon.Play,
       iconColor: Color.Green,
       component: StartTimer,
-      shortcut: { modifiers: ["cmd"], key: "s" },
+      shortcut: { modifiers: ['cmd'], key: 's' },
     },
     {
-      id: "active-timers",
-      title: "Active Timers",
-      description: "View and stop active timers",
+      id: 'active-timers',
+      title: 'Active Timers',
+      description: 'View and stop active timers',
       icon: Icon.Clock,
       iconColor: Color.Green,
       component: ActiveTimers,
-      shortcut: { modifiers: ["cmd"], key: "a" },
+      shortcut: { modifiers: ['cmd'], key: 'a' },
     },
     {
-      id: "continue-timer",
-      title: "Continue Timer",
-      description: "Continue a previous timer (last 7 days)",
+      id: 'continue-timer',
+      title: 'Continue Timer',
+      description: 'Continue a previous timer (last 7 days)',
       icon: Icon.RotateClockwise,
       iconColor: Color.Blue,
       component: ContinueTimer,
-      shortcut: { modifiers: ["cmd"], key: "c" },
+      shortcut: { modifiers: ['cmd'], key: 'c' },
     },
   ];
 
   const reportCommands: CommandItem[] = [
     {
-      id: "list-entries",
-      title: "List Entries",
-      description: "List and filter time tracking entries",
+      id: 'list-entries',
+      title: 'List Entries',
+      description: 'List and filter time tracking entries',
       icon: Icon.List,
       iconColor: Color.Blue,
       component: ListEntries,
-      shortcut: { modifiers: ["cmd", "shift"], key: "l" },
+      shortcut: { modifiers: ['cmd', 'shift'], key: 'l' },
     },
     {
-      id: "weekly-report",
-      title: "Weekly Report",
-      description: "View weekly time tracking report",
+      id: 'reports',
+      title: 'Reports',
+      description: 'View time tracking reports',
       icon: Icon.BarChart,
       iconColor: Color.Purple,
       component: WeeklyReport,
-      shortcut: { modifiers: ["cmd"], key: "w" },
+      shortcut: { modifiers: ['cmd'], key: 'w' },
     },
     {
-      id: "set-entry",
-      title: "Edit Entry",
-      description: "Edit an existing timer entry",
+      id: 'set-entry',
+      title: 'Edit Entry',
+      description: 'Edit an existing timer entry',
       icon: Icon.Pencil,
       iconColor: Color.Orange,
       component: SetEntry,
-      shortcut: { modifiers: ["cmd"], key: "e" },
+      shortcut: { modifiers: ['cmd'], key: 'e' },
     },
     {
-      id: "delete-timer",
-      title: "Delete Timer",
-      description: "Delete a timer entry (last 7 days)",
+      id: 'delete-timer',
+      title: 'Delete Timer',
+      description: 'Delete a timer entry (last 7 days)',
       icon: Icon.Trash,
       iconColor: Color.Red,
       component: DeleteTimer,
-      shortcut: { modifiers: ["cmd"], key: "d" },
+      shortcut: { modifiers: ['cmd'], key: 'd' },
     },
   ];
 
   const tagCommands: CommandItem[] = [
     {
-      id: "tags-list",
-      title: "List Tags",
-      description: "View all tags with usage statistics",
+      id: 'tags-list',
+      title: 'List Tags',
+      description: 'View all tags with usage statistics',
       icon: Icon.List,
       iconColor: Color.Blue,
       component: TagsList,
-      shortcut: { modifiers: ["cmd"], key: "l" },
+      shortcut: { modifiers: ['cmd'], key: 'l' },
     },
     {
-      id: "tags-rename",
-      title: "Rename Tag",
-      description: "Rename a tag across all entries",
+      id: 'tags-rename',
+      title: 'Rename Tag',
+      description: 'Rename a tag across all entries',
       icon: Icon.Pencil,
       iconColor: Color.Orange,
       component: TagsRename,
-      shortcut: { modifiers: ["cmd"], key: "r" },
+      shortcut: { modifiers: ['cmd'], key: 'r' },
     },
     {
-      id: "tags-remove",
-      title: "Remove Tag",
-      description: "Remove a tag from all entries",
+      id: 'tags-remove',
+      title: 'Remove Tag',
+      description: 'Remove a tag from all entries',
       icon: Icon.XMarkCircle,
       iconColor: Color.Red,
       component: TagsRemove,
-      shortcut: { modifiers: ["cmd"], key: "x" },
+      shortcut: { modifiers: ['cmd'], key: 'x' },
     },
   ];
 
@@ -209,7 +209,7 @@ export default function Command() {
 
   return (
     <List>
-      <List.Section title="Timer Management">
+      <List.Section title='Timer Management'>
         {timerCommands.map((cmd) => (
           <List.Item
             key={cmd.id}
@@ -230,17 +230,17 @@ export default function Command() {
         ))}
         {hasActiveTimers && (
           <List.Item
-            key="stop-all"
+            key='stop-all'
             icon={{ source: Icon.Stop, tintColor: Color.Red }}
-            title="Stop All Active Timers"
-            subtitle={`${activeTimers.length} timer${activeTimers.length > 1 ? "s" : ""} running`}
+            title='Stop All Active Timers'
+            subtitle={`${activeTimers.length} timer${activeTimers.length > 1 ? 's' : ''} running`}
             actions={
               <ActionPanel>
                 <Action
-                  title="Stop All Timers"
+                  title='Stop All Timers'
                   icon={Icon.Stop}
                   style={Action.Style.Destructive}
-                  shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
+                  shortcut={{ modifiers: ['cmd', 'shift'], key: 's' }}
                   onAction={handleStopAll}
                 />
               </ActionPanel>
@@ -249,7 +249,7 @@ export default function Command() {
         )}
       </List.Section>
 
-      <List.Section title="Tag Management">
+      <List.Section title='Tag Management'>
         {tagCommands.map((cmd) => (
           <List.Item
             key={cmd.id}
@@ -270,7 +270,7 @@ export default function Command() {
         ))}
       </List.Section>
 
-      <List.Section title="Reports & Data">
+      <List.Section title='Reports & Data'>
         {reportCommands.map((cmd) => (
           <List.Item
             key={cmd.id}
