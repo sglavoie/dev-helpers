@@ -14,14 +14,18 @@ export function extractPlaceholders(text: string): Placeholder[] {
     const content = match[1].trim();
     const parts = content.split("|");
     const key = parts[0].trim();
-    const defaultValue = parts[1]?.trim();
+
+    // Check if pipe exists: parts.length > 1 means we have {{key|...}}
+    const hasPipe = parts.length > 1;
+    const defaultValue = hasPipe ? parts[1].trim() : undefined;
 
     // Only add unique placeholders (by key)
     if (!seen.has(key)) {
       placeholders.push({
         key,
-        defaultValue: defaultValue || undefined,
-        isRequired: !defaultValue,
+        defaultValue,
+        // Required only if no pipe present ({{key}} vs {{key|}} or {{key|value}})
+        isRequired: !hasPipe,
       });
       seen.add(key);
     }
@@ -38,8 +42,8 @@ export function replacePlaceholders(text: string, values: Record<string, string>
   let result = text;
 
   for (const placeholder of placeholders) {
-    // Use user value, or fall back to default value, or empty string
-    const value = values[placeholder.key] || placeholder.defaultValue || "";
+    // Use user value, or fall back to default value (which may be empty string), or empty string
+    const value = values[placeholder.key] ?? placeholder.defaultValue ?? "";
 
     // Match both {{key}} and {{key|default}} formats
     const regex = new RegExp(`\\{\\{${escapeRegex(placeholder.key)}(?:\\|[^}]*)?\\}\\}`, "g");

@@ -56,8 +56,9 @@ export function PlaceholderForm(props: {
         suggestions[placeholder.key] = rankedValues;
 
         // Pre-fill with top-ranked value from history, or default value
+        // Use ?? to preserve empty strings (for {{key|}} syntax)
         const topValue = getTopRankedValue(history);
-        const defaultValue = topValue || placeholder.defaultValue || "";
+        const defaultValue = topValue ?? placeholder.defaultValue ?? "";
 
         initial[placeholder.key] = defaultValue;
 
@@ -251,7 +252,7 @@ export function PlaceholderForm(props: {
                     id={`${placeholder.key}-custom`}
                     title={`${title} (Custom)`}
                     placeholder={placeholder.defaultValue || "Enter custom value..."}
-                    value={customValues[placeholder.key] || ""}
+                    value={customValues[placeholder.key] ?? ""}
                     error={errors[placeholder.key]}
                     onChange={(value) => handleCustomInputChange(placeholder.key, value)}
                     info={placeholder.isRequired ? "Required field" : "Optional"}
@@ -263,13 +264,13 @@ export function PlaceholderForm(props: {
                 id={placeholder.key}
                 title={title}
                 placeholder={placeholder.defaultValue || "Enter value..."}
-                value={formValues[placeholder.key] || ""}
+                value={formValues[placeholder.key] ?? ""}
                 error={errors[placeholder.key]}
                 onChange={(value) => handleCustomInputChange(placeholder.key, value)}
                 info={
                   placeholder.isRequired
                     ? "Required field"
-                    : `Optional (default: "${placeholder.defaultValue || "empty"}")`
+                    : `Optional (default: "${placeholder.defaultValue ?? "none"}")`
                 }
               />
             )}

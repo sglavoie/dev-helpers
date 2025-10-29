@@ -62,6 +62,35 @@ describe("extractPlaceholders", () => {
     expect(result[0].key).toBe("name");
     expect(result[0].defaultValue).toBe("John Doe");
   });
+
+  it("should handle empty default values with pipe syntax", () => {
+    const text = "Hello {{name|}}!";
+    const result = extractPlaceholders(text);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      key: "name",
+      defaultValue: "",
+      isRequired: false,
+    });
+  });
+
+  it("should distinguish between no default and empty default", () => {
+    const text = "{{noDefault}} vs {{emptyDefault|}}";
+    const result = extractPlaceholders(text);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      key: "noDefault",
+      defaultValue: undefined,
+      isRequired: true,
+    });
+    expect(result[1]).toEqual({
+      key: "emptyDefault",
+      defaultValue: "",
+      isRequired: false,
+    });
+  });
 });
 
 describe("replacePlaceholders", () => {
@@ -126,5 +155,23 @@ describe("replacePlaceholders", () => {
 
     const result = replacePlaceholders(text, values, placeholders);
     expect(result).toBe("Hello !");
+  });
+
+  it("should use empty string default when specified with pipe syntax", () => {
+    const text = "Hello {{name|}}!";
+    const values = {};
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Hello !");
+  });
+
+  it("should allow user value to override empty default", () => {
+    const text = "Hello {{name|}}!";
+    const values = { name: "Alice" };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Hello Alice!");
   });
 });
