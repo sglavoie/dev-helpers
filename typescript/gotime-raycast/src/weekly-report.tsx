@@ -137,7 +137,8 @@ export default function Command() {
         // Extract unique tags from entries
         const tagSet = new Set<string>();
         entries.forEach((entry) => {
-          entry.tags.forEach((tag) => tagSet.add(tag));
+          const tags = entry.tags ?? [];
+          tags.forEach((tag) => tagSet.add(tag));
         });
         return Array.from(tagSet)
           .sort()

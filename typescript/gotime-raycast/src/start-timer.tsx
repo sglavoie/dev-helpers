@@ -62,7 +62,8 @@ export default function Command() {
 
     entries.forEach((entry) => {
       keywordSet.add(entry.keyword);
-      entry.tags.forEach((tag) => tagSet.add(tag));
+      const tags = entry.tags ?? [];
+      tags.forEach((tag) => tagSet.add(tag));
     });
 
     return {

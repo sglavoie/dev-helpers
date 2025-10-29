@@ -60,7 +60,8 @@ export default function Command() {
         const tagMap = new Map<string, TagUsage>();
 
         entries.forEach((entry) => {
-          entry.tags.forEach((tag) => {
+          const tags = entry.tags ?? [];
+          tags.forEach((tag) => {
             // Skip empty tags
             if (!tag || tag.trim() === "") return;
 

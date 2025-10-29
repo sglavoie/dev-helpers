@@ -45,7 +45,8 @@ export default function Command() {
         // Extract unique tags
         const tagSet = new Set<string>();
         entries.forEach((entry) => {
-          entry.tags.forEach((tag) => tagSet.add(tag));
+          const tags = entry.tags ?? [];
+          tags.forEach((tag) => tagSet.add(tag));
         });
 
         // Convert to sorted array

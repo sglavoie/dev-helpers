@@ -181,14 +181,14 @@ export default function Command() {
                 title={entry.keyword}
                 subtitle={`${durationStr} • ${statusStr}`}
                 accessories={[
-                  ...entry.tags.slice(0, 3).map((tag) => ({
+                  ...(entry.tags ?? []).slice(0, 3).map((tag) => ({
                     tag: { value: tag, color: Color.Blue },
                   })),
-                  ...(entry.tags.length > 3
+                  ...((entry.tags ?? []).length > 3
                     ? [
                         {
                           tag: {
-                            value: `+${entry.tags.length - 3}`,
+                            value: `+${(entry.tags ?? []).length - 3}`,
                             color: Color.SecondaryText,
                           },
                         },

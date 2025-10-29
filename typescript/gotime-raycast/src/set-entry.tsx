@@ -102,7 +102,7 @@ function EditEntryForm({
   const [calculatedDuration, setCalculatedDuration] = useState<number>(
     entry.duration,
   );
-  const [selectedTags, setSelectedTags] = useState<string[]>(entry.tags);
+  const [selectedTags, setSelectedTags] = useState<string[]>(entry.tags ?? []);
   const [startDateTime, setStartDateTime] = useState<Date>(
     new Date(entry.start_time),
   );
@@ -302,7 +302,7 @@ function EditEntryForm({
     }
 
     // Update tags if changed
-    const currentTags = entry.tags.sort().join(",");
+    const currentTags = (entry.tags ?? []).sort().join(",");
     const newTags = selectedTags.sort().join(",");
     if (newTags !== currentTags) {
       const tagsArg = newTags || '""';
@@ -618,7 +618,8 @@ export default function Command() {
 
     data.forEach((entry) => {
       keywordSet.add(entry.keyword);
-      entry.tags.forEach((tag) => tagSet.add(tag));
+      const tags = entry.tags ?? [];
+      tags.forEach((tag) => tagSet.add(tag));
     });
 
     return {
@@ -681,14 +682,14 @@ export default function Command() {
                   title={entry.keyword}
                   subtitle={`${durationStr} • ${statusStr}`}
                   accessories={[
-                    ...entry.tags.slice(0, 3).map((tag) => ({
+                    ...(entry.tags ?? []).slice(0, 3).map((tag) => ({
                       tag: { value: tag, color: Color.Blue },
                     })),
-                    ...(entry.tags.length > 3
+                    ...((entry.tags ?? []).length > 3
                       ? [
                           {
                             tag: {
-                              value: `+${entry.tags.length - 3}`,
+                              value: `+${(entry.tags ?? []).length - 3}`,
                               color: Color.SecondaryText,
                             },
                           },

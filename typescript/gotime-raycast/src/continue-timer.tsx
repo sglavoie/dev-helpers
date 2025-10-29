@@ -86,7 +86,7 @@ export default function Command() {
         // Filter to keep only unique keyword + tag combinations (most recent first)
         const seen = new Set<string>();
         return stoppedFiltered.filter((entry) => {
-          const sortedTags = [...entry.tags].sort().join(",");
+          const sortedTags = [...(entry.tags ?? [])].sort().join(",");
           const key = `${entry.keyword}:${sortedTags}`;
           if (seen.has(key)) {
             return false;
@@ -127,14 +127,14 @@ export default function Command() {
                 title={entry.keyword}
                 subtitle={`${durationStr} • Ended ${endedStr}`}
                 accessories={[
-                  ...entry.tags.slice(0, 3).map((tag) => ({
+                  ...(entry.tags ?? []).slice(0, 3).map((tag) => ({
                     tag: { value: tag, color: Color.Blue },
                   })),
-                  ...(entry.tags.length > 3
+                  ...((entry.tags ?? []).length > 3
                     ? [
                         {
                           tag: {
-                            value: `+${entry.tags.length - 3}`,
+                            value: `+${(entry.tags ?? []).length - 3}`,
                             color: Color.SecondaryText,
                           },
                         },
@@ -242,7 +242,7 @@ function BackdateForm(props: { entry: Entry; onComplete: () => void }) {
     >
       <Form.Description
         title="Continue Timer"
-        text={`Continuing "${props.entry.keyword}" with tags: ${props.entry.tags.length > 0 ? props.entry.tags.join(", ") : "none"}`}
+        text={`Continuing "${props.entry.keyword}" with tags: ${(props.entry.tags ?? []).length > 0 ? (props.entry.tags ?? []).join(", ") : "none"}`}
       />
 
       <Form.Dropdown
