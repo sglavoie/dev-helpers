@@ -130,12 +130,14 @@ export function parseSearchQuery(query: string): ParsedQuery {
   result.fuzzyText = fuzzyTokens.join(" ").trim();
 
   // Step 4: Set hasOperators flag
+  // Include fuzzyText so that simple searches also trigger applySearchFilters
   result.hasOperators =
     result.tags.length > 0 ||
     result.notTags.length > 0 ||
     result.is.length > 0 ||
     result.not.length > 0 ||
-    result.exactPhrases.length > 0;
+    result.exactPhrases.length > 0 ||
+    result.fuzzyText.length > 0;
 
   return result;
 }

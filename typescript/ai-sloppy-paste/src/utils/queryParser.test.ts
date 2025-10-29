@@ -116,11 +116,11 @@ describe("queryParser", () => {
         expect(result.is).toEqual(["favorite", "archived"]);
       });
 
-      it("should ignore invalid is: values", () => {
+      it("should ignore invalid is: values (treated as fuzzy text)", () => {
         const result = parseSearchQuery("is:invalid");
         expect(result.is).toEqual([]);
         expect(result.fuzzyText).toBe("is:invalid");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
     });
 
@@ -150,7 +150,7 @@ describe("queryParser", () => {
         const result = parseSearchQuery("not:invalid");
         expect(result.not).toEqual([]);
         expect(result.fuzzyText).toBe("not:invalid");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
 
       it("should distinguish not:tag: from not: boolean", () => {
@@ -192,7 +192,7 @@ describe("queryParser", () => {
         const result = parseSearchQuery('"unclosed');
         expect(result.exactPhrases).toEqual([]);
         expect(result.fuzzyText).toBe('"unclosed');
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
     });
 
@@ -200,7 +200,7 @@ describe("queryParser", () => {
       it("should parse simple fuzzy text", () => {
         const result = parseSearchQuery("simple search");
         expect(result.fuzzyText).toBe("simple search");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
 
       it("should parse multiple words as fuzzy text", () => {
@@ -216,7 +216,7 @@ describe("queryParser", () => {
       it("should handle unknown operators as fuzzy text", () => {
         const result = parseSearchQuery("unknown:operator search");
         expect(result.fuzzyText).toBe("unknown:operator search");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
     });
 
@@ -256,7 +256,7 @@ describe("queryParser", () => {
         const result = parseSearchQuery("tag:");
         expect(result.tags).toEqual([]);
         expect(result.fuzzyText).toBe("tag:");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true); // fuzzy text counts as operator
       });
 
       it("should handle is: without value", () => {
@@ -311,9 +311,9 @@ describe("queryParser", () => {
         expect(result.hasOperators).toBe(true);
       });
 
-      it("should be false for pure fuzzy search", () => {
+      it("should be true for pure fuzzy search (fuzzy text counts as operator)", () => {
         const result = parseSearchQuery("simple search");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true);
       });
 
       it("should be false for empty query", () => {
@@ -321,9 +321,9 @@ describe("queryParser", () => {
         expect(result.hasOperators).toBe(false);
       });
 
-      it("should be false when only invalid operators present", () => {
+      it("should be true when only invalid operators present (they become fuzzy text)", () => {
         const result = parseSearchQuery("is:invalid unknown:operator");
-        expect(result.hasOperators).toBe(false);
+        expect(result.hasOperators).toBe(true);
       });
     });
   });
