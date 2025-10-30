@@ -15,7 +15,7 @@ describe("PlaceholderForm storage integration", () => {
     const placeholders = extractPlaceholders(text);
 
     // Mock saving logic
-    const values = { name: "Alice", date: "2025-10-30" };
+    const values: Record<string, string> = { name: "Alice", date: "2025-10-30" };
 
     for (const placeholder of placeholders) {
       const value = values[placeholder.key];
