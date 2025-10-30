@@ -147,7 +147,7 @@ describe("extractPlaceholders", () => {
     expect(result[0]).toEqual({
       key: "id",
       defaultValue: undefined,
-      isRequired: true,
+      isRequired: false, // Wrapper syntax implies optionality
       isSaved: true,
       prefixWrapper: "#",
       suffixWrapper: undefined,
@@ -161,7 +161,7 @@ describe("extractPlaceholders", () => {
     expect(result[0]).toEqual({
       key: "amount",
       defaultValue: undefined,
-      isRequired: true,
+      isRequired: false, // Wrapper syntax implies optionality
       isSaved: true,
       prefixWrapper: undefined,
       suffixWrapper: "%",
@@ -175,10 +175,42 @@ describe("extractPlaceholders", () => {
     expect(result[0]).toEqual({
       key: "amount",
       defaultValue: undefined,
-      isRequired: true,
+      isRequired: false, // Wrapper syntax implies optionality
       isSaved: true,
       prefixWrapper: "$",
       suffixWrapper: " USD",
+    });
+  });
+
+  it("should make wrapper syntax imply optionality", () => {
+    // Wrapper syntax creates a conditional unit that shows prefix+value+suffix OR nothing
+    // This makes the placeholder semantically optional, matching replacement behavior
+    const cases = [
+      { text: "Order {{#:id:}}", desc: "prefix only" },
+      { text: "Price {{:amount:%}}", desc: "suffix only" },
+      { text: "{{with :context:}}", desc: "prefix with space" },
+    ];
+
+    for (const { text, desc } of cases) {
+      const result = extractPlaceholders(text);
+      expect(result).toHaveLength(1);
+      expect(result[0].isRequired).toBe(false, `Wrapper syntax should make placeholder optional (${desc})`);
+    }
+  });
+
+  it("should parse no-save flag with empty wrappers", () => {
+    // {{!:key:}} with empty wrappers is like {{:key:}} (equivalent to {{key}})
+    // The ! only affects isSaved, not isRequired
+    const text = "Event on {{!:date:}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "date",
+      defaultValue: undefined,
+      isRequired: true, // Empty wrappers = equivalent to {{key}}
+      isSaved: false,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
   });
 

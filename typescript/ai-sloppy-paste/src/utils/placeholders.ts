@@ -51,10 +51,15 @@ export function extractPlaceholders(text: string): Placeholder[] {
 
     // Only add unique placeholders (by key)
     if (key && !seen.has(key)) {
+      // Wrapper syntax implies optionality because replacement logic
+      // already handles empty values by omitting the wrapper
+      // Exception: {{:key:}} with both wrappers empty is equivalent to {{key}}
+      const hasNonEmptyWrappers = prefixWrapper !== undefined || suffixWrapper !== undefined;
+
       placeholders.push({
         key,
         defaultValue,
-        isRequired: !hasDefault,
+        isRequired: !hasDefault && !hasNonEmptyWrappers,
         isSaved,
         prefixWrapper,
         suffixWrapper,

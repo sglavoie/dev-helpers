@@ -225,12 +225,30 @@ export function PlaceholderForm(props: {
         </ActionPanel>
       }
     >
-      <Form.Description text="Fill in the placeholder values below. Required fields are marked with *." />
+      <Form.Description text="Fill in the placeholder values below. Required fields are marked with *. Fields with 🚫 won't be saved to history." />
       {props.placeholders.map((placeholder) => {
         const suggestions = historySuggestions[placeholder.key] || [];
         const hasHistory = suggestions.length > 0;
         const showCustomInput = useCustomInput[placeholder.key];
-        const title = placeholder.isRequired ? `${placeholder.key} *` : placeholder.key;
+
+        // Build title with indicators
+        let title = placeholder.key;
+        if (placeholder.isRequired) title += " *";
+        if (!placeholder.isSaved) title = `🚫 ${title}`;
+
+        // Build info text
+        const buildInfoText = () => {
+          const parts: string[] = [];
+          if (placeholder.isRequired) {
+            parts.push("Required field");
+          } else {
+            parts.push(`Optional (default: "${placeholder.defaultValue ?? "none"}")`);
+          }
+          if (!placeholder.isSaved) {
+            parts.push("Won't be saved to history");
+          }
+          return parts.join(" • ");
+        };
 
         return (
           <Fragment key={placeholder.key}>
@@ -242,6 +260,7 @@ export function PlaceholderForm(props: {
                   value={dropdownSelections[placeholder.key] || CUSTOM_VALUE_MARKER}
                   onChange={(value) => handleDropdownChange(placeholder.key, value)}
                   error={!showCustomInput ? errors[placeholder.key] : undefined}
+                  info={!placeholder.isSaved ? "Won't be saved to history" : undefined}
                 >
                   {suggestions.map((value) => (
                     <Form.Dropdown.Item key={value} value={value} title={value} />
@@ -256,7 +275,7 @@ export function PlaceholderForm(props: {
                     value={customValues[placeholder.key] ?? ""}
                     error={errors[placeholder.key]}
                     onChange={(value) => handleCustomInputChange(placeholder.key, value)}
-                    info={placeholder.isRequired ? "Required field" : "Optional"}
+                    info={buildInfoText()}
                   />
                 )}
               </>
@@ -268,11 +287,7 @@ export function PlaceholderForm(props: {
                 value={formValues[placeholder.key] ?? ""}
                 error={errors[placeholder.key]}
                 onChange={(value) => handleCustomInputChange(placeholder.key, value)}
-                info={
-                  placeholder.isRequired
-                    ? "Required field"
-                    : `Optional (default: "${placeholder.defaultValue ?? "none"}")`
-                }
+                info={buildInfoText()}
               />
             )}
           </Fragment>
