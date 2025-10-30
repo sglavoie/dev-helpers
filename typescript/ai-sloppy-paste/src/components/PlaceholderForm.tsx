@@ -106,10 +106,11 @@ export function PlaceholderForm(props: {
     const filledContent = replacePlaceholders(props.snippet.content, finalValues, props.placeholders);
 
     try {
-      // Save all placeholder values to history
+      // Save placeholder values to history (respect isSaved flag)
       for (const placeholder of props.placeholders) {
         const value = finalValues[placeholder.key];
-        if (value && value.trim()) {
+        // Only save if isSaved is true and value is non-empty
+        if (placeholder.isSaved && value && value.trim()) {
           await addPlaceholderValue(placeholder.key, value);
         }
       }
