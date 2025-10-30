@@ -301,4 +301,67 @@ describe("replacePlaceholders", () => {
     const result = replacePlaceholders(text, values, placeholders);
     expect(result).toBe("Hello Alice!");
   });
+
+  it("should apply prefix wrapper when value is non-empty", () => {
+    const text = "Order {{#:id:}}";
+    const values = { id: "12345" };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Order #12345");
+  });
+
+  it("should apply suffix wrapper when value is non-empty", () => {
+    const text = "Price {{:amount:%}}";
+    const values = { amount: "25" };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Price 25%");
+  });
+
+  it("should apply both prefix and suffix wrappers", () => {
+    const text = "Price {{$:amount: USD}}";
+    const values = { amount: "25.50" };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Price $25.50 USD");
+  });
+
+  it("should NOT apply wrappers when value is empty", () => {
+    const text = "Message{{with :context:}}";
+    const values = { context: "" };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Message");
+  });
+
+  it("should NOT apply wrappers when value is whitespace-only", () => {
+    const text = "Message{{with :context:}}";
+    const values = { context: "   " };
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Message");
+  });
+
+  it("should apply wrappers to default values if non-empty", () => {
+    const text = "Price {{$:amount: USD|0.00}}";
+    const values = {};
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Price $0.00 USD");
+  });
+
+  it("should NOT apply wrappers to empty default values", () => {
+    const text = "Message{{with :context:| }}";
+    const values = {};
+    const placeholders = extractPlaceholders(text);
+
+    const result = replacePlaceholders(text, values, placeholders);
+    expect(result).toBe("Message");
+  });
 });
