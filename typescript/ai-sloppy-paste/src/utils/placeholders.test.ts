@@ -357,7 +357,7 @@ describe("replacePlaceholders", () => {
   });
 
   it("should NOT apply wrappers to empty default values", () => {
-    const text = "Message{{with :context:| }}";
+    const text = "Message{{with :context:|}}";
     const values = {};
     const placeholders = extractPlaceholders(text);
 
