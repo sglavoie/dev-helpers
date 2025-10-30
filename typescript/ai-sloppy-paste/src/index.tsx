@@ -406,7 +406,7 @@ export default function Command() {
               <Action
                 title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
                 icon={Icon.Box}
-                shortcut={{ modifiers: ["cmd"], key: "a" }}
+                shortcut={{ modifiers: ["cmd"], key: "b" }}
                 onAction={() => setShowArchivedSnippets(!showArchivedSnippets)}
               />
             </ActionPanel.Section>
