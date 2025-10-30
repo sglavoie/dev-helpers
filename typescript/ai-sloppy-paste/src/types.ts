@@ -36,6 +36,9 @@ export interface Placeholder {
   key: string;
   defaultValue?: string;
   isRequired: boolean;
+  isSaved: boolean; // NEW: Whether to save to history (default true)
+  prefixWrapper?: string; // NEW: Conditional prefix text
+  suffixWrapper?: string; // NEW: Conditional suffix text
 }
 
 export interface PlaceholderHistoryValue {
