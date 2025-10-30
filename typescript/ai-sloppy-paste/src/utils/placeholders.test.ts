@@ -91,6 +91,115 @@ describe("extractPlaceholders", () => {
       isRequired: false,
     });
   });
+
+  it("should parse no-save flag with ! prefix", () => {
+    const text = "Date: {{!date}}";
+    const result = extractPlaceholders(text);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      key: "date",
+      defaultValue: undefined,
+      isRequired: true,
+      isSaved: false,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
+    });
+  });
+
+  it("should parse no-save flag with default value", () => {
+    const text = "{{!timestamp|123}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "timestamp",
+      defaultValue: "123",
+      isRequired: false,
+      isSaved: false,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
+    });
+  });
+
+  it("should parse prefix wrapper", () => {
+    const text = "Order {{#:id:}}";
+    const result = extractPlaceholders(text);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      key: "id",
+      defaultValue: undefined,
+      isRequired: true,
+      isSaved: true,
+      prefixWrapper: "#",
+      suffixWrapper: undefined,
+    });
+  });
+
+  it("should parse suffix wrapper", () => {
+    const text = "Price {{:amount:%}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "amount",
+      defaultValue: undefined,
+      isRequired: true,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: "%",
+    });
+  });
+
+  it("should parse both prefix and suffix wrappers", () => {
+    const text = "Price {{$:amount: USD}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "amount",
+      defaultValue: undefined,
+      isRequired: true,
+      isSaved: true,
+      prefixWrapper: "$",
+      suffixWrapper: " USD",
+    });
+  });
+
+  it("should parse no-save flag with wrappers and default", () => {
+    const text = "{{!$:price: USD|0.00}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "price",
+      defaultValue: "0.00",
+      isRequired: false,
+      isSaved: false,
+      prefixWrapper: "$",
+      suffixWrapper: " USD",
+    });
+  });
+
+  it("should handle empty wrappers explicitly", () => {
+    const text = "{{:key:}}";
+    const result = extractPlaceholders(text);
+
+    expect(result[0]).toEqual({
+      key: "key",
+      defaultValue: undefined,
+      isRequired: true,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
+    });
+  });
+
+  it("should treat invalid colon count as literal key", () => {
+    const text = "{{key:value}}"; // Only 1 colon - invalid
+    const result = extractPlaceholders(text);
+
+    expect(result[0].key).toBe("key:value");
+    expect(result[0].prefixWrapper).toBeUndefined();
+    expect(result[0].suffixWrapper).toBeUndefined();
+  });
 });
 
 describe("replacePlaceholders", () => {
