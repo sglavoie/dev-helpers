@@ -11,6 +11,9 @@ describe("extractPlaceholders", () => {
       key: "name",
       defaultValue: undefined,
       isRequired: true,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
   });
 
@@ -23,11 +26,17 @@ describe("extractPlaceholders", () => {
       key: "name",
       defaultValue: "John",
       isRequired: false,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
     expect(result[1]).toEqual({
       key: "id",
       defaultValue: "123",
       isRequired: false,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
   });
 
@@ -72,6 +81,9 @@ describe("extractPlaceholders", () => {
       key: "name",
       defaultValue: "",
       isRequired: false,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
   });
 
@@ -84,11 +96,17 @@ describe("extractPlaceholders", () => {
       key: "noDefault",
       defaultValue: undefined,
       isRequired: true,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
     expect(result[1]).toEqual({
       key: "emptyDefault",
       defaultValue: "",
       isRequired: false,
+      isSaved: true,
+      prefixWrapper: undefined,
+      suffixWrapper: undefined,
     });
   });
 
