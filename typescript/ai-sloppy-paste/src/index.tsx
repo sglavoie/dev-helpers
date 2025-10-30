@@ -722,6 +722,7 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
           setContentCharInfo(charInfo.info);
         }}
       />
+      <Form.Description text="Placeholders: {{key}} (required) | {{key|default}} (optional) | {{prefix:key:suffix}} (wrappers) | {{!key}} (no history save)" />
       <Form.TagPicker
         id="tags"
         title="Tags"
