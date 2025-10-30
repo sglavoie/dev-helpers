@@ -63,13 +63,33 @@ Tags allow you to organize snippets in multiple categories simultaneously with p
 
 ## Using Placeholders
 
-Create dynamic snippet templates with placeholder syntax:
+Create dynamic snippet templates with enhanced placeholder syntax:
 
-- **Basic**: `{{name}}` - will prompt for value when copying
-- **With default**: `{{name|John Doe}}` - optional with default value
-- **Example**: `Hello {{name}}, your order {{order_id}} is ready!`
+### Basic Syntax
+- **Required**: `{{name}}` - prompts for value when copying
+- **Optional**: `{{name|John Doe}}` - with default value
+- **No-save**: `{{!date}}` - value NOT saved to history
+
+### Conditional Wrapper Text
+- **Prefix**: `{{#:id:}}` - adds "#" before value (only if value present)
+- **Suffix**: `{{:id:#}}` - adds "#" after value (only if value present)
+- **Both**: `{{$:price: USD}}` - adds "$" before and " USD" after
+
+### Examples
+```
+Hello {{:name:}}, your order {{#:order_id:}} is ready!
+→ "Hello Alice, your order #12345 is ready!"
+
+Message{{with :context:|}}
+→ If context filled: "Message with urgent details"
+→ If context empty: "Message"
+
+Event on {{!:date:}} at {{!:time::pm}}
+→ date/time not saved to history
+```
 
 When you copy a snippet with placeholders, you'll be prompted to fill in the values.
+Values are saved to history for autocomplete (unless `!` flag is used).
 
 ## Usage Statistics
 
