@@ -8,6 +8,8 @@ import {
   Toast,
   showToast,
   useNavigation,
+  popToRoot,
+  closeMainWindow,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState } from "react";
@@ -222,7 +224,8 @@ function BackdateForm(props: { entry: Entry; onComplete: () => void }) {
       });
 
       props.onComplete();
-      pop();
+      await popToRoot();
+      await closeMainWindow();
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,
