@@ -68,6 +68,29 @@ export function getTopRankedValue(values: PlaceholderHistoryValue[]): string | u
 }
 
 /**
+ * Get the most recently used value (by lastUsed timestamp)
+ *
+ * This differs from getTopRankedValue which uses smart ranking combining
+ * recency and frequency. Use this when you want the absolute last-used value
+ * regardless of frequency.
+ *
+ * @param values Array of placeholder history values
+ * @returns The most recently used value, or undefined if history is empty
+ */
+export function getLastUsedValue(values: PlaceholderHistoryValue[]): string | undefined {
+  if (!values || values.length === 0) {
+    return undefined;
+  }
+
+  // Find the value with the maximum lastUsed timestamp
+  const mostRecent = values.reduce((latest, current) => {
+    return current.lastUsed > latest.lastUsed ? current : latest;
+  });
+
+  return mostRecent.value;
+}
+
+/**
  * Calculate statistics for a placeholder key
  */
 export interface PlaceholderKeyStats {

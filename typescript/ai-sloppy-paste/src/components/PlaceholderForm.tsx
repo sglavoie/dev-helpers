@@ -18,7 +18,7 @@ import {
   getMaxPlaceholderHistoryValues,
 } from "../utils/storage";
 import { replacePlaceholders } from "../utils/placeholders";
-import { getTopRankedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
+import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
 
 const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
 
@@ -55,10 +55,10 @@ export function PlaceholderForm(props: {
 
         suggestions[placeholder.key] = rankedValues;
 
-        // Pre-fill with top-ranked value from history, or default value
+        // Pre-fill with last-used value from history, or default value
         // Use ?? to preserve empty strings (for {{key|}} syntax)
-        const topValue = getTopRankedValue(history);
-        const defaultValue = topValue ?? placeholder.defaultValue ?? "";
+        const lastUsedValue = getLastUsedValue(history);
+        const defaultValue = lastUsedValue ?? placeholder.defaultValue ?? "";
 
         initial[placeholder.key] = defaultValue;
 

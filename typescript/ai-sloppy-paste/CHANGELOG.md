@@ -28,6 +28,7 @@ All notable changes to the AI Sloppy Paste extension will be documented in this 
 - **Export/Import**: Enhanced with merge support and better error handling
 - **Detail View**: Shows comprehensive metadata including usage statistics
 - **Timestamps**: Now tracks creation, modification, and last use times
+- **Placeholder Pre-selection**: Last-used value now pre-selected in placeholder forms for improved workflow continuity (dropdown list still uses smart ranking)
 
 ### Keyboard Shortcuts (Updated)
 

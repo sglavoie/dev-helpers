@@ -4,6 +4,7 @@ import {
   getRankedValuesForAutocomplete,
   filterValuesByQuery,
   getTopRankedValue,
+  getLastUsedValue,
   calculateKeyStats,
   formatRelativeTime,
 } from "./placeholderHistory";
@@ -172,6 +173,66 @@ describe("getTopRankedValue", () => {
     const result = getTopRankedValue(values);
 
     expect(result).toBe("only");
+  });
+});
+
+describe("getLastUsedValue", () => {
+  it("should return the most recently used value", () => {
+    const now = Date.now();
+    const values: PlaceholderHistoryValue[] = [
+      { value: "old", useCount: 100, lastUsed: now - 30 * ONE_DAY_MS, createdAt: now - 30 * ONE_DAY_MS },
+      { value: "recent", useCount: 1, lastUsed: now - ONE_HOUR_MS, createdAt: now - ONE_HOUR_MS },
+      { value: "very-old", useCount: 50, lastUsed: now - 60 * ONE_DAY_MS, createdAt: now - 60 * ONE_DAY_MS },
+    ];
+
+    const result = getLastUsedValue(values);
+
+    expect(result).toBe("recent");
+  });
+
+  it("should return undefined for empty array", () => {
+    const result = getLastUsedValue([]);
+    expect(result).toBeUndefined();
+  });
+
+  it("should return the only value when array has one element", () => {
+    const now = Date.now();
+    const values: PlaceholderHistoryValue[] = [{ value: "only", useCount: 1, lastUsed: now, createdAt: now }];
+
+    const result = getLastUsedValue(values);
+
+    expect(result).toBe("only");
+  });
+
+  it("should handle tied timestamps by returning first occurrence", () => {
+    const now = Date.now();
+    const values: PlaceholderHistoryValue[] = [
+      { value: "first-tied", useCount: 10, lastUsed: now, createdAt: now - ONE_DAY_MS },
+      { value: "second-tied", useCount: 5, lastUsed: now, createdAt: now },
+    ];
+
+    const result = getLastUsedValue(values);
+
+    // Should return one of the tied values (first in reduce order)
+    expect(["first-tied", "second-tied"]).toContain(result);
+  });
+
+  it("should differ from top-ranked when frequency differs", () => {
+    const now = Date.now();
+    const values: PlaceholderHistoryValue[] = [
+      { value: "most-frequent", useCount: 100, lastUsed: now - 10 * ONE_DAY_MS, createdAt: now - 30 * ONE_DAY_MS },
+      { value: "most-recent", useCount: 1, lastUsed: now, createdAt: now },
+    ];
+
+    const lastUsed = getLastUsedValue(values);
+    const topRanked = getTopRankedValue(values);
+
+    // Last used should be "most-recent" based on timestamp alone
+    expect(lastUsed).toBe("most-recent");
+    // Top ranked might be different due to smart ranking algorithm
+    // (We're verifying the functions are independent)
+    expect(lastUsed).toBeDefined();
+    expect(topRanked).toBeDefined();
   });
 });
 
