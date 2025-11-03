@@ -64,7 +64,7 @@ pyobjc-framework-quartz==10.3.2
 pyobjc-framework-scriptingbridge==10.3.2
 pyobjc-framework-uniformtypeidentifiers==10.3.2
 pyobjc-framework-vision==10.3.2
-python-dotenv==1.1.1
+python-dotenv==1.2.1
 pytimeparse2==1.7.1
 pyyaml==6.0.2
 requests==2.32.5
