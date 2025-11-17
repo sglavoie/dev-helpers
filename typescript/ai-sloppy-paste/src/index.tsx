@@ -359,6 +359,12 @@ export default function Command() {
                   )}
                 </List.Item.Detail.Metadata.TagList>
                 <List.Item.Detail.Metadata.Separator />
+                {snippet.description && (
+                  <>
+                    <List.Item.Detail.Metadata.Label title="Description" text={snippet.description} />
+                    <List.Item.Detail.Metadata.Separator />
+                  </>
+                )}
                 <List.Item.Detail.Metadata.Label title="Created" text={new Date(snippet.createdAt).toLocaleString()} />
                 <List.Item.Detail.Metadata.Label title="Updated" text={new Date(snippet.updatedAt).toLocaleString()} />
                 {snippet.lastUsedAt && (
@@ -652,6 +658,7 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
         await updateSnippet(props.snippet.id, {
           title: values.title.trim(),
           content: values.content.trim(),
+          description: values.description?.trim() || "",
           tags: finalTags,
         });
         showToast({
@@ -663,6 +670,7 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
         await addSnippet({
           title: values.title.trim(),
           content: values.content.trim(),
+          description: values.description?.trim() || "",
           tags: finalTags,
         });
         showToast({
@@ -723,6 +731,13 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
         }}
       />
       <Form.Description text="Placeholders: {{key}} (required) | {{key|default}} (optional) | {{prefix:key:suffix}} (wrappers) | {{!key}} (no history save)" />
+      <Form.TextArea
+        id="description"
+        title="Description"
+        placeholder="Optional description for this snippet..."
+        defaultValue={props.snippet?.description || ""}
+        enableMarkdown={true}
+      />
       <Form.TagPicker
         id="tags"
         title="Tags"

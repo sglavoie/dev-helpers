@@ -2,6 +2,7 @@ export interface Snippet {
   id: string;
   title: string;
   content: string;
+  description?: string;
   tags: string[];
   createdAt: number;
   updatedAt: number;
@@ -21,6 +22,7 @@ export interface StorageData {
 export interface SnippetFormValues {
   title: string;
   content: string;
+  description?: string;
   tags: string; // Comma-separated tag string from TextField
 }
 

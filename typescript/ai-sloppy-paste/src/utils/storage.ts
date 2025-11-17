@@ -3,7 +3,7 @@ import { Snippet, ExportData, StorageData, PlaceholderHistory, PlaceholderHistor
 import { normalizeTags, deduplicateTags, removeRedundantParents } from "./tags";
 
 const STORAGE_KEY = "storage_v2";
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 interface Preferences {
   maxPlaceholderHistoryValues?: string;
@@ -64,6 +64,17 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
       ...data,
       version: 5,
       placeholderHistory: {},
+    };
+  },
+  5: (data: any) => {
+    // Migration from v5 to v6 - Add description field to all snippets
+    return {
+      ...data,
+      version: 6,
+      snippets: data.snippets.map((snippet: any) => ({
+        ...snippet,
+        description: snippet.description ?? "",
+      })),
     };
   },
 };
@@ -552,6 +563,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       useCount: s.useCount || 0,
       tags: s.tags || [],
       isArchived: s.isArchived ?? false,
+      description: s.description ?? "",
     }));
 
     currentData.snippets = [...currentData.snippets, ...sanitizedSnippets];
@@ -592,6 +604,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       useCount: s.useCount || 0,
       tags: s.tags || [],
       isArchived: s.isArchived ?? false,
+      description: s.description ?? "",
     }));
 
     const newData: StorageData = {
