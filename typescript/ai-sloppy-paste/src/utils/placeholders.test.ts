@@ -194,7 +194,8 @@ describe("extractPlaceholders", () => {
     for (const { text, desc } of cases) {
       const result = extractPlaceholders(text);
       expect(result).toHaveLength(1);
-      expect(result[0].isRequired).toBe(false, `Wrapper syntax should make placeholder optional (${desc})`);
+      // Wrapper syntax should make placeholder optional
+      expect(result[0].isRequired).toBe(false);
     }
   });
 

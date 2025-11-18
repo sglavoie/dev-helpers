@@ -60,7 +60,17 @@
       "mode": "view"
     }
   ],
-  "preferences": [],
+  "preferences": [
+    {
+      "name": "daysToShow",
+      "type": "textfield",
+      "required": false,
+      "title": "Days to Show",
+      "description": "Number of days to show when listing timers for continue/delete operations",
+      "default": "7",
+      "placeholder": "7"
+    }
+  ],
   "dependencies": {
     "@raycast/api": "^1.103.4",
     "@raycast/utils": "^2.2.1"

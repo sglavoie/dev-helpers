@@ -8,10 +8,15 @@ import {
   Toast,
   confirmAlert,
   showToast,
+  getPreferenceValues,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState, useEffect } from "react";
 import { execSync } from "child_process";
+
+interface Preferences {
+  daysToShow: string;
+}
 
 interface Entry {
   id: string;
@@ -68,12 +73,15 @@ function getCurrentDuration(entry: Entry): number {
 }
 
 export default function Command() {
+  const preferences = getPreferenceValues<Preferences>();
+  const daysToShow = preferences.daysToShow || "7";
+
   const [currentDurations, setCurrentDurations] = useState<Map<string, number>>(
     new Map(),
   );
   const { isLoading, data, error, revalidate } = useExec(
     "/Users/sglavoie/.local/bin/gt",
-    ["list", "--days", "7", "--json"],
+    ["list", "--days", daysToShow, "--json"],
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -161,7 +169,7 @@ export default function Command() {
         <List.EmptyView
           icon={Icon.Trash}
           title="No Recent Timers"
-          description="No timers found in the last 7 days"
+          description={`No timers found in the last ${daysToShow} days`}
         />
       ) : (
         <>

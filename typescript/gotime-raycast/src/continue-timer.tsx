@@ -10,10 +10,14 @@ import {
   useNavigation,
   popToRoot,
   closeMainWindow,
+  getPreferenceValues,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { useState } from "react";
 import { execSync } from "child_process";
+
+interface Preferences {
+  daysToShow: string;
+}
 
 interface Entry {
   id: string;
@@ -58,9 +62,12 @@ function formatRelativeTime(dateString: string | null): string {
 }
 
 export default function Command() {
+  const preferences = getPreferenceValues<Preferences>();
+  const daysToShow = preferences.daysToShow || "7";
+
   const { isLoading, data, error, revalidate } = useExec(
     "/Users/sglavoie/.local/bin/gt",
-    ["list", "--days", "7", "--json"],
+    ["list", "--days", daysToShow, "--json"],
     {
       parseOutput: ({ stdout }) => {
         const trimmed = stdout.trim();
@@ -114,7 +121,7 @@ export default function Command() {
         <List.EmptyView
           icon={Icon.Clock}
           title="No Recent Stopped Timers"
-          description="No stopped timers found in the last 7 days"
+          description={`No stopped timers found in the last ${daysToShow} days`}
         />
       ) : (
         <>
