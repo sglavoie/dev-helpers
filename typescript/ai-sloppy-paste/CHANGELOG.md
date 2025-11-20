@@ -2,6 +2,19 @@
 
 All notable changes to the AI Sloppy Paste extension will be documented in this file.
 
+## [2.1.0] - Paste-First Update
+
+### Breaking Changes
+
+- **Default Action Changed**: Primary action (⌘ + Return) now pastes content to frontmost app instead of copying to clipboard
+  - **⌘ + Return**: Now pastes to frontmost app (was copy to clipboard)
+  - **⌘ + Option + Return**: Now copies to clipboard (was paste to frontmost app)
+- **Removed Action**: "Copy (Keep Window Open)" action has been removed to simplify the interface
+
+### Rationale
+
+This change makes the extension more intuitive for its primary use case: quickly pasting snippets into applications. The most common action is now just one keystroke away (⌘ + Return), while copying to clipboard remains available as a secondary action.
+
 ## [2.0.0] - Major Update
 
 ### Breaking Changes

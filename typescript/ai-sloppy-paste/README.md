@@ -28,9 +28,8 @@ A powerful Raycast extension for storing and quickly pasting text snippets with 
 - `⌘ + E`: Edit selected snippet
 - `⌘ + Shift + D`: Duplicate selected snippet
 - `⌘ + Shift + A`: Archive/unarchive snippet
-- `⌘ + Enter`: Copy content to clipboard (closes window)
-- `⌘ + Option + Enter`: Paste content to frontmost app
-- `⌘ + Shift + Enter`: Copy content (keep window open)
+- `⌘ + Enter`: Paste content to frontmost app (closes window)
+- `⌘ + Option + Enter`: Copy content to clipboard
 - `⌃ + X`: Delete snippet
 - `⌘ + C`: Copy title
 - `⌘ + D`: Toggle detail view
@@ -93,9 +92,9 @@ Values are saved to history for autocomplete (unless `!` flag is used).
 
 ## Usage Statistics
 
-Every time you copy a snippet, the extension tracks:
+Every time you use a snippet (paste or copy), the extension tracks:
 - **Use Count**: How many times you've used this snippet
-- **Last Used**: When you last copied this snippet
+- **Last Used**: When you last used this snippet
 
 View these statistics in the detail view (⌘+D) to understand which snippets are most valuable.
 

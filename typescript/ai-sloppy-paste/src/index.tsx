@@ -383,7 +383,6 @@ export default function Command() {
             <ActionPanel.Section title="Clipboard">
               <CopyContentAction snippet={snippet} onComplete={loadData} />
               <PasteContentAction snippet={snippet} onComplete={loadData} />
-              <CopyWithoutClosingAction snippet={snippet} onComplete={loadData} />
               <Action.CopyToClipboard
                 title="Copy Title"
                 content={snippet.title}
@@ -830,105 +829,11 @@ function ImportDataAction(props: { onImported: () => void }) {
 function CopyContentAction(props: { snippet: Snippet; onComplete: () => void }) {
   const { push } = useNavigation();
 
-  async function handleCopy() {
-    const placeholders = extractPlaceholders(props.snippet.content);
-
-    if (placeholders.length > 0) {
-      // Has placeholders - show form
-      push(
-        <PlaceholderForm
-          snippet={props.snippet}
-          placeholders={placeholders}
-          mode="copy"
-          onComplete={props.onComplete}
-        />,
-      );
-    } else {
-      // No placeholders - copy directly
-      try {
-        await Clipboard.copy(props.snippet.content);
-        await incrementUsage(props.snippet.id);
-        await closeMainWindow();
-        showToast({
-          style: Toast.Style.Success,
-          title: "Copied to clipboard",
-        });
-        props.onComplete();
-      } catch (error) {
-        showToast({
-          style: Toast.Style.Failure,
-          title: "Failed to copy",
-          message: String(error),
-        });
-      }
-    }
-  }
-
-  return (
-    <Action
-      title="Copy Content"
-      icon={Icon.Clipboard}
-      shortcut={{ modifiers: ["cmd"], key: "return" }}
-      onAction={handleCopy}
-    />
-  );
-}
-
-function CopyWithoutClosingAction(props: { snippet: Snippet; onComplete: () => void }) {
-  const { push } = useNavigation();
-
-  async function handleCopy() {
-    const placeholders = extractPlaceholders(props.snippet.content);
-
-    if (placeholders.length > 0) {
-      // Has placeholders - show form
-      push(
-        <PlaceholderForm
-          snippet={props.snippet}
-          placeholders={placeholders}
-          mode="paste"
-          onComplete={props.onComplete}
-        />,
-      );
-    } else {
-      // No placeholders - copy without closing window
-      try {
-        await Clipboard.copy(props.snippet.content);
-        await incrementUsage(props.snippet.id);
-        showToast({
-          style: Toast.Style.Success,
-          title: "Copied to clipboard",
-          message: "Window stays open for multiple copies",
-        });
-        props.onComplete();
-      } catch (error) {
-        showToast({
-          style: Toast.Style.Failure,
-          title: "Failed to copy",
-          message: String(error),
-        });
-      }
-    }
-  }
-
-  return (
-    <Action
-      title="Copy (Keep Window Open)"
-      icon={Icon.Clipboard}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "return" }}
-      onAction={handleCopy}
-    />
-  );
-}
-
-function PasteContentAction(props: { snippet: Snippet; onComplete: () => void }) {
-  const { push } = useNavigation();
-
   async function handlePaste() {
     const placeholders = extractPlaceholders(props.snippet.content);
 
     if (placeholders.length > 0) {
-      // Has placeholders - show form with paste mode
+      // Has placeholders - show form
       push(
         <PlaceholderForm
           snippet={props.snippet}
@@ -962,8 +867,55 @@ function PasteContentAction(props: { snippet: Snippet; onComplete: () => void })
     <Action
       title="Paste Content"
       icon={Icon.ArrowDown}
-      shortcut={{ modifiers: ["cmd", "opt"], key: "return" }}
+      shortcut={{ modifiers: ["cmd"], key: "return" }}
       onAction={handlePaste}
+    />
+  );
+}
+
+function PasteContentAction(props: { snippet: Snippet; onComplete: () => void }) {
+  const { push } = useNavigation();
+
+  async function handleCopy() {
+    const placeholders = extractPlaceholders(props.snippet.content);
+
+    if (placeholders.length > 0) {
+      // Has placeholders - show form with copy mode
+      push(
+        <PlaceholderForm
+          snippet={props.snippet}
+          placeholders={placeholders}
+          mode="copy"
+          onComplete={props.onComplete}
+        />,
+      );
+    } else {
+      // No placeholders - copy directly
+      try {
+        await Clipboard.copy(props.snippet.content);
+        await incrementUsage(props.snippet.id);
+        await closeMainWindow();
+        showToast({
+          style: Toast.Style.Success,
+          title: "Copied to clipboard",
+        });
+        props.onComplete();
+      } catch (error) {
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Failed to copy",
+          message: String(error),
+        });
+      }
+    }
+  }
+
+  return (
+    <Action
+      title="Copy Content"
+      icon={Icon.Clipboard}
+      shortcut={{ modifiers: ["cmd", "opt"], key: "return" }}
+      onAction={handleCopy}
     />
   );
 }
