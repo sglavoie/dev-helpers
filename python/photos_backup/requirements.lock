@@ -11,80 +11,233 @@
 
 -e file:.
 appdirs==1.4.4
+    # via ptpython
 arpeggio==2.0.2
+    # via textx
 beautifulsoup4==4.13.5
+    # via osxphotos
 bitarray==3.7.1
+    # via bitstring
 bitmath==1.3.3.1
+    # via osxphotos
 bitstring==4.3.1
+    # via osxmetadata
 blessed==1.17.12
+    # via objexplore
 bpylist2==4.1.1
+    # via osxphotos
 certifi==2025.8.3
+    # via requests
 cffi==1.17.1
+    # via xattr
 cgmetadata==0.2.0
+    # via makelive
+    # via osxphotos
 charset-normalizer==3.4.3
+    # via requests
 click==8.3.1
+    # via makelive
+    # via osxmetadata
+    # via osxphotos
+    # via photos-backup
 idna==3.10
+    # via requests
 jedi==0.19.2
+    # via ptpython
 mac-alias==2.2.2
+    # via osxphotos
 makelive==0.6.2
+    # via osxphotos
 mako==1.2.4
+    # via osxphotos
 markdown-it-py==4.0.0
+    # via rich
 markdown2==2.5.4
+    # via osxphotos
 markupsafe==3.0.2
+    # via mako
 mdurl==0.1.2
+    # via markdown-it-py
 more-itertools==8.14.0
+    # via osxphotos
 objexplore==1.6.3
+    # via osxphotos
 osxmetadata==1.4.0
-osxphotos==0.74.0
+    # via osxphotos
+osxphotos==0.74.1
+    # via photos-backup
 packaging==25.0
+    # via osxphotos
 parso==0.8.5
+    # via jedi
 pathvalidate==3.3.1
+    # via osxphotos
 photoscript==0.5.2
+    # via osxphotos
 pip==25.2
+    # via osxphotos
 prompt-toolkit==3.0.52
+    # via ptpython
 ptpython==3.0.31
+    # via osxphotos
 py-applescript==1.0.3
+    # via osxmetadata
+    # via photoscript
 pycparser==2.22
+    # via cffi
 pygments==2.19.2
+    # via ptpython
+    # via rich
 pyobjc-core==10.3.2
+    # via cgmetadata
+    # via makelive
+    # via osxmetadata
+    # via osxphotos
+    # via photoscript
+    # via py-applescript
+    # via pyobjc-framework-applescriptkit
+    # via pyobjc-framework-applescriptobjc
+    # via pyobjc-framework-avfoundation
+    # via pyobjc-framework-cocoa
+    # via pyobjc-framework-contacts
+    # via pyobjc-framework-coreaudio
+    # via pyobjc-framework-corelocation
+    # via pyobjc-framework-coremedia
+    # via pyobjc-framework-coreml
+    # via pyobjc-framework-coreservices
+    # via pyobjc-framework-fsevents
+    # via pyobjc-framework-metal
+    # via pyobjc-framework-photos
+    # via pyobjc-framework-quartz
+    # via pyobjc-framework-scriptingbridge
+    # via pyobjc-framework-uniformtypeidentifiers
+    # via pyobjc-framework-vision
+    # via utitools
 pyobjc-framework-applescriptkit==10.3.2
+    # via osxmetadata
+    # via osxphotos
+    # via photoscript
+    # via py-applescript
 pyobjc-framework-applescriptobjc==10.3.2
+    # via osxmetadata
+    # via osxphotos
+    # via photoscript
+    # via py-applescript
 pyobjc-framework-avfoundation==10.3.2
+    # via cgmetadata
+    # via makelive
+    # via osxmetadata
+    # via osxphotos
 pyobjc-framework-cocoa==10.3.2
+    # via osxphotos
+    # via photoscript
+    # via pyobjc-framework-applescriptkit
+    # via pyobjc-framework-applescriptobjc
+    # via pyobjc-framework-avfoundation
+    # via pyobjc-framework-contacts
+    # via pyobjc-framework-coreaudio
+    # via pyobjc-framework-corelocation
+    # via pyobjc-framework-coremedia
+    # via pyobjc-framework-coreml
+    # via pyobjc-framework-coreservices
+    # via pyobjc-framework-fsevents
+    # via pyobjc-framework-metal
+    # via pyobjc-framework-photos
+    # via pyobjc-framework-quartz
+    # via pyobjc-framework-scriptingbridge
+    # via pyobjc-framework-uniformtypeidentifiers
+    # via pyobjc-framework-vision
 pyobjc-framework-contacts==10.3.2
+    # via makelive
 pyobjc-framework-coreaudio==10.3.2
+    # via pyobjc-framework-avfoundation
 pyobjc-framework-corelocation==10.3.2
+    # via cgmetadata
+    # via makelive
 pyobjc-framework-coremedia==10.3.2
+    # via osxmetadata
+    # via pyobjc-framework-avfoundation
 pyobjc-framework-coreml==10.3.2
+    # via pyobjc-framework-vision
 pyobjc-framework-coreservices==10.3.2
+    # via osxmetadata
+    # via osxphotos
+    # via utitools
 pyobjc-framework-fsevents==10.3.2
+    # via pyobjc-framework-coreservices
 pyobjc-framework-metal==10.3.2
+    # via osxphotos
 pyobjc-framework-photos==10.3.2
+    # via osxphotos
 pyobjc-framework-quartz==10.3.2
+    # via cgmetadata
+    # via makelive
+    # via osxmetadata
+    # via osxphotos
+    # via pyobjc-framework-avfoundation
+    # via pyobjc-framework-vision
 pyobjc-framework-scriptingbridge==10.3.2
+    # via osxmetadata
 pyobjc-framework-uniformtypeidentifiers==10.3.2
+    # via utitools
 pyobjc-framework-vision==10.3.2
+    # via osxphotos
 python-dotenv==1.2.1
+    # via photos-backup
 pytimeparse2==1.7.1
+    # via osxphotos
 pyyaml==6.0.2
+    # via osxphotos
 requests==2.32.5
+    # via osxphotos
 rich==13.9.4
+    # via cgmetadata
+    # via objexplore
+    # via osxphotos
+    # via rich-theme-manager
 rich-theme-manager==0.11.0
+    # via osxphotos
 shortuuid==1.0.13
+    # via osxphotos
 six==1.17.0
+    # via blessed
 soupsieve==2.8
+    # via beautifulsoup4
 strpdatetime==0.4.0
+    # via osxphotos
 tenacity==8.5.0
+    # via osxphotos
+    # via photoscript
 textx==4.2.2
+    # via osxphotos
+    # via strpdatetime
 toml==0.10.2
+    # via osxphotos
 typing-extensions==4.15.0
+    # via beautifulsoup4
 tzdata==2025.2
+    # via osxphotos
 urllib3==2.5.0
+    # via requests
 utitools==0.4.0
+    # via cgmetadata
+    # via osxphotos
 wcwidth==0.2.13
+    # via blessed
+    # via prompt-toolkit
 wheel==0.45.1
+    # via cgmetadata
+    # via makelive
+    # via osxmetadata
 whenever==0.8.8
+    # via osxphotos
 wrapt==1.17.3
+    # via osxphotos
 wurlitzer==3.1.1
+    # via cgmetadata
+    # via makelive
+    # via osxphotos
 xattr==1.2.0
+    # via osxmetadata
 xdg-base-dirs==6.0.2
+    # via osxphotos
