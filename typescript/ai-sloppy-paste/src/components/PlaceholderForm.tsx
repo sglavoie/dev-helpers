@@ -17,6 +17,7 @@ import {
   addPlaceholderValue,
   getMaxPlaceholderHistoryValues,
 } from "../utils/storage";
+import { pasteWithClipboardRestore } from "../utils/clipboard";
 import { replacePlaceholders } from "../utils/placeholders";
 import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
 
@@ -117,7 +118,7 @@ export function PlaceholderForm(props: {
 
       if (props.mode === "paste-direct") {
         // Paste directly to frontmost app
-        await Clipboard.paste(filledContent);
+        await pasteWithClipboardRestore(filledContent);
         await incrementUsage(props.snippet.id);
         props.onComplete();
         pop();

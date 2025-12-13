@@ -28,6 +28,7 @@ import {
   getStorageSize,
   exportData,
 } from "./utils/storage";
+import { pasteWithClipboardRestore } from "./utils/clipboard";
 import { extractPlaceholders } from "./utils/placeholders";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
 import { PlaceholderForm } from "./components/PlaceholderForm";
@@ -845,7 +846,7 @@ function CopyContentAction(props: { snippet: Snippet; onComplete: () => void }) 
     } else {
       // No placeholders - paste directly
       try {
-        await Clipboard.paste(props.snippet.content);
+        await pasteWithClipboardRestore(props.snippet.content);
         await incrementUsage(props.snippet.id);
         await closeMainWindow();
         showToast({
