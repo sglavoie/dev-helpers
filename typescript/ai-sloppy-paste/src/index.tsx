@@ -172,26 +172,26 @@ export default function Command() {
     }
   }
 
-  // Apply filtering: operators override UI filters
+  // Apply filtering: always respect current view (archived/non-archived), then apply search or UI filters
   const filtered = useMemo(() => {
-    // If search operators are present, they take precedence over UI filters
-    if (parsedQuery.hasOperators) {
-      return applySearchFilters(snippets, parsedQuery);
-    }
-
-    // Otherwise, use traditional UI filter pipeline
-    // 1. Filter by archived status
-    const archivedFiltered = showArchivedSnippets
+    // Always filter by archive status first based on current view
+    const baseSnippets = showArchivedSnippets
       ? snippets.filter((s) => s.isArchived)
       : snippets.filter((s) => !s.isArchived);
 
-    // 2. Filter by tag - support hierarchical filtering
+    // If search operators are present, apply them to the view-filtered snippets
+    if (parsedQuery.hasOperators) {
+      return applySearchFilters(baseSnippets, parsedQuery);
+    }
+
+    // Otherwise, use traditional UI filter pipeline
+    // 1. Filter by tag - support hierarchical filtering
     const tagFiltered =
       selectedTag === "All"
-        ? archivedFiltered
-        : archivedFiltered.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
+        ? baseSnippets
+        : baseSnippets.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
 
-    // 3. Filter by favorites
+    // 2. Filter by favorites
     const favoritesFiltered = showOnlyFavorites ? tagFiltered.filter((s) => s.isFavorite) : tagFiltered;
 
     return favoritesFiltered;
