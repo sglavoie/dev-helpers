@@ -73,3 +73,46 @@ export const SORT_LABELS: Record<SortOption, string> = {
   [SortOption.LastUsed]: "Recently Used",
   [SortOption.CreatedDesc]: "Recently Created",
 };
+
+// Analytics types
+
+export enum TimeRange {
+  ThisWeek = "this-week",
+  ThisMonth = "this-month",
+  Last3Months = "last-3-months",
+  AllTime = "all-time",
+}
+
+export const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  [TimeRange.ThisWeek]: "This Week",
+  [TimeRange.ThisMonth]: "This Month",
+  [TimeRange.Last3Months]: "Last 3 Months",
+  [TimeRange.AllTime]: "All Time",
+};
+
+export interface SnippetAnalytics {
+  snippet: Snippet;
+  daysUnused?: number;
+  isStale: boolean;
+  stalenessReason?: string;
+}
+
+export interface CleanupSuggestion {
+  id: string;
+  type: "never_used" | "stale" | "unused_tag";
+  snippet?: Snippet;
+  tag?: string;
+  reason: string;
+  suggestedAction: string;
+}
+
+export interface AnalyticsSummary {
+  totalSnippets: number;
+  activeSnippets: number;
+  staleSnippets: number;
+  archivedSnippets: number;
+  totalUsageCount: number;
+  averageUsagePerSnippet: number;
+  totalTags: number;
+  unusedTags: number;
+}

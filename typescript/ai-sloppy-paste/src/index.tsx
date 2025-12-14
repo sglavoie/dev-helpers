@@ -34,6 +34,7 @@ import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATI
 import { PlaceholderForm } from "./components/PlaceholderForm";
 import { ManageTagsView } from "./components/ManageTagsView";
 import { ManagePlaceholderHistoryView } from "./components/ManagePlaceholderHistoryView";
+import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { ImportForm } from "./components/ImportForm";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { isChildOf, expandTagsWithParents } from "./utils/tags";
@@ -443,6 +444,14 @@ export default function Command() {
             </ActionPanel.Section>
             <ActionPanel.Section title="Placeholder History">
               <ManagePlaceholderHistoryAction onUpdated={loadData} />
+            </ActionPanel.Section>
+            <ActionPanel.Section title="Analytics">
+              <Action.Push
+                title="View Usage Analytics"
+                icon={Icon.BarChart}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+                target={<AnalyticsDashboard onUpdated={loadData} />}
+              />
             </ActionPanel.Section>
             <ActionPanel.Section title="Data">
               <Action
