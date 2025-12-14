@@ -10,6 +10,7 @@ export interface Snippet {
   useCount: number;
   isFavorite: boolean;
   isArchived: boolean;
+  isPinned: boolean;
 }
 
 export interface StorageData {

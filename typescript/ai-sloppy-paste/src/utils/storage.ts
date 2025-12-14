@@ -3,7 +3,7 @@ import { Snippet, ExportData, StorageData, PlaceholderHistory, PlaceholderHistor
 import { normalizeTags, deduplicateTags, removeRedundantParents } from "./tags";
 
 const STORAGE_KEY = "storage_v2";
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
 
 interface Preferences {
   maxPlaceholderHistoryValues?: string;
@@ -74,6 +74,17 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
       snippets: data.snippets.map((snippet: any) => ({
         ...snippet,
         description: snippet.description ?? "",
+      })),
+    };
+  },
+  6: (data: any) => {
+    // Migration from v6 to v7 - Add isPinned field to all snippets
+    return {
+      ...data,
+      version: 7,
+      snippets: data.snippets.map((snippet: any) => ({
+        ...snippet,
+        isPinned: snippet.isPinned ?? false,
       })),
     };
   },
@@ -160,7 +171,10 @@ async function saveTags(tags: string[]): Promise<void> {
 }
 
 export async function addSnippet(
-  snippet: Omit<Snippet, "id" | "createdAt" | "updatedAt" | "lastUsedAt" | "useCount" | "isFavorite" | "isArchived">,
+  snippet: Omit<
+    Snippet,
+    "id" | "createdAt" | "updatedAt" | "lastUsedAt" | "useCount" | "isFavorite" | "isArchived" | "isPinned"
+  >,
 ): Promise<Snippet> {
   const data = await loadStorageData();
 
@@ -175,6 +189,7 @@ export async function addSnippet(
     useCount: 0,
     isFavorite: false,
     isArchived: false,
+    isPinned: false,
   };
 
   data.snippets.push(newSnippet);
@@ -231,6 +246,7 @@ export async function duplicateSnippet(id: string): Promise<Snippet> {
     useCount: 0,
     isFavorite: false,
     isArchived: false,
+    isPinned: false,
   };
 
   data.snippets.push(duplicate);
@@ -262,6 +278,19 @@ export async function toggleArchive(id: string): Promise<boolean> {
 
   await saveStorageData(data);
   return snippet.isArchived;
+}
+
+export async function togglePin(id: string): Promise<boolean> {
+  const data = await loadStorageData();
+  const snippet = data.snippets.find((s) => s.id === id);
+
+  if (!snippet) throw new Error("Snippet not found");
+
+  snippet.isPinned = !snippet.isPinned;
+  snippet.updatedAt = Date.now();
+
+  await saveStorageData(data);
+  return snippet.isPinned;
 }
 
 /**
@@ -563,6 +592,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       useCount: s.useCount || 0,
       tags: s.tags || [],
       isArchived: s.isArchived ?? false,
+      isPinned: s.isPinned ?? false,
       description: s.description ?? "",
     }));
 
@@ -604,6 +634,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       useCount: s.useCount || 0,
       tags: s.tags || [],
       isArchived: s.isArchived ?? false,
+      isPinned: s.isPinned ?? false,
       description: s.description ?? "",
     }));
 

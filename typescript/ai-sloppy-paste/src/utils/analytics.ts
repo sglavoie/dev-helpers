@@ -7,6 +7,7 @@ const ACTIVE_THRESHOLD_DAYS = 30;
 
 /**
  * Computes analytics for a single snippet
+ * Pinned snippets are never marked as stale since they're intentionally kept visible
  */
 export function computeSnippetAnalytics(snippet: Snippet): SnippetAnalytics {
   const now = Date.now();
@@ -16,12 +17,15 @@ export function computeSnippetAnalytics(snippet: Snippet): SnippetAnalytics {
   let isStale = false;
   let stalenessReason: string | undefined;
 
-  if (snippet.useCount === 0 && daysSinceCreation >= NEVER_USED_AGE_THRESHOLD_DAYS) {
-    isStale = true;
-    stalenessReason = `Never used (created ${daysSinceCreation} days ago)`;
-  } else if (daysUnused !== undefined && daysUnused >= STALE_THRESHOLD_DAYS) {
-    isStale = true;
-    stalenessReason = `Not used in ${daysUnused} days`;
+  // Pinned snippets are intentionally kept visible and should not be flagged as stale
+  if (!snippet.isPinned) {
+    if (snippet.useCount === 0 && daysSinceCreation >= NEVER_USED_AGE_THRESHOLD_DAYS) {
+      isStale = true;
+      stalenessReason = `Never used (created ${daysSinceCreation} days ago)`;
+    } else if (daysUnused !== undefined && daysUnused >= STALE_THRESHOLD_DAYS) {
+      isStale = true;
+      stalenessReason = `Not used in ${daysUnused} days`;
+    }
   }
 
   return {
@@ -129,12 +133,13 @@ export function getUnusedTags(snippets: Snippet[], tags: string[]): string[] {
 
 /**
  * Generates cleanup suggestions for stale snippets and unused tags
+ * Pinned and archived snippets are excluded from suggestions
  */
 export function computeCleanupSuggestions(snippets: Snippet[], tags: string[]): CleanupSuggestion[] {
   const suggestions: CleanupSuggestion[] = [];
 
   for (const snippet of snippets) {
-    if (snippet.isArchived) continue;
+    if (snippet.isArchived || snippet.isPinned) continue;
 
     const analytics = computeSnippetAnalytics(snippet);
 

@@ -17,6 +17,7 @@ describe("tagStats", () => {
           useCount: 10,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
         {
           id: "2",
@@ -29,6 +30,7 @@ describe("tagStats", () => {
           useCount: 25,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
         {
           id: "3",
@@ -41,6 +43,7 @@ describe("tagStats", () => {
           useCount: 5,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
       ];
 
@@ -93,6 +96,7 @@ describe("tagStats", () => {
           useCount: 10,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
       ];
 
@@ -132,6 +136,7 @@ describe("tagStats", () => {
           useCount: 0,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
         {
           id: "2",
@@ -144,6 +149,7 @@ describe("tagStats", () => {
           useCount: 0,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
       ];
 
@@ -178,6 +184,7 @@ describe("tagStats", () => {
           useCount: 100,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
         {
           id: "2",
@@ -190,6 +197,7 @@ describe("tagStats", () => {
           useCount: 50,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
         {
           id: "3",
@@ -202,6 +210,7 @@ describe("tagStats", () => {
           useCount: 25,
           isFavorite: false,
           isArchived: false,
+          isPinned: false,
         },
       ];
 

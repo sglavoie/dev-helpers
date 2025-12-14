@@ -20,6 +20,7 @@ function createSnippet(overrides: Partial<Snippet> = {}): Snippet {
     useCount: 5,
     isFavorite: false,
     isArchived: false,
+    isPinned: false,
     ...overrides,
   };
 }

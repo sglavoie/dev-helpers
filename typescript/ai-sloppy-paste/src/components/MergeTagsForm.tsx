@@ -4,8 +4,12 @@ import { mergeTags } from "../utils/storage";
 
 export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
   const { pop } = useNavigation();
+  const [sourceTag, setSourceTag] = useState<string>("");
   const [sourceTagError, setSourceTagError] = useState<string | undefined>();
   const [targetTagError, setTargetTagError] = useState<string | undefined>();
+
+  // Filter out the selected source tag from target options to prevent self-merge
+  const targetTags = props.tags.filter((tag) => tag !== sourceTag);
 
   async function handleSubmit(values: { sourceTag: string; targetTag: string }) {
     // Validation
@@ -55,8 +59,12 @@ export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
       <Form.Dropdown
         id="sourceTag"
         title="Source Tag"
+        value={sourceTag}
         error={sourceTagError}
-        onChange={() => setSourceTagError(undefined)}
+        onChange={(value) => {
+          setSourceTag(value);
+          setSourceTagError(undefined);
+        }}
       >
         <Form.Dropdown.Item value="" title="Select a tag to merge from..." />
         {props.tags.map((tag) => (
@@ -70,7 +78,7 @@ export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
         onChange={() => setTargetTagError(undefined)}
       >
         <Form.Dropdown.Item value="" title="Select a tag to merge into..." />
-        {props.tags.map((tag) => (
+        {targetTags.map((tag) => (
           <Form.Dropdown.Item key={tag} value={tag} title={tag} />
         ))}
       </Form.Dropdown>

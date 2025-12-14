@@ -24,6 +24,7 @@ import {
   duplicateSnippet,
   toggleFavorite,
   toggleArchive,
+  togglePin,
   incrementUsage,
   getStorageSize,
   exportData,
@@ -135,6 +136,14 @@ export default function Command() {
         style: Toast.Style.Success,
         title: "Export successful",
         message: `Saved to ${filename}`,
+        primaryAction: {
+          title: "Open Folder",
+          onAction: () => {
+            import("child_process").then(({ exec }) => {
+              exec(`open "${downloadsPath}"`);
+            });
+          },
+        },
       });
     } catch (error) {
       showToast({
@@ -209,17 +218,23 @@ export default function Command() {
     return expandTagsWithParents(tags);
   }, [filtered]);
 
-  // Get recently used snippets (top 5 with lastUsedAt)
+  // Get pinned snippets (always at top, sorted by title)
+  const pinnedSnippets = [...filtered].filter((s) => s.isPinned).sort((a, b) => a.title.localeCompare(b.title));
+  const pinnedIds = new Set(pinnedSnippets.map((s) => s.id));
+
+  // Get recently used snippets (top 5 with lastUsedAt, excluding pinned)
   const recentSnippets = showRecentSection
     ? [...filtered]
-        .filter((s) => s.lastUsedAt)
+        .filter((s) => s.lastUsedAt && !pinnedIds.has(s.id))
         .sort((a, b) => (b.lastUsedAt || 0) - (a.lastUsedAt || 0))
         .slice(0, 5)
     : [];
 
-  // Get remaining snippets (exclude recent ones from main list if showing recent section)
+  // Get remaining snippets (exclude pinned and recent ones from main list)
   const recentIds = new Set(recentSnippets.map((s) => s.id));
-  const remainingSnippets = showRecentSection ? filtered.filter((s) => !recentIds.has(s.id)) : filtered;
+  const remainingSnippets = filtered.filter(
+    (s) => !pinnedIds.has(s.id) && (!showRecentSection || !recentIds.has(s.id)),
+  );
 
   // Sort remaining snippets based on selected option
   const sortedSnippets = [...remainingSnippets].sort((a, b) => {
@@ -307,13 +322,24 @@ export default function Command() {
         />
       ) : (
         <>
+          {pinnedSnippets.length > 0 && !showArchivedSnippets && (
+            <List.Section title="Pinned" subtitle={`${pinnedSnippets.length} snippets`}>
+              {pinnedSnippets.map((snippet) => renderSnippetItem(snippet))}
+            </List.Section>
+          )}
           {recentSnippets.length > 0 && !showArchivedSnippets && (
             <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
               {recentSnippets.map((snippet) => renderSnippetItem(snippet))}
             </List.Section>
           )}
           <List.Section
-            title={showArchivedSnippets ? "Archived Snippets" : recentSnippets.length > 0 ? "All Snippets" : undefined}
+            title={
+              showArchivedSnippets
+                ? "Archived Snippets"
+                : pinnedSnippets.length > 0 || recentSnippets.length > 0
+                  ? "All Snippets"
+                  : undefined
+            }
           >
             {sortedSnippets.map((snippet) => renderSnippetItem(snippet))}
           </List.Section>
@@ -323,10 +349,13 @@ export default function Command() {
   );
 
   function renderSnippetItem(snippet: Snippet) {
+    // Determine the primary icon based on state priority: pinned > favorite > default
+    const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
+
     return (
       <List.Item
         key={snippet.id}
-        icon={snippet.isFavorite ? Icon.Star : Icon.Document}
+        icon={primaryIcon}
         title={snippet.title}
         subtitle={showingDetail ? undefined : snippet.content}
         keywords={[...snippet.tags, snippet.content]}
@@ -334,6 +363,8 @@ export default function Command() {
           showingDetail
             ? undefined
             : [
+                // Show star icon if pinned and also a favorite (since pin takes the main icon)
+                ...(snippet.isPinned && snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Favorite" }] : []),
                 ...(snippet.tags.length > 0
                   ? snippet.tags.slice(0, 3).map((tag) => ({ tag: { value: tag, color: Color.Blue } }))
                   : [{ tag: { value: "untagged", color: Color.SecondaryText } }]),
@@ -426,6 +457,7 @@ export default function Command() {
               />
             </ActionPanel.Section>
             <ActionPanel.Section title="Manage">
+              <TogglePinAction snippet={snippet} onToggled={loadData} />
               <ToggleFavoriteAction snippet={snippet} onToggled={loadData} />
               <EditSnippetAction snippet={snippet} onEdited={loadData} tags={visibleTags} />
               <DuplicateSnippetAction snippet={snippet} onDuplicated={loadData} />
@@ -585,6 +617,34 @@ function ToggleArchiveAction(props: { snippet: Snippet; onToggled: () => void })
       title={props.snippet.isArchived ? "Unarchive Snippet" : "Archive Snippet"}
       icon={props.snippet.isArchived ? Icon.Tray : Icon.Box}
       shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+      onAction={handleToggle}
+    />
+  );
+}
+
+function TogglePinAction(props: { snippet: Snippet; onToggled: () => void }) {
+  async function handleToggle() {
+    try {
+      const isPinned = await togglePin(props.snippet.id);
+      showToast({
+        style: Toast.Style.Success,
+        title: isPinned ? "Snippet pinned" : "Snippet unpinned",
+      });
+      props.onToggled();
+    } catch (error) {
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to toggle pin",
+        message: String(error),
+      });
+    }
+  }
+
+  return (
+    <Action
+      title={props.snippet.isPinned ? "Unpin Snippet" : "Pin Snippet"}
+      icon={props.snippet.isPinned ? Icon.PinDisabled : Icon.Pin}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
       onAction={handleToggle}
     />
   );
