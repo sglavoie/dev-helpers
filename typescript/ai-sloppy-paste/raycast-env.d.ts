@@ -18,10 +18,14 @@ declare type Preferences = ExtensionPreferences
 declare namespace Preferences {
   /** Preferences accessible in the `index` command */
   export type Index = ExtensionPreferences & {}
+  /** Preferences accessible in the `save-clipboard` command */
+  export type SaveClipboard = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
   /** Arguments passed to the `index` command */
   export type Index = {}
+  /** Arguments passed to the `save-clipboard` command */
+  export type SaveClipboard = {}
 }
 

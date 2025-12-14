@@ -30,7 +30,7 @@ import {
   exportData,
 } from "./utils/storage";
 import { pasteWithClipboardRestore } from "./utils/clipboard";
-import { extractPlaceholders } from "./utils/placeholders";
+import { extractPlaceholders, processSystemPlaceholders } from "./utils/placeholders";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
 import { PlaceholderForm } from "./components/PlaceholderForm";
 import { ManageTagsView } from "./components/ManageTagsView";
@@ -38,6 +38,7 @@ import { ManagePlaceholderHistoryView } from "./components/ManagePlaceholderHist
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { ImportForm } from "./components/ImportForm";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
+import { QuickTagForm } from "./components/QuickTagForm";
 import { isChildOf, expandTagsWithParents } from "./utils/tags";
 import { parseSearchQuery } from "./utils/queryParser";
 import { applySearchFilters } from "./utils/searchFilter";
@@ -472,6 +473,8 @@ export default function Command() {
               />
             </ActionPanel.Section>
             <ActionPanel.Section title="Tags">
+              <QuickAddTagAction snippet={snippet} availableTags={visibleTags} onUpdated={loadData} />
+              <QuickRemoveTagAction snippet={snippet} onUpdated={loadData} />
               <ManageTagsAction onUpdated={loadData} />
             </ActionPanel.Section>
             <ActionPanel.Section title="Placeholder History">
@@ -618,6 +621,47 @@ function ToggleArchiveAction(props: { snippet: Snippet; onToggled: () => void })
       icon={props.snippet.isArchived ? Icon.Tray : Icon.Box}
       shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
       onAction={handleToggle}
+    />
+  );
+}
+
+function QuickAddTagAction(props: { snippet: Snippet; availableTags: string[]; onUpdated: () => void }) {
+  const { push } = useNavigation();
+
+  return (
+    <Action
+      title="Quick Add Tag"
+      icon={Icon.PlusCircle}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "t" }}
+      onAction={() => {
+        push(
+          <QuickTagForm
+            snippet={props.snippet}
+            availableTags={props.availableTags}
+            mode="add"
+            onUpdated={props.onUpdated}
+          />,
+        );
+      }}
+    />
+  );
+}
+
+function QuickRemoveTagAction(props: { snippet: Snippet; onUpdated: () => void }) {
+  const { push } = useNavigation();
+
+  if (props.snippet.tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <Action
+      title="Quick Remove Tag"
+      icon={Icon.MinusCircle}
+      shortcut={{ modifiers: ["cmd", "opt"], key: "t" }}
+      onAction={() => {
+        push(<QuickTagForm snippet={props.snippet} availableTags={[]} mode="remove" onUpdated={props.onUpdated} />);
+      }}
     />
   );
 }
@@ -799,7 +843,7 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
           setContentCharInfo(charInfo.info);
         }}
       />
-      <Form.Description text="Placeholders: {{key}} (required) | {{key|default}} (optional) | {{prefix:key:suffix}} (wrappers) | {{!key}} (no history save)" />
+      <Form.Description text="Placeholders: {{key}} (required) | {{key|default}} (optional) | {{prefix:key:suffix}} (wrappers) | {{!key}} (no history save) | System: {{DATE}}, {{TIME}}, {{TODAY}}, {{NOW}}, {{YEAR}}, {{MONTH}}, {{DAY}}" />
       <Form.TextArea
         id="description"
         title="Description"
@@ -900,22 +944,24 @@ function CopyContentAction(props: { snippet: Snippet; onComplete: () => void }) 
   const { push } = useNavigation();
 
   async function handlePaste() {
-    const placeholders = extractPlaceholders(props.snippet.content);
+    // Process system placeholders first (DATE, TIME, etc.)
+    const contentWithSystemPlaceholders = processSystemPlaceholders(props.snippet.content);
+    const placeholders = extractPlaceholders(contentWithSystemPlaceholders);
 
     if (placeholders.length > 0) {
-      // Has placeholders - show form
+      // Has user placeholders - show form
       push(
         <PlaceholderForm
-          snippet={props.snippet}
+          snippet={{ ...props.snippet, content: contentWithSystemPlaceholders }}
           placeholders={placeholders}
           mode="paste-direct"
           onComplete={props.onComplete}
         />,
       );
     } else {
-      // No placeholders - paste directly
+      // No user placeholders - paste directly
       try {
-        await pasteWithClipboardRestore(props.snippet.content);
+        await pasteWithClipboardRestore(contentWithSystemPlaceholders);
         await incrementUsage(props.snippet.id);
         await closeMainWindow();
         showToast({
@@ -947,22 +993,24 @@ function PasteContentAction(props: { snippet: Snippet; onComplete: () => void })
   const { push } = useNavigation();
 
   async function handleCopy() {
-    const placeholders = extractPlaceholders(props.snippet.content);
+    // Process system placeholders first (DATE, TIME, etc.)
+    const contentWithSystemPlaceholders = processSystemPlaceholders(props.snippet.content);
+    const placeholders = extractPlaceholders(contentWithSystemPlaceholders);
 
     if (placeholders.length > 0) {
-      // Has placeholders - show form with copy mode
+      // Has user placeholders - show form with copy mode
       push(
         <PlaceholderForm
-          snippet={props.snippet}
+          snippet={{ ...props.snippet, content: contentWithSystemPlaceholders }}
           placeholders={placeholders}
           mode="copy"
           onComplete={props.onComplete}
         />,
       );
     } else {
-      // No placeholders - copy directly
+      // No user placeholders - copy directly
       try {
-        await Clipboard.copy(props.snippet.content);
+        await Clipboard.copy(contentWithSystemPlaceholders);
         await incrementUsage(props.snippet.id);
         await closeMainWindow();
         showToast({

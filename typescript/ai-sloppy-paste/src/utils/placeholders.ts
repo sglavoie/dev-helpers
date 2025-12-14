@@ -1,6 +1,78 @@
 import { Placeholder } from "../types";
 
 /**
+ * System placeholders that auto-resolve without user input.
+ * Use ALL-CAPS names to distinguish from user-defined placeholders.
+ */
+const SYSTEM_PLACEHOLDERS: Record<string, () => string> = {
+  DATE: () => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  },
+  TIME: () => {
+    const now = new Date();
+    return now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  },
+  DATETIME: () => {
+    const now = new Date();
+    const date = now.toISOString().split("T")[0];
+    const time = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+    return `${date} ${time}`;
+  },
+  TODAY: () => {
+    const now = new Date();
+    return now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  },
+  NOW: () => {
+    return new Date().toISOString();
+  },
+  YEAR: () => {
+    return new Date().getFullYear().toString();
+  },
+  MONTH: () => {
+    return new Date().toLocaleDateString("en-US", { month: "long" });
+  },
+  DAY: () => {
+    return new Date().toLocaleDateString("en-US", { weekday: "long" });
+  },
+};
+
+/**
+ * Process system placeholders in text.
+ * System placeholders use ALL-CAPS names and auto-resolve without user input.
+ * Call this BEFORE extractPlaceholders to avoid prompting for system values.
+ *
+ * Supported placeholders:
+ * - {{DATE}} → 2024-01-15
+ * - {{TIME}} → 14:30
+ * - {{DATETIME}} → 2024-01-15 14:30
+ * - {{TODAY}} → Monday, January 15, 2024
+ * - {{NOW}} → 2024-01-15T14:30:00.000Z
+ * - {{YEAR}} → 2024
+ * - {{MONTH}} → January
+ * - {{DAY}} → Monday
+ */
+export function processSystemPlaceholders(text: string): string {
+  let result = text;
+
+  for (const [name, getValue] of Object.entries(SYSTEM_PLACEHOLDERS)) {
+    const regex = new RegExp(`\\{\\{${name}\\}\\}`, "g");
+    if (regex.test(result)) {
+      result = result.replace(regex, getValue());
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get list of available system placeholder names for documentation/help
+ */
+export function getSystemPlaceholderNames(): string[] {
+  return Object.keys(SYSTEM_PLACEHOLDERS);
+}
+
+/**
  * Extracts placeholders from text in the format {{key}} or {{key|default}}
  * Returns an array of unique placeholders with their keys and default values
  */

@@ -52,6 +52,12 @@
       "title": "Manage Snippets",
       "description": "View, search, and manage your text snippets",
       "mode": "view"
+    },
+    {
+      "name": "save-clipboard",
+      "title": "Save Clipboard as Snippet",
+      "description": "Quickly save the current clipboard content as a new snippet",
+      "mode": "view"
     }
   ],
   "dependencies": {
