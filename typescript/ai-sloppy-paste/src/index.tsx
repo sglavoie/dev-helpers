@@ -75,6 +75,14 @@ export default function Command() {
   // Parse search query for operators
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
 
+  // DEBUG: Log parsed query
+  useEffect(() => {
+    if (searchQuery) {
+      console.log("Search query:", searchQuery);
+      console.log("Parsed query:", JSON.stringify(parsedQuery, null, 2));
+    }
+  }, [searchQuery, parsedQuery]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -192,7 +200,14 @@ export default function Command() {
 
     // If search operators are present, apply them to the view-filtered snippets
     if (parsedQuery.hasOperators) {
-      return applySearchFilters(baseSnippets, parsedQuery);
+      const result = applySearchFilters(baseSnippets, parsedQuery);
+      // DEBUG
+      console.log("Filtered with operators, result count:", result.length);
+      console.log(
+        "Matching titles:",
+        result.map((s) => s.title),
+      );
+      return result;
     }
 
     // Otherwise, use traditional UI filter pipeline
@@ -222,6 +237,26 @@ export default function Command() {
   // Get pinned snippets (always at top, sorted by title)
   const pinnedSnippets = [...filtered].filter((s) => s.isPinned).sort((a, b) => a.title.localeCompare(b.title));
   const pinnedIds = new Set(pinnedSnippets.map((s) => s.id));
+
+  // DEBUG: Check if pinned snippet is in filtered vs all snippets
+  useEffect(() => {
+    if (searchQuery) {
+      const allPinned = snippets.filter((s) => s.isPinned && !s.isArchived);
+      const filteredPinned = filtered.filter((s) => s.isPinned);
+      console.log(
+        "[DEBUG] All non-archived pinned snippets:",
+        allPinned.map((s) => s.title),
+      );
+      console.log(
+        "[DEBUG] Pinned snippets after filtering:",
+        filteredPinned.map((s) => s.title),
+      );
+      console.log(
+        "[DEBUG] pinnedSnippets for render:",
+        pinnedSnippets.map((s) => s.title),
+      );
+    }
+  }, [searchQuery, snippets, filtered, pinnedSnippets]);
 
   // Get recently used snippets (top 5 with lastUsedAt, excluding pinned)
   const recentSnippets = showRecentSection
@@ -292,7 +327,7 @@ export default function Command() {
         </>
       }
     >
-      {sortedSnippets.length === 0 && recentSnippets.length === 0 ? (
+      {sortedSnippets.length === 0 && recentSnippets.length === 0 && pinnedSnippets.length === 0 ? (
         <List.EmptyView
           icon={showOnlyFavorites ? Icon.Star : Icon.Document}
           title={showOnlyFavorites ? "No favorites yet" : "No snippets yet"}
@@ -359,7 +394,14 @@ export default function Command() {
         icon={primaryIcon}
         title={snippet.title}
         subtitle={showingDetail ? undefined : snippet.content}
-        keywords={[...snippet.tags, snippet.content]}
+        keywords={[
+          // Split title into individual words for better matching
+          ...snippet.title.toLowerCase().split(/\W+/).filter(Boolean),
+          ...snippet.tags.map((t) => t.toLowerCase()),
+          ...snippet.content.toLowerCase().split(/\W+/).filter(Boolean),
+          // Include search query to ensure Raycast's native filter matches
+          searchQuery.toLowerCase(),
+        ]}
         accessories={
           showingDetail
             ? undefined

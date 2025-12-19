@@ -72,6 +72,15 @@ export function applySearchFilters(snippets: Snippet[], query: ParsedQuery): Sni
         const inTitle = snippet.title.toLowerCase().includes(word);
         const inContent = snippet.content.toLowerCase().includes(word);
         const inTags = snippet.tags.some((tag) => tag.includes(word));
+        // DEBUG: Log pinned snippet matching
+        if (snippet.isPinned) {
+          console.log(`[DEBUG] Pinned snippet "${snippet.title}" checking word "${word}":`, {
+            inTitle,
+            inContent,
+            inTags,
+            titleLower: snippet.title.toLowerCase(),
+          });
+        }
         if (!inTitle && !inContent && !inTags) return false;
       }
     }
