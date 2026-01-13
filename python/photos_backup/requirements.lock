@@ -64,7 +64,7 @@ objexplore==1.6.3
     # via osxphotos
 osxmetadata==1.4.0
     # via osxphotos
-osxphotos==0.75.0
+osxphotos==0.75.1
     # via photos-backup
 packaging==25.0
     # via osxphotos
