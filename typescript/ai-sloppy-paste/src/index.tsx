@@ -353,6 +353,9 @@ export default function Command() {
                   target={<SearchOperatorsHelp />}
                 />
               </ActionPanel.Section>
+              <ActionPanel.Section title="Data">
+                <ImportDataAction onImported={loadData} />
+              </ActionPanel.Section>
             </ActionPanel>
           }
         />
