@@ -22,6 +22,7 @@ import TagsRename from "./tags-rename";
 import TagsRemove from "./tags-remove";
 import SetEntry from "./set-entry";
 import ListEntries from "./list-entries";
+import StartMultipleTimers from "./start-multiple-timers";
 
 interface CommandItem {
   id: string;
@@ -120,6 +121,15 @@ export default function Command() {
       iconColor: Color.Blue,
       component: ContinueTimer,
       shortcut: { modifiers: ["cmd"], key: "c" },
+    },
+    {
+      id: "continue-timers",
+      title: "Continue Timers",
+      description: "Start multiple timers at once from historical keywords",
+      icon: Icon.RotateClockwise,
+      iconColor: Color.Blue,
+      component: StartMultipleTimers,
+      shortcut: { modifiers: ["cmd", "shift"], key: "c" },
     },
   ];
 

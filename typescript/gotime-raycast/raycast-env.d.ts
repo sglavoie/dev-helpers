@@ -32,6 +32,8 @@ declare namespace Preferences {
   export type SetEntry = ExtensionPreferences & {}
   /** Preferences accessible in the `list-entries` command */
   export type ListEntries = ExtensionPreferences & {}
+  /** Preferences accessible in the `start-multiple-timers` command */
+  export type StartMultipleTimers = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -51,5 +53,7 @@ declare namespace Arguments {
   export type SetEntry = {}
   /** Arguments passed to the `list-entries` command */
   export type ListEntries = {}
+  /** Arguments passed to the `start-multiple-timers` command */
+  export type StartMultipleTimers = {}
 }
 

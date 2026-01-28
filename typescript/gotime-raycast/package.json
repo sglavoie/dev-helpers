@@ -58,6 +58,12 @@
       "title": "GoTime: List Entries",
       "description": "List and filter time tracking entries with advanced search",
       "mode": "view"
+    },
+    {
+      "name": "start-multiple-timers",
+      "title": "GoTime: Start Multiple Timers",
+      "description": "Start multiple timers at once from historical keywords",
+      "mode": "view"
     }
   ],
   "preferences": [
