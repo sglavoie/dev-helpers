@@ -153,6 +153,7 @@ gt undo --list                               # Show available undo operations
 
 # Bulk editing
 gt set --keyword coding duration 7200         # Set all "coding" entries to 2 hours
+gt set --keyword coding endtime "2025-08-08 17:00:00"  # Set end time for all "coding" entries
 ```
 
 ## Configuration

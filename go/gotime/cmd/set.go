@@ -317,6 +317,7 @@ func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, 
 	fmt.Println("  2. tags       - Replace tags for all selected entries")
 	fmt.Println("  3. duration   - Set duration (in seconds) for all selected entries")
 	fmt.Println("  4. starttime  - Set start time (YYYY-MM-DD HH:MM:SS) for all selected entries")
+	fmt.Println("  5. endtime    - Set end time (YYYY-MM-DD HH:MM:SS) for all selected entries")
 	fmt.Println()
 
 	// Map digit to field name
@@ -325,13 +326,14 @@ func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, 
 		"2": "tags",
 		"3": "duration",
 		"4": "starttime",
+		"5": "endtime",
 	}
 	var fieldInput string
 	var field string
 
 	// Prompt for a valid field selection (1-4) in a loop
 	for {
-		fmt.Print("Enter field name to edit (1-4): ")
+		fmt.Print("Enter field name to edit (1-5): ")
 		fmt.Scanln(&fieldInput)
 		fieldInput = strings.TrimSpace(fieldInput)
 		if fieldInput == "" {
@@ -344,10 +346,10 @@ func runBulkFieldEditor(entries []*models.Entry, configManager *config.Manager, 
 		}
 		// If not a digit, assume user entered the field name directly
 		field = strings.ToLower(fieldInput)
-		if field == "keyword" || field == "tags" || field == "duration" || field == "starttime" {
+		if field == "keyword" || field == "tags" || field == "duration" || field == "starttime" || field == "endtime" {
 			break
 		}
-		fmt.Println("Invalid selection. Please enter a number between 1 and 4.")
+		fmt.Println("Invalid selection. Please enter a number between 1 and 5.")
 	}
 
 	fmt.Printf("Enter new value for '%s': ", field)
@@ -492,8 +494,17 @@ func setFieldValue(entry *models.Entry, field, value string) error {
 		}
 		entry.StartTime = startTime
 
+	case "endtime":
+		// Parse end time in YYYY-MM-DD HH:MM:SS format
+		endTime, err := time.Parse("2006-01-02 15:04:05", value)
+		if err != nil {
+			return fmt.Errorf("invalid end time format (expected YYYY-MM-DD HH:MM:SS): %s", value)
+		}
+		entry.EndTime = &endTime
+		entry.Duration = int(endTime.Sub(entry.StartTime).Seconds())
+
 	default:
-		return fmt.Errorf("unsupported field: %s (supported: keyword, duration, tags, starttime)", field)
+		return fmt.Errorf("unsupported field: %s (supported: keyword, duration, tags, starttime, endtime)", field)
 	}
 
 	return nil
