@@ -56,12 +56,27 @@ func (r *builder) appendBooleanFlags() {
 	}
 }
 
+func (r *builder) appendIncludedPatterns() {
+	cfgPrefix := r.builderSettingsPrefix()
+	patterns := viper.GetStringSlice(cfgPrefix + "includedPatterns")
+	for _, pattern := range patterns {
+		r.sb.WriteString(" --include=\"")
+		r.sb.WriteString(pattern)
+		r.sb.WriteString("\"")
+	}
+	r.hasIncludePatterns = len(patterns) > 0
+}
+
 func (r *builder) appendExcludedPatterns() {
 	cfgPrefix := r.builderSettingsPrefix()
 	for _, pattern := range viper.GetStringSlice(cfgPrefix + "excludedPatterns") {
 		r.sb.WriteString(" --exclude=\"")
 		r.sb.WriteString(pattern)
 		r.sb.WriteString("\"")
+	}
+	// When include patterns are used, add a final --exclude="*" to exclude everything else
+	if r.hasIncludePatterns {
+		r.sb.WriteString(" --exclude=\"*\"")
 	}
 }
 

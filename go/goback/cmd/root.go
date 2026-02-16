@@ -17,6 +17,7 @@ var RootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if cmd.Parent().Name() != "config" {
 			config.MustInitConfig(true, true)
+			config.ResolveProfiles()
 			return
 		}
 
@@ -36,6 +37,8 @@ func Execute() {
 func init() {
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
+	RootCmd.PersistentFlags().StringVarP(&config.ProfileFlag, "profile", "p", "", "profile to use (e.g. macbook, media)")
+	RootCmd.PersistentFlags().BoolVar(&config.AllProfiles, "all", false, "run all profiles regardless of hostname")
 	printCmd.Flags().Bool("raw", false, "print the raw configuration without unmarshalling it")
 }
 

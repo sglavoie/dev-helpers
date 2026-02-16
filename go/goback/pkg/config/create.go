@@ -36,7 +36,17 @@ func mustCreateDefaultFile() {
 
 	setDefaultValues()
 
-	err := viper.WriteConfig()
-	cobra.CheckErr(fmt.Sprintf("error writing config file: %s", err))
+	// Set profile-specific defaults
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = ""
+	}
+	viper.Set("profiles.default.hostname", hostname)
+	viper.Set("profiles.default.source", "")
+	viper.Set("profiles.default.destination", "")
+	viper.Set("profiles.default.backupMedia", false)
+
+	err = viper.WriteConfig()
+	cobra.CheckErr(err)
 	fmt.Println("config file created.")
 }

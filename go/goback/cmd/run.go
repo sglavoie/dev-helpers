@@ -28,8 +28,10 @@ var dailyCmdRun = &cobra.Command{
 	Short: "Perform a daily backup",
 	Long:  "Perform a daily, incremental backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		run.DailyBackup()
-		last.SummaryWithLineBreak()
+		forEachProfile(func() {
+			run.DailyBackup()
+			last.SummaryWithLineBreak()
+		})
 	},
 }
 
@@ -38,8 +40,10 @@ var weeklyCmdRun = &cobra.Command{
 	Short: "Perform a weekly backup",
 	Long:  "Perform a weekly, incremental backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		run.WeeklyBackup()
-		last.SummaryWithLineBreak()
+		forEachProfile(func() {
+			run.WeeklyBackup()
+			last.SummaryWithLineBreak()
+		})
 	},
 }
 
@@ -48,7 +52,9 @@ var monthlyCmdRun = &cobra.Command{
 	Short: "Perform a monthly backup",
 	Long:  "Perform a monthly, incremental, compressed backup from the weekly backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		run.MonthlyBackup()
-		last.SummaryWithLineBreak()
+		forEachProfile(func() {
+			run.MonthlyBackup()
+			last.SummaryWithLineBreak()
+		})
 	},
 }

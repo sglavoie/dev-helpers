@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/viper"
 )
 
@@ -22,14 +23,14 @@ func extractVolumePath(dest string) string {
 }
 
 func Eject() {
-	dest := viper.GetString("destination")
+	dest := viper.GetString(config.ActiveProfilePrefix() + "destination")
 	if dest == "" {
 		log.Fatal("destination not set")
 	}
 
 	// Extract the volume mount point from the destination path
 	volumePath := extractVolumePath(dest)
-	
+
 	log.Printf("Ejecting volume at '%s' (configured destination: '%s')", volumePath, dest)
 
 	cmd := exec.Command("diskutil", "eject", volumePath)

@@ -9,12 +9,13 @@ import (
 
 // builder is a struct that implements the builder interface.
 type builder struct {
-	sb             *strings.Builder
-	executionTime  string
-	updatedDestDir string
-	updatedSrc     string
-	builderType    models.BackupTypes
-	db             *sql.DB
+	sb                 *strings.Builder
+	executionTime      string
+	updatedDestDir     string
+	updatedSrc         string
+	builderType        models.BackupTypes
+	db                 *sql.DB
+	hasIncludePatterns bool
 }
 
 // RsyncBuilderDaily is a struct that implements the builder interface for daily backups.

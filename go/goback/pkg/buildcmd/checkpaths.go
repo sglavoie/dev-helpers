@@ -4,22 +4,25 @@ import (
 	"log"
 	"os"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 func sourceAndDestination() (src, dest string) {
-	return viper.GetString("source"), viper.GetString("destination")
+	prefix := config.ActiveProfilePrefix()
+	return viper.GetString(prefix + "source"), viper.GetString(prefix + "destination")
 }
 
 func mustExitOnInvalidSourceOrDestination() (string, string) {
-	src := viper.GetString("source")
+	prefix := config.ActiveProfilePrefix()
+	src := viper.GetString(prefix + "source")
 	if src == "" {
-		log.Fatal("source not set")
+		log.Fatalf("source not set for profile %q", config.ActiveProfileName)
 	}
-	dest := viper.GetString("destination")
+	dest := viper.GetString(prefix + "destination")
 	if dest == "" {
-		log.Fatal("destination not set")
+		log.Fatalf("destination not set for profile %q", config.ActiveProfileName)
 	}
 
 	srcIsDir, err := isDirectory(src)

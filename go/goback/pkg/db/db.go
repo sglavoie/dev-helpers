@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -24,11 +25,24 @@ func CreateTableIfNotExists(db *sql.DB) {
 		created_at TEXT NOT NULL,
 		backup_type TEXT NOT NULL,
 		execution_time TEXT NOT NULL,
-		command TEXT NOT NULL
+		command TEXT NOT NULL,
+		profile TEXT NOT NULL DEFAULT ''
 	);
 	`
 	_, err := db.Exec(sqlStmt)
 	cobra.CheckErr(err)
+}
+
+// MigrateProfileColumn adds the profile column to existing databases that lack it.
+func MigrateProfileColumn(db *sql.DB) {
+	_, err := db.Exec("ALTER TABLE backups ADD COLUMN profile TEXT NOT NULL DEFAULT ''")
+	if err != nil {
+		// "duplicate column name" means the column already exists — safe to ignore
+		if strings.Contains(err.Error(), "duplicate column") {
+			return
+		}
+		cobra.CheckErr(err)
+	}
 }
 
 func WithDb(callback func(*sql.DB)) {

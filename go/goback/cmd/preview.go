@@ -26,7 +26,9 @@ var dailyCmdPreview = &cobra.Command{
 	Use:   "daily",
 	Short: "Preview command for daily backup",
 	Run: func(cmd *cobra.Command, args []string) {
-		buildcmd.PrintCommandDaily()
+		forEachProfile(func() {
+			buildcmd.PrintCommandDaily()
+		})
 	},
 }
 
@@ -34,7 +36,9 @@ var weeklyCmdPreview = &cobra.Command{
 	Use:   "weekly",
 	Short: "Preview command for weekly backup",
 	Run: func(cmd *cobra.Command, args []string) {
-		buildcmd.PrintCommandWeekly()
+		forEachProfile(func() {
+			buildcmd.PrintCommandWeekly()
+		})
 	},
 }
 
@@ -42,6 +46,8 @@ var monthlyCmdPreview = &cobra.Command{
 	Use:   "monthly",
 	Short: "Preview command for monthly backup",
 	Run: func(cmd *cobra.Command, args []string) {
-		buildcmd.PrintCommandMonthly()
+		forEachProfile(func() {
+			buildcmd.PrintCommandMonthly()
+		})
 	},
 }

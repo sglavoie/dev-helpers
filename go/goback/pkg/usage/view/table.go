@@ -14,7 +14,7 @@ import (
 func SqlToText(rows *sql.Rows) {
 	t := table.NewWriter()
 	setTableProperties(t)
-	t.AppendHeader(table.Row{"ID", "Created at", "Backup type", "Execution time", "Command executed"})
+	t.AppendHeader(table.Row{"ID", "Created at", "Backup type", "Profile", "Execution time", "Command executed"})
 
 	if !appendRows(rows, t) {
 		fmt.Println("No backups data found")
@@ -26,7 +26,7 @@ func SqlToText(rows *sql.Rows) {
 func SqlToTextSummary(rows *sql.Rows) {
 	t := table.NewWriter()
 	setTableProperties(t)
-	t.AppendHeader(table.Row{"ID", "Created at", "Relative time", "Backup type"})
+	t.AppendHeader(table.Row{"ID", "Created at", "Relative time", "Backup type", "Profile"})
 
 	if !appendSummaryRows(rows, t) {
 		fmt.Println("No backups data found")
@@ -38,12 +38,12 @@ func SqlToTextSummary(rows *sql.Rows) {
 func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
 		var id int
-		var createdAt, backupType, execTime, command string
-		err := rows.Scan(&id, &createdAt, &backupType, &execTime, &command)
+		var createdAt, backupType, execTime, command, profile string
+		err := rows.Scan(&id, &createdAt, &backupType, &execTime, &command, &profile)
 		cobra.CheckErr(err)
 		execTimeTruncated := executionTime(execTime)
 		cmd := wrappedCommand(command)
-		t.AppendRow([]interface{}{id, createdAt, backupType, execTimeTruncated, cmd})
+		t.AppendRow([]interface{}{id, createdAt, backupType, profile, execTimeTruncated, cmd})
 		t.AppendSeparator()
 		hasData = true
 	}
@@ -53,12 +53,12 @@ func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
 		var id int
-		var createdAt, backupType, executionTime, command string
-		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command)
+		var createdAt, backupType, executionTime, command, profile string
+		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command, &profile)
 		cobra.CheckErr(err)
 
 		relTime := printer.RelativeTime(createdAt)
-		t.AppendRow([]interface{}{id, createdAt, relTime, backupType})
+		t.AppendRow([]interface{}{id, createdAt, relTime, backupType, profile})
 		t.AppendSeparator()
 		hasData = true
 	}
