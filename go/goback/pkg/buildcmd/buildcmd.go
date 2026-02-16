@@ -27,22 +27,19 @@ func BuildMonthly() *RsyncBuilderMonthly {
 func PrintCommandDaily() {
 	c := commandToRunDailyNoCheck()
 	c.BuildNoCheck()
-	c.WrapLongLinesWithBackslashes()
-	c.PrintString()
+	c.FormattedPreview()
 }
 
 func PrintCommandWeekly() {
 	c := commandToRunWeeklyNoCheck()
 	c.BuildNoCheck()
-	c.WrapLongLinesWithBackslashes()
-	c.PrintString()
+	c.FormattedPreview()
 }
 
 func PrintCommandMonthly() {
 	c := commandToRunMonthlyNoCheck()
 	c.BuildNoCheck()
-	c.WrapLongLinesWithBackslashes()
-	c.PrintString()
+	c.FormattedPreview()
 }
 
 func commandToRunDailyCheck() *RsyncBuilderDaily {
