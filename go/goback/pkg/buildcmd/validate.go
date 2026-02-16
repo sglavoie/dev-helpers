@@ -9,7 +9,9 @@ import (
 
 func (r *builder) validateBeforeRun() {
 	if _, err := os.Stat(r.updatedDestDir); os.IsNotExist(err) {
-		log.Fatal(fmt.Sprintf("r.updatedDestination directory %s does not exist", r.updatedDestDir))
+		if err := os.MkdirAll(r.updatedDestDir, 0755); err != nil {
+			log.Fatalf("failed to create destination directory %s: %v", r.updatedDestDir, err)
+		}
 	}
 
 	if _, err := os.Stat(r.updatedSrc); os.IsNotExist(err) {
@@ -21,10 +23,10 @@ func (r *builder) validateBeforeRun() {
 	}
 
 	if r.updatedSrc == r.updatedDestDir {
-		log.Fatal(fmt.Sprintf("source and r.updatedDestination are the same: %s", r.updatedSrc))
+		log.Fatal(fmt.Sprintf("source and destination are the same: %s", r.updatedSrc))
 	}
 
 	if strings.HasPrefix(r.updatedDestDir, r.updatedSrc) {
-		log.Fatal(fmt.Sprintf("source directory %s is a parent of r.updatedDestination directory %s", r.updatedSrc, r.updatedDestDir))
+		log.Fatal(fmt.Sprintf("source directory %s is a parent of destination directory %s", r.updatedSrc, r.updatedDestDir))
 	}
 }
