@@ -131,6 +131,38 @@ export function getUnusedTags(snippets: Snippet[], tags: string[]): string[] {
   return tags.filter((tag) => !usedTags.has(tag));
 }
 
+function tokenize(text: string): Set<string> {
+  const stopWords = new Set(["the", "a", "an", "is", "it", "in", "on", "at", "to", "for", "of", "and", "or", "but"]);
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w)),
+  );
+}
+
+export interface SimilarityResult {
+  snippet: Snippet;
+  score: number; // 0–1 Jaccard similarity
+}
+
+export function findSimilarSnippets(target: Snippet, allSnippets: Snippet[], threshold = 0.3): SimilarityResult[] {
+  const targetTokens = tokenize(`${target.title} ${target.content}`);
+  if (targetTokens.size === 0) return [];
+  return allSnippets
+    .filter((s) => s.id !== target.id && !s.isArchived)
+    .map((s) => {
+      const tokens = tokenize(`${s.title} ${s.content}`);
+      const intersection = [...targetTokens].filter((w) => tokens.has(w)).length;
+      const union = new Set([...targetTokens, ...tokens]).size;
+      return { snippet: s, score: union === 0 ? 0 : intersection / union };
+    })
+    .filter((r) => r.score >= threshold)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+}
+
 /**
  * Generates cleanup suggestions for stale snippets and unused tags
  * Pinned and archived snippets are excluded from suggestions

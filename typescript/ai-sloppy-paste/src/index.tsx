@@ -40,7 +40,9 @@ import { ImportForm } from "./components/ImportForm";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { PlaceholderSyntaxHelp } from "./components/PlaceholderSyntaxHelp";
 import { QuickTagForm } from "./components/QuickTagForm";
+import { SimilarSnippetsView } from "./components/SimilarSnippetsView";
 import { isChildOf, expandTagsWithParents } from "./utils/tags";
+import { computeSnippetAnalytics, findSimilarSnippets } from "./utils/analytics";
 import { parseSearchQuery } from "./utils/queryParser";
 import { applySearchFilters } from "./utils/searchFilter";
 import * as fs from "fs";
@@ -71,6 +73,7 @@ export default function Command() {
   );
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showArchivedSnippets, setShowArchivedSnippets] = useState(false);
+  const [showNeedsAttention, setShowNeedsAttention] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Parse search query for operators
@@ -199,30 +202,36 @@ export default function Command() {
       ? snippets.filter((s) => s.isArchived)
       : snippets.filter((s) => !s.isArchived);
 
+    let result: Snippet[];
+
     // If search operators are present, apply them to the view-filtered snippets
     if (parsedQuery.hasOperators) {
-      const result = applySearchFilters(baseSnippets, parsedQuery);
+      result = applySearchFilters(baseSnippets, parsedQuery);
       // DEBUG
       console.log("Filtered with operators, result count:", result.length);
       console.log(
         "Matching titles:",
         result.map((s) => s.title),
       );
-      return result;
+    } else {
+      // Otherwise, use traditional UI filter pipeline
+      // 1. Filter by tag - support hierarchical filtering
+      const tagFiltered =
+        selectedTag === "All"
+          ? baseSnippets
+          : baseSnippets.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
+
+      // 2. Filter by favorites
+      result = showOnlyFavorites ? tagFiltered.filter((s) => s.isFavorite) : tagFiltered;
     }
 
-    // Otherwise, use traditional UI filter pipeline
-    // 1. Filter by tag - support hierarchical filtering
-    const tagFiltered =
-      selectedTag === "All"
-        ? baseSnippets
-        : baseSnippets.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
+    // 3. When Needs Attention mode is active, show only stale snippets
+    if (showNeedsAttention) {
+      return result.filter((s) => computeSnippetAnalytics(s).isStale);
+    }
 
-    // 2. Filter by favorites
-    const favoritesFiltered = showOnlyFavorites ? tagFiltered.filter((s) => s.isFavorite) : tagFiltered;
-
-    return favoritesFiltered;
-  }, [snippets, parsedQuery, showArchivedSnippets, selectedTag, showOnlyFavorites]);
+    return result;
+  }, [snippets, parsedQuery, showArchivedSnippets, selectedTag, showOnlyFavorites, showNeedsAttention]);
 
   // Compute tags from currently visible snippets
   const visibleTags = useMemo(() => {
@@ -330,12 +339,20 @@ export default function Command() {
     >
       {sortedSnippets.length === 0 && recentSnippets.length === 0 && pinnedSnippets.length === 0 ? (
         <List.EmptyView
-          icon={showOnlyFavorites ? Icon.Star : Icon.Document}
-          title={showOnlyFavorites ? "No favorites yet" : "No snippets yet"}
+          icon={showOnlyFavorites ? Icon.Star : showNeedsAttention ? Icon.Checkmark : Icon.Document}
+          title={
+            showOnlyFavorites
+              ? "No favorites yet"
+              : showNeedsAttention
+                ? "No snippets need attention"
+                : "No snippets yet"
+          }
           description={
             showOnlyFavorites
               ? "Mark snippets as favorites with ⌘+Shift+F or press ⌘+F to view all snippets"
-              : "Press ⌘+N to create your first snippet"
+              : showNeedsAttention
+                ? "All snippets are in good shape. Press ⌘+Shift+N to return to the full list"
+                : "Press ⌘+N to create your first snippet"
           }
           actions={
             <ActionPanel>
@@ -362,12 +379,12 @@ export default function Command() {
         />
       ) : (
         <>
-          {pinnedSnippets.length > 0 && !showArchivedSnippets && (
+          {pinnedSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
             <List.Section title="Pinned" subtitle={`${pinnedSnippets.length} snippets`}>
               {pinnedSnippets.map((snippet) => renderSnippetItem(snippet))}
             </List.Section>
           )}
-          {recentSnippets.length > 0 && !showArchivedSnippets && (
+          {recentSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
             <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
               {recentSnippets.map((snippet) => renderSnippetItem(snippet))}
             </List.Section>
@@ -376,9 +393,11 @@ export default function Command() {
             title={
               showArchivedSnippets
                 ? "Archived Snippets"
-                : pinnedSnippets.length > 0 || recentSnippets.length > 0
-                  ? "All Snippets"
-                  : undefined
+                : showNeedsAttention
+                  ? `Needs Attention (${filtered.length})`
+                  : pinnedSnippets.length > 0 || recentSnippets.length > 0
+                    ? "All Snippets"
+                    : undefined
             }
           >
             {sortedSnippets.map((snippet) => renderSnippetItem(snippet))}
@@ -392,12 +411,20 @@ export default function Command() {
     // Determine the primary icon based on state priority: pinned > favorite > default
     const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
 
+    const analytics = computeSnippetAnalytics(snippet);
+
     return (
       <List.Item
         key={snippet.id}
         icon={primaryIcon}
         title={snippet.title}
-        subtitle={showingDetail ? undefined : snippet.content}
+        subtitle={
+          showingDetail
+            ? undefined
+            : showNeedsAttention
+              ? (analytics.stalenessReason ?? snippet.content)
+              : snippet.content
+        }
         keywords={[
           // Split title into individual words for better matching
           ...snippet.title.toLowerCase().split(/\W+/).filter(Boolean),
@@ -410,6 +437,15 @@ export default function Command() {
           showingDetail
             ? undefined
             : [
+                // Show stale warning before other accessories
+                ...(analytics.isStale
+                  ? [
+                      {
+                        icon: { source: Icon.ExclamationMark, tintColor: Color.Orange },
+                        tooltip: analytics.stalenessReason ?? "Stale snippet",
+                      },
+                    ]
+                  : []),
                 // Show star icon if pinned and also a favorite (since pin takes the main icon)
                 ...(snippet.isPinned && snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Favorite" }] : []),
                 ...(snippet.tags.length > 0
@@ -494,6 +530,12 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd"], key: "b" }}
                 onAction={() => setShowArchivedSnippets(!showArchivedSnippets)}
               />
+              <Action
+                title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
+                icon={Icon.Warning}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
+                onAction={() => setShowNeedsAttention((v) => !v)}
+              />
             </ActionPanel.Section>
             <ActionPanel.Section title="Help">
               <Action.Push
@@ -518,6 +560,28 @@ export default function Command() {
                 onAction={() => handleDelete(snippet)}
               />
             </ActionPanel.Section>
+            {analytics.isStale && (
+              <ActionPanel.Section title="Cleanup Suggestion">
+                <Action
+                  title={`Archive — ${analytics.stalenessReason}`}
+                  icon={{ source: Icon.Trash, tintColor: Color.Orange }}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "u" }}
+                  onAction={async () => {
+                    try {
+                      await toggleArchive(snippet.id);
+                      showToast({ style: Toast.Style.Success, title: "Snippet archived" });
+                      loadData();
+                    } catch (error) {
+                      showToast({
+                        style: Toast.Style.Failure,
+                        title: "Failed to archive snippet",
+                        message: String(error),
+                      });
+                    }
+                  }}
+                />
+              </ActionPanel.Section>
+            )}
             <ActionPanel.Section title="Tags">
               <QuickAddTagAction snippet={snippet} availableTags={visibleTags} onUpdated={loadData} />
               <QuickRemoveTagAction snippet={snippet} onUpdated={loadData} />
@@ -533,6 +597,7 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
                 target={<AnalyticsDashboard onUpdated={loadData} />}
               />
+              <SimilarSnippetsAction snippet={snippet} allSnippets={snippets} onUpdated={loadData} />
             </ActionPanel.Section>
             <ActionPanel.Section title="Data">
               <Action
@@ -999,6 +1064,20 @@ function ImportDataAction(props: { onImported: () => void }) {
       onAction={() => {
         push(<ImportForm onImported={props.onImported} />);
       }}
+    />
+  );
+}
+
+function SimilarSnippetsAction(props: { snippet: Snippet; allSnippets: Snippet[]; onUpdated: () => void }) {
+  const results = findSimilarSnippets(props.snippet, props.allSnippets);
+  if (results.length === 0) return null;
+  return (
+    <Action.Push
+      title={`Find Similar Snippets (${results.length} found)`}
+      icon={Icon.TwoArrowsClockwise}
+      target={
+        <SimilarSnippetsView target={props.snippet} allSnippets={props.allSnippets} onUpdated={props.onUpdated} />
+      }
     />
   );
 }

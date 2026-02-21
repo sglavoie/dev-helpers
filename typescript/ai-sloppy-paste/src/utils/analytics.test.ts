@@ -5,6 +5,7 @@ import {
   getTopSnippets,
   getUnusedTags,
   computeCleanupSuggestions,
+  findSimilarSnippets,
 } from "./analytics";
 import { Snippet, TimeRange } from "../types";
 
@@ -358,6 +359,109 @@ describe("analytics", () => {
       expect(suggestions.filter((s) => s.type === "never_used")).toHaveLength(1);
       expect(suggestions.filter((s) => s.type === "stale")).toHaveLength(1);
       expect(suggestions.filter((s) => s.type === "unused_tag")).toHaveLength(1);
+    });
+  });
+
+  describe("findSimilarSnippets", () => {
+    it("should return score 1.0 for identical content", () => {
+      const target = createSnippet({ id: "target", title: "Deploy script", content: "git push origin main force" });
+      const duplicate = createSnippet({ id: "dup", title: "Deploy script", content: "git push origin main force" });
+
+      const results = findSimilarSnippets(target, [target, duplicate]);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].snippet.id).toBe("dup");
+      expect(results[0].score).toBe(1.0);
+    });
+
+    it("should return empty array for completely different content", () => {
+      const target = createSnippet({ id: "target", title: "Python loop", content: "for item list range" });
+      const other = createSnippet({ id: "other", title: "SQL query", content: "select from where join" });
+
+      const results = findSimilarSnippets(target, [target, other]);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("should exclude snippets below threshold", () => {
+      const target = createSnippet({ id: "target", title: "apple banana cherry", content: "fruit salad recipe" });
+      const lowMatch = createSnippet({
+        id: "low",
+        title: "apple orange grape",
+        content: "juice drink water lemon lime",
+      });
+
+      const results = findSimilarSnippets(target, [target, lowMatch], 0.9);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("should exclude archived snippets", () => {
+      const target = createSnippet({
+        id: "target",
+        title: "Deploy script",
+        content: "git push origin main force deploy",
+      });
+      const archived = createSnippet({
+        id: "archived",
+        title: "Deploy script",
+        content: "git push origin main force deploy",
+        isArchived: true,
+      });
+
+      const results = findSimilarSnippets(target, [target, archived]);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("should exclude the target snippet itself", () => {
+      const target = createSnippet({ id: "target", title: "hello world", content: "hello world example" });
+
+      const results = findSimilarSnippets(target, [target]);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("should return empty array for empty content", () => {
+      const target = createSnippet({ id: "target", title: "", content: "" });
+      const other = createSnippet({ id: "other", title: "something", content: "relevant content here" });
+
+      const results = findSimilarSnippets(target, [target, other]);
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("should return results sorted by score descending", () => {
+      const target = createSnippet({
+        id: "t",
+        title: "git push deploy main branch origin remote",
+        content: "git push",
+      });
+      const high = createSnippet({
+        id: "high",
+        title: "git push deploy main branch origin remote server",
+        content: "git push deploy",
+      });
+      const low = createSnippet({ id: "low", title: "git push deploy", content: "simple" });
+
+      const results = findSimilarSnippets(target, [target, high, low]);
+
+      expect(results.length).toBeGreaterThan(0);
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i - 1].score).toBeGreaterThanOrEqual(results[i].score);
+      }
+    });
+
+    it("should return at most 5 results", () => {
+      const sharedWords = "deploy git push origin main branch remote server production staging";
+      const target = createSnippet({ id: "t", title: sharedWords, content: sharedWords });
+      const others = Array.from({ length: 10 }, (_, i) =>
+        createSnippet({ id: `s${i}`, title: sharedWords, content: `${sharedWords} unique${i}` }),
+      );
+
+      const results = findSimilarSnippets(target, [target, ...others]);
+
+      expect(results.length).toBeLessThanOrEqual(5);
     });
   });
 });
