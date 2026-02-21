@@ -42,6 +42,7 @@ export interface Placeholder {
   isSaved: boolean; // NEW: Whether to save to history (default true)
   prefixWrapper?: string; // NEW: Conditional prefix text
   suffixWrapper?: string; // NEW: Conditional suffix text
+  isGuardOnly?: boolean; // NEW: Key used only in {{#if key}} — renders as checkbox
 }
 
 export interface PlaceholderHistoryValue {

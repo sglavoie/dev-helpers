@@ -30,7 +30,7 @@ import {
   exportData,
 } from "./utils/storage";
 import { pasteWithClipboardRestore } from "./utils/clipboard";
-import { extractPlaceholders, processSystemPlaceholders } from "./utils/placeholders";
+import { extractPlaceholders, processSystemPlaceholders, processConditionalBlocks } from "./utils/placeholders";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
 import { PlaceholderForm } from "./components/PlaceholderForm";
 import { ManageTagsView } from "./components/ManageTagsView";
@@ -1024,7 +1024,8 @@ function CopyContentAction(props: { snippet: Snippet; onComplete: () => void }) 
     } else {
       // No user placeholders - paste directly
       try {
-        await pasteWithClipboardRestore(contentWithSystemPlaceholders);
+        const afterBlocks = processConditionalBlocks(contentWithSystemPlaceholders, {});
+        await pasteWithClipboardRestore(afterBlocks);
         await incrementUsage(props.snippet.id);
         await closeMainWindow();
         showToast({
@@ -1073,7 +1074,8 @@ function PasteContentAction(props: { snippet: Snippet; onComplete: () => void })
     } else {
       // No user placeholders - copy directly
       try {
-        await Clipboard.copy(contentWithSystemPlaceholders);
+        const afterBlocks = processConditionalBlocks(contentWithSystemPlaceholders, {});
+        await Clipboard.copy(afterBlocks);
         await incrementUsage(props.snippet.id);
         await closeMainWindow();
         showToast({

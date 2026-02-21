@@ -4,6 +4,7 @@ import {
   replacePlaceholders,
   processSystemPlaceholders,
   getSystemPlaceholderNames,
+  processConditionalBlocks,
 } from "./placeholders";
 
 describe("extractPlaceholders", () => {
@@ -499,6 +500,115 @@ describe("processSystemPlaceholders", () => {
     const text = "";
     const result = processSystemPlaceholders(text);
     expect(result).toBe("");
+  });
+});
+
+describe("processConditionalBlocks", () => {
+  it("if-only: truthy value shows body", () => {
+    const text = "{{#if name}}Hello{{/if}}";
+    expect(processConditionalBlocks(text, { name: "Alice" })).toBe("Hello");
+  });
+
+  it("if-only: falsy/empty value omits body", () => {
+    const text = "{{#if name}}Hello{{/if}}";
+    expect(processConditionalBlocks(text, { name: "" })).toBe("");
+  });
+
+  it("if-else: truthy value shows if-body", () => {
+    const text = "{{#if cc}}CC: {{cc}}{{#else}}(No CC){{/if}}";
+    expect(processConditionalBlocks(text, { cc: "boss@co.com" })).toBe("CC: {{cc}}");
+  });
+
+  it("if-else: falsy value shows else-body", () => {
+    const text = "{{#if cc}}CC: {{cc}}{{#else}}(No CC){{/if}}";
+    expect(processConditionalBlocks(text, { cc: "" })).toBe("(No CC)");
+  });
+
+  it("missing key treated as falsy", () => {
+    const text = "{{#if missing}}shown{{/if}}";
+    expect(processConditionalBlocks(text, {})).toBe("");
+  });
+
+  it("whitespace-only value treated as falsy", () => {
+    const text = "{{#if key}}shown{{/if}}";
+    expect(processConditionalBlocks(text, { key: "   " })).toBe("");
+  });
+
+  it("newline cleanup: block on its own line removed cleanly when falsy", () => {
+    const text = "Before\n{{#if key}}\nblock content\n{{/if}}\nAfter";
+    expect(processConditionalBlocks(text, { key: "" })).toBe("Before\n\nAfter");
+  });
+
+  it("newline cleanup: block on its own line kept when truthy, surrounding text unaffected", () => {
+    const text = "Before\n{{#if key}}\nblock content\n{{/if}}\nAfter";
+    expect(processConditionalBlocks(text, { key: "yes" })).toBe("Before\nblock content\nAfter");
+  });
+
+  it("inline usage without own-line newlines", () => {
+    const text = "Hello {{#if name}}{{name}}{{/if}} world";
+    expect(processConditionalBlocks(text, { name: "Alice" })).toBe("Hello {{name}} world");
+    expect(processConditionalBlocks(text, { name: "" })).toBe("Hello  world");
+  });
+
+  it("multiple blocks evaluated independently", () => {
+    const text = "{{#if a}}A{{/if}} and {{#if b}}B{{/if}}";
+    expect(processConditionalBlocks(text, { a: "yes", b: "" })).toBe("A and ");
+    expect(processConditionalBlocks(text, { a: "", b: "yes" })).toBe(" and B");
+    expect(processConditionalBlocks(text, { a: "yes", b: "yes" })).toBe("A and B");
+  });
+
+  it("guard-only key: 'true' is truthy, '' is falsy", () => {
+    const text = "{{#if show}}visible{{/if}}";
+    expect(processConditionalBlocks(text, { show: "true" })).toBe("visible");
+    expect(processConditionalBlocks(text, { show: "" })).toBe("");
+  });
+});
+
+describe("extractPlaceholders — conditional blocks", () => {
+  it("guard-only key extracted from {{#if key}} when key not seen elsewhere", () => {
+    const text = "{{#if include_sig}}\nBest regards\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("include_sig");
+    expect(result[0].isGuardOnly).toBe(true);
+    expect(result[0].isRequired).toBe(false);
+    expect(result[0].isSaved).toBe(false);
+  });
+
+  it("guard-only key NOT re-extracted when key already appears as {{key}}", () => {
+    const text = "{{#if cc}}\nCC: {{cc}}\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("cc");
+    expect(result[0].isGuardOnly).toBeUndefined();
+  });
+
+  it("{{#if key}} control token not treated as a regular placeholder", () => {
+    const text = "{{#if foo}}\ncontent\n{{/if}}";
+    const result = extractPlaceholders(text);
+    const keys = result.map((p) => p.key);
+    expect(keys).not.toContain("#if foo");
+    expect(keys).not.toContain("#if");
+  });
+
+  it("{{/if}} and {{#else}} not extracted as placeholder keys", () => {
+    const text = "{{#if x}}\nA\n{{#else}}\nB\n{{/if}}";
+    const result = extractPlaceholders(text);
+    const keys = result.map((p) => p.key);
+    expect(keys).not.toContain("/if");
+    expect(keys).not.toContain("#else");
+    expect(keys).not.toContain("#else}}");
+  });
+
+  it("isGuardOnly is true, isRequired false, isSaved false on guard-only entries", () => {
+    const text = "{{#if toggle}}\nyes\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result[0]).toMatchObject({
+      key: "toggle",
+      isGuardOnly: true,
+      isRequired: false,
+      isSaved: false,
+    });
   });
 });
 

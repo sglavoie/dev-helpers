@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@raycast/api":
-        "/Users/sglavoie/dev/sglavoie/dev-helpers/typescript/ai-sloppy-paste/src/__mocks__/@raycast/api.ts",
+        "/Users/sglavoie/1_dev_projects/sglavoie_dev-helpers/dev-helpers/typescript/ai-sloppy-paste/src/__mocks__/@raycast/api.ts",
     },
   },
 });

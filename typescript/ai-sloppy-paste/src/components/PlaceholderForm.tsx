@@ -18,7 +18,7 @@ import {
   getMaxPlaceholderHistoryValues,
 } from "../utils/storage";
 import { pasteWithClipboardRestore } from "../utils/clipboard";
-import { replacePlaceholders } from "../utils/placeholders";
+import { replacePlaceholders, processConditionalBlocks } from "../utils/placeholders";
 import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
 
 const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
@@ -86,6 +86,11 @@ export function PlaceholderForm(props: {
         if (!placeholder.isRequired && isWrapper) {
           enabledInit[placeholder.key] = rankedValues.length > 0 || !!placeholder.defaultValue;
         }
+
+        // Guard-only keys default to unchecked
+        if (placeholder.isGuardOnly) {
+          enabledInit[placeholder.key] = false;
+        }
       }
 
       setHistorySuggestions(suggestions);
@@ -104,7 +109,14 @@ export function PlaceholderForm(props: {
   for (const [key, enabled] of Object.entries(enabledOptionals)) {
     if (!enabled) previewValues[key] = "";
   }
-  const previewContent = replacePlaceholders(props.snippet.content, previewValues, props.placeholders);
+  // Guard-only keys: map boolean to "true" / ""
+  for (const p of props.placeholders) {
+    if (p.isGuardOnly) {
+      previewValues[p.key] = enabledOptionals[p.key] ? "true" : "";
+    }
+  }
+  const afterBlocks = processConditionalBlocks(props.snippet.content, previewValues);
+  const previewContent = replacePlaceholders(afterBlocks, previewValues, props.placeholders);
 
   async function handleSubmit(values: Record<string, string>) {
     // Build final values: use formValues which is kept in sync
@@ -128,8 +140,16 @@ export function PlaceholderForm(props: {
       return;
     }
 
+    // Guard-only keys: map boolean to "true" / ""
+    for (const p of props.placeholders) {
+      if (p.isGuardOnly) {
+        finalValues[p.key] = enabledOptionals[p.key] ? "true" : "";
+      }
+    }
+
     // Replace placeholders
-    const filledContent = replacePlaceholders(props.snippet.content, finalValues, props.placeholders);
+    const afterBlocks = processConditionalBlocks(props.snippet.content, finalValues);
+    const filledContent = replacePlaceholders(afterBlocks, finalValues, props.placeholders);
 
     try {
       // Save placeholder values to history (respect isSaved flag)
@@ -249,6 +269,9 @@ export function PlaceholderForm(props: {
   }
 
   function buildInfoText(placeholder: Placeholder): string {
+    if (placeholder.isGuardOnly) {
+      return "Conditional — checked = block shown, unchecked = block omitted";
+    }
     const parts: string[] = [];
     if (placeholder.isRequired) {
       parts.push("Required field");
@@ -271,6 +294,21 @@ export function PlaceholderForm(props: {
     const suggestions = historySuggestions[placeholder.key] || [];
     const hasHistory = suggestions.length > 0;
     const showCustomInput = useCustomInput[placeholder.key];
+    if (placeholder.isGuardOnly) {
+      const isChecked = enabledOptionals[placeholder.key] ?? false;
+      return (
+        <Form.Checkbox
+          key={placeholder.key}
+          id={placeholder.key}
+          title={`Include ${placeholder.key}?`}
+          label="Include in output"
+          value={isChecked}
+          info={buildInfoText(placeholder)}
+          onChange={(checked) => setEnabledOptionals((prev) => ({ ...prev, [placeholder.key]: checked }))}
+        />
+      );
+    }
+
     const isWrapperField =
       !placeholder.isRequired && (placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined);
     const isEnabled = isWrapperField ? (enabledOptionals[placeholder.key] ?? false) : true;
@@ -365,7 +403,7 @@ export function PlaceholderForm(props: {
         </ActionPanel>
       }
     >
-      <Form.Description text="Fill in the placeholder values below. Required fields (*) must be filled. Wrapper fields (checkbox) are omitted from output when unchecked." />
+      <Form.Description text="Fill in the placeholder values below. Required fields (*) must be filled. Wrapper fields (checkbox) are omitted from output when unchecked. Conditional fields (checkbox) control whether entire blocks appear." />
       {requiredPlaceholders.map(renderPlaceholderField)}
       {hasBothSections && (
         <>

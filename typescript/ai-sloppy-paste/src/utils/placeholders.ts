@@ -85,6 +85,11 @@ export function extractPlaceholders(text: string): Placeholder[] {
   while ((match = regex.exec(text)) !== null) {
     let content = match[1].trim();
 
+    // Skip block control tokens — these are handled by processConditionalBlocks
+    if (content.startsWith("#if ") || content === "#else" || content === "/if") {
+      continue;
+    }
+
     // 1. Check for no-save flag (!)
     const isSaved = !content.startsWith("!");
     if (!isSaved) {
@@ -137,6 +142,23 @@ export function extractPlaceholders(text: string): Placeholder[] {
         suffixWrapper,
       });
       seen.add(key);
+    }
+  }
+
+  // Second pass: extract guard-only keys from {{#if key}} patterns
+  const ifRegex = /\{\{#if ([^}]+)\}\}/g;
+  let ifMatch;
+  while ((ifMatch = ifRegex.exec(text)) !== null) {
+    const guardKey = ifMatch[1].trim();
+    if (guardKey && !seen.has(guardKey)) {
+      placeholders.push({
+        key: guardKey,
+        defaultValue: undefined,
+        isRequired: false,
+        isSaved: false,
+        isGuardOnly: true,
+      });
+      seen.add(guardKey);
     }
   }
 
@@ -219,4 +241,31 @@ function buildPlaceholderRegex(placeholder: Placeholder): RegExp {
   pattern += "\\}\\}";
 
   return new RegExp(pattern, "g");
+}
+
+/**
+ * Processes conditional block syntax in text.
+ * Supports:
+ *   {{#if key}}...{{/if}}
+ *   {{#if key}}...{{#else}}...{{/if}}
+ *
+ * A key is truthy when its value is non-empty after trimming.
+ * Guard-only keys (checkbox in the form) use "true" for checked, "" for unchecked.
+ * Consumes one trailing newline after {{/if}} to avoid blank lines on removal.
+ * No nested {{#if}} blocks supported.
+ */
+export function processConditionalBlocks(text: string, values: Record<string, string>): string {
+  const blockRegex = /\{\{#if ([^}]+)\}\}([\s\S]*?)(?:\{\{#else\}\}([\s\S]*?))?\{\{\/if\}\}/g;
+
+  return text.replace(blockRegex, (_match, rawKey, ifBody, elseBody) => {
+    const key = rawKey.trim();
+    const value = values[key] ?? "";
+    const isTruthy = value.trim().length > 0;
+
+    const selectedBody = isTruthy ? ifBody : (elseBody ?? "");
+
+    // Trim exactly one leading and one trailing newline to avoid blank lines
+    // when the block tags are on their own lines
+    return selectedBody.replace(/^\n/, "").replace(/\n$/, "");
+  });
 }
