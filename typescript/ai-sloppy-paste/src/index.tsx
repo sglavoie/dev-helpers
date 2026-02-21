@@ -38,6 +38,7 @@ import { ManagePlaceholderHistoryView } from "./components/ManagePlaceholderHist
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { ImportForm } from "./components/ImportForm";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
+import { PlaceholderSyntaxHelp } from "./components/PlaceholderSyntaxHelp";
 import { QuickTagForm } from "./components/QuickTagForm";
 import { isChildOf, expandTagsWithParents } from "./utils/tags";
 import { parseSearchQuery } from "./utils/queryParser";
@@ -858,6 +859,12 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
             shortcut={{ modifiers: ["cmd"], key: "t" }}
             onAction={handleAddTag}
           />
+          <Action.Push
+            title="View Placeholder Syntax"
+            icon={Icon.QuestionMarkCircle}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "h" }}
+            target={<PlaceholderSyntaxHelp />}
+          />
         </ActionPanel>
       }
     >
@@ -888,7 +895,18 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
           setContentCharInfo(charInfo.info);
         }}
       />
-      <Form.Description text="Placeholders: {{key}} (required) | {{key|default}} (optional) | {{prefix:key:suffix}} (wrappers) | {{!key}} (no history save) | System: {{DATE}}, {{TIME}}, {{TODAY}}, {{NOW}}, {{YEAR}}, {{MONTH}}, {{DAY}}" />
+      <Form.Description
+        title="Placeholders"
+        text="Required: {{name}}   Optional: {{name|default}}   No-save: {{!name}}"
+      />
+      <Form.Description
+        title="Wrappers"
+        text="{{prefix:key:suffix}} — wrapping text only appears when value is non-empty. Example: {{$:price: USD}}"
+      />
+      <Form.Description
+        title="System (auto)"
+        text="{{DATE}}  {{TIME}}  {{DATETIME}}  {{TODAY}}  {{NOW}}  {{YEAR}}  {{MONTH}}  {{DAY}}"
+      />
       <Form.TextArea
         id="description"
         title="Description"
