@@ -44,6 +44,36 @@
           "value": "100"
         }
       ]
+    },
+    {
+      "name": "clipboardRestoreDelay",
+      "type": "dropdown",
+      "required": false,
+      "title": "Clipboard Restore Delay",
+      "description": "How long to wait before restoring the original clipboard after pasting a snippet. Increase if the wrong content is pasted. Set to 'Never' to skip restoration entirely.",
+      "default": "500",
+      "data": [
+        {
+          "title": "Never restore clipboard",
+          "value": "0"
+        },
+        {
+          "title": "200 ms",
+          "value": "200"
+        },
+        {
+          "title": "500 ms (default)",
+          "value": "500"
+        },
+        {
+          "title": "1000 ms",
+          "value": "1000"
+        },
+        {
+          "title": "2000 ms",
+          "value": "2000"
+        }
+      ]
     }
   ],
   "commands": [

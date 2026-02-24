@@ -9,7 +9,9 @@
 
 type ExtensionPreferences = {
   /** Max Placeholder History Values - Maximum number of values to display in dropdown (storage keeps up to 100 values to prevent data loss) */
-  "maxPlaceholderHistoryValues": "5" | "10" | "20" | "30" | "50" | "100"
+  "maxPlaceholderHistoryValues": "5" | "10" | "20" | "30" | "50" | "100",
+  /** Clipboard Restore Delay - How long to wait before restoring the original clipboard after pasting a snippet. Increase if the wrong content is pasted. Set to 'Never' to skip restoration entirely. */
+  "clipboardRestoreDelay": "0" | "200" | "500" | "1000" | "2000"
 }
 
 /** Preferences accessible in all the extension's commands */

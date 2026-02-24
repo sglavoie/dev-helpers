@@ -1,8 +1,19 @@
-import { Clipboard } from "@raycast/api";
+import { Clipboard, getPreferenceValues } from "@raycast/api";
 
-const CLIPBOARD_RESTORE_DELAY_MS = 50;
+function getClipboardRestoreDelayMs(): number {
+  const { clipboardRestoreDelay } = getPreferenceValues<{ clipboardRestoreDelay?: string }>();
+  return parseInt(clipboardRestoreDelay ?? "500", 10);
+}
 
 export async function pasteWithClipboardRestore(content: string): Promise<void> {
+  const delayMs = getClipboardRestoreDelayMs();
+
+  // If delay is 0 ("Never restore"), just paste without saving/restoring
+  if (delayMs === 0) {
+    await Clipboard.paste(content);
+    return;
+  }
+
   // Save original clipboard content
   const originalClipboard = await Clipboard.read();
 
@@ -21,5 +32,5 @@ export async function pasteWithClipboardRestore(content: string): Promise<void> 
     } catch {
       // Silently fail - clipboard restoration is best-effort
     }
-  }, CLIPBOARD_RESTORE_DELAY_MS);
+  }, delayMs);
 }
