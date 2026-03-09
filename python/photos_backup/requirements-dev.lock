@@ -30,8 +30,6 @@ certifi==2025.8.3
     # via requests
 cffi==1.17.1
     # via xattr
-cfgv==3.4.0
-    # via pre-commit
 cgmetadata==0.2.0
     # via makelive
     # via osxphotos
@@ -42,12 +40,6 @@ click==8.3.1
     # via osxmetadata
     # via osxphotos
     # via photos-backup
-distlib==0.4.0
-    # via virtualenv
-filelock==3.19.1
-    # via virtualenv
-identify==2.6.14
-    # via pre-commit
 idna==3.10
     # via requests
 jedi==0.19.2
@@ -68,13 +60,11 @@ mdurl==0.1.2
     # via markdown-it-py
 more-itertools==8.14.0
     # via osxphotos
-nodeenv==1.9.1
-    # via pre-commit
 objexplore==1.6.3
     # via osxphotos
 osxmetadata==1.4.0
     # via osxphotos
-osxphotos==0.75.1
+osxphotos==0.75.6
     # via photos-backup
 packaging==25.0
     # via osxphotos
@@ -86,9 +76,6 @@ photoscript==0.5.3
     # via osxphotos
 pip==25.2
     # via osxphotos
-platformdirs==4.4.0
-    # via virtualenv
-pre-commit==4.3.0
 prompt-toolkit==3.0.52
     # via ptpython
 psutil==7.2.0
@@ -197,13 +184,12 @@ pyobjc-framework-uniformtypeidentifiers==10.3.2
     # via utitools
 pyobjc-framework-vision==10.3.2
     # via osxphotos
-python-dotenv==1.2.1
+python-dotenv==1.2.2
     # via photos-backup
 pytimeparse2==1.7.1
     # via osxphotos
 pyyaml==6.0.2
     # via osxphotos
-    # via pre-commit
 requests==2.32.5
     # via osxphotos
 rich==13.9.4
@@ -213,7 +199,7 @@ rich==13.9.4
     # via rich-theme-manager
 rich-theme-manager==0.11.0
     # via osxphotos
-ruff==0.12.12
+ruff==0.15.5
 shortuuid==1.0.13
     # via osxphotos
 six==1.17.0
@@ -239,8 +225,6 @@ urllib3==2.5.0
 utitools==0.4.0
     # via cgmetadata
     # via osxphotos
-virtualenv==20.34.0
-    # via pre-commit
 wcwidth==0.2.13
     # via blessed
     # via prompt-toolkit
