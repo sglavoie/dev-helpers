@@ -8,28 +8,21 @@ dependencies = [
     "osxphotos>=0.75.6",
     "python-dotenv>=1.2.2",
 ]
-readme = "README.md"  # `rye` doesn't know what do to with a `README.adoc`
+readme = "README.md"
 requires-python = ">= 3.12"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.rye]
-managed = true
-dev-dependencies = [
-    "ruff>=0.15.5",
-]
+[dependency-groups]
+dev = ["ruff>=0.15.5"]
 
-# `uv` breaks the build. No thanks.
-[tool.rye.behavior]
-use-uv = false
+[project.scripts]
+cli = "photos_backup.cli.cli:cli"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/photos_backup"]
-
-[tool.rye.scripts]
-cli = 'python -m photos_backup.cli.cli'
