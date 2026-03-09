@@ -21,10 +21,12 @@ flowchart TD
 
 ## Development
 
-### Using Rye
+### Using uv
 
 ```bash
-rye sync
+uv venv
+uv pip install -e .
+uv run cli apple-photos --use-photokit --download-missing
 ```
 
 ### Using built-in Python

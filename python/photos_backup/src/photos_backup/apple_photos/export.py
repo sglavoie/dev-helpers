@@ -5,31 +5,32 @@ from osxphotos.cli.export import export_cli
 
 
 class ApplePhotosExport:
-    def __init__(self, dl_missing: bool, testing: bool):
-        self.dl_missing = dl_missing
-
+    def __init__(self, testing: bool, extra_kwargs: dict | None = None):
         # Set a couple of flags when testing
         self.testing = testing
         self.limit = int(os.getenv("APPLE_PHOTOS_LIMIT_EXPORT", "0")) if testing else 0
+        self.extra_kwargs = extra_kwargs or {}
 
         self.dst_path: Path = Path()
         self._set_up_paths()
 
     def export(self):
-        export_cli(
+        kwargs = {
             # Testing flags
-            dry_run=self.testing,
-            verbose_flag=self.testing,
-            limit=self.limit,
+            "dry_run": self.testing,
+            "verbose_flag": self.testing,
+            "limit": self.limit,
             # Regular flags
-            dest=str(self.dst_path),
-            download_missing=self.dl_missing,
-            exiftool=True,
-            directory="{created.year}/{created.mm}/{album[ ,_],}",
-            filename_template="{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
-            report="photos_export_{today.date}.csv",
-            update=True,
-        )
+            "dest": str(self.dst_path),
+            "exiftool": True,
+            "directory": "{created.year}/{created.mm}/{album[ ,_],}",
+            "filename_template": "{created.strftime,%Y-%m-%d-%H%M%S}_{original_name}",
+            "report": "photos_export_{today.date}.csv",
+            "update": True,
+        }
+        # Extra kwargs override defaults
+        kwargs.update(self.extra_kwargs)
+        export_cli(**kwargs)
 
     def _set_up_paths(self) -> None:
         dst_path = "APPLE_PHOTOS_DST_PATH"
