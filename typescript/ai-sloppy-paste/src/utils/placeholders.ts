@@ -146,11 +146,12 @@ export function extractPlaceholders(text: string): Placeholder[] {
   }
 
   // Second pass: extract guard-only keys from {{#if key}} patterns
-  const ifRegex = /\{\{#if\s+(\S+?)(?:\s+"([^"]*)")?\s*\}\}/g;
+  const ifRegex = /\{\{#if\s+(\+?)(\S+?)(?:\s+"([^"]*)")?\s*\}\}/g;
   let ifMatch;
   while ((ifMatch = ifRegex.exec(text)) !== null) {
-    const guardKey = ifMatch[1].trim();
-    const label = ifMatch[2]; // undefined when no label provided
+    const plusPrefix = ifMatch[1];
+    const guardKey = ifMatch[2].trim();
+    const label = ifMatch[3]; // undefined when no label provided
     if (guardKey && !seen.has(guardKey)) {
       placeholders.push({
         key: guardKey,
@@ -159,6 +160,7 @@ export function extractPlaceholders(text: string): Placeholder[] {
         isSaved: false,
         isGuardOnly: true,
         label,
+        defaultOn: plusPrefix === "+",
       });
       seen.add(guardKey);
     }
@@ -260,7 +262,7 @@ export function processConditionalBlocks(text: string, values: Record<string, st
   const blockRegex = /\{\{#if ([^}]+)\}\}([\s\S]*?)(?:\{\{#else\}\}([\s\S]*?))?\{\{\/if\}\}/g;
 
   return text.replace(blockRegex, (_match, rawKey, ifBody, elseBody) => {
-    const key = rawKey.trim().replace(/\s+"[^"]*"$/, "");
+    const key = rawKey.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
     const value = values[key] ?? "";
     const isTruthy = value.trim().length > 0;
 

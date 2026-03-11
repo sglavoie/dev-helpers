@@ -584,6 +584,18 @@ describe("processConditionalBlocks", () => {
     expect(processConditionalBlocks(text, { SIG: "" })).toBe("Before\n\nAfter");
     expect(processConditionalBlocks(text, { SIG: "true" })).toBe("Before\nBest regards\nAfter");
   });
+
+  it("+ prefix on key is stripped for value lookup", () => {
+    const text = "{{#if +show}}visible{{/if}}";
+    expect(processConditionalBlocks(text, { show: "true" })).toBe("visible");
+    expect(processConditionalBlocks(text, { show: "" })).toBe("");
+  });
+
+  it("+ prefix with label, key correctly resolved", () => {
+    const text = '{{#if +SIG "Include signature"}}Best regards{{/if}}';
+    expect(processConditionalBlocks(text, { SIG: "true" })).toBe("Best regards");
+    expect(processConditionalBlocks(text, { SIG: "" })).toBe("");
+  });
 });
 
 describe("extractPlaceholders — conditional blocks", () => {
@@ -662,6 +674,40 @@ describe("extractPlaceholders — conditional blocks", () => {
     expect(result[0].key).toBe("cc");
     expect(result[0].isGuardOnly).toBeUndefined();
     expect(result[0].label).toBeUndefined();
+  });
+
+  it("guard-only key with + prefix sets defaultOn to true", () => {
+    const text = "{{#if +include_sig}}\nBest regards\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("include_sig");
+    expect(result[0].isGuardOnly).toBe(true);
+    expect(result[0].defaultOn).toBe(true);
+  });
+
+  it("guard-only key without + prefix sets defaultOn to false", () => {
+    const text = "{{#if toggle}}\nyes\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result[0].defaultOn).toBe(false);
+  });
+
+  it("guard-only key with + prefix and label", () => {
+    const text = '{{#if +SIG "Include signature"}}\nBest regards\n{{/if}}';
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("SIG");
+    expect(result[0].label).toBe("Include signature");
+    expect(result[0].defaultOn).toBe(true);
+    expect(result[0].isGuardOnly).toBe(true);
+  });
+
+  it("key used in both {{#if +KEY}} and {{KEY}} is not guard-only", () => {
+    const text = "{{#if +cc}}\nCC: {{cc}}\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("cc");
+    expect(result[0].isGuardOnly).toBeUndefined();
+    expect(result[0].defaultOn).toBeUndefined();
   });
 });
 

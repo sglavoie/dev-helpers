@@ -44,6 +44,7 @@ export interface Placeholder {
   suffixWrapper?: string; // NEW: Conditional suffix text
   isGuardOnly?: boolean; // NEW: Key used only in {{#if key}} — renders as checkbox
   label?: string; // Optional human-readable label for guard-only checkboxes
+  defaultOn?: boolean; // Whether a guard-only checkbox defaults to checked
 }
 
 export interface PlaceholderHistoryValue {

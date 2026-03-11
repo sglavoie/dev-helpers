@@ -37,6 +37,7 @@ Placeholders let you add dynamic, fill-in fields to your snippets. When you past
 | \`{{#if key}}...{{/if}}\` | Block shown when key is non-empty |
 | \`{{#if key}}...{{#else}}...{{/if}}\` | If/else block based on key value |
 | \`{{#if key "label"}}...{{/if}}\` | Labeled checkbox — custom label instead of key name |
+| \`{{#if +key}}...{{/if}}\` | Guard checkbox defaults to **checked** |
 | Guard-only \`{{#if key}}\` | Key only in condition → renders as checkbox |
 
 ## System Placeholders (auto-filled)
@@ -494,6 +495,7 @@ When a key appears only inside \`{{#if key}}\` and never as \`{{key}}\` elsewher
 
 - Checkbox unchecked (default) → block is omitted
 - Checkbox checked → block is included in output
+- Use \`+\` prefix (\`{{#if +key}}\`) to default the checkbox to **checked**
 - No text value is substituted — the key is purely a visibility toggle
 - Guard-only keys are not saved to placeholder history
 
@@ -522,6 +524,28 @@ The Team
 \`\`\`
 
 The form shows the checkbox labeled "Include signature block" instead of the default "Include include_signature?".
+
+## Default-On Checkbox
+
+Add a \`+\` before the key to default the checkbox to checked:
+
+\`\`\`
+{{#if +include_signature}}
+Best regards,
+The Team
+{{/if}}
+\`\`\`
+
+The checkbox starts checked — the block is included by default. Uncheck to remove it.
+
+This can be combined with a label:
+
+\`\`\`
+{{#if +include_signature "Include signature block"}}
+Best regards,
+The Team
+{{/if}}
+\`\`\`
 
 ## When to Use
 

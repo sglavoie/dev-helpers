@@ -87,9 +87,9 @@ export function PlaceholderForm(props: {
           enabledInit[placeholder.key] = rankedValues.length > 0 || !!placeholder.defaultValue;
         }
 
-        // Guard-only keys default to unchecked
+        // Guard-only keys default to unchecked (or checked if defaultOn)
         if (placeholder.isGuardOnly) {
-          enabledInit[placeholder.key] = false;
+          enabledInit[placeholder.key] = placeholder.defaultOn ?? false;
         }
       }
 
