@@ -8,6 +8,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/fzfinder"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/osutils"
 	"github.com/spf13/cobra"
@@ -74,7 +75,7 @@ func preRunLogicRun(cmd *cobra.Command) error {
 	}
 
 	if (id == "" && alias == "") && numArgs == 0 {
-		return errors.New("you must specify either --id or --alias, or provide a command argument")
+		return nil // interactive mode
 	}
 
 	if numArgs > 1 {
@@ -84,13 +85,7 @@ func preRunLogicRun(cmd *cobra.Command) error {
 	return nil
 }
 
-func runLogicRun(cmd *cobra.Command, args []string, cfg *models.Config) {
-	command := getCommandToRun(cmd, args, cfg)
-	decoded, err := commands.Decode(command.Command)
-	if err != nil {
-		return
-	}
-
+func executeDecodedCommand(cmd *cobra.Command, cfg *models.Config, decoded string) {
 	if p, _ := cmd.Flags().GetBool("print"); p {
 		fmt.Printf("Would run the following command:\n%v\n", decoded)
 		return
@@ -108,6 +103,33 @@ func runLogicRun(cmd *cobra.Command, args []string, cfg *models.Config) {
 	}
 
 	osutils.ExecShellCommand(decoded)
+}
+
+func runLogicRun(cmd *cobra.Command, args []string, cfg *models.Config) {
+	id, _ := cmd.Flags().GetString("id")
+	alias, _ := cmd.Flags().GetString("alias")
+
+	// Interactive mode: no args, no --id, no --alias
+	if len(args) == 0 && id == "" && alias == "" {
+		selected, err := fzfinder.SelectCommand(cfg.Commands)
+		if err != nil {
+			return
+		}
+		decoded, err := commands.Decode(selected.Command)
+		if err != nil {
+			clihelpers.FatalExit("Error decoding command: %v", err)
+		}
+		executeDecodedCommand(cmd, cfg, decoded)
+		return
+	}
+
+	command := getCommandToRun(cmd, args, cfg)
+	decoded, err := commands.Decode(command.Command)
+	if err != nil {
+		return
+	}
+
+	executeDecodedCommand(cmd, cfg, decoded)
 }
 
 // runCmd represents the run command

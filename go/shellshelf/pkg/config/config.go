@@ -37,15 +37,20 @@ func Init() {
 func loadConfig() *models.Config {
 	var config *models.Config
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		clihelpers.FatalExit(err.Error())
+	if err := viper.ReadInConfig(); err != nil {
+		// If the config file is empty or malformed, write defaults and retry
+		if err := viper.WriteConfig(); err != nil {
+			clihelpers.FatalExit(err.Error())
+		}
+		if err := viper.ReadInConfig(); err != nil {
+			clihelpers.FatalExit(err.Error())
+		}
 	}
 
 	cfgMutex.Lock()
 	defer cfgMutex.Unlock()
 
-	if err = viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(&config); err != nil {
 		clihelpers.FatalExit(err.Error())
 	}
 

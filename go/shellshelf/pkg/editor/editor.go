@@ -78,17 +78,17 @@ func GetUpdatedCommandFields(command models.Command) (string, error) {
 
 	strCmd := getStringToWriteToTempFile(command)
 	if _, err := tempFile.WriteString(strCmd); err != nil {
-		return "", fmt.Errorf("failed to write to temp file: %v\n", err)
+		return "", fmt.Errorf("failed to write to temp file: %v", err)
 	}
 	if err := tempFile.Close(); err != nil {
-		return "", fmt.Errorf("failed to close temp file: %v\n", err)
+		return "", fmt.Errorf("failed to close temp file: %v", err)
 	}
 
 	OpenFileWithEditor(tempFile.Name())
 
 	content, err := os.ReadFile(tempFile.Name())
 	if err != nil {
-		return "", fmt.Errorf("failed to read temp file: %v\n", err)
+		return "", fmt.Errorf("failed to read temp file: %v", err)
 	}
 
 	return string(content), nil

@@ -2,23 +2,73 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
-	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/find"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/fzfinder"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/osutils"
 	"github.com/spf13/cobra"
 )
 
+func interactiveFind(cfg *models.Config) {
+	selected, err := fzfinder.SelectCommand(cfg.Commands)
+	if err != nil {
+		return
+	}
+
+	decoded, err := commands.Decode(selected.Command)
+	if err != nil {
+		clihelpers.FatalExit("Error decoding command: %v", err)
+	}
+
+	actions := []string{"Run", "Copy", "Edit", "Print"}
+	action, err := fzfinder.SelectAction(actions)
+	if err != nil {
+		return
+	}
+
+	switch action {
+	case "Run":
+		if cfg.Settings.ConfirmBeforeRun {
+			fmt.Printf("About to run the following command:\n%v\n\n", decoded)
+			proceeding, err := clihelpers.WarnBeforeProceeding()
+			if err != nil {
+				clihelpers.FatalExit("Error getting confirmation: %v", err)
+			}
+			if !proceeding {
+				clihelpers.FatalExit("Operation aborted")
+			}
+		}
+		osutils.ExecShellCommand(decoded)
+	case "Copy":
+		if err := osutils.CopyToClipboard(decoded); err != nil {
+			clihelpers.FatalExit("Error copying to clipboard: %v", err)
+		}
+		fmt.Println("Command copied to clipboard")
+	case "Edit":
+		runLogicEdit(editCmd, []string{selected.Id}, cfg)
+	case "Print":
+		fmt.Println(decoded)
+	}
+}
+
 func runLogicFind(cmd *cobra.Command, args []string, cfg *models.Config) {
+	flagsPassed := clihelpers.CountSetFlags(cmd)
+
+	// Interactive mode: no args and no flags
+	if len(args) == 0 && flagsPassed == 0 {
+		interactiveFind(cfg)
+		return
+	}
+
 	var err error
 	cfg.Commands, err = commands.LoadDecoded(cfg.Commands)
 	if err != nil {
 		return
 	}
-
-	flagsPassed := clihelpers.CountSetFlags(cmd)
 
 	var matches []string
 	if flagsPassed == 0 {
@@ -65,7 +115,8 @@ var findCmd = &cobra.Command{
 	Long: `Find a command on the shelf by searching for text anywhere in the
 command name, description, tags, etc.
 
-If no flags are specified, the search will be performed on all fields.`,
+If no flags are specified, the search will be performed on all fields.
+If called with no arguments and no flags, an interactive fuzzy finder is shown.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runLogicFind(cmd, args, config.Cfg)
 	},

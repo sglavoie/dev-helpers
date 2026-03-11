@@ -1,0 +1,39 @@
+# Display available commands
+[private]
+default:
+    @just --list
+
+# Run fmt, lint, and test
+all: fmt lint test
+
+# Build the binary
+build:
+    go build main.go
+
+# Remove built binary
+clean:
+    rm -f main
+
+# Format Go source files
+fmt:
+    go fmt ./...
+
+# Run golangci-lint
+lint:
+    golangci-lint run -v
+
+# Run main.go
+run:
+    go run main.go
+
+# Run all tests
+test:
+    go test -v ./...
+
+# Build and install to GOPATH
+install:
+    go build -o ss main.go && mv ss $GOPATH/bin/
+
+# Remove installed binary from GOPATH
+uninstall:
+    rm -f $GOPATH/bin/ss
