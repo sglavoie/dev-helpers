@@ -300,7 +300,7 @@ export function PlaceholderForm(props: {
         <Form.Checkbox
           key={placeholder.key}
           id={placeholder.key}
-          title={`Include ${placeholder.key}?`}
+          title={placeholder.label || `Include ${placeholder.key}?`}
           label="Include in output"
           value={isChecked}
           info={buildInfoText(placeholder)}

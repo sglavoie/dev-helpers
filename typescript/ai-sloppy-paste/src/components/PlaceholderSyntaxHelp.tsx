@@ -36,6 +36,7 @@ Placeholders let you add dynamic, fill-in fields to your snippets. When you past
 | \`{{!key}}\` | No-save — value not stored in history |
 | \`{{#if key}}...{{/if}}\` | Block shown when key is non-empty |
 | \`{{#if key}}...{{#else}}...{{/if}}\` | If/else block based on key value |
+| \`{{#if key "label"}}...{{/if}}\` | Labeled checkbox — custom label instead of key name |
 | Guard-only \`{{#if key}}\` | Key only in condition → renders as checkbox |
 
 ## System Placeholders (auto-filled)
@@ -508,6 +509,19 @@ The Team
 
 The form shows a text field for \`name\` and a checkbox for \`include_signature\`.
 Check the box → signature appears. Uncheck → no blank line, clean output.
+
+## Labeled Checkbox
+
+Add a quoted label after the key to customise the checkbox text:
+
+\`\`\`
+{{#if include_signature "Include signature block"}}
+Best regards,
+The Team
+{{/if}}
+\`\`\`
+
+The form shows the checkbox labeled "Include signature block" instead of the default "Include include_signature?".
 
 ## When to Use
 

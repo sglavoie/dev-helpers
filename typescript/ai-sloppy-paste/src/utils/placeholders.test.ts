@@ -562,6 +562,28 @@ describe("processConditionalBlocks", () => {
     expect(processConditionalBlocks(text, { show: "true" })).toBe("visible");
     expect(processConditionalBlocks(text, { show: "" })).toBe("");
   });
+
+  it("labeled if block: truthy value shows body", () => {
+    const text = '{{#if SIG "Include signature"}}Best regards{{/if}}';
+    expect(processConditionalBlocks(text, { SIG: "true" })).toBe("Best regards");
+  });
+
+  it("labeled if block: falsy value omits body", () => {
+    const text = '{{#if SIG "Include signature"}}Best regards{{/if}}';
+    expect(processConditionalBlocks(text, { SIG: "" })).toBe("");
+  });
+
+  it("labeled if-else block works", () => {
+    const text = '{{#if FORMAL "Use formal tone"}}Dear Sir{{#else}}Hey{{/if}}';
+    expect(processConditionalBlocks(text, { FORMAL: "true" })).toBe("Dear Sir");
+    expect(processConditionalBlocks(text, { FORMAL: "" })).toBe("Hey");
+  });
+
+  it("labeled block with newlines cleans up properly", () => {
+    const text = 'Before\n{{#if SIG "Include signature"}}\nBest regards\n{{/if}}\nAfter';
+    expect(processConditionalBlocks(text, { SIG: "" })).toBe("Before\n\nAfter");
+    expect(processConditionalBlocks(text, { SIG: "true" })).toBe("Before\nBest regards\nAfter");
+  });
 });
 
 describe("extractPlaceholders — conditional blocks", () => {
@@ -609,6 +631,37 @@ describe("extractPlaceholders — conditional blocks", () => {
       isRequired: false,
       isSaved: false,
     });
+  });
+
+  it("labeled guard-only key extracts label correctly", () => {
+    const text = '{{#if SIG "Include signature"}}\nBest regards\n{{/if}}';
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("SIG");
+    expect(result[0].label).toBe("Include signature");
+    expect(result[0].isGuardOnly).toBe(true);
+  });
+
+  it("unlabeled guard-only key has undefined label (backward compat)", () => {
+    const text = "{{#if toggle}}\nyes\n{{/if}}";
+    const result = extractPlaceholders(text);
+    expect(result[0].label).toBeUndefined();
+  });
+
+  it("label with special characters", () => {
+    const text = '{{#if TERMS "Accept terms & conditions"}}\nI agree\n{{/if}}';
+    const result = extractPlaceholders(text);
+    expect(result[0].key).toBe("TERMS");
+    expect(result[0].label).toBe("Accept terms & conditions");
+  });
+
+  it("key used in both {{#if KEY \"label\"}} and {{KEY}} is not guard-only, no label", () => {
+    const text = '{{#if cc "Show CC field"}}\nCC: {{cc}}\n{{/if}}';
+    const result = extractPlaceholders(text);
+    expect(result).toHaveLength(1);
+    expect(result[0].key).toBe("cc");
+    expect(result[0].isGuardOnly).toBeUndefined();
+    expect(result[0].label).toBeUndefined();
   });
 });
 

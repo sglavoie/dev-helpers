@@ -43,6 +43,7 @@ export interface Placeholder {
   prefixWrapper?: string; // NEW: Conditional prefix text
   suffixWrapper?: string; // NEW: Conditional suffix text
   isGuardOnly?: boolean; // NEW: Key used only in {{#if key}} — renders as checkbox
+  label?: string; // Optional human-readable label for guard-only checkboxes
 }
 
 export interface PlaceholderHistoryValue {

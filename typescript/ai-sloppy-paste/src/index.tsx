@@ -969,6 +969,10 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
         text="{{prefix:key:suffix}} — wrapping text only appears when value is non-empty. Example: {{$:price: USD}}"
       />
       <Form.Description
+        title="Conditionals"
+        text='{{#if key}}...{{/if}} — toggle section on/off (checkbox).  Labeled: {{#if key "Show greeting"}}...{{/if}}'
+      />
+      <Form.Description
         title="System (auto)"
         text="{{DATE}}  {{TIME}}  {{DATETIME}}  {{TODAY}}  {{NOW}}  {{YEAR}}  {{MONTH}}  {{DAY}}"
       />
