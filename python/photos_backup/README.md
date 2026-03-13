@@ -19,6 +19,26 @@ flowchart TD
     C --upload--> D[Remote backup]
 ```
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `cli apple-photos` | Export from Apple Photos to primary backup |
+| `cli sd-card` | Copy RAW files from SD card to primary backup |
+| `cli ssd` | Sync primary backup to secondary on-site backup (SSD) |
+| `cli remote` | Sync backup to cloud via rclone |
+| `cli backup-all` | Run the full pipeline (all of the above) |
+
+## Remote backup (rclone)
+
+The `remote` command syncs your backup to a cloud storage provider using
+[rclone](https://rclone.org/).
+
+1. Install rclone: `brew install rclone` or see https://rclone.org/install/
+2. Configure a remote: `rclone config`
+3. Set `RCLONE_REMOTE` in `~/.osxphotos.env` (e.g. `b2:my-photos-bucket`)
+4. Optionally set `RCLONE_SRC_PATH` (defaults to `SSD_DST_PATH`)
+
 ## Development
 
 ### Using uv

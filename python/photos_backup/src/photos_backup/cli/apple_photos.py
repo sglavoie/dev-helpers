@@ -1,6 +1,8 @@
 import click
 
 from photos_backup.apple_photos.export import ApplePhotosExport
+from photos_backup.config import Config
+from photos_backup.summary import print_summary
 
 
 @click.command(
@@ -15,11 +17,14 @@ from photos_backup.apple_photos.export import ApplePhotosExport
 )
 @click.pass_context
 def apple_photos(ctx: click.Context, testing: bool) -> None:
+    config = Config.from_env()
     extra_kwargs = _parse_extra_args(ctx.args)
-    ApplePhotosExport(
+    summary = ApplePhotosExport(
+        config=config,
         testing=testing,
         extra_kwargs=extra_kwargs,
     ).export()
+    print_summary(summary)
 
 
 def _parse_extra_args(args: list[str]) -> dict:

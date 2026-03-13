@@ -1,24 +1,64 @@
-import os
+from __future__ import annotations
+
 import shlex
 import subprocess
+import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+import click
+
+from photos_backup.summary import BackupSummary, parse_rsync_stats
+
+if TYPE_CHECKING:
+    from photos_backup.config import Config
 
 
 class Backup:
-    def __init__(self, delete_at_destination: bool, dry_run: bool) -> None:
+    def __init__(
+        self, config: Config, delete_at_destination: bool, dry_run: bool
+    ) -> None:
         self.delete_at_destination = delete_at_destination
         self.dry_run = dry_run
-        self.all_photos_path_str: str = ""
-        self.all_photos_exclude_file: Path | None = Path()
-        self.apple_photos_path_str: str = ""
-        self.sd_card_path_str: str = ""
-        self.sd_card_exclude_file: Path | None = Path()
-        self.ssd_dst_path_str: str = ""
-        self._set_up_paths()
+        self.all_photos_path = config.all_photos_path
+        self.all_photos_exclude_file = config.all_photos_exclude_file
+        self.apple_photos_path = config.apple_photos_dst_path
+        self.sd_card_path = config.sd_card_dst_path
+        self.sd_card_exclude_file = config.sd_card_exclude_file
+        self.ssd_dst_path = config.ssd_dst_path
 
-    def backup(self) -> None:
+    def _run_rsync(
+        self, step_name: str, src_path: Path, exclude: str = ""
+    ) -> BackupSummary:
+        if not src_path.exists():
+            click.echo(f"'{src_path}' does not exist: skipping")
+            return BackupSummary(step_name=step_name, skipped=True)
+
         dry_run = "--dry-run" if self.dry_run else ""
         delete = "--delete" if self.delete_at_destination else ""
+        cmd = f"""rsync -avh --progress --stats {delete} \
+            {dry_run} \
+            {exclude} \
+            {src_path} {self.ssd_dst_path}"""
+
+        start = time.monotonic()
+        result = subprocess.run(
+            shlex.split(cmd), check=True, capture_output=True, text=True
+        )
+        elapsed = time.monotonic() - start
+
+        if result.stdout:
+            print(result.stdout)
+
+        stats = parse_rsync_stats(result.stdout)
+        return BackupSummary(
+            step_name=step_name,
+            files_transferred=stats["files_transferred"],
+            total_size=stats["total_size"],
+            elapsed_seconds=elapsed,
+        )
+
+    def backup(self) -> list[BackupSummary]:
         exclude_all_photos = (
             ""
             if not self.all_photos_exclude_file
@@ -30,85 +70,11 @@ class Backup:
             else f"--exclude-from={self.sd_card_exclude_file}"
         )
 
-        if self.all_photos_path_str:
-            cmd = f"""rsync -avh --progress {delete} \
-                {dry_run} \
-                {exclude_all_photos} \
-                {self.all_photos_path_str} {self.ssd_dst_path_str}"""
-            subprocess.run(shlex.split(cmd), check=True)
-
-        if self.apple_photos_path_str:
-            cmd = f"""rsync -avh --progress {delete} \
-                {dry_run} \
-                {self.apple_photos_path_str} {self.ssd_dst_path_str}"""
-            subprocess.run(shlex.split(cmd), check=True)
-
-        if self.sd_card_path_str:
-            cmd = f"""rsync -avh --progress {delete} \
-                {dry_run} \
-                {exclude_sd_card} \
-                {self.sd_card_path_str} {self.ssd_dst_path_str}"""
-            subprocess.run(shlex.split(cmd), check=True)
-
-    def _set_up_paths(self) -> None:
-        all_photos_path_env = "ALL_PHOTOS_PATH"
-        all_photos_path = os.getenv(all_photos_path_env, "")
-        all_photos_exclude_file_env = "ALL_PHOTOS_EXCLUDE_FILE"
-        all_photos_exclude_file_path = os.getenv(all_photos_exclude_file_env, "")
-        apple_photos_path_env = "APPLE_PHOTOS_DST_PATH"
-        apple_photos_path = os.getenv(apple_photos_path_env, "")
-        sd_card_path_env = "SD_CARD_DST_PATH"
-        sd_card_path = os.getenv(sd_card_path_env, "")
-        sd_card_exclude_file_env = "SD_CARD_EXCLUDE_FILE"
-        sd_card_exclude_file = os.getenv(sd_card_exclude_file_env, "")
-        ssd_dst_path_env = "SSD_DST_PATH"
-        ssd_dst_path = os.getenv(ssd_dst_path_env, "")
-
-        for path_env, path_value in zip(
-            [
-                all_photos_path_env,
-                apple_photos_path_env,
-                sd_card_path_env,
-                ssd_dst_path_env,
-            ],
-            [all_photos_path, apple_photos_path, sd_card_path, ssd_dst_path],
-        ):
-            if not path_value:
-                raise ValueError(f"'{path_env}' is not set")
-
-        if not os.path.exists(ssd_dst_path):
-            try:
-                os.makedirs(ssd_dst_path, exist_ok=True)
-            except OSError as e:
-                raise OSError(
-                    f"Could not create {ssd_dst_path_env} directory: {ssd_dst_path}"
-                ) from e
-
-        if not os.path.exists(all_photos_path):
-            self._print_skip_dir(all_photos_path)
-        else:
-            self.all_photos_path_str = all_photos_path
-            self.all_photos_exclude_file = (
-                Path(all_photos_exclude_file_path)
-                if os.path.exists(all_photos_exclude_file_path)
-                else None
-            )
-        if not os.path.exists(apple_photos_path):
-            self._print_skip_dir(apple_photos_path)
-        else:
-            self.apple_photos_path_str = apple_photos_path
-
-        if not os.path.exists(sd_card_path):
-            self._print_skip_dir(sd_card_path)
-        else:
-            self.sd_card_path_str = sd_card_path
-            self.sd_card_exclude_file = (
-                Path(sd_card_exclude_file)
-                if os.path.exists(sd_card_exclude_file)
-                else None
-            )
-
-        self.ssd_dst_path_str = ssd_dst_path
-
-    def _print_skip_dir(self, path: str) -> None:
-        print(f"'{path}' does not exist: skipping")
+        summaries = [
+            self._run_rsync(
+                "SSD: All Photos", self.all_photos_path, exclude_all_photos
+            ),
+            self._run_rsync("SSD: Apple Photos", self.apple_photos_path),
+            self._run_rsync("SSD: SD Card", self.sd_card_path, exclude_sd_card),
+        ]
+        return summaries

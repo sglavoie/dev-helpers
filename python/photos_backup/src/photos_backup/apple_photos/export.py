@@ -1,20 +1,25 @@
-import os
-from pathlib import Path
+from __future__ import annotations
+
+import datetime
+import time
+from typing import TYPE_CHECKING
 
 from osxphotos.cli.export import export_cli
 
+from photos_backup.summary import BackupSummary, parse_apple_photos_csv
+
+if TYPE_CHECKING:
+    from photos_backup.config import Config
+
 
 class ApplePhotosExport:
-    def __init__(self, testing: bool, extra_kwargs: dict | None = None):
-        # Set a couple of flags when testing
+    def __init__(self, config: Config, testing: bool, extra_kwargs: dict | None = None):
         self.testing = testing
-        self.limit = int(os.getenv("APPLE_PHOTOS_LIMIT_EXPORT", "0")) if testing else 0
+        self.limit = config.apple_photos_limit_export if testing else 0
+        self.dst_path = config.apple_photos_dst_path
         self.extra_kwargs = extra_kwargs or {}
 
-        self.dst_path: Path = Path()
-        self._set_up_paths()
-
-    def export(self):
+    def export(self) -> BackupSummary:
         kwargs = {
             # Testing flags
             "dry_run": self.testing,
@@ -30,21 +35,20 @@ class ApplePhotosExport:
         }
         # Extra kwargs override defaults
         kwargs.update(self.extra_kwargs)
+
+        csv_report = f"photos_export_{datetime.date.today()}.csv"
+
+        start = time.monotonic()
         export_cli(**kwargs)
+        elapsed = time.monotonic() - start
 
-    def _set_up_paths(self) -> None:
-        dst_path = "APPLE_PHOTOS_DST_PATH"
-        apple_photos_dst_path = os.getenv(dst_path, "")
+        counts = parse_apple_photos_csv(csv_report)
+        files_exported = counts.get("exported", 0) + counts.get("new", 0)
+        files_updated = counts.get("updated", 0)
+        total_files = files_exported + files_updated
 
-        if not apple_photos_dst_path:
-            raise ValueError(f"'{dst_path}' is not set")
-
-        if not os.path.exists(apple_photos_dst_path):
-            try:
-                os.makedirs(apple_photos_dst_path)
-            except OSError as e:
-                raise OSError(
-                    f"Could not create directory {dst_path}={apple_photos_dst_path}"
-                ) from e
-
-        self.dst_path = Path(apple_photos_dst_path)
+        return BackupSummary(
+            step_name="Apple Photos",
+            files_transferred=total_files,
+            elapsed_seconds=elapsed,
+        )
