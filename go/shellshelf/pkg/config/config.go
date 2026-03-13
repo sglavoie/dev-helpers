@@ -92,6 +92,14 @@ func SaveCommands(cfg *models.Config) {
 	}
 }
 
+func SaveSettings(cfg *models.Config) {
+	viper.Set("settings", cfg.Settings)
+	err := viper.WriteConfig()
+	if err != nil {
+		clihelpers.FatalExit("Error saving settings: %v", err)
+	}
+}
+
 func SaveEncodedCommands(cfg models.Config) error {
 	cfgMutex.RLock()
 	defer cfgMutex.RUnlock()
