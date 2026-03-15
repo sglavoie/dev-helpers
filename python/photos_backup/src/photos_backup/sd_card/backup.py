@@ -19,6 +19,7 @@ class Backup:
         self.exclude_file = config.sd_card_exclude_file
 
     def backup(self) -> BackupSummary:
+        self.dst_path.mkdir(parents=True, exist_ok=True)
         dry_run = "--dry-run" if self.dry_run else ""
         exclude = "" if not self.exclude_file else f"--exclude-from={self.exclude_file}"
         cmd = f"""rsync -a --progress --stats \

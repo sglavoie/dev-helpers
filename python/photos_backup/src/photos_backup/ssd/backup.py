@@ -59,6 +59,7 @@ class Backup:
         )
 
     def backup(self) -> list[BackupSummary]:
+        self.ssd_dst_path.mkdir(parents=True, exist_ok=True)
         exclude_all_photos = (
             ""
             if not self.all_photos_exclude_file

@@ -20,6 +20,7 @@ class ApplePhotosExport:
         self.extra_kwargs = extra_kwargs or {}
 
     def export(self) -> BackupSummary:
+        self.dst_path.mkdir(parents=True, exist_ok=True)
         kwargs = {
             # Testing flags
             "dry_run": self.testing,

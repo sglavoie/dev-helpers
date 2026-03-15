@@ -40,10 +40,6 @@ class Config:
         all_photos_path = Path(get_required("ALL_PHOTOS_PATH"))
         ssd_dst_path = Path(get_required("SSD_DST_PATH"))
 
-        # Create destination dirs if missing
-        for dir_path in (apple_photos_dst_path, sd_card_dst_path, ssd_dst_path):
-            dir_path.mkdir(parents=True, exist_ok=True)
-
         # Resolve exclude files — None if file doesn't exist on disk
         sd_card_exclude_raw = os.getenv("SD_CARD_EXCLUDE_FILE", "")
         sd_card_exclude_file = (
