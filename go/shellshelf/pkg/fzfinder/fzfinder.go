@@ -9,6 +9,7 @@ import (
 	fzf "github.com/koki-develop/go-fzf"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/template"
 )
 
 var ErrCancelled = errors.New("selection cancelled")
@@ -40,6 +41,9 @@ func formatItem(item commandItem) string {
 	}
 	if len(item.command.Tags) > 0 {
 		parts = append(parts, fmt.Sprintf("[%s]", strings.Join(item.command.Tags, ", ")))
+	}
+	if names := template.ParamNames(item.decoded); len(names) > 0 {
+		parts = append(parts, fmt.Sprintf("(params: %s)", strings.Join(names, ", ")))
 	}
 	return strings.Join(parts, "  ")
 }

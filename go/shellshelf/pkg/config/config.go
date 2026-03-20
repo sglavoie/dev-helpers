@@ -92,6 +92,14 @@ func SaveCommands(cfg *models.Config) {
 	}
 }
 
+func SaveGroups(cfg *models.Config) {
+	viper.Set("groups", cfg.Groups)
+	err := viper.WriteConfig()
+	if err != nil {
+		clihelpers.FatalExit("Error saving groups: %v", err)
+	}
+}
+
 func SaveSettings(cfg *models.Config) {
 	viper.Set("settings", cfg.Settings)
 	err := viper.WriteConfig()
@@ -126,5 +134,6 @@ func getHomeDir() string {
 func setDefaultValues() {
 	viper.SetDefault("aliases", map[string]string{})
 	viper.SetDefault("commands", map[string]models.Command{})
+	viper.SetDefault("groups", map[string]models.Group{})
 	viper.SetDefault("settings.confirmBeforeRun", true)
 }

@@ -2,14 +2,25 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/clihelpers"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/commands"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/fzfinder"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/groups"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/spf13/cobra"
 )
+
+func warnIfInGroups(ids []string) {
+	for _, id := range ids {
+		groupNames := groups.GroupsContainingCommand(id)
+		if len(groupNames) > 0 {
+			fmt.Printf("Warning: command %s is used in group(s): %s\n", id, strings.Join(groupNames, ", "))
+		}
+	}
+}
 
 func removeCommands(ids []string, cfg *models.Config) {
 	for _, id := range ids {
@@ -42,6 +53,7 @@ func runLogicRemove(cmd *cobra.Command, args []string, cfg *models.Config) {
 			ids[i] = c.Id
 		}
 
+		warnIfInGroups(ids)
 		fmt.Println("Are you sure you want to remove the following command(s)?")
 		for _, c := range selected {
 			desc := c.Description
@@ -64,6 +76,8 @@ func runLogicRemove(cmd *cobra.Command, args []string, cfg *models.Config) {
 	if err != nil {
 		clihelpers.FatalExit("Error checking command IDs: %v", err)
 	}
+
+	warnIfInGroups(args)
 
 	f, err := clihelpers.GetFlagBool(cmd, "force")
 	if err != nil {

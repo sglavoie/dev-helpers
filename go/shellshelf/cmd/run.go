@@ -11,6 +11,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/fzfinder"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/osutils"
+	"github.com/sglavoie/dev-helpers/go/shellshelf/pkg/template"
 	"github.com/spf13/cobra"
 )
 
@@ -78,11 +79,35 @@ func preRunLogicRun(cmd *cobra.Command) error {
 		return nil // interactive mode
 	}
 
-	if numArgs > 1 {
-		return errors.New("you can only run one command at a time")
+	// Allow multiple args: first is command name, rest are template params after --
+	return nil
+}
+
+// resolveTemplateParams resolves any template parameters in the decoded command.
+// If positionalArgs are provided, they map to params in order; otherwise prompts interactively.
+func resolveTemplateParams(decoded string, positionalArgs []string) string {
+	params := template.Parse(decoded)
+	if len(params) == 0 {
+		return decoded
 	}
 
-	return nil
+	var values map[string]string
+	var err error
+
+	if len(positionalArgs) > 0 {
+		values, err = template.ResolveFromArgs(params, positionalArgs)
+		if err != nil {
+			clihelpers.FatalExit("Error resolving template args: %v", err)
+		}
+	} else {
+		fmt.Println("Enter template parameters:")
+		values, err = template.PromptForParams(params)
+		if err != nil {
+			clihelpers.FatalExit("Error reading template params: %v", err)
+		}
+	}
+
+	return template.Render(decoded, values)
 }
 
 func executeDecodedCommand(cmd *cobra.Command, cfg *models.Config, decoded string) {
@@ -119,25 +144,45 @@ func runLogicRun(cmd *cobra.Command, args []string, cfg *models.Config) {
 		if err != nil {
 			clihelpers.FatalExit("Error decoding command: %v", err)
 		}
+		decoded = resolveTemplateParams(decoded, nil)
 		executeDecodedCommand(cmd, cfg, decoded)
 		return
 	}
 
-	command := getCommandToRun(cmd, args, cfg)
-	decoded, err := commands.Decode(command.Command)
-	if err != nil {
-		return
+	// Split args: first arg is the command name, rest are template params
+	var cmdArgs []string
+	var templateArgs []string
+	if len(args) > 1 {
+		cmdArgs = args[:1]
+		templateArgs = args[1:]
+	} else {
+		cmdArgs = args
 	}
 
+	command := getCommandToRun(cmd, cmdArgs, cfg)
+	decoded, err := commands.Decode(command.Command)
+	if err != nil {
+		clihelpers.FatalExit("Error decoding command: %v", err)
+	}
+
+	decoded = resolveTemplateParams(decoded, templateArgs)
 	executeDecodedCommand(cmd, cfg, decoded)
 }
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
-	Use:     "run {[flags] arg | name}",
+	Use:     "run {name [param1 param2 ...] | [flags]}",
 	Aliases: []string{"r"},
 	Short:   "Execute a command from the shelf",
-	Long:    `Execute a command from the shelf by name (default), ID or alias.`,
+	Long: `Execute a command from the shelf by name (default), ID or alias.
+
+Commands can contain template parameters using {{name}} or {{name:default}} syntax.
+When running a parameterized command, you'll be prompted for values interactively,
+or you can pass them as positional arguments after the command name:
+
+  ss run my-command arg1 arg2
+  ss run my-command          # prompts interactively`,
+	Args: cobra.ArbitraryArgs,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		return preRunLogicRun(cmd)
 	},

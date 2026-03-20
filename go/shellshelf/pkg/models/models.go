@@ -18,9 +18,18 @@ type Command struct {
 
 type Commands map[string]Command
 
+type Group struct {
+	Name        string   `json:"name"`
+	CommandIDs  []string `json:"commandIds"`
+	StopOnError bool     `json:"stopOnError"`
+}
+
+type Groups map[string]Group
+
 type Config struct {
 	Aliases  Aliases  `json:"aliases"`
 	Commands Commands `json:"commands"`
+	Groups   Groups   `json:"groups"`
 	Settings Settings `json:"settings"`
 }
 
