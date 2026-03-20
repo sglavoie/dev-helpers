@@ -1,0 +1,20 @@
+[project]
+name = "gitbrief"
+version = "0.1.0"
+description = "AI-powered git activity summarizer"
+authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
+dependencies = [
+    "click>=8.3.1",
+    "rich>=13.0",
+]
+requires-python = ">= 3.13"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+gitbrief = "gitbrief.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gitbrief"]
