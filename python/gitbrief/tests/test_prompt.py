@@ -1,6 +1,6 @@
 """Tests for gitbrief.prompt module."""
 
-from gitbrief.prompt import build_summary_prompt
+from gitbrief.prompt import DETAIL_INSTRUCTIONS, build_summary_prompt
 
 
 def _commit(sha="abc12345", subject="feat: add thing", **kwargs):
@@ -80,3 +80,100 @@ class TestBuildSummaryPrompt:
         assert "beta" in prompt
         assert "feat: a" in prompt
         assert "fix: b" in prompt
+
+    def test_per_project_windows_included(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt(
+            {"proj": commits},
+            "varies",
+            per_project_windows={"proj": "since 2026-01-01"},
+        )
+        assert "since 2026-01-01" in prompt
+
+
+class TestDetailInstructions:
+    def test_detail_instructions_dict_has_three_levels(self):
+        assert set(DETAIL_INSTRUCTIONS.keys()) == {"brief", "normal", "detailed"}
+
+    def test_normal_is_empty(self):
+        assert DETAIL_INSTRUCTIONS["normal"] == ""
+
+    def test_brief_mentions_bullet_points(self):
+        assert "3-5 bullet points" in DETAIL_INSTRUCTIONS["brief"]
+
+    def test_detailed_mentions_shas(self):
+        assert "SHAs" in DETAIL_INSTRUCTIONS["detailed"]
+
+
+class TestBuildSummaryPromptDetail:
+    def test_default_detail_is_normal(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today")
+        # normal detail → no extra instruction injected
+        assert "3-5 bullet points" not in prompt
+        assert "detailed commentary" not in prompt.lower()
+
+    def test_brief_detail_injects_instructions(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today", detail="brief")
+        assert "3-5 bullet points" in prompt
+
+    def test_detailed_detail_injects_instructions(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today", detail="detailed")
+        assert "SHAs" in prompt
+
+    def test_normal_detail_no_extra_text(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today", detail="normal")
+        assert "3-5 bullet points" not in prompt
+
+    def test_commits_always_included_regardless_of_detail(self):
+        commits = [_commit(subject="fix: critical bug")]
+        for level in ("brief", "normal", "detailed"):
+            prompt = build_summary_prompt({"proj": commits}, "today", detail=level)
+            assert "fix: critical bug" in prompt
+
+    def test_period_always_included(self):
+        commits = [_commit()]
+        for level in ("brief", "normal", "detailed"):
+            prompt = build_summary_prompt({"proj": commits}, "last 7 days", detail=level)
+            assert "last 7 days" in prompt
+
+
+class TestBuildSummaryPromptTemplate:
+    def test_default_template_used_by_default(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today")
+        # default template has manager-oriented language
+        assert "manager" in prompt or "status update" in prompt
+
+    def test_standup_template_used(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today", template="standup")
+        assert "bullet points" in prompt
+
+    def test_executive_template_used(self):
+        commits = [_commit()]
+        prompt = build_summary_prompt({"proj": commits}, "today", template="executive")
+        assert "strategic" in prompt
+
+    def test_nonexistent_template_falls_back(self):
+        commits = [_commit()]
+        # Should not raise; falls back to hardcoded prompt
+        prompt = build_summary_prompt(
+            {"proj": commits}, "today", template="no_such_template_xyz"
+        )
+        assert "proj" in prompt
+        assert len(prompt) > 0
+
+    def test_custom_template_file(self, tmp_path):
+        custom = tmp_path / "custom.txt"
+        custom.write_text("CUSTOM: {{period}} | {{commits}}")
+        commits = [_commit(subject="feat: custom")]
+        prompt = build_summary_prompt(
+            {"proj": commits}, "this-week", template=str(custom)
+        )
+        assert "CUSTOM:" in prompt
+        assert "this-week" in prompt
+        assert "feat: custom" in prompt

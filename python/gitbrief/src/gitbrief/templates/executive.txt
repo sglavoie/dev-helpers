@@ -1,0 +1,3 @@
+Summarize at a strategic level the following git activity from {{period}}. Group by business impact, not technical category. Include a one-line velocity summary (files changed, lines added/removed). No commit SHAs or branch names.
+{{detail_instructions}}
+{{commits}}

@@ -12,6 +12,7 @@ VALID_BACKENDS = {"claude", "copilot"}
 
 DEFAULT_CONFIG = {
     "projects": {},
+    "groups": {},
     "settings": {"backend": "claude", "timeout": 120, "retries": 2, "max_commits": 100},
     "last_summary": {},
 }
@@ -40,6 +41,7 @@ def load_config() -> dict:
     with open(path) as f:
         config = json.load(f)
     config["projects"] = _normalize_projects(config.get("projects", {}))
+    config.setdefault("groups", {})
     config.setdefault("last_summary", {})
 
     # Migrate from old path to new path transparently
@@ -181,3 +183,62 @@ def set_last_summary(alias: str, timestamp: str) -> None:
     config = load_config()
     config.setdefault("last_summary", {})[alias] = timestamp
     save_config(config)
+
+
+def create_group(config: dict, name: str, aliases: list[str]) -> None:
+    """Create a named group of project aliases."""
+    if name in config.get("groups", {}):
+        raise click.ClickException(f"Group '{name}' already exists.")
+    projects = config.get("projects", {})
+    for alias in aliases:
+        if alias not in projects:
+            raise click.ClickException(
+                f"Unknown project alias '{alias}'. Register it first."
+            )
+    config.setdefault("groups", {})[name] = list(aliases)
+
+
+def delete_group(config: dict, name: str) -> None:
+    """Delete a named group."""
+    if name not in config.get("groups", {}):
+        raise click.ClickException(f"Group '{name}' not found.")
+    del config["groups"][name]
+
+
+def add_to_group(config: dict, group_name: str, alias: str) -> None:
+    """Add a project alias to an existing group."""
+    if group_name not in config.get("groups", {}):
+        raise click.ClickException(f"Group '{group_name}' not found.")
+    if alias not in config.get("projects", {}):
+        raise click.ClickException(
+            f"Unknown project alias '{alias}'. Register it first."
+        )
+    if alias in config["groups"][group_name]:
+        raise click.ClickException(
+            f"'{alias}' is already in group '{group_name}'."
+        )
+    config["groups"][group_name].append(alias)
+
+
+def remove_from_group(config: dict, group_name: str, alias: str) -> None:
+    """Remove a project alias from a group."""
+    if group_name not in config.get("groups", {}):
+        raise click.ClickException(f"Group '{group_name}' not found.")
+    if alias not in config["groups"][group_name]:
+        raise click.ClickException(
+            f"'{alias}' is not in group '{group_name}'."
+        )
+    config["groups"][group_name].remove(alias)
+
+
+def resolve_group(config: dict, name: str) -> list[str]:
+    """Return the list of project aliases in a group."""
+    groups = config.get("groups", {})
+    if name not in groups:
+        raise click.ClickException(f"Group '{name}' not found.")
+    return list(groups[name])
+
+
+def list_groups(config: dict) -> dict:
+    """Return all groups as a dict of {name: [aliases]}."""
+    return dict(config.get("groups", {}))

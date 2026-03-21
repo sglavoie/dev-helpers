@@ -3,6 +3,8 @@ import re
 import subprocess
 from pathlib import Path
 
+_SKIP_DIR_NAMES = {"node_modules", ".venv", "venv", "__pycache__", ".tox", "dist", "build"}
+
 
 def validate_repo(path: str) -> str | None:
     """Returns error message if path is not a valid git repo, None otherwise."""
@@ -274,3 +276,60 @@ def extract_commits(
             commit["branch"] = branch_tips[sha]
 
     return commits
+
+
+def _get_last_commit_date(repo_path: str) -> str:
+    """Return ISO date of the most recent commit in repo, or empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_path, "log", "-1", "--format=%cd", "--date=short"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return ""
+
+
+def discover_repos(root: str, max_depth: int = 3) -> list[dict]:
+    """Walk the directory tree from root and return git repositories up to max_depth.
+
+    Each result is a dict:
+        {"path": "/abs/path", "name": "dirname", "last_commit": "YYYY-MM-DD"}
+
+    Skips hidden directories and common non-project directories.
+    Results are sorted by last_commit descending (most recent first).
+    """
+    root_path = Path(root).resolve()
+    found: list[dict] = []
+
+    def _walk(directory: Path, depth: int) -> None:
+        if depth > max_depth:
+            return
+        try:
+            entries = sorted(directory.iterdir(), key=lambda e: e.name)
+        except PermissionError:
+            return
+        for entry in entries:
+            if not entry.is_dir():
+                continue
+            if entry.name.startswith(".") or entry.name in _SKIP_DIR_NAMES:
+                continue
+            if (entry / ".git").exists():
+                last_commit = _get_last_commit_date(str(entry))
+                found.append(
+                    {
+                        "path": str(entry),
+                        "name": entry.name,
+                        "last_commit": last_commit,
+                    }
+                )
+                # Don't recurse into discovered git repos
+            else:
+                _walk(entry, depth + 1)
+
+    _walk(root_path, 1)
+    found.sort(key=lambda r: r["last_commit"] or "", reverse=True)
+    return found

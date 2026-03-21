@@ -1,0 +1,11 @@
+Summarize the following git activity from {{period}}.
+
+Instructions:
+- Produce concise bullet points grouped by theme (e.g., Features, Fixes, Refactoring, Docs).
+- Include short commit SHAs (first 8 characters) in parentheses after each bullet.
+- When multiple projects are included, note which project each item belongs to.
+- Omit merge commits and trivial changes unless they are the only activity.
+- Keep the summary brief and suitable for a status update to a manager.
+- Use diff statistics to highlight the scale of changes. Note branch context and PR/issue references when relevant.
+{{detail_instructions}}
+{{commits}}

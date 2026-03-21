@@ -1,4 +1,5 @@
 import datetime
+import re
 import shutil
 from typing import TYPE_CHECKING
 
@@ -16,16 +17,24 @@ from gitbrief.ai import invoke_ai
 from gitbrief.clipboard import copy_to_clipboard
 from gitbrief.config import (
     add_project,
+    add_to_group,
+    create_group,
+    delete_group,
     get_setting,
     get_setting_int,
+    list_groups,
     load_config,
+    remove_from_group,
     remove_project,
+    resolve_group,
+    save_config,
     set_last_summary,
     set_setting,
 )
 from gitbrief.exceptions import AIBackendError
 from gitbrief.git import MAX_COMMITS as _DEFAULT_MAX_COMMITS
 from gitbrief.git import (
+    discover_repos,
     extract_commits,
     get_git_user_email,
     parse_duration,
@@ -39,7 +48,10 @@ from gitbrief.history import (
     parse_older_than,
     save_summary,
 )
+from gitbrief.formatters import FORMATTERS as _FORMATTERS
+from gitbrief.formatters import VALID_FORMATS, format_json
 from gitbrief.prompt import build_summary_prompt
+from gitbrief.templates import list_templates, load_template
 
 _stderr_console = Console(stderr=True)
 
@@ -143,6 +155,71 @@ def config_list() -> None:
         click.echo(f"  {key:20s} {value}")
 
 
+@cli.group("group")
+def group_group() -> None:
+    """Manage project groups."""
+
+
+@group_group.command("create")
+@click.argument("name")
+@click.argument("aliases", nargs=-1, required=True)
+def group_create(name: str, aliases: tuple[str, ...]) -> None:
+    """Create a new group with the given project aliases."""
+    config = load_config()
+    create_group(config, name, list(aliases))
+    save_config(config)
+    click.echo(f"Created group '{name}' with: {', '.join(aliases)}")
+
+
+@group_group.command("delete")
+@click.argument("name")
+def group_delete(name: str) -> None:
+    """Delete a group."""
+    config = load_config()
+    delete_group(config, name)
+    save_config(config)
+    click.echo(f"Deleted group '{name}'.")
+
+
+@group_group.command("add")
+@click.argument("name")
+@click.argument("alias")
+def group_add(name: str, alias: str) -> None:
+    """Add a project alias to a group."""
+    config = load_config()
+    add_to_group(config, name, alias)
+    save_config(config)
+    click.echo(f"Added '{alias}' to group '{name}'.")
+
+
+@group_group.command("remove")
+@click.argument("name")
+@click.argument("alias")
+def group_remove(name: str, alias: str) -> None:
+    """Remove a project alias from a group."""
+    config = load_config()
+    remove_from_group(config, name, alias)
+    save_config(config)
+    click.echo(f"Removed '{alias}' from group '{name}'.")
+
+
+@group_group.command("list")
+def group_list() -> None:
+    """List all groups and their members."""
+    config = load_config()
+    groups = list_groups(config)
+    if not groups:
+        click.echo("No groups defined. Use 'gitbrief group create <name> <aliases...>'.")
+        return
+    console = Console()
+    table = Table(title="Project Groups", show_header=True, header_style="bold")
+    table.add_column("Group")
+    table.add_column("Members")
+    for group_name, aliases in sorted(groups.items()):
+        table.add_row(group_name, ", ".join(aliases) if aliases else "(empty)")
+    console.print(table)
+
+
 @cli.command()
 def doctor() -> None:
     """Check project health and AI backend availability."""
@@ -189,6 +266,24 @@ def doctor() -> None:
             table.add_row(
                 f"Backend: {backend_name}", "[red]FAIL[/red]", "Not found in PATH"
             )
+
+    # Check group health: groups referencing deleted projects
+    groups = config.get("groups", {})
+    if groups:
+        for group_name, aliases in groups.items():
+            stale = [a for a in aliases if a not in projects]
+            if stale:
+                table.add_row(
+                    f"Group: {group_name}",
+                    "[yellow]WARN[/yellow]",
+                    f"References missing projects: {', '.join(stale)}",
+                )
+            else:
+                table.add_row(
+                    f"Group: {group_name}",
+                    "[green]OK[/green]",
+                    f"{len(aliases)} member(s)",
+                )
 
     # Check config for unknown/deprecated keys
     known_settings = {"backend", "timeout", "retries", "max_commits"}
@@ -296,7 +391,39 @@ def _resolve_time_arg(label: str, value: str) -> str:
     help="Exit immediately on AI failure (no raw data fallback)",
 )
 @click.option(
-    "--plain", is_flag=True, help="Disable rich formatting (plain text output)"
+    "--plain",
+    is_flag=True,
+    help="Disable rich formatting (deprecated: use --format plain)",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(sorted(VALID_FORMATS)),
+    default="markdown",
+    show_default=True,
+    help="Output format for the summary",
+)
+@click.option(
+    "--output",
+    "output_file",
+    type=click.Path(),
+    default=None,
+    help="Write summary to this file instead of stdout",
+)
+@click.option(
+    "--detail",
+    "detail_level",
+    type=click.Choice(["brief", "normal", "detailed"]),
+    default="normal",
+    show_default=True,
+    help="Summary verbosity level",
+)
+@click.option(
+    "--template",
+    "template_name",
+    default="default",
+    show_default=True,
+    help="Template name (built-in) or path to a custom template file",
 )
 @click.argument("projects", nargs=-1, shell_complete=_complete_project_alias)
 def summary(
@@ -311,6 +438,10 @@ def summary(
     max_commits_override: int | None,
     no_fallback: bool,
     plain: bool,
+    output_format: str,
+    output_file: str | None,
+    detail_level: str,
+    template_name: str,
     projects: tuple[str, ...],
 ) -> None:
     """Generate an AI summary of recent git activity."""
@@ -333,6 +464,16 @@ def summary(
     if until_date:
         until = _resolve_time_arg("--until", until_date)
 
+    # Validate template exists early (before expensive commit extraction)
+    if template_name != "default":
+        try:
+            load_template(template_name)
+        except FileNotFoundError:
+            raise click.ClickException(
+                f"Template not found: {template_name!r}. "
+                "Use 'gitbrief template list' to see available templates."
+            )
+
     config = load_config()
     all_projects = config.get("projects", {})
 
@@ -342,11 +483,30 @@ def summary(
         )
 
     if projects:
-        selected = {}
-        for alias in projects:
-            if alias not in all_projects:
-                raise click.ClickException(f"Unknown project: '{alias}'")
-            selected[alias] = all_projects[alias]
+        # Expand @all and @<groupname> references, then deduplicate
+        expanded: list[str] = []
+        for token in projects:
+            if token == "@all":
+                for a in all_projects:
+                    if a not in expanded:
+                        expanded.append(a)
+            elif token.startswith("@"):
+                group_name = token[1:]
+                groups = config.get("groups", {})
+                if group_name not in groups:
+                    raise click.ClickException(
+                        f"Unknown group '@{group_name}'. "
+                        "Use 'gitbrief group list' to see available groups."
+                    )
+                for a in groups[group_name]:
+                    if a not in expanded:
+                        expanded.append(a)
+            else:
+                if token not in all_projects:
+                    raise click.ClickException(f"Unknown project: '{token}'")
+                if token not in expanded:
+                    expanded.append(token)
+        selected = {a: all_projects[a] for a in expanded}
     else:
         selected = all_projects
 
@@ -480,9 +640,16 @@ def summary(
             if a in project_commits
         }
 
-    prompt = build_summary_prompt(
-        project_commits, time_description, per_project_windows
-    )
+    try:
+        prompt = build_summary_prompt(
+            project_commits,
+            time_description,
+            per_project_windows,
+            detail=detail_level,
+            template=template_name,
+        )
+    except FileNotFoundError as e:
+        raise click.ClickException(str(e))
     if truncated_projects:
         prompt += (
             f"\nNote: Commit history was truncated to {max_commits} for: "
@@ -538,21 +705,89 @@ def summary(
     for alias in project_commits:
         set_last_summary(alias, now_ts)
 
+    # --plain is deprecated; map to --format plain
     if plain:
-        click.echo(result)
+        click.echo(
+            "Warning: --plain is deprecated, use --format plain instead.", err=True
+        )
+        output_format = "plain"
+
+    # Apply formatter
+    if output_format == "json":
+        period: dict = {"since": representative_since}
+        if until:
+            period["until"] = until
+        metadata = {
+            "generated_at": now_ts,
+            "projects": list(project_commits.keys()),
+            "period": period,
+            "backend": backend,
+            "commit_count": total_commits,
+        }
+        formatted = format_json(result, metadata)
     else:
+        formatter = _FORMATTERS[output_format]
+        formatted = formatter(result)  # type: ignore[operator]
+
+    if output_file:
+        with open(output_file, "w") as fh:
+            fh.write(formatted)
+            if not formatted.endswith("\n"):
+                fh.write("\n")
+        click.echo(f"Summary written to {output_file}", err=True)
+    elif output_format in ("plain", "slack", "json"):
+        click.echo(formatted)
+    else:
+        # markdown — render with Rich
         out_console = Console()
-        md = Markdown(result)
+        md = Markdown(formatted)
         panel = Panel(
             md, title=f"[bold]Summary: {time_description}[/bold]", border_style="blue"
         )
         out_console.print(panel)
 
     if not no_clipboard:
-        if copy_to_clipboard(result):
+        if copy_to_clipboard(formatted):
             click.echo("\nCopied to clipboard.", err=True)
         else:
             click.echo("\nCould not copy to clipboard.", err=True)
+
+
+# ---------------------------------------------------------------------------
+# Template commands
+# ---------------------------------------------------------------------------
+
+
+@cli.group("template")
+def template_group() -> None:
+    """Manage prompt templates."""
+
+
+@template_group.command("list")
+def template_list() -> None:
+    """List available built-in templates."""
+    templates = list_templates()
+    console = Console()
+    table = Table(title="Available Templates", show_header=True, header_style="bold")
+    table.add_column("Name")
+    table.add_column("Description")
+    for t in templates:
+        table.add_row(t["name"], t["description"])
+    console.print(table)
+
+
+@template_group.command("show")
+@click.argument("name")
+def template_show(name: str) -> None:
+    """Print the content of a template."""
+    try:
+        content = load_template(name)
+    except FileNotFoundError:
+        raise click.ClickException(
+            f"Template not found: {name!r}. "
+            "Use 'gitbrief template list' to see available templates."
+        )
+    click.echo(content)
 
 
 # ---------------------------------------------------------------------------
@@ -651,6 +886,147 @@ def history_diff(id1: str, id2: str) -> None:
     console.print(_make_panel(r1, "A"))
     console.rule()
     console.print(_make_panel(r2, "B"))
+
+
+# ---------------------------------------------------------------------------
+# Scan command
+# ---------------------------------------------------------------------------
+
+
+def _resolve_alias(name: str, existing: dict) -> str:
+    """Return name if not already an alias, otherwise name-2, name-3, etc."""
+    if name not in existing:
+        return name
+    n = 2
+    while f"{name}-{n}" in existing:
+        n += 1
+    return f"{name}-{n}"
+
+
+def _register_repos(
+    repos: list[dict], config: dict, console: Console
+) -> int:
+    """Add repos to config (in-place). Returns number of repos added."""
+    added = 0
+    for repo in repos:
+        alias = _resolve_alias(repo["name"], config["projects"])
+        config["projects"][alias] = {"path": repo["path"], "backend": None}
+        console.print(f"  Added [bold]{alias}[/bold] → {repo['path']}")
+        added += 1
+    return added
+
+
+@cli.command()
+@click.argument("directory", type=click.Path(exists=True, file_okay=False, resolve_path=True))
+@click.option("--depth", default=3, show_default=True, help="Max directory depth to scan")
+@click.option("--auto", is_flag=True, help="Register all new repos without prompting")
+def scan(directory: str, depth: int, auto: bool) -> None:
+    """Discover git repositories under DIRECTORY and register them."""
+    console = Console()
+    config = load_config()
+    registered_paths = {p["path"] for p in config.get("projects", {}).values()}
+
+    repos = discover_repos(directory, max_depth=depth)
+
+    if not repos:
+        click.echo(f"No git repositories found under {directory} (depth={depth}).")
+        return
+
+    # Annotate each repo with its registration status
+    for repo in repos:
+        repo["status"] = "registered" if repo["path"] in registered_paths else "new"
+
+    # Display discovery table
+    table = Table(
+        title=f"Discovered Repositories: {directory}",
+        show_header=True,
+        header_style="bold",
+    )
+    table.add_column("#", justify="right", style="dim")
+    table.add_column("Name")
+    table.add_column("Path")
+    table.add_column("Last Commit")
+    table.add_column("Status")
+
+    new_repos = [r for r in repos if r["status"] == "new"]
+
+    for i, repo in enumerate(repos, 1):
+        if repo["status"] == "registered":
+            status_cell = "[green]registered[/green]"
+        else:
+            status_cell = "[blue]new[/blue]"
+        table.add_row(
+            str(i),
+            repo["name"],
+            repo["path"],
+            repo["last_commit"] or "—",
+            status_cell,
+        )
+    console.print(table)
+
+    if not new_repos:
+        click.echo("All discovered repositories are already registered.")
+        return
+
+    if auto:
+        added = _register_repos(new_repos, config, console)
+        save_config(config)
+        click.echo(f"\nAdded {added} new repositor{'y' if added == 1 else 'ies'}.")
+        return
+
+    # Interactive mode
+    response = click.prompt(
+        f"\nFound {len(new_repos)} new repositor{'y' if len(new_repos) == 1 else 'ies'}."
+        " Add them? [y/N/select]",
+        default="N",
+    ).strip().lower()
+
+    if response == "y":
+        added = _register_repos(new_repos, config, console)
+        save_config(config)
+        click.echo(f"\nAdded {added} new repositor{'y' if added == 1 else 'ies'}.")
+
+    elif response == "select":
+        # Show numbered list of new repos only
+        click.echo("\nNew repositories:")
+        for i, repo in enumerate(new_repos, 1):
+            click.echo(f"  {i:3d}  {repo['name']:30s}  {repo['path']}")
+        raw = click.prompt(
+            "\nEnter numbers to register (space- or comma-separated)",
+            default="",
+        ).strip()
+        if not raw:
+            click.echo("No repositories selected.")
+            return
+        selected: list[dict] = []
+        for token in re.split(r"[\s,]+", raw):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                idx = int(token) - 1
+            except ValueError:
+                _stderr_console.print(
+                    f"[yellow]Warning:[/yellow] Ignoring invalid selection: {token!r}"
+                )
+                continue
+            if idx < 0 or idx >= len(new_repos):
+                _stderr_console.print(
+                    f"[yellow]Warning:[/yellow] Index {token} out of range, skipping."
+                )
+                continue
+            repo = new_repos[idx]
+            if repo not in selected:
+                selected.append(repo)
+        if not selected:
+            click.echo("No valid repositories selected.")
+            return
+        added = _register_repos(selected, config, console)
+        save_config(config)
+        click.echo(f"\nAdded {added} new repositor{'y' if added == 1 else 'ies'}.")
+
+    else:
+        click.echo("No repositories added.")
 
 
 if __name__ == "__main__":

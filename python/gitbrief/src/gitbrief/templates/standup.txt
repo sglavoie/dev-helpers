@@ -1,0 +1,3 @@
+Summarize in 3-5 bullet points. Use present tense. No commit SHAs or technical details. Focus on what was accomplished from {{period}}.
+{{detail_instructions}}
+{{commits}}
