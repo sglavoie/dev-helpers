@@ -35,10 +35,20 @@ class AIRateLimitError(AIBackendError):
     pass
 
 
+class AIAuthenticationError(AIBackendError):
+    pass
+
+
+class AIContextOverflowError(AIBackendError):
+    pass
+
+
 class ErrorClass(Enum):
     RETRYABLE_TIMEOUT = "retryable_timeout"
     RETRYABLE_CONNECTION = "retryable_connection"
     RETRYABLE_RATE_LIMIT = "retryable_rate_limit"
+    AUTHENTICATION = "authentication"
+    CONTEXT_OVERFLOW = "context_overflow"
     PERMANENT = "permanent"
 
 
@@ -53,6 +63,23 @@ _CONNECTION_PATTERNS = [
     "name or service not known",
 ]
 _RATE_LIMIT_PATTERNS = ["rate limit", "too many requests", "429", "quota exceeded"]
+_AUTH_PATTERNS = [
+    "unauthorized",
+    "401",
+    "invalid api key",
+    "authentication",
+    "forbidden",
+    "403",
+]
+_CONTEXT_OVERFLOW_PATTERNS = [
+    "prompt is too long",
+    "token limit",
+    "context window",
+    "too large",
+]
+
+AUTH_HINT = "Run `claude auth login` or `gh auth login`"
+CONTEXT_OVERFLOW_HINT = "Try a shorter time window or fewer projects"
 
 
 def classify_error(stderr: str, exit_code: int) -> ErrorClass:
@@ -68,6 +95,12 @@ def classify_error(stderr: str, exit_code: int) -> ErrorClass:
     for pattern in _CONNECTION_PATTERNS:
         if pattern in text:
             return ErrorClass.RETRYABLE_CONNECTION
+    for pattern in _AUTH_PATTERNS:
+        if pattern in text:
+            return ErrorClass.AUTHENTICATION
+    for pattern in _CONTEXT_OVERFLOW_PATTERNS:
+        if pattern in text:
+            return ErrorClass.CONTEXT_OVERFLOW
     return ErrorClass.PERMANENT
 
 

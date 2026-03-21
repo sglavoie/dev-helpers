@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "myrepo": {"path": "/tmp/myrepo", "backend": null},
+    "legacy": "/tmp/legacy"
+  },
+  "settings": {
+    "backend": "claude",
+    "timeout": 120,
+    "retries": 2,
+    "max_commits": 100
+  }
+}

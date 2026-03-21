@@ -112,7 +112,15 @@ def _extract_diff_stats(
     until: str | None = None,
 ) -> dict[str, dict]:
     """Return {sha: {files_changed, insertions, deletions}} for commits in range."""
-    cmd = ["git", "-C", repo_path, "log", f"--since={since}", "--format=%H", "--shortstat"]
+    cmd = [
+        "git",
+        "-C",
+        repo_path,
+        "log",
+        f"--since={since}",
+        "--format=%H",
+        "--shortstat",
+    ]
     if until:
         cmd.append(f"--until={until}")
     if author:
@@ -205,6 +213,7 @@ def extract_commits(
     since: str,
     author: str | None = None,
     until: str | None = None,
+    max_commits: int = MAX_COMMITS,
 ) -> list[dict]:
     """Extract commits from a git repo since a given date."""
     cmd = [
@@ -240,13 +249,15 @@ def extract_commits(
         sha = parts[0]
         subject = parts[1]
         body = parts[2].strip()
-        commits.append({
-            "sha": sha,
-            "subject": subject,
-            "body": body,
-            "refs": _extract_refs(subject + " " + body),
-        })
-        if len(commits) >= MAX_COMMITS:
+        commits.append(
+            {
+                "sha": sha,
+                "subject": subject,
+                "body": body,
+                "refs": _extract_refs(subject + " " + body),
+            }
+        )
+        if len(commits) >= max_commits:
             break
 
     if not commits:

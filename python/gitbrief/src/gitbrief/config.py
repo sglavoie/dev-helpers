@@ -3,13 +3,17 @@ from pathlib import Path
 
 import click
 
-CONFIG_PATH = Path.home() / ".gitbrief.json"
+GITBRIEF_DIR = Path.home() / ".gitbrief"
+NEW_CONFIG_PATH = GITBRIEF_DIR / "config.json"
+OLD_CONFIG_PATH = Path.home() / ".gitbrief.json"
+CONFIG_PATH = NEW_CONFIG_PATH  # canonical save location
 
 VALID_BACKENDS = {"claude", "copilot"}
 
 DEFAULT_CONFIG = {
     "projects": {},
-    "settings": {"backend": "claude", "timeout": 120, "retries": 2},
+    "settings": {"backend": "claude", "timeout": 120, "retries": 2, "max_commits": 100},
+    "last_summary": {},
 }
 
 
@@ -25,15 +29,32 @@ def _normalize_projects(projects: dict) -> dict:
 
 
 def load_config() -> dict:
-    if not CONFIG_PATH.exists():
+    # Check new location first, then migrate from old location
+    if NEW_CONFIG_PATH.exists():
+        path = NEW_CONFIG_PATH
+    elif OLD_CONFIG_PATH.exists():
+        path = OLD_CONFIG_PATH
+    else:
         return json.loads(json.dumps(DEFAULT_CONFIG))
-    with open(CONFIG_PATH) as f:
+
+    with open(path) as f:
         config = json.load(f)
     config["projects"] = _normalize_projects(config.get("projects", {}))
+    config.setdefault("last_summary", {})
+
+    # Migrate from old path to new path transparently
+    if path == OLD_CONFIG_PATH:
+        GITBRIEF_DIR.mkdir(parents=True, exist_ok=True)
+        with open(NEW_CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+            f.write("\n")
+        OLD_CONFIG_PATH.unlink()
+
     return config
 
 
 def save_config(config: dict) -> None:
+    GITBRIEF_DIR.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
@@ -132,6 +153,31 @@ def set_setting(key: str, value: str) -> None:
                 f"'retries' must be between 0 and 5, got: {int_val}"
             )
         store_value = int_val
+    if key == "max_commits":
+        try:
+            int_val = int(value)
+        except ValueError:
+            raise click.ClickException(
+                f"'max_commits' must be an integer between 10 and 1000, got: {value!r}"
+            )
+        if not (10 <= int_val <= 1000):
+            raise click.ClickException(
+                f"'max_commits' must be between 10 and 1000, got: {int_val}"
+            )
+        store_value = int_val
     config = load_config()
     config.setdefault("settings", {})[key] = store_value
+    save_config(config)
+
+
+def get_last_summary(alias: str) -> str | None:
+    """Return the ISO timestamp of the last summary for a project, or None."""
+    config = load_config()
+    return config.get("last_summary", {}).get(alias)
+
+
+def set_last_summary(alias: str, timestamp: str) -> None:
+    """Record the timestamp of the latest summary for a project."""
+    config = load_config()
+    config.setdefault("last_summary", {})[alias] = timestamp
     save_config(config)

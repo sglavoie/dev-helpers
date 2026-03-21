@@ -18,3 +18,8 @@ gitbrief = "gitbrief.cli:cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gitbrief"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]

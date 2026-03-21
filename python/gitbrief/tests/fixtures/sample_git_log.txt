@@ -1,0 +1,3 @@
+abc12345678901234567890123456789012345678|feat: add user login|Implements OAuth2 flow\n\nCloses #42 https://github.com/org/repo/issues/42
+def09876543210987654321098765432109876543|fix: correct off-by-one error|
+ghi11111111111111111111111111111111111111|chore: update deps|

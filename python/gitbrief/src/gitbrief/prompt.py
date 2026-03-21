@@ -1,7 +1,13 @@
 def build_summary_prompt(
-    project_commits: dict[str, list[dict]], time_description: str
+    project_commits: dict[str, list[dict]],
+    time_description: str,
+    per_project_windows: dict[str, str] | None = None,
 ) -> str:
-    """Build a prompt for the AI to summarize git activity."""
+    """Build a prompt for the AI to summarize git activity.
+
+    per_project_windows: optional mapping of alias -> "since YYYY-MM-DD" used when
+    different projects cover different time windows (e.g. --since-last mode).
+    """
     lines = [
         f"Summarize the following git activity from {time_description}.",
         "",
@@ -16,7 +22,10 @@ def build_summary_prompt(
     ]
 
     for project, commits in project_commits.items():
-        lines.append(f"## Project: {project}")
+        header = f"## Project: {project}"
+        if per_project_windows and project in per_project_windows:
+            header += f"  ({per_project_windows[project]})"
+        lines.append(header)
         lines.append("")
         for c in commits:
             line = f"- {c['sha'][:8]} {c['subject']}"

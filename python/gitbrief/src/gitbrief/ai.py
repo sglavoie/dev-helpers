@@ -3,16 +3,24 @@ from __future__ import annotations
 import subprocess
 import time
 
+from rich.console import Console
+
 from gitbrief.config import get_setting_int
 from gitbrief.exceptions import (
+    AIAuthenticationError,
     AIBackendError,
     AIConnectionError,
+    AIContextOverflowError,
     AIRateLimitError,
     AITimeoutError,
+    AUTH_HINT,
+    CONTEXT_OVERFLOW_HINT,
     ErrorClass,
     classify_error,
     is_retryable,
 )
+
+_stderr_console = Console(stderr=True)
 
 BASE_DELAY = 2.0
 RATE_LIMIT_BASE_DELAY = 30.0
@@ -53,8 +61,14 @@ def invoke_ai(
     max_retries: int | None = None,
 ) -> str:
     """Invoke an AI CLI tool to summarize commits, with retry logic."""
-    resolved_timeout = timeout if timeout is not None else get_setting_int("timeout", _DEFAULT_TIMEOUT)
-    resolved_retries = max_retries if max_retries is not None else get_setting_int("retries", _DEFAULT_RETRIES)
+    resolved_timeout = (
+        timeout if timeout is not None else get_setting_int("timeout", _DEFAULT_TIMEOUT)
+    )
+    resolved_retries = (
+        max_retries
+        if max_retries is not None
+        else get_setting_int("retries", _DEFAULT_RETRIES)
+    )
 
     cmd = _build_cmd(prompt, backend)
     hint = _INSTALL_HINTS.get(backend)
@@ -63,9 +77,20 @@ def invoke_ai(
 
     for attempt in range(resolved_retries + 1):
         if attempt > 0:
-            error_class = classify_error(last_error.stderr if last_error else "", last_error.exit_code if last_error else -1)
-            base = RATE_LIMIT_BASE_DELAY if error_class == ErrorClass.RETRYABLE_RATE_LIMIT else BASE_DELAY
+            error_class = classify_error(
+                last_error.stderr if last_error else "",
+                last_error.exit_code if last_error else -1,
+            )
+            base = (
+                RATE_LIMIT_BASE_DELAY
+                if error_class == ErrorClass.RETRYABLE_RATE_LIMIT
+                else BASE_DELAY
+            )
             delay = base * (2 ** (attempt - 1))
+            _stderr_console.print(
+                f"Retrying ({attempt}/{resolved_retries})... (waiting {delay:.0f}s)",
+                style="yellow",
+            )
             time.sleep(delay)
 
         try:
@@ -73,7 +98,11 @@ def invoke_ai(
                 cmd, capture_output=True, text=True, timeout=resolved_timeout
             )
         except FileNotFoundError:
-            install_hint = f"Install it with: {hint}" if hint else f"Install '{backend}' CLI first."
+            install_hint = (
+                f"Install it with: {hint}"
+                if hint
+                else f"Install '{backend}' CLI first."
+            )
             raise AIBackendError(
                 f"'{backend}' CLI not found.",
                 hint=install_hint,
@@ -99,6 +128,14 @@ def invoke_ai(
                 last_error = AITimeoutError(msg, stderr=stderr, exit_code=exit_code)
             elif error_class == ErrorClass.RETRYABLE_CONNECTION:
                 last_error = AIConnectionError(msg, stderr=stderr, exit_code=exit_code)
+            elif error_class == ErrorClass.AUTHENTICATION:
+                raise AIAuthenticationError(
+                    msg, stderr=stderr, exit_code=exit_code, hint=AUTH_HINT
+                )
+            elif error_class == ErrorClass.CONTEXT_OVERFLOW:
+                raise AIContextOverflowError(
+                    msg, stderr=stderr, exit_code=exit_code, hint=CONTEXT_OVERFLOW_HINT
+                )
             else:
                 raise AIBackendError(msg, stderr=stderr, exit_code=exit_code)
 
