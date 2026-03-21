@@ -816,20 +816,65 @@ def history_list() -> None:
 
 @history_group.command("show")
 @click.argument("id")
-def history_show(id: str) -> None:
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(sorted(VALID_FORMATS), case_sensitive=False),
+    default="markdown",
+    help="Output format (default: markdown)",
+)
+@click.option("--output", "-o", "output_file", default=None, help="Write to file")
+@click.option("--no-clipboard", is_flag=True, help="Do not copy to clipboard")
+def history_show(
+    id: str, output_format: str, output_file: str | None, no_clipboard: bool
+) -> None:
     """Show a past summary by index or filename stem."""
     record = get_history_entry(id)
     if not record:
         raise click.ClickException(f"No history entry found for: {id!r}")
-    console = Console()
+
+    summary = record.get("summary", "")
     ts = record.get("timestamp", "")
     projects = ", ".join(record.get("projects", []))
     since = record.get("since", "")
     until_val = record.get("until")
     window = f"from {since} to {until_val}" if until_val else f"since {since}"
-    md = Markdown(record.get("summary", ""))
-    title = f"[bold]{window}[/bold]  [{projects}]  {ts}"
-    console.print(Panel(md, title=title, border_style="blue"))
+
+    # Apply formatter
+    if output_format == "json":
+        period: dict = {"since": since}
+        if until_val:
+            period["until"] = until_val
+        metadata = {
+            "generated_at": ts,
+            "projects": record.get("projects", []),
+            "period": period,
+            "backend": record.get("backend", ""),
+            "commit_count": record.get("commit_count", 0),
+        }
+        formatted = format_json(summary, metadata)
+    else:
+        formatter = _FORMATTERS[output_format]
+        formatted = formatter(summary)  # type: ignore[operator]
+
+    # Output
+    if output_file:
+        with open(output_file, "w") as fh:
+            fh.write(formatted)
+            if not formatted.endswith("\n"):
+                fh.write("\n")
+        click.echo(f"Summary written to {output_file}", err=True)
+    elif output_format in ("plain", "slack", "json"):
+        click.echo(formatted)
+    else:
+        console = Console()
+        md = Markdown(formatted)
+        title = f"[bold]{window}[/bold]  [{projects}]  {ts}"
+        console.print(Panel(md, title=title, border_style="blue"))
+
+    if not no_clipboard:
+        if copy_to_clipboard(formatted):
+            click.echo("\nCopied to clipboard.", err=True)
 
 
 @history_group.command("clear")
