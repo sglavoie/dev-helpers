@@ -5,6 +5,7 @@ import { Snippet, TimeRange, TIME_RANGE_LABELS, CleanupSuggestion, AnalyticsSumm
 import { deleteSnippet, toggleArchive, deleteTag, getSnippets, getTags } from "../utils/storage";
 import { computeAnalyticsSummary, getTopSnippets, computeCleanupSuggestions, getUnusedTags } from "../utils/analytics";
 import { formatRelativeTime, formatNumber, computeTagStatistics, TagStatistics } from "../utils/tagStats";
+import { getErrorMessage } from "../utils/errorMessage";
 
 interface AnalyticsDashboardProps {
   onUpdated: () => void;
@@ -33,7 +34,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to load data",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
@@ -69,7 +70,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
         showToast({
           style: Toast.Style.Failure,
           title: `Failed to ${action} snippet`,
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }
@@ -98,7 +99,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to delete snippet",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }
@@ -127,7 +128,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to delete tag",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }

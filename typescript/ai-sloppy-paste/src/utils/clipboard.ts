@@ -2,7 +2,8 @@ import { Clipboard, getPreferenceValues } from "@raycast/api";
 
 function getClipboardRestoreDelayMs(): number {
   const { clipboardRestoreDelay } = getPreferenceValues<{ clipboardRestoreDelay?: string }>();
-  return parseInt(clipboardRestoreDelay ?? "500", 10);
+  const value = parseInt(clipboardRestoreDelay ?? "500", 10);
+  return isNaN(value) ? 500 : value;
 }
 
 export async function pasteWithClipboardRestore(content: string): Promise<void> {

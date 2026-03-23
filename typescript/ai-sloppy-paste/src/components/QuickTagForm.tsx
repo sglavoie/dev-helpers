@@ -2,6 +2,7 @@ import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from
 import { useState } from "react";
 import { Snippet } from "../types";
 import { updateSnippet } from "../utils/storage";
+import { getErrorMessage } from "../utils/errorMessage";
 
 interface QuickTagFormProps {
   snippet: Snippet;
@@ -46,7 +47,7 @@ export function QuickTagForm(props: QuickTagFormProps) {
       showToast({
         style: Toast.Style.Failure,
         title: props.mode === "add" ? "Failed to add tag" : "Failed to remove tag",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

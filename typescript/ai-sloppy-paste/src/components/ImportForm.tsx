@@ -1,7 +1,8 @@
 import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from "@raycast/api";
-import * as fs from "fs";
+import { readFile } from "fs/promises";
 import { ExportData } from "../types";
 import { importData } from "../utils/storage";
+import { getErrorMessage } from "../utils/errorMessage";
 
 export function ImportForm(props: { onImported: () => void }) {
   const { pop } = useNavigation();
@@ -18,7 +19,7 @@ export function ImportForm(props: { onImported: () => void }) {
     const filepath = values.filepath[0];
 
     try {
-      const fileContent = fs.readFileSync(filepath, "utf-8");
+      const fileContent = await readFile(filepath, "utf-8");
       const data: ExportData = JSON.parse(fileContent);
 
       if (!data.snippets) {
@@ -38,7 +39,7 @@ export function ImportForm(props: { onImported: () => void }) {
       showToast({
         style: Toast.Style.Failure,
         title: "Import failed",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

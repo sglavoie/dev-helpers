@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { Snippet } from "../types";
 import { findSimilarSnippets } from "../utils/analytics";
 import { deleteSnippet, toggleArchive } from "../utils/storage";
+import { getErrorMessage } from "../utils/errorMessage";
 
 interface SimilarSnippetsViewProps {
   target: Snippet;
@@ -22,7 +23,7 @@ export function SimilarSnippetsView({ target, allSnippets, onUpdated }: SimilarS
       onUpdated();
       showToast({ style: Toast.Style.Success, title: "Snippet archived" });
     } catch (error) {
-      showToast({ style: Toast.Style.Failure, title: "Failed to archive snippet", message: String(error) });
+      showToast({ style: Toast.Style.Failure, title: "Failed to archive snippet", message: getErrorMessage(error) });
     }
   }
 
@@ -39,7 +40,7 @@ export function SimilarSnippetsView({ target, allSnippets, onUpdated }: SimilarS
         onUpdated();
         showToast({ style: Toast.Style.Success, title: "Snippet deleted" });
       } catch (error) {
-        showToast({ style: Toast.Style.Failure, title: "Failed to delete snippet", message: String(error) });
+        showToast({ style: Toast.Style.Failure, title: "Failed to delete snippet", message: getErrorMessage(error) });
       }
     }
   }

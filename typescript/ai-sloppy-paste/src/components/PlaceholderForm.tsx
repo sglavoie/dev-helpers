@@ -20,6 +20,7 @@ import {
 import { pasteWithClipboardRestore } from "../utils/clipboard";
 import { replacePlaceholders, processConditionalBlocks } from "../utils/placeholders";
 import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
+import { getErrorMessage } from "../utils/errorMessage";
 
 const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
 
@@ -203,7 +204,7 @@ export function PlaceholderForm(props: {
       showToast({
         style: Toast.Style.Failure,
         title: props.mode === "paste-direct" ? "Failed to paste" : "Failed to copy",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

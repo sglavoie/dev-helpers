@@ -2,6 +2,7 @@ import { Action, ActionPanel, Clipboard, Form, Icon, popToRoot, showToast, Toast
 import { useState, useEffect } from "react";
 import { addSnippet, getTags } from "./utils/storage";
 import { validateTitle, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
+import { getErrorMessage } from "./utils/errorMessage";
 
 export default function SaveClipboardCommand() {
   const [clipboardContent, setClipboardContent] = useState<string>("");
@@ -38,7 +39,7 @@ export default function SaveClipboardCommand() {
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to read clipboard",
-          message: String(error),
+          message: getErrorMessage(error),
         });
         popToRoot();
       } finally {
@@ -115,7 +116,7 @@ export default function SaveClipboardCommand() {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to save snippet",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

@@ -1,6 +1,7 @@
 import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
 import { mergeTags } from "../utils/storage";
+import { getErrorMessage } from "../utils/errorMessage";
 
 export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
   const { pop } = useNavigation();
@@ -42,7 +43,7 @@ export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to merge tags",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

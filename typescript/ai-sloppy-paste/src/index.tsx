@@ -10,6 +10,7 @@ import {
   List,
   Toast,
   confirmAlert,
+  open,
   showToast,
   useNavigation,
 } from "@raycast/api";
@@ -45,7 +46,8 @@ import { isChildOf, expandTagsWithParents } from "./utils/tags";
 import { computeSnippetAnalytics, findSimilarSnippets } from "./utils/analytics";
 import { parseSearchQuery } from "./utils/queryParser";
 import { applySearchFilters } from "./utils/searchFilter";
-import * as fs from "fs";
+import { getErrorMessage } from "./utils/errorMessage";
+import { writeFile } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 
@@ -79,14 +81,6 @@ export default function Command() {
   // Parse search query for operators
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
 
-  // DEBUG: Log parsed query
-  useEffect(() => {
-    if (searchQuery) {
-      console.log("Search query:", searchQuery);
-      console.log("Parsed query:", JSON.stringify(parsedQuery, null, 2));
-    }
-  }, [searchQuery, parsedQuery]);
-
   useEffect(() => {
     loadData();
   }, []);
@@ -100,7 +94,7 @@ export default function Command() {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to load data",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
@@ -129,7 +123,7 @@ export default function Command() {
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to delete snippet",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }
@@ -143,7 +137,7 @@ export default function Command() {
       const filename = `ai-sloppy-paste-${timestamp}.json`;
       const filepath = path.join(downloadsPath, filename);
 
-      fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+      await writeFile(filepath, JSON.stringify(data, null, 2));
 
       showToast({
         style: Toast.Style.Success,
@@ -152,9 +146,7 @@ export default function Command() {
         primaryAction: {
           title: "Open Folder",
           onAction: () => {
-            import("child_process").then(({ exec }) => {
-              exec(`open "${downloadsPath}"`);
-            });
+            open(downloadsPath);
           },
         },
       });
@@ -162,7 +154,7 @@ export default function Command() {
       showToast({
         style: Toast.Style.Failure,
         title: "Export failed",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -190,7 +182,7 @@ export default function Command() {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to get storage info",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -207,12 +199,6 @@ export default function Command() {
     // If search operators are present, apply them to the view-filtered snippets
     if (parsedQuery.hasOperators) {
       result = applySearchFilters(baseSnippets, parsedQuery);
-      // DEBUG
-      console.log("Filtered with operators, result count:", result.length);
-      console.log(
-        "Matching titles:",
-        result.map((s) => s.title),
-      );
     } else {
       // Otherwise, use traditional UI filter pipeline
       // 1. Filter by tag - support hierarchical filtering
@@ -247,26 +233,6 @@ export default function Command() {
   // Get pinned snippets (always at top, sorted by title)
   const pinnedSnippets = [...filtered].filter((s) => s.isPinned).sort((a, b) => a.title.localeCompare(b.title));
   const pinnedIds = new Set(pinnedSnippets.map((s) => s.id));
-
-  // DEBUG: Check if pinned snippet is in filtered vs all snippets
-  useEffect(() => {
-    if (searchQuery) {
-      const allPinned = snippets.filter((s) => s.isPinned && !s.isArchived);
-      const filteredPinned = filtered.filter((s) => s.isPinned);
-      console.log(
-        "[DEBUG] All non-archived pinned snippets:",
-        allPinned.map((s) => s.title),
-      );
-      console.log(
-        "[DEBUG] Pinned snippets after filtering:",
-        filteredPinned.map((s) => s.title),
-      );
-      console.log(
-        "[DEBUG] pinnedSnippets for render:",
-        pinnedSnippets.map((s) => s.title),
-      );
-    }
-  }, [searchQuery, snippets, filtered, pinnedSnippets]);
 
   // Get recently used snippets (top 5 with lastUsedAt, excluding pinned)
   const recentSnippets = showRecentSection
@@ -575,7 +541,7 @@ export default function Command() {
                       showToast({
                         style: Toast.Style.Failure,
                         title: "Failed to archive snippet",
-                        message: String(error),
+                        message: getErrorMessage(error),
                       });
                     }
                   }}
@@ -664,7 +630,7 @@ function ToggleFavoriteAction(props: { snippet: Snippet; onToggled: () => void }
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to toggle favorite",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -693,7 +659,7 @@ function DuplicateSnippetAction(props: { snippet: Snippet; onDuplicated: () => v
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to duplicate snippet",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -721,7 +687,7 @@ function ToggleArchiveAction(props: { snippet: Snippet; onToggled: () => void })
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to toggle archive",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -790,7 +756,7 @@ function TogglePinAction(props: { snippet: Snippet; onToggled: () => void }) {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to toggle pin",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -908,7 +874,7 @@ function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: str
       showToast({
         style: Toast.Style.Failure,
         title: props.snippet ? "Failed to update snippet" : "Failed to create snippet",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }
@@ -1120,7 +1086,7 @@ function CopyContentAction(props: { snippet: Snippet; onComplete: () => void }) 
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to paste",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }
@@ -1170,7 +1136,7 @@ function PasteContentAction(props: { snippet: Snippet; onComplete: () => void })
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to copy",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }

@@ -4,6 +4,7 @@ import { useLocalStorage } from "@raycast/utils";
 import { PlaceholderHistoryDetailView } from "./PlaceholderHistoryDetailView";
 import { getAllPlaceholderKeys, getPlaceholderHistory, clearPlaceholderHistoryForKey } from "../utils/storage";
 import { calculateKeyStats, formatRelativeTime, PlaceholderKeyStats } from "../utils/placeholderHistory";
+import { getErrorMessage } from "../utils/errorMessage";
 
 enum SortOption {
   NameAsc = "name-asc",
@@ -59,7 +60,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to load placeholder history",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
@@ -116,7 +117,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to clear history",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }

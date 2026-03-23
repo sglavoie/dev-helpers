@@ -4,6 +4,7 @@ import { EditPlaceholderValueForm } from "./EditPlaceholderValueForm";
 import { getPlaceholderHistoryForKey, deletePlaceholderValue, getMaxPlaceholderHistoryValues } from "../utils/storage";
 import { rankPlaceholderValues, formatRelativeTime, formatAbsoluteDate } from "../utils/placeholderHistory";
 import { PlaceholderHistoryValue } from "../types";
+import { getErrorMessage } from "../utils/errorMessage";
 
 export function PlaceholderHistoryDetailView(props: { placeholderKey: string; onUpdated: () => void }) {
   const { push, pop } = useNavigation();
@@ -29,7 +30,7 @@ export function PlaceholderHistoryDetailView(props: { placeholderKey: string; on
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to load values",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);
@@ -65,7 +66,7 @@ export function PlaceholderHistoryDetailView(props: { placeholderKey: string; on
         showToast({
           style: Toast.Style.Failure,
           title: "Failed to delete value",
-          message: String(error),
+          message: getErrorMessage(error),
         });
       }
     }

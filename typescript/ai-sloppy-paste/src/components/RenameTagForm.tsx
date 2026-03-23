@@ -2,6 +2,7 @@ import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from "@ray
 import { useState } from "react";
 import { renameTag } from "../utils/storage";
 import { validateTag } from "../utils/validation";
+import { getErrorMessage } from "../utils/errorMessage";
 
 export function RenameTagForm(props: { tag: string; onRenamed: () => void }) {
   const { pop } = useNavigation();
@@ -36,7 +37,7 @@ export function RenameTagForm(props: { tag: string; onRenamed: () => void }) {
       showToast({
         style: Toast.Style.Failure,
         title: "Failed to rename tag",
-        message: String(error),
+        message: getErrorMessage(error),
       });
     }
   }

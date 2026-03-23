@@ -1,6 +1,7 @@
 import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
 import { updatePlaceholderValue } from "../utils/storage";
+import { getErrorMessage } from "../utils/errorMessage";
 
 export function EditPlaceholderValueForm(props: { placeholderKey: string; oldValue: string; onUpdated: () => void }) {
   const { pop } = useNavigation();
@@ -31,7 +32,7 @@ export function EditPlaceholderValueForm(props: { placeholderKey: string; oldVal
         message: `Updated value for "${props.placeholderKey}"`,
       });
     } catch (error) {
-      const errorMessage = String(error);
+      const errorMessage = getErrorMessage(error);
       if (errorMessage.includes("already exists")) {
         setError("A value with this name already exists");
       } else {
