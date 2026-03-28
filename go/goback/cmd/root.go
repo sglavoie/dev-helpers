@@ -50,6 +50,7 @@ func init() {
 	if err := viper.BindPFlag("cliQuiet", RootCmd.PersistentFlags().Lookup("quiet")); err != nil {
 		panic(err)
 	}
+	RootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet")
 }
 
 func lastCommitDate() string {

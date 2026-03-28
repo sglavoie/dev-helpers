@@ -52,8 +52,22 @@ func (r *builder) getFlags() []string {
 		}
 	}
 
-	if viper.GetBool("showProgress") {
+	// Account for CLI overrides
+	if viper.GetBool("cliDryRun") && !viper.GetBool(cfgPrefix+"dryRun") {
+		flags = append(flags, "--dry-run")
+	}
+	if viper.GetBool("cliVerbose") && !viper.GetBool(cfgPrefix+"verbose") {
+		flags = append(flags, "--verbose")
+	}
+
+	quiet := viper.GetBool("cliQuiet")
+	if viper.GetBool("showProgress") && !quiet {
 		flags = append(flags, "--progress")
+	}
+
+	verbose := viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose")
+	if !quiet && (verbose || viper.GetBool("cliDryRun")) {
+		flags = append(flags, "--stats")
 	}
 
 	return flags

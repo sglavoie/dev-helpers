@@ -60,7 +60,8 @@ func (r *builder) appendBooleanFlags() {
 		r.sb.WriteString(" --progress")
 	}
 
-	if !quiet {
+	verbose := viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose")
+	if !quiet && (verbose || isDryRun()) {
 		r.sb.WriteString(" --stats")
 	}
 }
