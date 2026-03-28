@@ -6,19 +6,19 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 )
 
-func BuildDaily() *RsyncBuilderDaily {
+func BuildDaily() *RsyncBuilder {
 	c := commandToRunDailyCheck()
 	c.BuildCheck()
 	return c
 }
 
-func BuildWeekly() *RsyncBuilderWeekly {
+func BuildWeekly() *RsyncBuilder {
 	c := commandToRunWeeklyCheck()
 	c.BuildCheck()
 	return c
 }
 
-func BuildMonthly() *RsyncBuilderMonthly {
+func BuildMonthly() *RsyncBuilder {
 	c := commandToRunMonthlyCheck()
 	c.BuildCheck()
 	return c
@@ -42,19 +42,19 @@ func PrintCommandMonthly() {
 	c.FormattedPreview()
 }
 
-func commandToRunDailyCheck() *RsyncBuilderDaily {
+func commandToRunDailyCheck() *RsyncBuilder {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	return commandToRunDaily(src, dest)
 }
 
-func commandToRunDailyNoCheck() *RsyncBuilderDaily {
+func commandToRunDailyNoCheck() *RsyncBuilder {
 	src, dest := sourceAndDestination()
 	return commandToRunDaily(src, dest)
 }
 
-func commandToRunDaily(src, dest string) *RsyncBuilderDaily {
+func commandToRunDaily(src, dest string) *RsyncBuilder {
 	dest = dest + "/daily"
-	b := &RsyncBuilderDaily{
+	b := &RsyncBuilder{
 		builder: builder{
 			sb:             &strings.Builder{},
 			updatedSrc:     src,
@@ -65,20 +65,20 @@ func commandToRunDaily(src, dest string) *RsyncBuilderDaily {
 	return b
 }
 
-func commandToRunWeeklyCheck() *RsyncBuilderWeekly {
+func commandToRunWeeklyCheck() *RsyncBuilder {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	return commandToRunWeekly(src, dest)
 }
 
-func commandToRunWeeklyNoCheck() *RsyncBuilderWeekly {
+func commandToRunWeeklyNoCheck() *RsyncBuilder {
 	src, dest := sourceAndDestination()
 	return commandToRunWeekly(src, dest)
 }
 
-func commandToRunWeekly(src, dest string) *RsyncBuilderWeekly {
+func commandToRunWeekly(src, dest string) *RsyncBuilder {
 	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
 	dest = dest + "/weekly"
-	b := &RsyncBuilderWeekly{
+	b := &RsyncBuilder{
 		builder: builder{
 			sb:             &strings.Builder{},
 			updatedSrc:     src,
@@ -89,20 +89,20 @@ func commandToRunWeekly(src, dest string) *RsyncBuilderWeekly {
 	return b
 }
 
-func commandToRunMonthlyCheck() *RsyncBuilderMonthly {
+func commandToRunMonthlyCheck() *RsyncBuilder {
 	src, dest := mustExitOnInvalidSourceOrDestination()
 	return commandToRunMonthly(src, dest)
 }
 
-func commandToRunMonthlyNoCheck() *RsyncBuilderMonthly {
+func commandToRunMonthlyNoCheck() *RsyncBuilder {
 	src, dest := sourceAndDestination()
 	return commandToRunMonthly(src, dest)
 }
 
-func commandToRunMonthly(src, dest string) *RsyncBuilderMonthly {
+func commandToRunMonthly(src, dest string) *RsyncBuilder {
 	src = dest + "/daily/" // append slash to avoid copying the daily directory itself
 	dest = dest + "/monthly"
-	b := &RsyncBuilderMonthly{
+	b := &RsyncBuilder{
 		builder: builder{
 			sb:             &strings.Builder{},
 			updatedSrc:     src,

@@ -14,7 +14,7 @@ import (
 func SqlToText(rows *sql.Rows) {
 	t := table.NewWriter()
 	setTableProperties(t)
-	t.AppendHeader(table.Row{"ID", "Created at", "Backup type", "Profile", "Execution time", "Command executed"})
+	t.AppendHeader(table.Row{"ID", "Created at", "Backup type", "Profile", "Execution time", "Exit code", "Command executed"})
 
 	if !appendRows(rows, t) {
 		fmt.Println("No backups data found")
@@ -37,13 +37,13 @@ func SqlToTextSummary(rows *sql.Rows) {
 
 func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
-		var id int
+		var id, exitCode int
 		var createdAt, backupType, execTime, command, profile string
-		err := rows.Scan(&id, &createdAt, &backupType, &execTime, &command, &profile)
+		err := rows.Scan(&id, &createdAt, &backupType, &execTime, &command, &profile, &exitCode)
 		cobra.CheckErr(err)
 		execTimeTruncated := executionTime(execTime)
 		cmd := wrappedCommand(command)
-		t.AppendRow([]interface{}{id, createdAt, backupType, profile, execTimeTruncated, cmd})
+		t.AppendRow([]interface{}{id, createdAt, backupType, profile, execTimeTruncated, exitCode, cmd})
 		t.AppendSeparator()
 		hasData = true
 	}
@@ -52,9 +52,9 @@ func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 
 func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
-		var id int
+		var id, exitCode int
 		var createdAt, backupType, executionTime, command, profile string
-		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command, &profile)
+		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command, &profile, &exitCode)
 		cobra.CheckErr(err)
 
 		relTime := printer.RelativeTime(createdAt)

@@ -7,18 +7,24 @@ import (
 
 func DailyBackup() {
 	c := buildcmd.BuildDaily()
-	c.PrintCommandToRunWithConfirmation()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return
+	}
 	c.Execute()
 }
 
 func WeeklyBackup() {
 	c := buildcmd.BuildWeekly()
-	c.PrintCommandToRunWithConfirmation()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return
+	}
 	c.Execute()
 }
 
 func MonthlyBackup() {
 	c := buildcmd.BuildMonthly()
-	c.PrintCommandToRunWithConfirmation()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return
+	}
 	c.Execute()
 }

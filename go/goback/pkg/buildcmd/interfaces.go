@@ -16,19 +16,10 @@ type builder struct {
 	builderType        models.BackupTypes
 	db                 *sql.DB
 	hasIncludePatterns bool
+	exitCode           int
 }
 
-// RsyncBuilderDaily is a struct that implements the builder interface for daily backups.
-type RsyncBuilderDaily struct {
-	builder
-}
-
-// RsyncBuilderWeekly is a struct that implements the builder interface for weekly backups.
-type RsyncBuilderWeekly struct {
-	builder
-}
-
-// RsyncBuilderMonthly is a struct that implements the builder interface for monthly backups.
-type RsyncBuilderMonthly struct {
+// RsyncBuilder is a struct that implements the builder interface.
+type RsyncBuilder struct {
 	builder
 }

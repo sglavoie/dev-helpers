@@ -7,6 +7,7 @@ import (
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -39,7 +40,16 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
 	RootCmd.PersistentFlags().StringVarP(&config.ProfileFlag, "profile", "p", "", "profile to use (e.g. macbook, media)")
 	RootCmd.PersistentFlags().BoolVar(&config.AllProfiles, "all", false, "run all profiles regardless of hostname")
+	RootCmd.PersistentFlags().Bool("verbose", false, "enable verbose rsync output (overrides per-profile setting)")
+	RootCmd.PersistentFlags().Bool("quiet", false, "suppress non-essential rsync output (--progress and --stats)")
 	printCmd.Flags().Bool("raw", false, "print the raw configuration without unmarshalling it")
+
+	if err := viper.BindPFlag("cliVerbose", RootCmd.PersistentFlags().Lookup("verbose")); err != nil {
+		panic(err)
+	}
+	if err := viper.BindPFlag("cliQuiet", RootCmd.PersistentFlags().Lookup("quiet")); err != nil {
+		panic(err)
+	}
 }
 
 func lastCommitDate() string {

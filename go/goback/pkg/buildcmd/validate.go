@@ -18,8 +18,12 @@ func (r *builder) validateBeforeRun() {
 		log.Fatal(fmt.Sprintf("source directory %s does not exist", r.updatedSrc))
 	}
 
-	if _, err := os.ReadDir(r.updatedSrc); err != nil {
-		log.Fatal(fmt.Sprintf("source directory %s is empty", r.updatedSrc))
+	entries, err := os.ReadDir(r.updatedSrc)
+	if err != nil {
+		log.Fatalf("cannot read source directory %s: %v", r.updatedSrc, err)
+	}
+	if len(entries) == 0 {
+		log.Fatalf("source directory %s is empty", r.updatedSrc)
 	}
 
 	if r.updatedSrc == r.updatedDestDir {

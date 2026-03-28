@@ -46,6 +46,7 @@ func AskYesNoQuestion(q string) bool {
 }
 
 func askQuestion(items []list.Item, q string) bool {
+	selection = false
 	const defaultWidth = 5
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
@@ -122,6 +123,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.choice == "Yes" {
 				selection = true
+			} else {
+				selection = false
 			}
 			return m, tea.Quit
 		}

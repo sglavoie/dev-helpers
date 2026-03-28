@@ -46,7 +46,7 @@ func queryAllBackupTypes(sqldb *sql.DB, k int) sql.Result {
 }
 
 func queryBackupType(sqldb *sql.DB, k int, t models.BackupTypes) sql.Result {
-	rows, err := sqldb.Exec("DELETE FROM backups WHERE backup_type = ? AND id NOT IN (SELECT id FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?)", t.String(), t, k)
+	rows, err := sqldb.Exec("DELETE FROM backups WHERE backup_type = ? AND id NOT IN (SELECT id FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?)", t.String(), t.String(), k)
 	cobra.CheckErr(err)
 	return rows
 }

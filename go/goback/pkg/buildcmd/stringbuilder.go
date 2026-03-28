@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+func isDryRun() bool {
+	return viper.GetBool("cliDryRun")
+}
+
 func (r *builder) CommandString() string {
 	return r.sb.String()
 }
@@ -32,7 +36,7 @@ func (r *builder) appendBooleanFlags() {
 	if viper.GetBool(cfgPrefix + "deleteExcluded") {
 		r.sb.WriteString(" --delete-excluded")
 	}
-	if viper.GetBool(cfgPrefix + "dryRun") {
+	if viper.GetBool(cfgPrefix+"dryRun") || isDryRun() {
 		r.sb.WriteString(" --dry-run")
 	}
 	if viper.GetBool(cfgPrefix + "force") {
@@ -47,12 +51,17 @@ func (r *builder) appendBooleanFlags() {
 	if viper.GetBool(cfgPrefix + "pruneEmptyDirs") {
 		r.sb.WriteString(" --prune-empty-dirs")
 	}
-	if viper.GetBool(cfgPrefix + "verbose") {
+	if viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose") {
 		r.sb.WriteString(" --verbose")
 	}
 
-	if viper.GetBool("showProgress") {
+	quiet := viper.GetBool("cliQuiet")
+	if viper.GetBool("showProgress") && !quiet {
 		r.sb.WriteString(" --progress")
+	}
+
+	if !quiet {
+		r.sb.WriteString(" --stats")
 	}
 }
 

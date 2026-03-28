@@ -38,7 +38,7 @@ WITH ranked_backups AS (
     FROM backups
     WHERE profile = ?
 )
-SELECT id, created_at, backup_type, execution_time, command, profile FROM ranked_backups
+SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM ranked_backups
 WHERE row_num <= ?
 ORDER BY created_at DESC;
 		`, profile, e)
@@ -49,7 +49,7 @@ WITH ranked_backups AS (
            ROW_NUMBER() OVER (PARTITION BY backup_type ORDER BY created_at DESC) as row_num
     FROM backups
 )
-SELECT id, created_at, backup_type, execution_time, command, profile FROM ranked_backups
+SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM ranked_backups
 WHERE row_num <= ?
 ORDER BY created_at DESC;
 	`, e)

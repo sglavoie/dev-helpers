@@ -26,7 +26,8 @@ func CreateTableIfNotExists(db *sql.DB) {
 		backup_type TEXT NOT NULL,
 		execution_time TEXT NOT NULL,
 		command TEXT NOT NULL,
-		profile TEXT NOT NULL DEFAULT ''
+		profile TEXT NOT NULL DEFAULT '',
+		exit_code INTEGER NOT NULL DEFAULT 0
 	);
 	`
 	_, err := db.Exec(sqlStmt)
@@ -38,6 +39,17 @@ func MigrateProfileColumn(db *sql.DB) {
 	_, err := db.Exec("ALTER TABLE backups ADD COLUMN profile TEXT NOT NULL DEFAULT ''")
 	if err != nil {
 		// "duplicate column name" means the column already exists — safe to ignore
+		if strings.Contains(err.Error(), "duplicate column") {
+			return
+		}
+		cobra.CheckErr(err)
+	}
+}
+
+// MigrateExitCodeColumn adds the exit_code column to existing databases that lack it.
+func MigrateExitCodeColumn(db *sql.DB) {
+	_, err := db.Exec("ALTER TABLE backups ADD COLUMN exit_code INTEGER NOT NULL DEFAULT 0")
+	if err != nil {
 		if strings.Contains(err.Error(), "duplicate column") {
 			return
 		}

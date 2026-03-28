@@ -27,11 +27,23 @@ func Eject() {
 	if dest == "" {
 		log.Fatal("destination not set")
 	}
+	ejectVolume(extractVolumePath(dest))
+}
 
-	// Extract the volume mount point from the destination path
-	volumePath := extractVolumePath(dest)
+// EjectPaths ejects all unique volumes derived from the given destination paths.
+func EjectPaths(destinations []string) {
+	seen := make(map[string]bool)
+	for _, dest := range destinations {
+		volumePath := extractVolumePath(dest)
+		if !seen[volumePath] {
+			seen[volumePath] = true
+			ejectVolume(volumePath)
+		}
+	}
+}
 
-	log.Printf("Ejecting volume at '%s' (configured destination: '%s')", volumePath, dest)
+func ejectVolume(volumePath string) {
+	log.Printf("Ejecting volume at '%s'", volumePath)
 
 	cmd := exec.Command("diskutil", "eject", volumePath)
 	output, err := cmd.CombinedOutput()

@@ -2,7 +2,6 @@ package buildcmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
@@ -11,15 +10,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-func (r *builder) PrintCommandToRunWithConfirmation() {
+func (r *builder) PrintCommandToRunWithConfirmation() bool {
 	fmt.Println("The following command will be executed:", "\n", r.CommandString())
 
 	if viper.GetBool("confirmExec") {
-		confirms := inputs.AskYesNoQuestion("\nDo you wish to proceed?")
-		if !confirms {
-			os.Exit(0)
-		}
+		return inputs.AskYesNoQuestion("\nDo you wish to proceed?")
 	}
+	return true
 }
 func (r *builder) PrintString() {
 	fmt.Println(r.sb.String())

@@ -31,17 +31,17 @@ func View(e int, t models.BackupTypes) {
 }
 
 func queryAllBackupTypes(e int) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile FROM backups ORDER BY created_at DESC LIMIT ?", e)
+	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups ORDER BY created_at DESC LIMIT ?", e)
 }
 
 func queryAllBackupTypesWithProfile(e int, profile string) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile FROM backups WHERE profile = ? ORDER BY created_at DESC LIMIT ?", profile, e)
+	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE profile = ? ORDER BY created_at DESC LIMIT ?", profile, e)
 }
 
 func queryBackupType(e int, t models.BackupTypes) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?", t.String(), e)
+	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?", t.String(), e)
 }
 
 func queryBackupTypeWithProfile(e int, t models.BackupTypes, profile string) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile FROM backups WHERE backup_type = ? AND profile = ? ORDER BY created_at DESC LIMIT ?", t.String(), profile, e)
+	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? AND profile = ? ORDER BY created_at DESC LIMIT ?", t.String(), profile, e)
 }

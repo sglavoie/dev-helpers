@@ -14,7 +14,9 @@ import (
 // after all profiles complete.
 func forEachProfile(action func()) {
 	profiles := profilesToRun()
+	ejectOnExit := viper.GetBool("ejectOnExit")
 
+	var destinations []string
 	for i, name := range profiles {
 		config.ActiveProfileName = name
 		if len(profiles) > 1 {
@@ -24,10 +26,16 @@ func forEachProfile(action func()) {
 			fmt.Printf("=== Profile: %s ===\n", name)
 		}
 		action()
+		if ejectOnExit {
+			dest := viper.GetString(config.ActiveProfilePrefix() + "destination")
+			if dest != "" {
+				destinations = append(destinations, dest)
+			}
+		}
 	}
 
-	if viper.GetBool("ejectOnExit") {
-		eject.Eject()
+	if ejectOnExit {
+		eject.EjectPaths(destinations)
 	}
 }
 

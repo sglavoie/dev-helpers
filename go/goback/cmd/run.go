@@ -4,6 +4,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // runCmd represents the run command
@@ -17,6 +18,10 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
+	runCmd.PersistentFlags().Bool("dry-run", false, "Show what would be transferred without actually running rsync")
+	if err := viper.BindPFlag("cliDryRun", runCmd.PersistentFlags().Lookup("dry-run")); err != nil {
+		panic(err)
+	}
 	runCmd.AddCommand(dailyCmdRun)
 	runCmd.AddCommand(weeklyCmdRun)
 	runCmd.AddCommand(monthlyCmdRun)
