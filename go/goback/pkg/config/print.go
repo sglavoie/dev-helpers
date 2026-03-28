@@ -12,9 +12,7 @@ import (
 )
 
 func Print() {
-	errRead := viper.ReadInConfig()
-	cobra.CheckErr(errRead)
-	err := viper.Unmarshal(&cfg)
+	err := viper.ReadInConfig()
 	cobra.CheckErr(err)
 	b, _ := json.MarshalIndent(viper.AllSettings(), "", "  ")
 	printer.Pager(string(b)+"\n", viper.ConfigFileUsed())

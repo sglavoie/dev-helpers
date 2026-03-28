@@ -9,39 +9,36 @@ import (
 )
 
 func View(e int, t models.BackupTypes) {
-	var rows *sql.Rows
 	profile := config.ProfileFlag
+	callback := func(rows *sql.Rows) { SqlToText(rows) }
 
 	if _, ok := t.(models.NoBackupType); ok {
 		if profile != "" {
-			rows = queryAllBackupTypesWithProfile(e, profile)
+			queryAllBackupTypesWithProfile(e, profile, callback)
 		} else {
-			rows = queryAllBackupTypes(e)
+			queryAllBackupTypes(e, callback)
 		}
 	} else {
 		if profile != "" {
-			rows = queryBackupTypeWithProfile(e, t, profile)
+			queryBackupTypeWithProfile(e, t, profile, callback)
 		} else {
-			rows = queryBackupType(e, t)
+			queryBackupType(e, t, callback)
 		}
 	}
-	db.WithRows(rows, func(rows *sql.Rows) {
-		SqlToText(rows)
-	})
 }
 
-func queryAllBackupTypes(e int) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups ORDER BY created_at DESC LIMIT ?", e)
+func queryAllBackupTypes(e int, callback func(*sql.Rows)) {
+	db.QueryRows("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups ORDER BY created_at DESC LIMIT ?", callback, e)
 }
 
-func queryAllBackupTypesWithProfile(e int, profile string) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE profile = ? ORDER BY created_at DESC LIMIT ?", profile, e)
+func queryAllBackupTypesWithProfile(e int, profile string, callback func(*sql.Rows)) {
+	db.QueryRows("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE profile = ? ORDER BY created_at DESC LIMIT ?", callback, profile, e)
 }
 
-func queryBackupType(e int, t models.BackupTypes) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?", t.String(), e)
+func queryBackupType(e int, t models.BackupTypes, callback func(*sql.Rows)) {
+	db.QueryRows("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?", callback, t.String(), e)
 }
 
-func queryBackupTypeWithProfile(e int, t models.BackupTypes, profile string) *sql.Rows {
-	return db.WithQuery("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? AND profile = ? ORDER BY created_at DESC LIMIT ?", t.String(), profile, e)
+func queryBackupTypeWithProfile(e int, t models.BackupTypes, profile string, callback func(*sql.Rows)) {
+	db.QueryRows("SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM backups WHERE backup_type = ? AND profile = ? ORDER BY created_at DESC LIMIT ?", callback, t.String(), profile, e)
 }

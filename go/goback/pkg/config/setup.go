@@ -5,51 +5,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-type rsyncSupportedFlags struct {
-	archive        bool
-	delete         bool
-	deleteExcluded bool
-	dryRun         bool
-	force          bool
-	hardLinks      bool
-	ignoreErrors   bool
-	pruneEmptyDirs bool
-	verbose        bool
-}
-
-type rsyncFlagsDaily struct {
-	flags rsyncSupportedFlags
-}
-
-type rsyncFlagsWeekly struct {
-	flags rsyncSupportedFlags
-}
-
-type rsync struct {
-	daily  rsyncFlagsDaily
-	weekly rsyncFlagsWeekly
-}
-
-type Config struct {
-	confirmExec      bool
-	ejectOnExit      bool
-	excludedPatterns []string
-	rsync            rsync
-	srcDest          map[string]string
-}
-
-func (c *Config) Unmarshal() {
-	err := viper.Unmarshal(&c)
-	cobra.CheckErr(err)
-}
-
-type CliConfig struct {
-	ConfigExtension string
-}
 
 var CfgFile string
 
@@ -61,9 +18,6 @@ var AllProfiles bool
 
 // ActiveProfileName is the profile currently being processed.
 var ActiveProfileName string
-
-var cfg Config
-var cliCfg CliConfig
 
 // ActiveProfilePrefix returns the viper key prefix for the active profile,
 // e.g. "profiles.macbook." when ActiveProfileName is "macbook".
@@ -129,91 +83,84 @@ func MatchingProfiles() []string {
 }
 
 // MustInitConfig reads in config file.
-func MustInitConfig(recreateInvalid bool, readConfig bool) {
-	setCliCfg()
+func MustInitConfig(recreateInvalid bool, readConfig bool) error {
 	setViperCfg()
 	mustReadFile()
 
 	if recreateInvalid {
 		recreateInvalidFile()
 	} else if readConfig {
-		err := viper.ReadInConfig()
-		cobra.CheckErr(err)
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
 	}
 
-	detectLegacyConfig()
-	cfg.Unmarshal()
+	return detectLegacyConfig()
 }
 
 // detectLegacyConfig checks for old-style config (top-level "source" without "profiles")
-// and exits with a helpful message if found.
-func detectLegacyConfig() {
+// and returns an error with a helpful message if found.
+func detectLegacyConfig() error {
 	if viper.IsSet("source") && !viper.IsSet("profiles") {
-		fmt.Println("Legacy config format detected. goback now uses profiles.")
-		fmt.Println()
-		fmt.Println("Please restructure your ~/.goback.json to use the new format:")
-		fmt.Println("  Move 'source', 'destination', and 'rsync' under a named profile in 'profiles'.")
-		fmt.Println("  Add a 'hostname' field to machine-specific profiles (run `hostname` to get yours).")
-		fmt.Println()
-		fmt.Println("Example:")
-		fmt.Println(`  {`)
-		fmt.Println(`    "confirmExec": false,`)
-		fmt.Println(`    "profiles": {`)
-		fmt.Println(`      "myprofile": {`)
-		fmt.Println(`        "hostname": "My-Machine.local",`)
-		fmt.Println(`        "source": "/Users/me",`)
-		fmt.Println(`        "destination": "/Volumes/Backup/myprofile",`)
-		fmt.Println(`        "rsync": { ... }`)
-		fmt.Println(`      }`)
-		fmt.Println(`    }`)
-		fmt.Println(`  }`)
-		fmt.Println()
-		fmt.Println("Run 'goback config reset' to generate a fresh config with the new structure,")
-		fmt.Println("or manually edit your config with 'goback config edit'.")
-		os.Exit(1)
+		return fmt.Errorf("legacy config format detected. goback now uses profiles.\n\n" +
+			"Please restructure your ~/.goback.json to use the new format:\n" +
+			"  Move 'source', 'destination', and 'rsync' under a named profile in 'profiles'.\n" +
+			"  Add a 'hostname' field to machine-specific profiles (run `hostname` to get yours).\n\n" +
+			"Example:\n" +
+			"  {\n" +
+			`    "confirmExec": false,` + "\n" +
+			`    "profiles": {` + "\n" +
+			`      "myprofile": {` + "\n" +
+			`        "hostname": "My-Machine.local",` + "\n" +
+			`        "source": "/Users/me",` + "\n" +
+			`        "destination": "/Volumes/Backup/myprofile",` + "\n" +
+			`        "rsync": { ... }` + "\n" +
+			"      }\n" +
+			"    }\n" +
+			"  }\n\n" +
+			"Run 'goback config reset' to generate a fresh config with the new structure,\n" +
+			"or manually edit your config with 'goback config edit'.")
 	}
+	return nil
 }
 
 // ResolveProfiles determines which profiles to use based on flags.
-// Called from PersistentPreRun after config is loaded.
-func ResolveProfiles() {
+// Called from PersistentPreRunE after config is loaded.
+func ResolveProfiles() error {
 	if ProfileFlag != "" && AllProfiles {
-		fmt.Println("Error: --profile and --all are mutually exclusive")
-		os.Exit(1)
+		return fmt.Errorf("--profile and --all are mutually exclusive")
 	}
 
 	if ProfileFlag != "" {
 		// Validate the profile exists
 		profiles := viper.GetStringMap("profiles")
 		if _, ok := profiles[ProfileFlag]; !ok {
-			fmt.Printf("Error: profile %q not found. Available profiles: %v\n", ProfileFlag, ProfileNames())
-			os.Exit(1)
+			return fmt.Errorf("profile %q not found. Available profiles: %v", ProfileFlag, ProfileNames())
 		}
 		ActiveProfileName = ProfileFlag
-		return
+		return nil
 	}
 
 	if AllProfiles {
 		// ActiveProfileName will be set per-iteration in forEachProfile
-		return
+		return nil
 	}
 
 	// Auto-detect: set ActiveProfileName to the first matching profile
 	matching := MatchingProfiles()
 	if len(matching) > 0 {
 		ActiveProfileName = matching[0]
+		fmt.Fprintf(os.Stderr, "Using profile: %s\n", ActiveProfileName)
 	} else if names := ProfileNames(); len(names) > 0 {
 		// If no hostname match but only one profile, use it
 		if len(names) == 1 {
 			ActiveProfileName = names[0]
+			fmt.Fprintf(os.Stderr, "Using profile: %s\n", ActiveProfileName)
 		} else {
-			fmt.Println("Error: could not auto-detect profile for this machine.")
-			fmt.Printf("No profile hostname matches %q.\n", mustHostname())
-			fmt.Printf("Available profiles: %v\n", names)
-			fmt.Println("Use --profile to specify one, or add a 'hostname' field to your profile.")
-			os.Exit(1)
+			return fmt.Errorf("could not auto-detect profile for this machine.\nNo profile hostname matches %q.\nAvailable profiles: %v\nUse --profile to specify one, or add a 'hostname' field to your profile.", mustHostname(), names)
 		}
 	}
+	return nil
 }
 
 func mustHostname() string {
@@ -230,10 +177,6 @@ func recreateInvalidFile() {
 	}
 }
 
-func setCliCfg() {
-	cliCfg.ConfigExtension = ".json"
-}
-
 func setViperCfg() {
 	if CfgFile != "" {
 		// Use config file from the flag.
@@ -241,7 +184,9 @@ func setViperCfg() {
 	} else {
 		// Find home directory.
 		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		if err != nil {
+			panic(err)
+		}
 
 		// Search config in home directory with name ".goback" (without extension).
 		viper.AddConfigPath(home)

@@ -15,14 +15,14 @@ var RootCmd = &cobra.Command{
 	Use:     "goback",
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Parent().Name() != "config" {
-			config.MustInitConfig(true, true)
-			config.ResolveProfiles()
-			return
+			if err := config.MustInitConfig(true, true); err != nil {
+				return err
+			}
+			return config.ResolveProfiles()
 		}
-
-		config.MustInitConfig(false, false)
+		return config.MustInitConfig(false, false)
 	},
 }
 

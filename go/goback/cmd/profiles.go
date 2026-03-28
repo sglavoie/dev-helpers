@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
@@ -11,12 +12,15 @@ import (
 // forEachProfile runs the given action for each profile that should be processed
 // based on the --profile, --all, or auto-detected profiles. It prints a header
 // before each profile when running multiple profiles, and handles eject once
-// after all profiles complete.
-func forEachProfile(action func()) {
+// after all profiles complete. If any profile fails, it prints the error and
+// continues to the next profile. After all profiles complete, it exits with
+// code 1 if any profile failed.
+func forEachProfile(action func() error) {
 	profiles := profilesToRun()
 	ejectOnExit := viper.GetBool("ejectOnExit")
 
 	var destinations []string
+	anyFailed := false
 	for i, name := range profiles {
 		config.ActiveProfileName = name
 		if len(profiles) > 1 {
@@ -25,7 +29,11 @@ func forEachProfile(action func()) {
 			}
 			fmt.Printf("=== Profile: %s ===\n", name)
 		}
-		action()
+		if err := action(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: profile %q: %v\n", name, err)
+			anyFailed = true
+			continue
+		}
 		if ejectOnExit {
 			dest := viper.GetString(config.ActiveProfilePrefix() + "destination")
 			if dest != "" {
@@ -36,6 +44,10 @@ func forEachProfile(action func()) {
 
 	if ejectOnExit {
 		eject.EjectPaths(destinations)
+	}
+
+	if anyFailed {
+		os.Exit(1)
 	}
 }
 

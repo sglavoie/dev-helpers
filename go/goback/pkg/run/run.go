@@ -5,26 +5,35 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 )
 
-func DailyBackup() {
-	c := buildcmd.BuildDaily()
-	if !c.PrintCommandToRunWithConfirmation() {
-		return
+func DailyBackup() error {
+	c, err := buildcmd.BuildDaily()
+	if err != nil {
+		return err
 	}
-	c.Execute()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return nil
+	}
+	return c.Execute()
 }
 
-func WeeklyBackup() {
-	c := buildcmd.BuildWeekly()
-	if !c.PrintCommandToRunWithConfirmation() {
-		return
+func WeeklyBackup() error {
+	c, err := buildcmd.BuildWeekly()
+	if err != nil {
+		return err
 	}
-	c.Execute()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return nil
+	}
+	return c.Execute()
 }
 
-func MonthlyBackup() {
-	c := buildcmd.BuildMonthly()
-	if !c.PrintCommandToRunWithConfirmation() {
-		return
+func MonthlyBackup() error {
+	c, err := buildcmd.BuildMonthly()
+	if err != nil {
+		return err
 	}
-	c.Execute()
+	if !c.PrintCommandToRunWithConfirmation() {
+		return nil
+	}
+	return c.Execute()
 }

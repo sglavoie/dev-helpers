@@ -1,11 +1,23 @@
 package buildcmd
 
 import (
-	"strings"
-	"time"
-
 	"github.com/spf13/viper"
 )
+
+// booleanFlags maps config keys to rsync flag strings for flags that map
+// directly without CLI override logic.
+var booleanFlags = []struct {
+	configKey string
+	flag      string
+}{
+	{"archive", "--archive"},
+	{"delete", "--delete"},
+	{"deleteExcluded", "--delete-excluded"},
+	{"force", "--force"},
+	{"hardLinks", "--hard-links"},
+	{"ignoreErrors", "--ignore-errors"},
+	{"pruneEmptyDirs", "--prune-empty-dirs"},
+}
 
 func isDryRun() bool {
 	return viper.GetBool("cliDryRun")
@@ -15,41 +27,17 @@ func (r *builder) CommandString() string {
 	return r.sb.String()
 }
 
-// addRawSourceDestination reads a source and a destination from the config file.
-// It currently handles a single mapping for simplicity.
-func (r *builder) addRawSourceDestination() {
-	src, dest := mustExitOnInvalidSourceOrDestination()
-	r.sb.WriteString(" ")
-	r.sb.WriteString(src)
-	r.sb.WriteString(" ")
-	r.sb.WriteString(dest)
-}
-
 func (r *builder) appendBooleanFlags() {
 	cfgPrefix := r.builderSettingsPrefix()
-	if viper.GetBool(cfgPrefix + "archive") {
-		r.sb.WriteString(" --archive")
+
+	for _, f := range booleanFlags {
+		if viper.GetBool(cfgPrefix + f.configKey) {
+			r.sb.WriteString(" " + f.flag)
+		}
 	}
-	if viper.GetBool(cfgPrefix + "delete") {
-		r.sb.WriteString(" --delete")
-	}
-	if viper.GetBool(cfgPrefix + "deleteExcluded") {
-		r.sb.WriteString(" --delete-excluded")
-	}
+
 	if viper.GetBool(cfgPrefix+"dryRun") || isDryRun() {
 		r.sb.WriteString(" --dry-run")
-	}
-	if viper.GetBool(cfgPrefix + "force") {
-		r.sb.WriteString(" --force")
-	}
-	if viper.GetBool(cfgPrefix + "hardLinks") {
-		r.sb.WriteString(" --hard-links")
-	}
-	if viper.GetBool(cfgPrefix + "ignoreErrors") {
-		r.sb.WriteString(" --ignore-errors")
-	}
-	if viper.GetBool(cfgPrefix + "pruneEmptyDirs") {
-		r.sb.WriteString(" --prune-empty-dirs")
 	}
 	if viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose") {
 		r.sb.WriteString(" --verbose")
@@ -90,19 +78,10 @@ func (r *builder) appendExcludedPatterns() {
 	}
 }
 
-// NOTE: currently unused
-func (r *builder) appendLogFile() {
-	r.sb.WriteString(" --log-file=")
-	r.sb.WriteString(strings.TrimSuffix(viper.ConfigFileUsed(), ".json"))
-	r.sb.WriteString("_")
-	r.sb.WriteString(r.builderType.String())
-	r.sb.WriteString("_")
-	r.sb.WriteString(time.Now().Format("20060102_15_04_05"))
-}
-
 func (r *builder) appendSrcDest() {
-	r.sb.WriteString(" ")
+	r.sb.WriteString(" '")
 	r.sb.WriteString(r.updatedSrc)
-	r.sb.WriteString(" ")
+	r.sb.WriteString("' '")
 	r.sb.WriteString(r.updatedDestDir)
+	r.sb.WriteString("'")
 }

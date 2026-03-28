@@ -67,23 +67,16 @@ func WithDb(callback func(*sql.DB)) {
 	callback(sqldb)
 }
 
-func WithRows(rows *sql.Rows, callback func(*sql.Rows)) {
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		cobra.CheckErr(err)
-	}(rows)
-	callback(rows)
-}
-
-func WithQuery(query string, args ...any) *sql.Rows {
-	var rows *sql.Rows
+func QueryRows(query string, callback func(*sql.Rows), args ...any) {
 	WithDb(func(sqldb *sql.DB) {
-		var err error
-		rows, err = sqldb.Query(query, args...)
+		rows, err := sqldb.Query(query, args...)
 		cobra.CheckErr(err)
+		defer func() {
+			err := rows.Close()
+			cobra.CheckErr(err)
+		}()
+		callback(rows)
 	})
-
-	return rows
 }
 
 func checkTableExists(db *sql.DB) {

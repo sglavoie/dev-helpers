@@ -31,32 +31,17 @@ func (r *builder) getFlags() []string {
 	cfgPrefix := r.builderSettingsPrefix()
 	var flags []string
 
-	flagMap := []struct {
-		key  string
-		flag string
-	}{
-		{"archive", "--archive"},
-		{"delete", "--delete"},
-		{"deleteExcluded", "--delete-excluded"},
-		{"dryRun", "--dry-run"},
-		{"force", "--force"},
-		{"hardLinks", "--hard-links"},
-		{"ignoreErrors", "--ignore-errors"},
-		{"pruneEmptyDirs", "--prune-empty-dirs"},
-		{"verbose", "--verbose"},
-	}
-
-	for _, f := range flagMap {
-		if viper.GetBool(cfgPrefix + f.key) {
+	for _, f := range booleanFlags {
+		if viper.GetBool(cfgPrefix + f.configKey) {
 			flags = append(flags, f.flag)
 		}
 	}
 
-	// Account for CLI overrides
-	if viper.GetBool("cliDryRun") && !viper.GetBool(cfgPrefix+"dryRun") {
+	// dryRun and verbose have CLI override logic handled separately
+	if viper.GetBool(cfgPrefix+"dryRun") || viper.GetBool("cliDryRun") {
 		flags = append(flags, "--dry-run")
 	}
-	if viper.GetBool("cliVerbose") && !viper.GetBool(cfgPrefix+"verbose") {
+	if viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose") {
 		flags = append(flags, "--verbose")
 	}
 

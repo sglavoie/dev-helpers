@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -21,12 +21,19 @@ func (r *builder) BuildNoCheck() {
 	r.build()
 }
 
-func (r *builder) BuildCheck() {
+func (r *builder) BuildCheck() error {
+	if !viper.IsSet(r.builderSettingsPrefix() + "archive") {
+		return fmt.Errorf("no rsync.%s configuration found for profile %q", r.builderType.String(), config.ActiveProfileName)
+	}
 	r.build()
-	r.validateBeforeRun()
+	return r.validateBeforeRun()
 }
 
-func (r *builder) Execute() {
+func (r *builder) Execute() error {
+	if _, err := exec.LookPath("rsync"); err != nil {
+		return fmt.Errorf("rsync not found in PATH: %w", err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -40,7 +47,7 @@ func (r *builder) Execute() {
 
 	if ctx.Err() != nil {
 		fmt.Println("\nBackup interrupted, cleaning up...")
-		return
+		return fmt.Errorf("backup interrupted")
 	}
 
 	if err != nil {
@@ -50,16 +57,20 @@ func (r *builder) Execute() {
 		} else {
 			r.exitCode = 1
 		}
+		if !viper.GetBool("cliDryRun") {
+			r.updateDBWithUsage()
+		}
+		return err
 	}
 	if !viper.GetBool("cliDryRun") {
 		r.updateDBWithUsage()
 	}
+	return nil
 }
 
 func (r *builder) build() {
 	r.initBuilder()
 	r.appendBooleanFlags()
-	// r.appendLogFile()
 	r.appendIncludedPatterns()
 	r.appendExcludedPatterns()
 	r.appendSrcDest()
@@ -77,7 +88,9 @@ func (r *builder) initBuilder() {
 func (r *builder) insertIntoDb() {
 	createdAt := time.Now().Format("2006-01-02 15:04:05")
 	_, err := r.db.Exec("INSERT INTO backups VALUES(NULL,?,?,?,?,?,?);", createdAt, r.builderType.String(), r.executionTime, r.CommandString(), config.ActiveProfileName, r.exitCode)
-	cobra.CheckErr(err)
+	if err != nil {
+		log.Printf("warning: failed to record backup in history: %v", err)
+	}
 }
 
 func (r *builder) updateDBWithUsage() {

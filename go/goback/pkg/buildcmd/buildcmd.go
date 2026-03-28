@@ -3,48 +3,77 @@ package buildcmd
 import (
 	"strings"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
+	"github.com/spf13/viper"
 )
 
-func BuildDaily() *RsyncBuilder {
-	c := commandToRunDailyCheck()
-	c.BuildCheck()
-	return c
+// IsConfigured reports whether a backup type (e.g. "weekly", "monthly") has
+// an rsync config section for the active profile.
+func IsConfigured(backupType string) bool {
+	return viper.IsSet(config.ActiveProfilePrefix() + "rsync." + backupType + ".archive")
 }
 
-func BuildWeekly() *RsyncBuilder {
-	c := commandToRunWeeklyCheck()
-	c.BuildCheck()
-	return c
+func BuildDaily() (*RsyncBuilder, error) {
+	c, err := commandToRunDailyCheck()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.BuildCheck(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-func BuildMonthly() *RsyncBuilder {
-	c := commandToRunMonthlyCheck()
-	c.BuildCheck()
-	return c
+func BuildWeekly() (*RsyncBuilder, error) {
+	c, err := commandToRunWeeklyCheck()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.BuildCheck(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-func PrintCommandDaily() {
+func BuildMonthly() (*RsyncBuilder, error) {
+	c, err := commandToRunMonthlyCheck()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.BuildCheck(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func PrintCommandDaily() error {
 	c := commandToRunDailyNoCheck()
 	c.BuildNoCheck()
 	c.FormattedPreview()
+	return nil
 }
 
-func PrintCommandWeekly() {
+func PrintCommandWeekly() error {
 	c := commandToRunWeeklyNoCheck()
 	c.BuildNoCheck()
 	c.FormattedPreview()
+	return nil
 }
 
-func PrintCommandMonthly() {
+func PrintCommandMonthly() error {
 	c := commandToRunMonthlyNoCheck()
 	c.BuildNoCheck()
 	c.FormattedPreview()
+	return nil
 }
 
-func commandToRunDailyCheck() *RsyncBuilder {
-	src, dest := mustExitOnInvalidSourceOrDestination()
-	return commandToRunDaily(src, dest)
+func commandToRunDailyCheck() (*RsyncBuilder, error) {
+	src, dest, err := validateSourceAndDestination()
+	if err != nil {
+		return nil, err
+	}
+	return commandToRunDaily(src, dest), nil
 }
 
 func commandToRunDailyNoCheck() *RsyncBuilder {
@@ -65,9 +94,12 @@ func commandToRunDaily(src, dest string) *RsyncBuilder {
 	return b
 }
 
-func commandToRunWeeklyCheck() *RsyncBuilder {
-	src, dest := mustExitOnInvalidSourceOrDestination()
-	return commandToRunWeekly(src, dest)
+func commandToRunWeeklyCheck() (*RsyncBuilder, error) {
+	src, dest, err := validateSourceAndDestination()
+	if err != nil {
+		return nil, err
+	}
+	return commandToRunWeekly(src, dest), nil
 }
 
 func commandToRunWeeklyNoCheck() *RsyncBuilder {
@@ -89,9 +121,12 @@ func commandToRunWeekly(src, dest string) *RsyncBuilder {
 	return b
 }
 
-func commandToRunMonthlyCheck() *RsyncBuilder {
-	src, dest := mustExitOnInvalidSourceOrDestination()
-	return commandToRunMonthly(src, dest)
+func commandToRunMonthlyCheck() (*RsyncBuilder, error) {
+	src, dest, err := validateSourceAndDestination()
+	if err != nil {
+		return nil, err
+	}
+	return commandToRunMonthly(src, dest), nil
 }
 
 func commandToRunMonthlyNoCheck() *RsyncBuilder {

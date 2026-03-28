@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ func init() {
 	runCmd.AddCommand(dailyCmdRun)
 	runCmd.AddCommand(weeklyCmdRun)
 	runCmd.AddCommand(monthlyCmdRun)
+	runCmd.AddCommand(allCmdRun)
 	RootCmd.AddCommand(runCmd)
 }
 
@@ -33,9 +35,12 @@ var dailyCmdRun = &cobra.Command{
 	Short: "Perform a daily backup",
 	Long:  "Perform a daily, incremental backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		forEachProfile(func() {
-			run.DailyBackup()
+		forEachProfile(func() error {
+			if err := run.DailyBackup(); err != nil {
+				return err
+			}
 			last.SummaryWithLineBreak()
+			return nil
 		})
 	},
 }
@@ -45,9 +50,12 @@ var weeklyCmdRun = &cobra.Command{
 	Short: "Perform a weekly backup",
 	Long:  "Perform a weekly, incremental backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		forEachProfile(func() {
-			run.WeeklyBackup()
+		forEachProfile(func() error {
+			if err := run.WeeklyBackup(); err != nil {
+				return err
+			}
 			last.SummaryWithLineBreak()
+			return nil
 		})
 	},
 }
@@ -55,11 +63,38 @@ var weeklyCmdRun = &cobra.Command{
 var monthlyCmdRun = &cobra.Command{
 	Use:   "monthly",
 	Short: "Perform a monthly backup",
-	Long:  "Perform a monthly, incremental, compressed backup from the weekly backup.",
+	Long:  "Perform a monthly, incremental, compressed backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
-		forEachProfile(func() {
-			run.MonthlyBackup()
+		forEachProfile(func() error {
+			if err := run.MonthlyBackup(); err != nil {
+				return err
+			}
 			last.SummaryWithLineBreak()
+			return nil
+		})
+	},
+}
+
+var allCmdRun = &cobra.Command{
+	Use:   "all",
+	Short: "Run daily, weekly, and monthly backups in sequence",
+	Run: func(cmd *cobra.Command, args []string) {
+		forEachProfile(func() error {
+			if err := run.DailyBackup(); err != nil {
+				return err
+			}
+			if buildcmd.IsConfigured("weekly") {
+				if err := run.WeeklyBackup(); err != nil {
+					return err
+				}
+			}
+			if buildcmd.IsConfigured("monthly") {
+				if err := run.MonthlyBackup(); err != nil {
+					return err
+				}
+			}
+			last.SummaryWithLineBreak()
+			return nil
 		})
 	},
 }

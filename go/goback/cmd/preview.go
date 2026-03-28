@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
@@ -30,27 +30,28 @@ func init() {
 	RootCmd.AddCommand(previewCmd)
 }
 
-func runPreview(cmd *cobra.Command, buildFn func(), backupType models.BackupTypes) {
+func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.BackupTypes) {
 	testPattern, _ := cmd.Flags().GetString("test-pattern")
 	showExcluded, _ := cmd.Flags().GetBool("excluded")
 	subdir, _ := cmd.Flags().GetString("subdir")
 	depth, _ := cmd.Flags().GetInt("depth")
 
-	forEachProfile(func() {
+	forEachProfile(func() error {
 		switch {
 		case testPattern != "" && showExcluded:
-			log.Fatal("--test-pattern and --excluded are mutually exclusive")
+			return fmt.Errorf("--test-pattern and --excluded are mutually exclusive")
 		case subdir != "" && testPattern == "" && !showExcluded:
-			log.Fatal("--subdir requires --test-pattern or --excluded")
+			return fmt.Errorf("--subdir requires --test-pattern or --excluded")
 		case depth > 0 && testPattern == "" && !showExcluded:
-			log.Fatal("--depth requires --test-pattern or --excluded")
+			return fmt.Errorf("--depth requires --test-pattern or --excluded")
 		case testPattern != "":
 			buildcmd.TestSinglePattern(backupType, testPattern, subdir, depth)
 		case showExcluded:
 			buildcmd.TestAllExcluded(backupType, subdir, depth)
 		default:
-			buildFn()
+			return buildFn()
 		}
+		return nil
 	})
 }
 

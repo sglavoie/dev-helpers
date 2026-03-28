@@ -10,15 +10,13 @@ import (
 )
 
 func Last(e int) {
-	rows := queryAllLatestBackupTypes(e)
-	db.WithRows(rows, func(rows *sql.Rows) {
+	queryAllLatestBackupTypes(e, func(rows *sql.Rows) {
 		view.SqlToText(rows)
 	})
 }
 
 func Summary() {
-	rows := querySummaryBackupTypes()
-	db.WithRows(rows, func(rows *sql.Rows) {
+	querySummaryBackupTypes(func(rows *sql.Rows) {
 		view.SqlToTextSummary(rows)
 	})
 }
@@ -28,10 +26,10 @@ func SummaryWithLineBreak() {
 	Summary()
 }
 
-func queryAllLatestBackupTypes(e int) *sql.Rows {
+func queryAllLatestBackupTypes(e int, callback func(*sql.Rows)) {
 	profile := config.ProfileFlag
 	if profile != "" {
-		return db.WithQuery(`
+		db.QueryRows(`
 WITH ranked_backups AS (
     SELECT *,
            ROW_NUMBER() OVER (PARTITION BY backup_type ORDER BY created_at DESC) as row_num
@@ -41,9 +39,10 @@ WITH ranked_backups AS (
 SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM ranked_backups
 WHERE row_num <= ?
 ORDER BY created_at DESC;
-		`, profile, e)
+		`, callback, profile, e)
+		return
 	}
-	return db.WithQuery(`
+	db.QueryRows(`
 WITH ranked_backups AS (
     SELECT *,
            ROW_NUMBER() OVER (PARTITION BY backup_type ORDER BY created_at DESC) as row_num
@@ -52,9 +51,9 @@ WITH ranked_backups AS (
 SELECT id, created_at, backup_type, execution_time, command, profile, exit_code FROM ranked_backups
 WHERE row_num <= ?
 ORDER BY created_at DESC;
-	`, e)
+	`, callback, e)
 }
 
-func querySummaryBackupTypes() *sql.Rows {
-	return queryAllLatestBackupTypes(1)
+func querySummaryBackupTypes(callback func(*sql.Rows)) {
+	queryAllLatestBackupTypes(1, callback)
 }
