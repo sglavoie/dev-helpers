@@ -69,6 +69,11 @@ Create dynamic snippet templates with enhanced placeholder syntax:
 - **Optional**: `{{name|John Doe}}` - with default value
 - **No-save**: `{{!date}}` - value NOT saved to history
 
+### Conditional Blocks
+- **If block**: `{{#if key}}...{{/if}}` - includes block only when key is non-empty
+- **If/else**: `{{#if key}}...{{#else}}...{{/if}}` - alternate content when key is empty
+- **Nested**: blocks can be nested inside each other for compound logic (up to 10 levels deep)
+
 ### Conditional Wrapper Text
 - **Prefix**: `{{#:id:}}` - adds "#" before value (only if value present)
 - **Suffix**: `{{:id:#}}` - adds "#" after value (only if value present)

@@ -252,24 +252,36 @@ function buildPlaceholderRegex(placeholder: Placeholder): RegExp {
  * Supports:
  *   {{#if key}}...{{/if}}
  *   {{#if key}}...{{#else}}...{{/if}}
+ *   Nested {{#if}} blocks (resolved inside-out, up to 10 levels deep)
  *
  * A key is truthy when its value is non-empty after trimming.
  * Guard-only keys (checkbox in the form) use "true" for checked, "" for unchecked.
  * Consumes one trailing newline after {{/if}} to avoid blank lines on removal.
- * No nested {{#if}} blocks supported.
  */
 export function processConditionalBlocks(text: string, values: Record<string, string>): string {
-  const blockRegex = /\{\{#if ([^}]+)\}\}([\s\S]*?)(?:\{\{#else\}\}([\s\S]*?))?\{\{\/if\}\}/g;
+  // Leaf block: body and else-body use a negative lookahead to exclude any nested
+  // {{#if, so this regex only matches the innermost (leaf) blocks directly.
+  const leafRegex =
+    /\{\{#if ([^}]+)\}\}((?:(?!\{\{#if\s)[\s\S])*?)(?:\{\{#else\}\}((?:(?!\{\{#if\s)[\s\S])*?))?\{\{\/if\}\}/g;
 
-  return text.replace(blockRegex, (_match, rawKey, ifBody, elseBody) => {
-    const key = rawKey.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
-    const value = values[key] ?? "";
-    const isTruthy = value.trim().length > 0;
+  const MAX_ITERATIONS = 10;
+  let result = text;
+  let iteration = 0;
 
-    const selectedBody = isTruthy ? ifBody : (elseBody ?? "");
+  while (iteration < MAX_ITERATIONS) {
+    let foundLeaf = false;
+    result = result.replace(leafRegex, (_match, rawKey, ifBody, elseBody) => {
+      foundLeaf = true;
+      const key = rawKey.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
+      const value = values[key] ?? "";
+      const isTruthy = value.trim().length > 0;
+      const selectedBody = isTruthy ? ifBody : (elseBody ?? "");
+      return selectedBody.replace(/^\n/, "").replace(/\n$/, "");
+    });
 
-    // Trim exactly one leading and one trailing newline to avoid blank lines
-    // when the block tags are on their own lines
-    return selectedBody.replace(/^\n/, "").replace(/\n$/, "");
-  });
+    if (!foundLeaf) break;
+    iteration++;
+  }
+
+  return result;
 }

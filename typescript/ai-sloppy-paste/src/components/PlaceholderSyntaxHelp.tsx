@@ -569,6 +569,61 @@ The Team
             </ActionPanel>
           }
         />
+
+        <List.Item
+          icon={{ source: Icon.CodeBlock, tintColor: Color.Orange }}
+          title="Nested {{#if}} blocks"
+          subtitle={isShowingDetail ? undefined : "Conditional blocks can be nested inside each other"}
+          accessories={isShowingDetail ? undefined : [{ text: "Example: formal + first_contact" }]}
+          detail={
+            <List.Item.Detail
+              markdown={`
+# Nested {{#if}} Blocks
+
+Conditional blocks can be nested inside each other to express compound logic — for example, "if formal, include greeting; and if first contact, also include introduction."
+
+Blocks are resolved inside-out (innermost first), up to 10 levels deep.
+
+## Example
+
+\`\`\`
+{{#if formal}}
+Dear {{name}},
+{{#if first_contact}}
+Allow me to introduce myself.
+{{/if}}
+{{#else}}
+Hey {{name}}!
+{{/if}}
+\`\`\`
+
+- \`formal=yes\`, \`first_contact=yes\` → formal greeting + introduction
+- \`formal=yes\`, \`first_contact=""\` → formal greeting only
+- \`formal=""\` → casual greeting, inner block never evaluated
+
+## When to Use
+
+- Multi-condition logic that would otherwise require separate snippets
+- Layered optional sections (e.g. salutation + opener + closing)
+`}
+            />
+          }
+          actions={
+            <ActionPanel>
+              <Action
+                title="Toggle Detail"
+                icon={Icon.AppWindowSidebarLeft}
+                onAction={() => setIsShowingDetail(!isShowingDetail)}
+              />
+              <Action.CopyToClipboard
+                title="Copy Example"
+                content={
+                  "{{#if formal}}\nDear {{name}},\n{{#if first_contact}}\nAllow me to introduce myself.\n{{/if}}\n{{#else}}\nHey {{name}}!\n{{/if}}"
+                }
+              />
+            </ActionPanel>
+          }
+        />
       </List.Section>
 
       <List.Section title="System Placeholders">

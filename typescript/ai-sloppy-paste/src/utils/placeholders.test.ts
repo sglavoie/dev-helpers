@@ -598,6 +598,68 @@ describe("processConditionalBlocks", () => {
   });
 });
 
+describe("processConditionalBlocks — nested blocks", () => {
+  it("2-level: outer true + inner true shows both bodies", () => {
+    const text = "{{#if a}}outer {{#if b}}inner{{/if}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "yes", b: "yes" })).toBe("outer inner");
+  });
+
+  it("2-level: outer true + inner false omits inner body", () => {
+    const text = "{{#if a}}outer {{#if b}}inner{{/if}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "yes", b: "" })).toBe("outer ");
+  });
+
+  it("2-level: outer false skips everything including inner", () => {
+    const text = "{{#if a}}outer {{#if b}}inner{{/if}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "", b: "yes" })).toBe("");
+  });
+
+  it("nested if-else blocks resolve correctly", () => {
+    const text = "{{#if a}}{{#if b}}both{{#else}}a only{{/if}}{{#else}}neither{{/if}}";
+    expect(processConditionalBlocks(text, { a: "yes", b: "yes" })).toBe("both");
+    expect(processConditionalBlocks(text, { a: "yes", b: "" })).toBe("a only");
+    expect(processConditionalBlocks(text, { a: "", b: "yes" })).toBe("neither");
+    expect(processConditionalBlocks(text, { a: "", b: "" })).toBe("neither");
+  });
+
+  it("3-level deep nesting resolves correctly", () => {
+    const text = "{{#if a}}{{#if b}}{{#if c}}all three{{/if}}{{/if}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "1", b: "1", c: "1" })).toBe("all three");
+    expect(processConditionalBlocks(text, { a: "1", b: "1", c: "" })).toBe("");
+    expect(processConditionalBlocks(text, { a: "1", b: "", c: "1" })).toBe("");
+    expect(processConditionalBlocks(text, { a: "", b: "1", c: "1" })).toBe("");
+  });
+
+  it("nested blocks with different keys are each resolved independently", () => {
+    // Note: {{name}} is a regular placeholder — processConditionalBlocks only resolves
+    // the branch structure, not the placeholder substitution inside the chosen branch.
+    const text = "{{#if formal}}Dear {{#if name}}{{name}}{{#else}}Sir{{/if}}{{#else}}Hey{{/if}}";
+    expect(processConditionalBlocks(text, { formal: "yes", name: "Alice" })).toBe("Dear {{name}}");
+    expect(processConditionalBlocks(text, { formal: "yes", name: "" })).toBe("Dear Sir");
+    expect(processConditionalBlocks(text, { formal: "", name: "Alice" })).toBe("Hey");
+  });
+
+  it("nested blocks mixed with sibling blocks at same level", () => {
+    const text = "{{#if a}}A{{/if}} {{#if b}}{{#if c}}BC{{/if}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "1", b: "1", c: "1" })).toBe("A BC");
+    expect(processConditionalBlocks(text, { a: "1", b: "1", c: "" })).toBe("A ");
+    expect(processConditionalBlocks(text, { a: "", b: "1", c: "1" })).toBe(" BC");
+  });
+
+  it("newline cleanup works correctly with nesting", () => {
+    const text = "Before\n{{#if a}}\n{{#if b}}\nInner\n{{/if}}\n{{/if}}\nAfter";
+    expect(processConditionalBlocks(text, { a: "1", b: "1" })).toBe("Before\nInner\nAfter");
+    expect(processConditionalBlocks(text, { a: "1", b: "" })).toBe("Before\n\nAfter");
+    expect(processConditionalBlocks(text, { a: "", b: "1" })).toBe("Before\n\nAfter");
+  });
+
+  it("malformed/unbalanced tags do not cause infinite loop", () => {
+    // Extra {{#if without matching {{/if}} — should terminate within iteration limit
+    const text = "{{#if a}}{{#if b}}unclosed{{/if}}";
+    expect(() => processConditionalBlocks(text, { a: "1", b: "1" })).not.toThrow();
+  });
+});
+
 describe("extractPlaceholders — conditional blocks", () => {
   it("guard-only key extracted from {{#if key}} when key not seen elsewhere", () => {
     const text = "{{#if include_sig}}\nBest regards\n{{/if}}";
