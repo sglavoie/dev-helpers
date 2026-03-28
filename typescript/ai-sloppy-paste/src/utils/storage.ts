@@ -5,6 +5,8 @@ import { normalizeTags, deduplicateTags, removeRedundantParents } from "./tags";
 const STORAGE_KEY = "storage_v2";
 const CURRENT_VERSION = 7;
 
+let cachedData: StorageData | null = null;
+
 interface Preferences {
   maxPlaceholderHistoryValues?: string;
 }
@@ -94,6 +96,10 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
  * Load storage data and apply migrations if needed
  */
 async function loadStorageData(): Promise<StorageData> {
+  if (cachedData !== null) {
+    return cachedData;
+  }
+
   const storageJson = await LocalStorage.getItem<string>(STORAGE_KEY);
 
   if (storageJson) {
@@ -118,6 +124,7 @@ async function loadStorageData(): Promise<StorageData> {
         await saveStorageData(data);
       }
 
+      cachedData = data;
       return data;
     } catch (error) {
       console.error("Error parsing storage data:", error);
@@ -125,19 +132,29 @@ async function loadStorageData(): Promise<StorageData> {
   }
 
   // Return empty storage if nothing found
-  return {
+  const emptyData: StorageData = {
     version: CURRENT_VERSION,
     snippets: [],
     tags: [],
     placeholderHistory: {},
   };
+  cachedData = emptyData;
+  return emptyData;
 }
 
 /**
  * Save storage data
  */
 async function saveStorageData(data: StorageData): Promise<void> {
+  cachedData = data;
   await LocalStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/**
+ * Invalidate the in-memory cache, forcing the next read to re-parse from LocalStorage
+ */
+export function invalidateCache(): void {
+  cachedData = null;
 }
 
 export async function getSnippets(): Promise<Snippet[]> {
@@ -626,6 +643,7 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       currentData.placeholderHistory = mergedHistory;
     }
 
+    invalidateCache();
     await saveStorageData(currentData);
   } else {
     // Replace all data - ensure imported snippets are properly formatted
@@ -645,11 +663,13 @@ export async function importData(importedData: ExportData, merge: boolean = fals
       placeholderHistory: importedData.placeholderHistory || {},
     };
 
+    invalidateCache();
     await saveStorageData(newData);
   }
 }
 
 export async function clearAllData(): Promise<void> {
+  invalidateCache();
   await LocalStorage.removeItem(STORAGE_KEY);
 }
 
