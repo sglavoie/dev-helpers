@@ -1,0 +1,39 @@
+# Display available commands
+[private]
+default:
+    @just --list
+
+binary_name := "jsonc2json"
+build_flags := "-trimpath -ldflags '-s -w'"
+
+# Run fmt, lint, and test
+all: fmt lint test
+
+# Build the binary
+build:
+    go build {{build_flags}} -o {{binary_name}} .
+
+# Remove built binary
+clean:
+    rm -f {{binary_name}}
+
+# Format Go source files
+fmt:
+    go fmt ./...
+
+# Run golangci-lint
+lint:
+    golangci-lint run -v
+
+# Run all tests
+test:
+    go test -v ./...
+
+# Build and install to GOPATH
+install: build
+    rm -f $GOPATH/bin/{{binary_name}}
+    mv {{binary_name}} $GOPATH/bin/
+
+# Remove installed binary from GOPATH
+uninstall:
+    rm -f $GOPATH/bin/{{binary_name}}
