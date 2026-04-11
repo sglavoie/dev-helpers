@@ -159,7 +159,7 @@ export function invalidateCache(): void {
 
 export async function getSnippets(): Promise<Snippet[]> {
   const data = await loadStorageData();
-  return data.snippets;
+  return [...data.snippets];
 }
 
 export async function getTags(): Promise<string[]> {
