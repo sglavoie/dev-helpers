@@ -209,14 +209,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.3.1"
+version = "8.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065 }
+sdist = { url = "https://files.pythonhosted.org/packages/57/75/31212c6bf2503fdf920d87fee5d7a86a2e3bcf444984126f13d8e4016804/click-8.3.2.tar.gz", hash = "sha256:14162b8b3b3550a7d479eafa77dfd3c38d9dc8951f6f69c78913a8f9a7540fd5", size = 302856 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/78/01c019cdb5d6498122777c1a43056ebb3ebfeef2076d9d026bfe15583b2b/click-8.3.1-py3-none-any.whl", hash = "sha256:981153a64e25f12d547d3426c367a4857371575ee7ad18df2a6183ab0545b2a6", size = 108274 },
+    { url = "https://files.pythonhosted.org/packages/e4/20/71885d8b97d4f3dde17b1fdb92dbd4908b00541c5a3379787137285f602e/click-8.3.2-py3-none-any.whl", hash = "sha256:1924d2c27c5653561cd2cae4548d1406039cb79b858b747cfea24924bbc1616d", size = 108379 },
 ]
 
 [[package]]
@@ -443,7 +443,7 @@ wheels = [
 
 [[package]]
 name = "osxphotos"
-version = "0.75.6"
+version = "0.75.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -489,11 +489,11 @@ dependencies = [
     { name = "whenever" },
     { name = "wrapt" },
     { name = "wurlitzer" },
-    { name = "xdg-base-dirs" },
+    { name = "xdg-base-dirs", marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/c2/152973a11fe205ad1bfe7860a9fb9a9e097294b47f1086b856844a4aa79e/osxphotos-0.75.6.tar.gz", hash = "sha256:76773d09199fcf98dbd2aa915b82d6df791e8e91c8dadf0f47b93b644ad01b7e", size = 2395834 }
+sdist = { url = "https://files.pythonhosted.org/packages/35/1a/da7fbce8822f410e78a09e942a9679060d96a67b49c96a52860709600527/osxphotos-0.75.7.tar.gz", hash = "sha256:b495062335156d5dcb8538acd6b3e257e1987cdba909375d24bd165c8b0843d9", size = 2399750 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/8f/438a412cc078cafa8f309d64383dccb907b7e52ad94bfea6b778f7808855/osxphotos-0.75.6-py3-none-any.whl", hash = "sha256:f9ab0618edc063fb278f121d619fcb5e3575bf7a3cd814c4a6d3fe7c4676f0ba", size = 2066957 },
+    { url = "https://files.pythonhosted.org/packages/dd/94/613da325c3b099385a384960bb856b89c2b0e95c4c2adacfef1aea860b73/osxphotos-0.75.7-py3-none-any.whl", hash = "sha256:becd3f2a519df7fece7dcfa7acbbea000c16e09d358c00a38a06eb2e5c77d813", size = 2069423 },
 ]
 
 [[package]]
@@ -540,8 +540,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.3.1" },
-    { name = "osxphotos", specifier = ">=0.75.6" },
+    { name = "click", specifier = ">=8.3.2" },
+    { name = "osxphotos", specifier = ">=0.75.7" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
 ]
 

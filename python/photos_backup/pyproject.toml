@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Simple backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
-    "click>=8.3.1",
-    "osxphotos>=0.75.6",
+    "click>=8.3.2",
+    "osxphotos>=0.75.7",
     "python-dotenv>=1.2.2",
 ]
 readme = "README.md"
