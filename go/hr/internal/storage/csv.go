@@ -2,25 +2,44 @@ package storage
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"time"
 )
 
 var ErrNoEntries = errors.New("no entries found")
 
-var csvHeaders = []string{"timestamp", "exercise", "reps", "rounds", "notes"}
+var csvHeaders = []string{"timestamp", "exercise", "data", "notes"}
 
 // Entry represents a single exercise log record.
 type Entry struct {
 	Timestamp time.Time
 	Exercise  string
-	Reps      int
-	Rounds    int
+	Data      map[string]any
 	Notes     string
+}
+
+// GetFloat64 returns the float64 value for the given key, or (0, false) if missing or wrong type.
+func (e Entry) GetFloat64(key string) (float64, bool) {
+	v, ok := e.Data[key]
+	if !ok {
+		return 0, false
+	}
+	f, ok := v.(float64)
+	return f, ok
+}
+
+// GetString returns the string value for the given key, or ("", false) if missing or wrong type.
+func (e Entry) GetString(key string) (string, bool) {
+	v, ok := e.Data[key]
+	if !ok {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
 }
 
 // Append adds one entry to the CSV file, creating it with headers if necessary.
@@ -36,6 +55,11 @@ func Append(path string, entry Entry) error {
 	}
 	defer f.Close()
 
+	dataJSON, err := json.Marshal(entry.Data)
+	if err != nil {
+		return fmt.Errorf("marshaling data: %w", err)
+	}
+
 	w := csv.NewWriter(f)
 	if needsHeader {
 		if err := w.Write(csvHeaders); err != nil {
@@ -45,8 +69,7 @@ func Append(path string, entry Entry) error {
 	row := []string{
 		entry.Timestamp.UTC().Format(time.RFC3339),
 		entry.Exercise,
-		strconv.Itoa(entry.Reps),
-		strconv.Itoa(entry.Rounds),
+		string(dataJSON),
 		entry.Notes,
 	}
 	if err := w.Write(row); err != nil {
@@ -81,27 +104,22 @@ func ReadAll(path string) ([]Entry, error) {
 
 	entries := make([]Entry, 0, len(records))
 	for i, rec := range records {
-		if len(rec) < 5 {
-			return nil, fmt.Errorf("row %d: expected 5 fields, got %d", i+2, len(rec))
+		if len(rec) < 4 {
+			return nil, fmt.Errorf("row %d: expected 4 fields, got %d", i+2, len(rec))
 		}
 		ts, err := time.Parse(time.RFC3339, rec[0])
 		if err != nil {
 			return nil, fmt.Errorf("row %d: parsing timestamp: %w", i+2, err)
 		}
-		reps, err := strconv.Atoi(rec[2])
-		if err != nil {
-			return nil, fmt.Errorf("row %d: parsing reps: %w", i+2, err)
-		}
-		rounds, err := strconv.Atoi(rec[3])
-		if err != nil {
-			return nil, fmt.Errorf("row %d: parsing rounds: %w", i+2, err)
+		var data map[string]any
+		if err := json.Unmarshal([]byte(rec[2]), &data); err != nil {
+			return nil, fmt.Errorf("row %d: parsing data: %w", i+2, err)
 		}
 		entries = append(entries, Entry{
 			Timestamp: ts,
 			Exercise:  rec[1],
-			Reps:      reps,
-			Rounds:    rounds,
-			Notes:     rec[4],
+			Data:      data,
+			Notes:     rec[3],
 		})
 	}
 	return entries, nil
@@ -171,11 +189,14 @@ func rewrite(path string, entries []Entry) error {
 		return fmt.Errorf("writing header: %w", err)
 	}
 	for _, e := range entries {
+		dataJSON, err := json.Marshal(e.Data)
+		if err != nil {
+			return fmt.Errorf("marshaling data: %w", err)
+		}
 		row := []string{
 			e.Timestamp.UTC().Format(time.RFC3339),
 			e.Exercise,
-			strconv.Itoa(e.Reps),
-			strconv.Itoa(e.Rounds),
+			string(dataJSON),
 			e.Notes,
 		}
 		if err := w.Write(row); err != nil {

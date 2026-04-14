@@ -12,8 +12,7 @@ func makeEntry(exercise string, reps, rounds int, notes string) storage.Entry {
 	return storage.Entry{
 		Timestamp: time.Date(2026, 4, 14, 10, 0, 0, 0, time.UTC),
 		Exercise:  exercise,
-		Reps:      reps,
-		Rounds:    rounds,
+		Data:      map[string]any{"reps": float64(reps), "rounds": float64(rounds)},
 		Notes:     notes,
 	}
 }
@@ -195,8 +194,7 @@ func TestActiveDays_SameDayDedup(t *testing.T) {
 		e := storage.Entry{
 			Timestamp: base.Add(time.Duration(h) * time.Hour),
 			Exercise:  "Push-ups",
-			Reps:      10,
-			Rounds:    1,
+			Data:      map[string]any{"reps": float64(10), "rounds": float64(1)},
 		}
 		if err := storage.Append(path, e); err != nil {
 			t.Fatalf("Append failed: %v", err)
@@ -223,7 +221,7 @@ func TestActiveDays_MultipleDaysSorted(t *testing.T) {
 		time.Date(2026, 4, 12, 15, 0, 0, 0, time.UTC), // dupe of Apr 12
 	}
 	for _, ts := range dates {
-		e := storage.Entry{Timestamp: ts, Exercise: "Squats", Reps: 10, Rounds: 1}
+		e := storage.Entry{Timestamp: ts, Exercise: "Squats", Data: map[string]any{"reps": float64(10)}}
 		if err := storage.Append(path, e); err != nil {
 			t.Fatalf("Append failed: %v", err)
 		}
@@ -253,7 +251,7 @@ func TestActiveDays_UTCMidnightCrossing(t *testing.T) {
 		t.Skip("Europe/Paris timezone not available")
 	}
 	ts := time.Date(2026, 4, 13, 23, 0, 0, 0, time.UTC)
-	e := storage.Entry{Timestamp: ts, Exercise: "Pull-ups", Reps: 5, Rounds: 1}
+	e := storage.Entry{Timestamp: ts, Exercise: "Pull-ups", Data: map[string]any{"reps": float64(5)}}
 	if err := storage.Append(path, e); err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
@@ -290,8 +288,7 @@ func TestEntry_TimestampRoundTrip(t *testing.T) {
 	entry := storage.Entry{
 		Timestamp: ts,
 		Exercise:  "Push-ups",
-		Reps:      20,
-		Rounds:    3,
+		Data:      map[string]any{"reps": float64(20), "rounds": float64(3)},
 		Notes:     "test note",
 	}
 	if err := storage.Append(path, entry); err != nil {
@@ -310,5 +307,109 @@ func TestEntry_TimestampRoundTrip(t *testing.T) {
 	}
 	if entries[0].Notes != "test note" {
 		t.Errorf("notes mismatch: got %q, want %q", entries[0].Notes, "test note")
+	}
+}
+
+func TestEntry_GetFloat64(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hr.csv")
+
+	entry := storage.Entry{
+		Timestamp: time.Now(),
+		Exercise:  "Rowing",
+		Data:      map[string]any{"duration_min": 25.5, "resistance": float64(7)},
+	}
+	if err := storage.Append(path, entry); err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	entries, err := storage.ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	dur, ok := entries[0].GetFloat64("duration_min")
+	if !ok {
+		t.Fatal("expected GetFloat64 to return ok for duration_min")
+	}
+	if dur != 25.5 {
+		t.Errorf("expected duration_min=25.5, got %v", dur)
+	}
+
+	res, ok := entries[0].GetFloat64("resistance")
+	if !ok {
+		t.Fatal("expected GetFloat64 to return ok for resistance")
+	}
+	if res != 7 {
+		t.Errorf("expected resistance=7, got %v", res)
+	}
+
+	_, ok = entries[0].GetFloat64("nonexistent")
+	if ok {
+		t.Error("expected GetFloat64 to return false for nonexistent key")
+	}
+}
+
+func TestEntry_GetString(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hr.csv")
+
+	entry := storage.Entry{
+		Timestamp: time.Now(),
+		Exercise:  "Custom",
+		Data:      map[string]any{"label": "heavy", "count": float64(5)},
+	}
+	if err := storage.Append(path, entry); err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	entries, err := storage.ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	s, ok := entries[0].GetString("label")
+	if !ok {
+		t.Fatal("expected GetString to return ok for label")
+	}
+	if s != "heavy" {
+		t.Errorf("expected label='heavy', got %q", s)
+	}
+
+	_, ok = entries[0].GetString("count") // count is float64, not string
+	if ok {
+		t.Error("expected GetString to return false for non-string field")
+	}
+
+	_, ok = entries[0].GetString("missing")
+	if ok {
+		t.Error("expected GetString to return false for missing key")
+	}
+}
+
+func TestEntry_DataRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hr.csv")
+
+	entry := makeEntry("Push-ups", 20, 3, "")
+	if err := storage.Append(path, entry); err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	entries, err := storage.ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	reps, ok := entries[0].GetFloat64("reps")
+	if !ok || reps != 20 {
+		t.Errorf("expected reps=20, got %v (ok=%v)", reps, ok)
+	}
+	rounds, ok := entries[0].GetFloat64("rounds")
+	if !ok || rounds != 3 {
+		t.Errorf("expected rounds=3, got %v (ok=%v)", rounds, ok)
 	}
 }

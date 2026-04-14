@@ -49,11 +49,11 @@ func runUndo(cmd *cobra.Command, args []string) error {
 	}
 
 	last := entries[0]
-	fmt.Printf("Last entry: %s — %s x%d x%d rounds",
+	ex, _ := findExercise(cfg.Exercises, last.Exercise)
+	fmt.Printf("Last entry: %s — %s (%s)",
 		last.Timestamp.Local().Format(cfg.DateFormat),
 		last.Exercise,
-		last.Reps,
-		last.Rounds,
+		formatEntryDetails(last.Data, ex),
 	)
 	if last.Notes != "" {
 		fmt.Printf(" (%s)", last.Notes)

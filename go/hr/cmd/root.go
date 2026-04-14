@@ -9,8 +9,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:           "hr",
-	Short:         "Health Records — track bodyweight exercises",
-	Long:          "hr is a CLI for logging bodyweight exercise reps and rounds to a local CSV file.",
+	Short:         "Health Records — track exercises",
+	Long:          "hr is a CLI for logging exercises with configurable fields to a local CSV file.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE:          runAdd,
@@ -25,8 +25,7 @@ func init() {
 	rootCmd.AddCommand(streakCmd)
 	rootCmd.AddCommand(todayCmd)
 	rootCmd.Flags().StringVarP(&addExercise, "exercise", "e", "", "exercise name (skip TUI selector)")
-	rootCmd.Flags().IntVarP(&addReps, "reps", "r", 0, "number of reps (0 = use config default)")
-	rootCmd.Flags().IntVarP(&addRounds, "rounds", "R", 0, "number of rounds (0 = use config default)")
+	rootCmd.Flags().StringArrayVarP(&addFields, "field", "f", nil, "field value as key=value (repeatable)")
 	rootCmd.Flags().StringVarP(&addNotes, "notes", "n", "", "optional notes")
 }
 

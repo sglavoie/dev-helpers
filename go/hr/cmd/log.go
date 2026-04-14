@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -65,26 +66,88 @@ func runLog(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Println(renderEntryTable(entries, cfg.DateFormat))
+	fmt.Println(renderEntryTable(entries, cfg.DateFormat, cfg))
 	return nil
 }
 
 // renderEntryTable renders a go-pretty table string for the given entries,
-// formatting each timestamp with dateFormat.
-func renderEntryTable(entries []storage.Entry, dateFormat string) string {
+// formatting each timestamp with dateFormat and looking up exercise definitions
+// in cfg for human-friendly details.
+func renderEntryTable(entries []storage.Entry, dateFormat string, cfg config.Config) string {
 	t := table.NewWriter()
 	t.SetStyle(table.StyleLight)
-	t.AppendHeader(table.Row{"Timestamp", "Exercise", "Reps", "Rounds", "Notes"})
+	t.AppendHeader(table.Row{"Timestamp", "Exercise", "Details", "Notes"})
 	for _, e := range entries {
+		ex, _ := findExercise(cfg.Exercises, e.Exercise)
 		t.AppendRow(table.Row{
 			e.Timestamp.Local().Format(dateFormat),
 			e.Exercise,
-			e.Reps,
-			e.Rounds,
+			formatEntryDetails(e.Data, ex),
 			e.Notes,
 		})
 	}
 	return t.Render()
+}
+
+// formatEntryDetails renders a human-friendly string for an entry's data.
+// If exercise has no fields (unknown), it falls back to sorted key: value pairs.
+func formatEntryDetails(data map[string]any, exercise config.Exercise) string {
+	if len(exercise.Fields) == 0 {
+		keys := make([]string, 0, len(data))
+		for k := range data {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%s: %v", k, formatValue(data[k])))
+		}
+		return strings.Join(parts, ", ")
+	}
+
+	primary := exercise.PrimaryField()
+	if primary != nil && primary.MultipliedBy != "" {
+		primaryVal := getFloat64FromMap(data, primary.Name)
+		multiplierVal := getFloat64FromMap(data, primary.MultipliedBy)
+		return fmt.Sprintf("%s %s x %s", formatFloat(primaryVal), primary.Name, formatFloat(multiplierVal))
+	}
+
+	// Otherwise: field order from config
+	parts := make([]string, 0, len(exercise.Fields))
+	for _, f := range exercise.Fields {
+		val, ok := data[f.Name]
+		if !ok {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s: %s", f.Name, formatValue(val)))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// getFloat64FromMap returns the float64 value for key in data, or 0 if missing/wrong type.
+func getFloat64FromMap(data map[string]any, key string) float64 {
+	if v, ok := data[key]; ok {
+		if f, ok := v.(float64); ok {
+			return f
+		}
+	}
+	return 0
+}
+
+// formatFloat displays integers without decimals, floats with necessary precision.
+func formatFloat(f float64) string {
+	if f == float64(int64(f)) {
+		return fmt.Sprintf("%d", int64(f))
+	}
+	return fmt.Sprintf("%g", f)
+}
+
+// formatValue formats any data value for display.
+func formatValue(v any) string {
+	if f, ok := v.(float64); ok {
+		return formatFloat(f)
+	}
+	return fmt.Sprintf("%v", v)
 }
 
 func filterEntries(entries []storage.Entry, todayOnly bool, exercise string) []storage.Entry {

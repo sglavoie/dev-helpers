@@ -13,14 +13,21 @@ import (
 var ErrCancelled = errors.New("selection cancelled")
 
 var (
-	selectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
-	cursorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	dimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	headerStyle   = lipgloss.NewStyle().Bold(true)
+	selectedStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
+	cursorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	dimStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	headerStyle    = lipgloss.NewStyle().Bold(true)
+	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 )
 
+type selectorItem struct {
+	isSeparator bool
+	label       string
+	exercise    config.Exercise
+}
+
 type selectorModel struct {
-	exercises []config.Exercise
+	cfg       config.Config
 	cursor    int
 	filter    string
 	selected  config.Exercise
@@ -28,18 +35,49 @@ type selectorModel struct {
 	cancelled bool
 }
 
-func (m selectorModel) filtered() []config.Exercise {
-	if m.filter == "" {
-		return m.exercises
-	}
-	f := strings.ToLower(m.filter)
-	var result []config.Exercise
-	for _, ex := range m.exercises {
-		if strings.Contains(strings.ToLower(ex.Name), f) {
-			result = append(result, ex)
+func buildItems(cfg config.Config, filter string) []selectorItem {
+	f := strings.ToLower(filter)
+	byCategory := cfg.ExercisesByCategory()
+	var items []selectorItem
+	for _, cat := range cfg.Categories() {
+		exs := byCategory[cat]
+		var matching []config.Exercise
+		for _, ex := range exs {
+			if filter == "" || strings.Contains(strings.ToLower(ex.Name), f) {
+				matching = append(matching, ex)
+			}
+		}
+		if len(matching) == 0 {
+			continue
+		}
+		items = append(items, selectorItem{isSeparator: true, label: fmt.Sprintf("── %s ──", cat)})
+		for _, ex := range matching {
+			items = append(items, selectorItem{exercise: ex})
 		}
 	}
-	return result
+	return items
+}
+
+func (m selectorModel) items() []selectorItem {
+	return buildItems(m.cfg, m.filter)
+}
+
+func nextSelectable(items []selectorItem, start int) int {
+	for i := start; i < len(items); i++ {
+		if !items[i].isSeparator {
+			return i
+		}
+	}
+	return -1
+}
+
+func prevSelectable(items []selectorItem, start int) int {
+	for i := start; i >= 0; i-- {
+		if !items[i].isSeparator {
+			return i
+		}
+	}
+	return -1
 }
 
 func (m selectorModel) Init() tea.Cmd {
@@ -49,19 +87,19 @@ func (m selectorModel) Init() tea.Cmd {
 func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		filtered := m.filtered()
+		items := m.items()
 		switch msg.String() {
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if prev := prevSelectable(items, m.cursor-1); prev >= 0 {
+				m.cursor = prev
 			}
 		case "down", "j":
-			if m.cursor < len(filtered)-1 {
-				m.cursor++
+			if next := nextSelectable(items, m.cursor+1); next >= 0 {
+				m.cursor = next
 			}
 		case "enter":
-			if len(filtered) > 0 {
-				m.selected = filtered[m.cursor]
+			if m.cursor >= 0 && m.cursor < len(items) && !items[m.cursor].isSeparator {
+				m.selected = items[m.cursor].exercise
 				m.done = true
 				return m, tea.Quit
 			}
@@ -71,19 +109,36 @@ func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if len(m.filter) > 0 {
 				m.filter = m.filter[:len(m.filter)-1]
-				m.cursor = 0
+				newItems := buildItems(m.cfg, m.filter)
+				if first := nextSelectable(newItems, 0); first >= 0 {
+					m.cursor = first
+				}
 			}
 		default:
 			if len(msg.Text) > 0 && msg.Text != " " {
 				m.filter += msg.Text
-				m.cursor = 0
+				newItems := buildItems(m.cfg, m.filter)
+				if first := nextSelectable(newItems, 0); first >= 0 {
+					m.cursor = first
+				}
 			} else if msg.String() == "space" {
 				m.filter += " "
-				m.cursor = 0
+				newItems := buildItems(m.cfg, m.filter)
+				if first := nextSelectable(newItems, 0); first >= 0 {
+					m.cursor = first
+				}
 			}
 		}
 	}
 	return m, nil
+}
+
+func fieldDefaults(ex config.Exercise) string {
+	var parts []string
+	for _, f := range ex.Fields {
+		parts = append(parts, fmt.Sprintf("%s: %v", f.Name, f.Default))
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 func (m selectorModel) View() tea.View {
@@ -96,18 +151,23 @@ func (m selectorModel) View() tea.View {
 		sb.WriteString(fmt.Sprintf("Filter: %s\n\n", m.filter))
 	}
 
-	filtered := m.filtered()
-	if len(filtered) == 0 {
+	items := m.items()
+	if len(items) == 0 {
 		sb.WriteString(dimStyle.Render("No matches. Press backspace to clear filter."))
 		sb.WriteString("\n")
 	} else {
-		for i, ex := range filtered {
-			repsHint := dimStyle.Render(fmt.Sprintf("(default %d reps)", ex.DefaultReps))
+		for i, item := range items {
+			if item.isSeparator {
+				sb.WriteString(separatorStyle.Render(item.label))
+				sb.WriteString("\n")
+				continue
+			}
+			hint := dimStyle.Render(fieldDefaults(item.exercise))
 			if i == m.cursor {
-				line := fmt.Sprintf("%s %s %s", cursorStyle.Render(">"), selectedStyle.Render(ex.Name), repsHint)
+				line := fmt.Sprintf("%s %s %s", cursorStyle.Render(">"), selectedStyle.Render(item.exercise.Name), hint)
 				sb.WriteString(line)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %s %s", ex.Name, repsHint))
+				sb.WriteString(fmt.Sprintf("  %s %s", item.exercise.Name, hint))
 			}
 			sb.WriteString("\n")
 		}
@@ -121,8 +181,13 @@ func (m selectorModel) View() tea.View {
 }
 
 // RunSelector runs the interactive exercise selector and returns the chosen exercise.
-func RunSelector(exercises []config.Exercise) (config.Exercise, error) {
-	m := selectorModel{exercises: exercises}
+func RunSelector(cfg config.Config) (config.Exercise, error) {
+	items := buildItems(cfg, "")
+	initialCursor := 0
+	if first := nextSelectable(items, 0); first >= 0 {
+		initialCursor = first
+	}
+	m := selectorModel{cfg: cfg, cursor: initialCursor}
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {

@@ -21,7 +21,7 @@ func runToday(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = config.LoadOrInit(cfgPath)
+	cfg, err := config.LoadOrInit(cfgPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -52,9 +52,9 @@ func runToday(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Today \u2014 %s\n\n", now.Format("2006-01-02"))
-	fmt.Println(renderEntryTable(todayEntries, "15:04"))
+	fmt.Println(renderEntryTable(todayEntries, "15:04", cfg))
 
-	summaries := aggregateStats(todayEntries)
+	summaries := aggregateStats(todayEntries, cfg)
 	fmt.Println("\nSummary")
 	fmt.Println(renderStatsTable(summaries))
 
