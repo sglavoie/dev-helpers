@@ -16,6 +16,7 @@ var (
 	selectedStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	cursorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	dimStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	noteStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 	headerStyle    = lipgloss.NewStyle().Bold(true)
 	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 )
@@ -43,7 +44,7 @@ func buildItems(cfg config.Config, filter string) []selectorItem {
 		exs := byCategory[cat]
 		var matching []config.Exercise
 		for _, ex := range exs {
-			if filter == "" || strings.Contains(strings.ToLower(ex.Name), f) {
+			if filter == "" || strings.Contains(strings.ToLower(ex.Name), f) || strings.Contains(strings.ToLower(ex.Note), f) {
 				matching = append(matching, ex)
 			}
 		}
@@ -163,11 +164,15 @@ func (m selectorModel) View() tea.View {
 				continue
 			}
 			hint := dimStyle.Render(fieldDefaults(item.exercise))
+			note := ""
+			if item.exercise.Note != "" {
+				note = " " + noteStyle.Render(item.exercise.Note)
+			}
 			if i == m.cursor {
-				line := fmt.Sprintf("%s %s %s", cursorStyle.Render(">"), selectedStyle.Render(item.exercise.Name), hint)
+				line := fmt.Sprintf("%s %s%s %s", cursorStyle.Render(">"), selectedStyle.Render(item.exercise.Name), note, hint)
 				sb.WriteString(line)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %s %s", item.exercise.Name, hint))
+				sb.WriteString(fmt.Sprintf("  %s%s %s", item.exercise.Name, note, hint))
 			}
 			sb.WriteString("\n")
 		}

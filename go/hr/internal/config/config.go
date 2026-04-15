@@ -28,6 +28,7 @@ type Field struct {
 type Exercise struct {
 	Name     string  `yaml:"name"`
 	Category string  `yaml:"category"`
+	Note     string  `yaml:"note,omitempty"`
 	Fields   []Field `yaml:"fields"`
 }
 
@@ -225,6 +226,7 @@ func DefaultConfigYAML() string {
 # Each exercise has:
 #   name:     Display name (used in TUI selector and CSV logs)
 #   category: Grouping label (e.g. Bodyweight, Cardio) — shown in stats and TUI
+#   note:     (optional) Display annotation shown in TUI selector (e.g. muscle group)
 #   fields:   List of data fields prompted when logging the exercise
 #
 # Field properties:
