@@ -36,11 +36,8 @@ var dailyCmdRun = &cobra.Command{
 	Long:  "Perform a daily, incremental backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		forEachProfile(func() error {
-			if err := run.DailyBackup(); err != nil {
-				return err
-			}
-			last.SummaryWithLineBreak()
-			return nil
+			defer last.SummaryWithLineBreak()
+			return run.DailyBackup()
 		})
 	},
 }
@@ -51,11 +48,8 @@ var weeklyCmdRun = &cobra.Command{
 	Long:  "Perform a weekly, incremental backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		forEachProfile(func() error {
-			if err := run.WeeklyBackup(); err != nil {
-				return err
-			}
-			last.SummaryWithLineBreak()
-			return nil
+			defer last.SummaryWithLineBreak()
+			return run.WeeklyBackup()
 		})
 	},
 }
@@ -66,11 +60,8 @@ var monthlyCmdRun = &cobra.Command{
 	Long:  "Perform a monthly, incremental, compressed backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		forEachProfile(func() error {
-			if err := run.MonthlyBackup(); err != nil {
-				return err
-			}
-			last.SummaryWithLineBreak()
-			return nil
+			defer last.SummaryWithLineBreak()
+			return run.MonthlyBackup()
 		})
 	},
 }
@@ -80,6 +71,7 @@ var allCmdRun = &cobra.Command{
 	Short: "Run daily, weekly, and monthly backups in sequence",
 	Run: func(cmd *cobra.Command, args []string) {
 		forEachProfile(func() error {
+			defer last.SummaryWithLineBreak()
 			if err := run.DailyBackup(); err != nil {
 				return err
 			}
@@ -93,7 +85,6 @@ var allCmdRun = &cobra.Command{
 					return err
 				}
 			}
-			last.SummaryWithLineBreak()
 			return nil
 		})
 	},
