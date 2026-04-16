@@ -1,0 +1,17 @@
+[project]
+name = "filter-vscode-issues"
+version = "0.1.0"
+description = "Trim VS Code Problems-panel JSON down to file + line + message"
+authors = [{ name = "Sébastien Lavoie" }]
+dependencies = []
+requires-python = ">= 3.10"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+filter-vscode-issues = "filter_vscode_issues.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/filter_vscode_issues"]
