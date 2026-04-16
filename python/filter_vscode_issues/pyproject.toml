@@ -1,10 +1,10 @@
 [project]
 name = "filter-vscode-issues"
-version = "0.1.0"
+version = "0.2.0"
 description = "Trim VS Code Problems-panel JSON down to file + line + message"
 authors = [{ name = "Sébastien Lavoie" }]
 dependencies = []
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 
 [build-system]
 requires = ["hatchling"]
