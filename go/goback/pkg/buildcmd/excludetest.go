@@ -97,10 +97,10 @@ func depthExcludePattern(depth int) string {
 	return strings.Repeat("*/", depth) + "*"
 }
 
-// findExcluded runs two rsync --list-only passes (with and without exclude patterns)
+// FindExcluded runs two rsync --list-only passes (with and without exclude patterns)
 // and returns paths that are present in the unfiltered list but absent in the filtered one.
 // When depth > 0 both passes are limited to that many directory levels.
-func findExcluded(source string, patterns []string, depth int) ([]string, error) {
+func FindExcluded(source string, patterns []string, depth int) ([]string, error) {
 	var depthPatterns []string
 	if depth > 0 {
 		depthPatterns = []string{depthExcludePattern(depth)}
@@ -179,12 +179,12 @@ func TestSinglePattern(backupType models.BackupTypes, pattern string, subdir str
 	source := effectiveSource(backupType)
 	source = applySubdir(source, subdir)
 
-	if err := checkSourceAccessible(source); err != nil {
+	if err := CheckSourceAccessible(source); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	excluded, err := findExcluded(source, []string{pattern}, depth)
+	excluded, err := FindExcluded(source, []string{pattern}, depth)
 	if err != nil {
 		fmt.Printf("Error testing pattern: %v\n", err)
 		os.Exit(1)
@@ -213,7 +213,7 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 	case models.Weekly, models.Monthly:
 		dailyPrefix := config.ActiveProfilePrefix() + "rsync.daily."
 		dailyPatterns := viper.GetStringSlice(dailyPrefix + "excludedPatterns")
-		patterns = mergeUnique(patterns, dailyPatterns)
+		patterns = MergeUnique(patterns, dailyPatterns)
 	}
 
 	if len(patterns) == 0 {
@@ -225,12 +225,12 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 	source := effectiveSource(backupType)
 	source = applySubdir(source, subdir)
 
-	if err := checkSourceAccessible(source); err != nil {
+	if err := CheckSourceAccessible(source); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	excluded, err := findExcluded(source, patterns, depth)
+	excluded, err := FindExcluded(source, patterns, depth)
 	if err != nil {
 		fmt.Printf("Error testing patterns: %v\n", err)
 		os.Exit(1)
@@ -262,8 +262,67 @@ func applySubdir(source, subdir string) string {
 	return filepath.Join(source, subdir)
 }
 
-// checkSourceAccessible verifies that the source directory exists and is readable.
-func checkSourceAccessible(source string) error {
+// FindExcludedRoots is like FindExcluded but returns the root entries of
+// excluded subtrees instead of collapsing to top-level path components.
+// For example, if sglavoie/.cache/ and sglavoie/node_modules/ are excluded,
+// it returns those paths rather than collapsing both to sglavoie/.
+func FindExcludedRoots(source string, patterns []string, depth int) ([]string, error) {
+	var depthPatterns []string
+	if depth > 0 {
+		depthPatterns = []string{depthExcludePattern(depth)}
+	}
+
+	allFiles, err := listFiles(source, depthPatterns)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredFiles, err := listFiles(source, append(depthPatterns, patterns...))
+	if err != nil {
+		return nil, err
+	}
+
+	filteredSet := make(map[string]struct{}, len(filteredFiles))
+	for _, f := range filteredFiles {
+		filteredSet[f] = struct{}{}
+	}
+
+	var excluded []string
+	for _, f := range allFiles {
+		if _, ok := filteredSet[f]; !ok {
+			if !isDSStore(f) {
+				excluded = append(excluded, f)
+			}
+		}
+	}
+
+	sort.Strings(excluded)
+	return rootsOnly(excluded), nil
+}
+
+// rootsOnly filters a sorted list of paths to only include root entries —
+// paths that are not children of another excluded path. Since the input is
+// sorted, a child always follows its parent, so we only need to track the
+// most recent root.
+func rootsOnly(paths []string) []string {
+	var roots []string
+	var lastRoot string
+	for _, p := range paths {
+		if lastRoot != "" && strings.HasPrefix(p, lastRoot) {
+			continue
+		}
+		roots = append(roots, p)
+		if strings.HasSuffix(p, "/") {
+			lastRoot = p
+		} else {
+			lastRoot = ""
+		}
+	}
+	return roots
+}
+
+// CheckSourceAccessible verifies that the source directory exists and is readable.
+func CheckSourceAccessible(source string) error {
 	path := strings.TrimSuffix(source, "/")
 	info, err := os.Stat(path)
 	if err != nil {

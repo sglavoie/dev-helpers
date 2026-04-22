@@ -91,14 +91,14 @@ func (r *builder) mergedExcludePatterns() []string {
 	case models.Weekly, models.Monthly:
 		dailyPrefix := config.ActiveProfilePrefix() + "rsync.daily."
 		dailyPatterns := viper.GetStringSlice(dailyPrefix + "excludedPatterns")
-		patterns = mergeUnique(patterns, dailyPatterns)
+		patterns = MergeUnique(patterns, dailyPatterns)
 	}
 
 	return patterns
 }
 
-// mergeUnique appends items from extra into base, skipping duplicates.
-func mergeUnique(base, extra []string) []string {
+// MergeUnique appends items from extra into base, skipping duplicates.
+func MergeUnique(base, extra []string) []string {
 	seen := make(map[string]struct{}, len(base))
 	for _, p := range base {
 		seen[p] = struct{}{}

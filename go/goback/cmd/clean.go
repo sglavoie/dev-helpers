@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleanbackup"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleandb"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleanlogs"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/cobra"
 )
 
@@ -52,9 +56,42 @@ var cleanLogsCmd = &cobra.Command{
 	},
 }
 
+var cleanBackupCmd = &cobra.Command{
+	Use:       "backup [daily|weekly|monthly]",
+	Short:     "Remove excluded files from backup destinations",
+	Args:      cobra.MaximumNArgs(1),
+	ValidArgs: []string{"daily", "weekly", "monthly"},
+	Run: func(cmd *cobra.Command, args []string) {
+		forEachProfile(func() error {
+			if len(args) == 0 {
+				return cleanbackup.CleanAll()
+			}
+			bt, err := parseBackupType(args[0])
+			if err != nil {
+				return err
+			}
+			return cleanbackup.CleanType(bt)
+		})
+	},
+}
+
+func parseBackupType(s string) (models.BackupTypes, error) {
+	switch s {
+	case "daily":
+		return models.Daily{}, nil
+	case "weekly":
+		return models.Weekly{}, nil
+	case "monthly":
+		return models.Monthly{}, nil
+	default:
+		return nil, fmt.Errorf("invalid backup type: %s (must be daily, weekly, or monthly)", s)
+	}
+}
+
 func init() {
 	cleanCmd.AddCommand(cleanDbCmd)
 	cleanCmd.AddCommand(cleanLogsCmd)
+	cleanCmd.AddCommand(cleanBackupCmd)
 	RootCmd.AddCommand(cleanCmd)
 
 	cleanLogsCmd.Flags().IntP("keep-daily", "d", 14, "Number of daily logs to keep")
