@@ -207,6 +207,15 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 	cfgPrefix := config.ActiveProfilePrefix() + "rsync." + backupType.String() + "."
 	patterns := viper.GetStringSlice(cfgPrefix + "excludedPatterns")
 
+	// Merge daily patterns into weekly/monthly so derived backups inherit
+	// the same exclusion rules.
+	switch backupType.(type) {
+	case models.Weekly, models.Monthly:
+		dailyPrefix := config.ActiveProfilePrefix() + "rsync.daily."
+		dailyPatterns := viper.GetStringSlice(dailyPrefix + "excludedPatterns")
+		patterns = mergeUnique(patterns, dailyPatterns)
+	}
+
 	if len(patterns) == 0 {
 		fmt.Printf("No exclude patterns configured for %s backups in profile %s\n",
 			backupType.String(), config.ActiveProfileName)

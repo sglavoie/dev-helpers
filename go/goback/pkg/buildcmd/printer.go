@@ -64,10 +64,10 @@ func (r *builder) getIncludePatterns() []string {
 	return viper.GetStringSlice(cfgPrefix + "includedPatterns")
 }
 
-// getExcludePatterns returns the configured exclude patterns for this backup type.
+// getExcludePatterns returns the effective exclude patterns for this backup type,
+// including daily patterns merged into weekly/monthly.
 func (r *builder) getExcludePatterns() []string {
-	cfgPrefix := r.builderSettingsPrefix()
-	return viper.GetStringSlice(cfgPrefix + "excludedPatterns")
+	return r.mergedExcludePatterns()
 }
 
 // FormattedPreview prints a structured preview of the rsync command.

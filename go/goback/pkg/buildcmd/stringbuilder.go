@@ -1,6 +1,8 @@
 package buildcmd
 
 import (
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/viper"
 )
 
@@ -66,8 +68,7 @@ func (r *builder) appendIncludedPatterns() {
 }
 
 func (r *builder) appendExcludedPatterns() {
-	cfgPrefix := r.builderSettingsPrefix()
-	for _, pattern := range viper.GetStringSlice(cfgPrefix + "excludedPatterns") {
+	for _, pattern := range r.mergedExcludePatterns() {
 		r.sb.WriteString(" --exclude=\"")
 		r.sb.WriteString(pattern)
 		r.sb.WriteString("\"")
@@ -76,6 +77,39 @@ func (r *builder) appendExcludedPatterns() {
 	if r.hasIncludePatterns {
 		r.sb.WriteString(" --exclude=\"*\"")
 	}
+}
+
+// mergedExcludePatterns returns the exclude patterns for this backup type.
+// For weekly and monthly backups, the daily patterns are merged in so that
+// items excluded after the fact in the daily config are also pruned from
+// derived backups.
+func (r *builder) mergedExcludePatterns() []string {
+	cfgPrefix := r.builderSettingsPrefix()
+	patterns := viper.GetStringSlice(cfgPrefix + "excludedPatterns")
+
+	switch r.builderType.(type) {
+	case models.Weekly, models.Monthly:
+		dailyPrefix := config.ActiveProfilePrefix() + "rsync.daily."
+		dailyPatterns := viper.GetStringSlice(dailyPrefix + "excludedPatterns")
+		patterns = mergeUnique(patterns, dailyPatterns)
+	}
+
+	return patterns
+}
+
+// mergeUnique appends items from extra into base, skipping duplicates.
+func mergeUnique(base, extra []string) []string {
+	seen := make(map[string]struct{}, len(base))
+	for _, p := range base {
+		seen[p] = struct{}{}
+	}
+	for _, p := range extra {
+		if _, ok := seen[p]; !ok {
+			base = append(base, p)
+			seen[p] = struct{}{}
+		}
+	}
+	return base
 }
 
 func (r *builder) appendSrcDest() {
