@@ -1,10 +1,19 @@
-import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Clipboard, Form, Icon, Keyboard, showToast, Toast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { Snippet, SnippetFormValues } from "../types";
 import { addSnippet, updateSnippet } from "../utils/storage";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "../utils/validation";
 import { getErrorMessage } from "../utils/errorMessage";
 import { PlaceholderSyntaxHelp } from "./PlaceholderSyntaxHelp";
+
+const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] = [
+  { title: "Basic Placeholder", subtitle: "{{key}}", content: "{{key}}", icon: Icon.CodeBlock, key: "1" },
+  { title: "With Default", subtitle: "{{key|default}}", content: "{{key|default}}", icon: Icon.CodeBlock, key: "2" },
+  { title: "No-Save Placeholder", subtitle: "{{!key}}", content: "{{!key}}", icon: Icon.EyeDisabled, key: "3" },
+  { title: "Wrapper Placeholder", subtitle: "{{prefix:key:suffix}}", content: "{{prefix:key:suffix}}", icon: Icon.ArrowNe, key: "4" },
+  { title: "Conditional Block", subtitle: "{{#if key}}...{{/if}}", content: "{{#if key}}\n\n{{/if}}", icon: Icon.Filter, key: "5" },
+  { title: "If/Else Block", subtitle: "{{#if key}}...{{#else}}...{{/if}}", content: "{{#if key}}\n\n{{#else}}\n\n{{/if}}", icon: Icon.Switch, key: "6" },
+];
 
 export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: string[] }) {
   const { pop } = useNavigation();
@@ -125,6 +134,24 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
             shortcut={{ modifiers: ["cmd"], key: "t" }}
             onAction={handleAddTag}
           />
+          <ActionPanel.Submenu
+            title="Insert Placeholder Syntax"
+            icon={Icon.CodeBlock}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+          >
+            {SYNTAX_HELPERS.map((h) => (
+              <Action
+                key={h.title}
+                title={`${h.title}  —  ${h.subtitle}`}
+                icon={h.icon}
+                shortcut={{ modifiers: ["cmd"], key: h.key }}
+                onAction={async () => {
+                  await Clipboard.copy(h.content);
+                  await showToast({ style: Toast.Style.Success, title: "Copied", message: `${h.subtitle} — Paste with ⌘V` });
+                }}
+              />
+            ))}
+          </ActionPanel.Submenu>
           <Action.Push
             title="View Placeholder Syntax"
             icon={Icon.QuestionMarkCircle}
@@ -171,7 +198,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       />
       <Form.Description
         title="Conditionals"
-        text='{{#if key}}...{{/if}} — toggle section.  Else: {{#if key}}...{{#else}}...{{/if}}.  Default on: {{#if +key}}.  Labeled: {{#if key "Label"}}'
+        text='{{#if key}}...{{/if}} — toggle section.  Else: ...{{#else}}...  Press Cmd+Shift+P to insert syntax.'
       />
       <Form.Description
         title="System (auto)"
