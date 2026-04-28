@@ -598,6 +598,64 @@ describe("processConditionalBlocks", () => {
   });
 });
 
+describe("processConditionalBlocks — {{/else}} closing tag", () => {
+  it("if-else with {{/else}}: truthy value shows if-body", () => {
+    const text = "{{#if x}}yes{{#else}}no{{/else}}{{/if}}";
+    expect(processConditionalBlocks(text, { x: "true" })).toBe("yes");
+  });
+
+  it("if-else with {{/else}}: falsy value shows else-body without {{/else}}", () => {
+    const text = "{{#if x}}yes{{#else}}no{{/else}}{{/if}}";
+    expect(processConditionalBlocks(text, { x: "" })).toBe("no");
+  });
+
+  it("standard {{#else}}...{{/if}} still works (regression check)", () => {
+    const text = "{{#if x}}yes{{#else}}no{{/if}}";
+    expect(processConditionalBlocks(text, { x: "true" })).toBe("yes");
+    expect(processConditionalBlocks(text, { x: "" })).toBe("no");
+  });
+
+  it("repeated variable in multiple {{#if}} blocks", () => {
+    const text = "{{#if +loop}}/loop {{/if}}Commit {{#if loop}}each round{{#else}}once{{/else}}{{/if}} done";
+    expect(processConditionalBlocks(text, { loop: "true" })).toBe("/loop Commit each round done");
+    expect(processConditionalBlocks(text, { loop: "" })).toBe("Commit once done");
+  });
+
+  it("nested blocks with {{/else}}", () => {
+    const text = "{{#if a}}{{#if b}}both{{#else}}a only{{/else}}{{/if}}{{#else}}none{{/else}}{{/if}}";
+    expect(processConditionalBlocks(text, { a: "1", b: "1" })).toBe("both");
+    expect(processConditionalBlocks(text, { a: "1", b: "" })).toBe("a only");
+    expect(processConditionalBlocks(text, { a: "", b: "1" })).toBe("none");
+  });
+
+  it("full template pattern with guard, placeholder, and repeated conditional", () => {
+    const text =
+      "{{#if +loop}}/loop {{!duration|5}}m {{/if}}Commit {{#if loop}}each round{{#else}}once{{/else}}{{/if}} using /gitsummary";
+    const placeholders = extractPlaceholders(text);
+
+    // Should extract duration and loop, but NOT /else
+    const keys = placeholders.map((p) => p.key);
+    expect(keys).toContain("duration");
+    expect(keys).toContain("loop");
+    expect(keys).not.toContain("/else");
+
+    // loop guard should be defaultOn
+    const loopP = placeholders.find((p) => p.key === "loop")!;
+    expect(loopP.isGuardOnly).toBe(true);
+    expect(loopP.defaultOn).toBe(true);
+
+    // Process with loop enabled
+    const withLoop = processConditionalBlocks(text, { loop: "true" });
+    const resultOn = replacePlaceholders(withLoop, { duration: "5", loop: "true" }, placeholders);
+    expect(resultOn).toBe("/loop 5m Commit each round using /gitsummary");
+
+    // Process with loop disabled
+    const withoutLoop = processConditionalBlocks(text, { loop: "" });
+    const resultOff = replacePlaceholders(withoutLoop, { duration: "5", loop: "" }, placeholders);
+    expect(resultOff).toBe("Commit once using /gitsummary");
+  });
+});
+
 describe("processConditionalBlocks — nested blocks", () => {
   it("2-level: outer true + inner true shows both bodies", () => {
     const text = "{{#if a}}outer {{#if b}}inner{{/if}}{{/if}}";
@@ -687,13 +745,13 @@ describe("extractPlaceholders — conditional blocks", () => {
     expect(keys).not.toContain("#if");
   });
 
-  it("{{/if}} and {{#else}} not extracted as placeholder keys", () => {
-    const text = "{{#if x}}\nA\n{{#else}}\nB\n{{/if}}";
+  it("{{/if}}, {{#else}}, and {{/else}} not extracted as placeholder keys", () => {
+    const text = "{{#if x}}\nA\n{{#else}}\nB\n{{/else}}\n{{/if}}";
     const result = extractPlaceholders(text);
     const keys = result.map((p) => p.key);
     expect(keys).not.toContain("/if");
     expect(keys).not.toContain("#else");
-    expect(keys).not.toContain("#else}}");
+    expect(keys).not.toContain("/else");
   });
 
   it("isGuardOnly is true, isRequired false, isSaved false on guard-only entries", () => {

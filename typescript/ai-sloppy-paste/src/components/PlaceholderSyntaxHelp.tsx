@@ -35,7 +35,7 @@ Placeholders let you add dynamic, fill-in fields to your snippets. When you past
 | \`{{prefix:key:suffix}}\` | Wrapper — prefix/suffix only appear when non-empty |
 | \`{{!key}}\` | No-save — value not stored in history |
 | \`{{#if key}}...{{/if}}\` | Block shown when key is non-empty |
-| \`{{#if key}}...{{#else}}...{{/if}}\` | If/else block based on key value |
+| \`{{#if key}}...{{#else}}...{{/if}}\` | If/else block based on key value (\`{{/else}}\` closing tag optional) |
 | \`{{#if key "label"}}...{{/if}}\` | Labeled checkbox — custom label instead of key name |
 | \`{{#if +key}}...{{/if}}\` | Guard checkbox defaults to **checked** |
 | Guard-only \`{{#if key}}\` | Key only in condition → renders as checkbox |
@@ -442,6 +442,17 @@ Shows one block of content when a key is non-empty, and a different block when t
 - \`{{#if key}}\` branch shown when \`key\` is non-empty
 - \`{{#else}}\` branch shown when \`key\` is empty or absent
 - Both branches consume surrounding newlines to keep output clean
+- \`{{/else}}\` closing tag is optional — use it for readability if you prefer explicit block endings
+- The same key can appear in multiple \`{{#if}}\` blocks — they all reference the same value
+
+## Syntax Variants
+
+\`\`\`
+{{#if key}}yes{{#else}}no{{/if}}
+{{#if key}}yes{{#else}}no{{/else}}{{/if}}
+\`\`\`
+
+Both forms are equivalent. Use \`{{/else}}\` when you want each block to have a clear closing tag.
 
 ## Example
 
@@ -455,6 +466,17 @@ Priority: NORMAL
 
 Fill \`priority="HIGH"\` → "Priority: HIGH"
 Leave \`priority\` empty → "Priority: NORMAL"
+
+## Repeated Variable Example
+
+The same guard key can control multiple blocks:
+
+\`\`\`
+{{#if +loop}}/loop {{!duration|5}}m {{/if}}Commit {{#if loop}}each round{{#else}}once{{/else}}{{/if}}
+\`\`\`
+
+Check \`loop\` → "/loop 5m Commit each round"
+Uncheck \`loop\` → "Commit once"
 
 ## When to Use
 

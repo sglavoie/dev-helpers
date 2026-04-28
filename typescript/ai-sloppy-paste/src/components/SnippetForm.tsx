@@ -171,7 +171,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       />
       <Form.Description
         title="Conditionals"
-        text='{{#if key}}...{{/if}} — toggle section (checkbox).  Default on: {{#if +key}}.  Labeled: {{#if key "Label"}}...{{/if}}'
+        text='{{#if key}}...{{/if}} — toggle section.  Else: {{#if key}}...{{#else}}...{{/if}}.  Default on: {{#if +key}}.  Labeled: {{#if key "Label"}}'
       />
       <Form.Description
         title="System (auto)"

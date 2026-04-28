@@ -86,7 +86,7 @@ export function extractPlaceholders(text: string): Placeholder[] {
     let content = match[1].trim();
 
     // Skip block control tokens — these are handled by processConditionalBlocks
-    if (content.startsWith("#if ") || content === "#else" || content === "/if") {
+    if (content.startsWith("#if ") || content === "#else" || content === "/else" || content === "/if") {
       continue;
     }
 
@@ -262,7 +262,7 @@ export function processConditionalBlocks(text: string, values: Record<string, st
   // Leaf block: body and else-body use a negative lookahead to exclude any nested
   // {{#if, so this regex only matches the innermost (leaf) blocks directly.
   const leafRegex =
-    /\{\{#if ([^}]+)\}\}((?:(?!\{\{#if\s)[\s\S])*?)(?:\{\{#else\}\}((?:(?!\{\{#if\s)[\s\S])*?))?\{\{\/if\}\}/g;
+    /\{\{#if ([^}]+)\}\}((?:(?!\{\{#if\s)[\s\S])*?)(?:\{\{#else\}\}((?:(?!\{\{#if\s)[\s\S])*?)(?:\{\{\/else\}\})?)?\{\{\/if\}\}/g;
 
   const MAX_ITERATIONS = 10;
   let result = text;
