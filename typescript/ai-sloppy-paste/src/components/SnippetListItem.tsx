@@ -39,6 +39,7 @@ interface SnippetListItemProps {
   showRecentSection: boolean;
   searchQuery: string;
   visibleTags: string[];
+  allTags: string[];
   onToggleDetail: () => void;
   onToggleFavorites: () => void;
   onToggleRecent: () => void;
@@ -60,6 +61,7 @@ export function SnippetListItem({
   showRecentSection,
   searchQuery,
   visibleTags,
+  allTags,
   onToggleDetail,
   onToggleFavorites,
   onToggleRecent,
@@ -204,10 +206,10 @@ export function SnippetListItem({
           <ActionPanel.Section title="Manage">
             <TogglePinAction snippet={snippet} onToggled={onLoadData} />
             <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
-            <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={visibleTags} />
+            <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={allTags} />
             <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
             <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
-            <CreateSnippetAction onCreated={onLoadData} tags={visibleTags} />
+            <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
             <Action
               title="Delete Snippet"
               icon={Icon.Trash}
@@ -239,7 +241,7 @@ export function SnippetListItem({
             </ActionPanel.Section>
           )}
           <ActionPanel.Section title="Tags">
-            <QuickAddTagAction snippet={snippet} availableTags={visibleTags} onUpdated={onLoadData} />
+            <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
             <QuickRemoveTagAction snippet={snippet} onUpdated={onLoadData} />
             <ManageTagsAction onUpdated={onLoadData} />
           </ActionPanel.Section>

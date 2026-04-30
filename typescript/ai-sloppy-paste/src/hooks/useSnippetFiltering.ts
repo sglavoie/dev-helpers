@@ -47,6 +47,14 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
     return expandTagsWithParents(Array.from(tagSet));
   }, [filtered]);
 
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    snippets.forEach((snippet) => {
+      snippet.tags.forEach((tag) => tagSet.add(tag));
+    });
+    return expandTagsWithParents(Array.from(tagSet));
+  }, [snippets]);
+
   const pinnedSnippets = useMemo(
     () => [...filtered].filter((s) => s.isPinned).sort((a, b) => a.title.localeCompare(b.title)),
     [filtered],
@@ -105,6 +113,7 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
     setShowNeedsAttention,
     filtered,
     visibleTags,
+    allTags,
     pinnedSnippets,
     recentSnippets,
     sortedSnippets,

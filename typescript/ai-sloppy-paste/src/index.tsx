@@ -46,6 +46,7 @@ export default function Command() {
     setShowNeedsAttention,
     filtered,
     visibleTags,
+    allTags,
     pinnedSnippets,
     recentSnippets,
     sortedSnippets,
@@ -60,6 +61,7 @@ export default function Command() {
     showRecentSection: showRecentSection as boolean,
     searchQuery,
     visibleTags,
+    allTags,
     onToggleDetail: () => setShowingDetail(!showingDetail),
     onToggleFavorites: () => setShowOnlyFavorites(!showOnlyFavorites),
     onToggleRecent: () => setShowRecentSection(!showRecentSection),
@@ -121,7 +123,7 @@ export default function Command() {
           }
           actions={
             <ActionPanel>
-              <CreateSnippetAction onCreated={loadData} tags={visibleTags} />
+              <CreateSnippetAction onCreated={loadData} tags={allTags} />
               <Action
                 title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
                 icon={Icon.Star}
