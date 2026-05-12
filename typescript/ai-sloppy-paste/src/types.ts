@@ -63,18 +63,14 @@ export interface PlaceholderHistory {
 export enum SortOption {
   UpdatedDesc = "updated-desc",
   MostUsedDesc = "most-used-desc",
-  MostUsedAsc = "most-used-asc",
   Alphabetical = "alphabetical",
-  LastUsed = "last-used",
   CreatedDesc = "created-desc",
 }
 
 export const SORT_LABELS: Record<SortOption, string> = {
-  [SortOption.UpdatedDesc]: "Recently Updated",
+  [SortOption.UpdatedDesc]: "Recently Active",
   [SortOption.MostUsedDesc]: "Most Used",
-  [SortOption.MostUsedAsc]: "Least Used",
   [SortOption.Alphabetical]: "Alphabetical (A-Z)",
-  [SortOption.LastUsed]: "Recently Used",
   [SortOption.CreatedDesc]: "Recently Created",
 };
 

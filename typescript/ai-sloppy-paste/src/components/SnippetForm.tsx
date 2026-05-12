@@ -51,21 +51,23 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       return;
     }
 
+    const tagToAdd = tagValidation.normalizedValue ?? trimmedTag;
+
     // Check if tag already exists
-    if (selectedTags.includes(trimmedTag)) {
+    if (selectedTags.includes(tagToAdd)) {
       setNewTagError("Tag already added");
       return;
     }
 
     // Add the tag
-    setSelectedTags([...selectedTags, trimmedTag]);
+    setSelectedTags([...selectedTags, tagToAdd]);
     setNewTagInput("");
     setNewTagError(undefined);
 
     showToast({
       style: Toast.Style.Success,
       title: "Tag added",
-      message: trimmedTag,
+      message: tagValidation.normalizedValue ? `Tag saved as '${tagValidation.normalizedValue}'` : tagToAdd,
     });
   }
 
@@ -204,6 +206,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         title="System (auto)"
         text="{{DATE}}  {{TIME}}  {{DATETIME}}  {{TODAY}}  {{NOW}}  {{YEAR}}  {{MONTH}}  {{DAY}}"
       />
+      <Form.Separator />
       <Form.TextArea
         id="description"
         title="Description"
@@ -211,6 +214,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         defaultValue={props.snippet?.description || ""}
         enableMarkdown={true}
       />
+      <Form.Separator />
       <Form.TagPicker
         id="tags"
         title="Tags"
@@ -250,7 +254,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
           setNewTagError(undefined);
         }}
       />
-      <Form.Description text="💡 Press Cmd+T to add tags. Tags appear as badges above - click to remove. Use slashes for hierarchy (e.g., work/projects). No spaces - use dashes (e.g., my-project)." />
+      <Form.Description text="Press Cmd+T to add tags. Tags appear as badges above - click to remove. Use slashes for hierarchy (e.g., work/projects). No spaces - use dashes (e.g., my-project)." />
     </Form>
   );
 }

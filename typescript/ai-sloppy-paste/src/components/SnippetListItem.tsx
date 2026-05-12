@@ -18,7 +18,6 @@ import {
   CreateSnippetAction,
   DuplicateSnippetAction,
   EditSnippetAction,
-  ImportDataAction,
   ManagePlaceholderHistoryAction,
   ManageTagsAction,
   QuickAddTagAction,
@@ -47,8 +46,6 @@ interface SnippetListItemProps {
   onToggleNeedsAttention: () => void;
   onLoadData: () => void;
   onDelete: (snippet: Snippet) => void;
-  onExport: () => void;
-  onShowStorageInfo: () => void;
 }
 
 export function SnippetListItem({
@@ -69,8 +66,6 @@ export function SnippetListItem({
   onToggleNeedsAttention,
   onLoadData,
   onDelete,
-  onExport,
-  onShowStorageInfo,
 }: SnippetListItemProps) {
   const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
   const analytics = computeSnippetAnalytics(snippet);
@@ -154,7 +149,7 @@ export function SnippetListItem({
       }
       actions={
         <ActionPanel>
-          <ActionPanel.Section title="Clipboard">
+          <ActionPanel.Section title="Primary">
             <SnippetContentAction snippet={snippet} mode="paste" onComplete={onLoadData} />
             <SnippetContentAction snippet={snippet} mode="copy" onComplete={onLoadData} />
             <Action.CopyToClipboard
@@ -163,50 +158,10 @@ export function SnippetListItem({
               shortcut={{ modifiers: ["cmd"], key: "c" }}
             />
           </ActionPanel.Section>
-          <ActionPanel.Section title="View">
-            <Action
-              title="Toggle Detail View"
-              icon={Icon.AppWindowSidebarLeft}
-              shortcut={{ modifiers: ["cmd"], key: "d" }}
-              onAction={onToggleDetail}
-            />
-            <Action
-              title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
-              icon={Icon.Star}
-              shortcut={{ modifiers: ["cmd"], key: "f" }}
-              onAction={onToggleFavorites}
-            />
-            <Action
-              title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
-              icon={Icon.Clock}
-              shortcut={{ modifiers: ["cmd"], key: "r" }}
-              onAction={onToggleRecent}
-            />
-            <Action
-              title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
-              icon={Icon.Box}
-              shortcut={{ modifiers: ["cmd"], key: "b" }}
-              onAction={onToggleArchived}
-            />
-            <Action
-              title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
-              icon={Icon.Warning}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
-              onAction={onToggleNeedsAttention}
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Help">
-            <Action.Push
-              title="Search Operators Help"
-              icon={Icon.QuestionMark}
-              shortcut={{ modifiers: ["cmd"], key: "/" }}
-              target={<SearchOperatorsHelp />}
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Manage">
+          <ActionPanel.Section title="Edit">
+            <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={allTags} />
             <TogglePinAction snippet={snippet} onToggled={onLoadData} />
             <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
-            <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={allTags} />
             <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
             <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
             <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
@@ -218,8 +173,11 @@ export function SnippetListItem({
               onAction={() => onDelete(snippet)}
             />
           </ActionPanel.Section>
-          {analytics.isStale && (
-            <ActionPanel.Section title="Cleanup Suggestion">
+          <ActionPanel.Section title="Organize">
+            <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
+            <QuickRemoveTagAction snippet={snippet} onUpdated={onLoadData} />
+            <ManageTagsAction onUpdated={onLoadData} />
+            {analytics.isStale && (
               <Action
                 title={`Archive — ${analytics.stalenessReason}`}
                 icon={{ source: Icon.Trash, tintColor: Color.Orange }}
@@ -238,17 +196,47 @@ export function SnippetListItem({
                   }
                 }}
               />
-            </ActionPanel.Section>
-          )}
-          <ActionPanel.Section title="Tags">
-            <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
-            <QuickRemoveTagAction snippet={snippet} onUpdated={onLoadData} />
-            <ManageTagsAction onUpdated={onLoadData} />
+            )}
           </ActionPanel.Section>
-          <ActionPanel.Section title="Placeholder History">
-            <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Analytics">
+          <ActionPanel.Section title="Navigate">
+            <Action
+              title="Toggle Detail View"
+              icon={Icon.AppWindowSidebarLeft}
+              shortcut={{ modifiers: ["cmd"], key: "d" }}
+              onAction={onToggleDetail}
+            />
+            <ActionPanel.Submenu title="View Options" icon={Icon.Eye}>
+              <Action
+                title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
+                icon={Icon.Star}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
+                onAction={onToggleFavorites}
+              />
+              <Action
+                title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
+                icon={Icon.Clock}
+                shortcut={{ modifiers: ["cmd"], key: "r" }}
+                onAction={onToggleRecent}
+              />
+              <Action
+                title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
+                icon={Icon.Box}
+                shortcut={{ modifiers: ["cmd"], key: "b" }}
+                onAction={onToggleArchived}
+              />
+              <Action
+                title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
+                icon={Icon.Warning}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
+                onAction={onToggleNeedsAttention}
+              />
+            </ActionPanel.Submenu>
+            <Action.Push
+              title="Search Operators Help"
+              icon={Icon.QuestionMark}
+              shortcut={{ modifiers: ["cmd"], key: "/" }}
+              target={<SearchOperatorsHelp />}
+            />
             <Action.Push
               title="View Usage Analytics"
               icon={Icon.BarChart}
@@ -256,21 +244,7 @@ export function SnippetListItem({
               target={<AnalyticsDashboard onUpdated={onLoadData} />}
             />
             <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Data">
-            <Action
-              title="Export All Snippets"
-              icon={Icon.Download}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "e" }}
-              onAction={onExport}
-            />
-            <ImportDataAction onImported={onLoadData} />
-            <Action
-              title="View Storage Info"
-              icon={Icon.HardDrive}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
-              onAction={onShowStorageInfo}
-            />
+            <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
           </ActionPanel.Section>
         </ActionPanel>
       }

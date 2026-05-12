@@ -5,6 +5,7 @@ import {
   closeMainWindow,
   Form,
   getPreferenceValues,
+  Icon,
   showToast,
   Toast,
   useNavigation,
@@ -45,6 +46,8 @@ export function PlaceholderForm(props: {
   const requiredPlaceholders = sorted.filter((p) => p.isRequired);
   const optionalPlaceholders = sorted.filter((p) => !p.isRequired);
   const hasBothSections = requiredPlaceholders.length > 0 && optionalPlaceholders.length > 0;
+  const totalRequired = requiredPlaceholders.length;
+  const filledCount = requiredPlaceholders.filter((p) => (formValues[p.key] ?? "").trim() !== "").length;
 
   // Load history and initialize form values on mount
   useEffect(() => {
@@ -317,7 +320,7 @@ export function PlaceholderForm(props: {
     // Build title with indicators
     let title = placeholder.key;
     if (placeholder.isRequired) title += " *";
-    if (!placeholder.isSaved) title = `🚫 ${title}`;
+    // isSaved=false is indicated via buildInfoText ("Won't be saved to history")
 
     return (
       <Fragment key={placeholder.key}>
@@ -344,7 +347,7 @@ export function PlaceholderForm(props: {
                 {suggestions.map((value) => (
                   <Form.Dropdown.Item key={value} value={value} title={value} />
                 ))}
-                <Form.Dropdown.Item value={CUSTOM_VALUE_MARKER} title="✏️ Enter new value..." />
+                <Form.Dropdown.Item value={CUSTOM_VALUE_MARKER} title="Enter new value..." icon={Icon.Pencil} />
               </Form.Dropdown>
               {showCustomInput && (
                 <Form.TextField
@@ -375,7 +378,7 @@ export function PlaceholderForm(props: {
 
   if (isLoadingHistory) {
     return (
-      <Form navigationTitle={`Fill Placeholders: ${props.snippet.title}`} isLoading={true}>
+      <Form navigationTitle={`Fill Placeholders (${filledCount}/${totalRequired}): ${props.snippet.title}`} isLoading={true}>
         <Form.Description text="Loading history..." />
       </Form>
     );
@@ -383,7 +386,7 @@ export function PlaceholderForm(props: {
 
   return (
     <Form
-      navigationTitle={`Fill Placeholders: ${props.snippet.title}`}
+      navigationTitle={`Fill Placeholders (${filledCount}/${totalRequired}): ${props.snippet.title}`}
       actions={
         <ActionPanel>
           <Action.SubmitForm

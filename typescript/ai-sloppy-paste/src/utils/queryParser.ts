@@ -18,6 +18,8 @@ export interface ParsedQuery {
   fuzzyText: string;
   /** Quick flag to check if any operators are present */
   hasOperators: boolean;
+  /** True when structured operators (tag:, is:, not:, exact phrases) are present (excludes plain fuzzy text) */
+  hasStructuredOperators: boolean;
 }
 
 /**
@@ -56,6 +58,7 @@ export function parseSearchQuery(query: string): ParsedQuery {
     exactPhrases: [],
     fuzzyText: "",
     hasOperators: false,
+    hasStructuredOperators: false,
   };
 
   // Empty query - return empty result
@@ -138,6 +141,13 @@ export function parseSearchQuery(query: string): ParsedQuery {
     result.not.length > 0 ||
     result.exactPhrases.length > 0 ||
     result.fuzzyText.length > 0;
+
+  result.hasStructuredOperators =
+    result.tags.length > 0 ||
+    result.notTags.length > 0 ||
+    result.is.length > 0 ||
+    result.not.length > 0 ||
+    result.exactPhrases.length > 0;
 
   return result;
 }

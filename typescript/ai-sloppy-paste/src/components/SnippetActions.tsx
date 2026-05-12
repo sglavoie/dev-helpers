@@ -62,7 +62,7 @@ export function ToggleFavoriteAction(props: { snippet: Snippet; onToggled: () =>
     <Action
       title={props.snippet.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
       icon={props.snippet.isFavorite ? Icon.StarDisabled : Icon.Star}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "v" }}
       onAction={handleToggle}
     />
   );
@@ -216,7 +216,6 @@ export function ManagePlaceholderHistoryAction(props: { onUpdated: () => void })
     <Action
       title="Manage Placeholder History"
       icon={Icon.Clock}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "h" }}
       onAction={() => {
         push(<ManagePlaceholderHistoryView onUpdated={props.onUpdated} />);
       }}
@@ -231,7 +230,6 @@ export function ImportDataAction(props: { onImported: () => void }) {
     <Action
       title="Import Snippets"
       icon={Icon.Upload}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "i" }}
       onAction={() => {
         push(<ImportForm onImported={props.onImported} />);
       }}

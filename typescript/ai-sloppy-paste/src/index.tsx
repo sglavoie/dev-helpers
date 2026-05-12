@@ -50,6 +50,7 @@ export default function Command() {
     pinnedSnippets,
     recentSnippets,
     sortedSnippets,
+    hasStructuredOperators,
   } = useSnippetFiltering(snippets, sortOption as SortOption, showRecentSection as boolean);
 
   const sharedItemProps = {
@@ -69,8 +70,6 @@ export default function Command() {
     onToggleNeedsAttention: () => setShowNeedsAttention((v) => !v),
     onLoadData: loadData,
     onDelete: handleDelete,
-    onExport: handleExport,
-    onShowStorageInfo: handleShowStorageInfo,
   };
 
   return (
@@ -116,7 +115,7 @@ export default function Command() {
           }
           description={
             showOnlyFavorites
-              ? "Mark snippets as favorites with ⌘+Shift+F or press ⌘+F to view all snippets"
+              ? "Mark snippets as favorites with ⌘+Shift+V or press ⌘+Shift+F to view all snippets"
               : showNeedsAttention
                 ? "All snippets are in good shape. Press ⌘+Shift+N to return to the full list"
                 : "Press ⌘+N to create your first snippet"
@@ -127,7 +126,7 @@ export default function Command() {
               <Action
                 title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
                 icon={Icon.Star}
-                shortcut={{ modifiers: ["cmd"], key: "f" }}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
                 onAction={() => setShowOnlyFavorites(!showOnlyFavorites)}
               />
               <ActionPanel.Section title="Help">
@@ -140,6 +139,8 @@ export default function Command() {
               </ActionPanel.Section>
               <ActionPanel.Section title="Data">
                 <ImportDataAction onImported={loadData} />
+                <Action title="Export All Snippets" icon={Icon.Download} onAction={handleExport} />
+                <Action title="View Storage Info" icon={Icon.HardDrive} onAction={handleShowStorageInfo} />
               </ActionPanel.Section>
             </ActionPanel>
           }
@@ -162,13 +163,15 @@ export default function Command() {
           )}
           <List.Section
             title={
-              showArchivedSnippets
-                ? "Archived Snippets"
-                : showNeedsAttention
-                  ? `Needs Attention (${filtered.length})`
-                  : pinnedSnippets.length > 0 || recentSnippets.length > 0
-                    ? "All Snippets"
-                    : undefined
+              hasStructuredOperators
+                ? `${showArchivedSnippets ? "Archived Snippets" : showNeedsAttention ? `Needs Attention (${filtered.length})` : "All Snippets"} — operators active, UI filters bypassed`
+                : showArchivedSnippets
+                  ? "Archived Snippets"
+                  : showNeedsAttention
+                    ? `Needs Attention (${filtered.length})`
+                    : pinnedSnippets.length > 0 || recentSnippets.length > 0
+                      ? "All Snippets"
+                      : undefined
             }
           >
             {sortedSnippets.map((snippet: Snippet) => (

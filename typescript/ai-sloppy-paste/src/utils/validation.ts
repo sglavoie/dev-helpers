@@ -15,6 +15,7 @@ export const VALIDATION_LIMITS = {
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
+  normalizedValue?: string;
 }
 
 /**
@@ -65,24 +66,25 @@ export function validateContent(content: string): ValidationResult {
  */
 export function validateTag(tag: string): ValidationResult {
   const trimmed = tag.trim();
+  const normalized = trimmed.replace(/\s+/g, "-").toLowerCase();
 
-  if (trimmed.length === 0) {
+  if (normalized.length === 0) {
     return { isValid: false, error: "Tag name is required" };
   }
 
-  if (trimmed.length < VALIDATION_LIMITS.TAG_MIN_LENGTH) {
+  if (normalized.length < VALIDATION_LIMITS.TAG_MIN_LENGTH) {
     return { isValid: false, error: "Tag name is too short" };
   }
 
-  if (trimmed.length > VALIDATION_LIMITS.TAG_MAX_LENGTH) {
+  if (normalized.length > VALIDATION_LIMITS.TAG_MAX_LENGTH) {
     return {
       isValid: false,
-      error: `Tag name must be ${VALIDATION_LIMITS.TAG_MAX_LENGTH} characters or less (currently ${trimmed.length})`,
+      error: `Tag name must be ${VALIDATION_LIMITS.TAG_MAX_LENGTH} characters or less (currently ${normalized.length})`,
     };
   }
 
   // Check for leading/trailing slashes
-  if (trimmed.startsWith("/") || trimmed.endsWith("/")) {
+  if (normalized.startsWith("/") || normalized.endsWith("/")) {
     return {
       isValid: false,
       error: "Tag cannot start or end with a slash",
@@ -90,7 +92,7 @@ export function validateTag(tag: string): ValidationResult {
   }
 
   // Check for consecutive slashes
-  if (trimmed.includes("//")) {
+  if (normalized.includes("//")) {
     return {
       isValid: false,
       error: "Tag cannot contain consecutive slashes",
@@ -98,17 +100,16 @@ export function validateTag(tag: string): ValidationResult {
   }
 
   // Allow alphanumeric, hyphens, underscores, and slashes (for hierarchy)
-  // No spaces allowed to prevent parsing issues
   const validPattern = /^[a-zA-Z0-9\-_/]+$/;
-  if (!validPattern.test(trimmed)) {
+  if (!validPattern.test(normalized)) {
     return {
       isValid: false,
-      error: "Tag can only contain letters, numbers, hyphens, underscores, and slashes (no spaces)",
+      error: "Tag can only contain letters, numbers, hyphens, underscores, and slashes",
     };
   }
 
   // Check hierarchy depth
-  const depth = trimmed.split("/").length;
+  const depth = normalized.split("/").length;
   if (depth > VALIDATION_LIMITS.TAG_MAX_DEPTH) {
     return {
       isValid: false,
@@ -117,7 +118,7 @@ export function validateTag(tag: string): ValidationResult {
   }
 
   // Check each segment is not empty (catches cases like "a//b" that might slip through)
-  const segments = trimmed.split("/");
+  const segments = normalized.split("/");
   if (segments.some((segment) => segment.length === 0)) {
     return {
       isValid: false,
@@ -125,6 +126,9 @@ export function validateTag(tag: string): ValidationResult {
     };
   }
 
+  if (normalized !== trimmed) {
+    return { isValid: true, normalizedValue: normalized };
+  }
   return { isValid: true };
 }
 

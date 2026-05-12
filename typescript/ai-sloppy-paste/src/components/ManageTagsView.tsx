@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { RenameTagForm } from "./RenameTagForm";
@@ -125,14 +125,14 @@ export function ManageTagsView(props: { onUpdated: () => void }) {
       });
     } else {
       accessories.push({
-        tag: { value: "0 snippets", color: "#999" },
+        tag: { value: "0 snippets", color: Color.SecondaryText },
       });
     }
 
     // Usage count (if > 0)
     if (stat.totalUsageCount > 0) {
       accessories.push({
-        tag: { value: `${formatNumber(stat.totalUsageCount)} uses`, color: "#00aa00" },
+        tag: { value: `${formatNumber(stat.totalUsageCount)} uses`, color: Color.Green },
       });
     }
 
@@ -145,7 +145,7 @@ export function ManageTagsView(props: { onUpdated: () => void }) {
     } else if (stat.snippetCount > 0) {
       // Has snippets but never used
       accessories.push({
-        tag: { value: "Never used", color: "#ff9900" },
+        tag: { value: "Never used", color: Color.Orange },
       });
     }
 

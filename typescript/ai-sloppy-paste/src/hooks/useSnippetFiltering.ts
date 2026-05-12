@@ -80,22 +80,15 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
     return [...remaining].sort((a, b) => {
       switch (sortOption) {
         case SortOption.UpdatedDesc:
-          return b.updatedAt - a.updatedAt;
+          return Math.max(b.updatedAt, b.lastUsedAt ?? 0) - Math.max(a.updatedAt, a.lastUsedAt ?? 0);
         case SortOption.MostUsedDesc:
           return (b.useCount || 0) - (a.useCount || 0);
-        case SortOption.MostUsedAsc:
-          return (a.useCount || 0) - (b.useCount || 0);
         case SortOption.Alphabetical:
           return a.title.localeCompare(b.title);
-        case SortOption.LastUsed:
-          if (!a.lastUsedAt && !b.lastUsedAt) return b.updatedAt - a.updatedAt;
-          if (!a.lastUsedAt) return 1;
-          if (!b.lastUsedAt) return -1;
-          return b.lastUsedAt - a.lastUsedAt;
         case SortOption.CreatedDesc:
           return b.createdAt - a.createdAt;
         default:
-          return b.updatedAt - a.updatedAt;
+          return Math.max(b.updatedAt, b.lastUsedAt ?? 0) - Math.max(a.updatedAt, a.lastUsedAt ?? 0);
       }
     });
   }, [filtered, pinnedIds, recentSnippets, showRecentSection, sortOption]);
@@ -117,5 +110,6 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
     pinnedSnippets,
     recentSnippets,
     sortedSnippets,
+    hasStructuredOperators: parsedQuery.hasStructuredOperators,
   };
 }

@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { PlaceholderHistoryDetailView } from "./PlaceholderHistoryDetailView";
@@ -139,7 +139,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
     // Total usage
     if (stat.totalUseCount > 0) {
       accessories.push({
-        tag: { value: `${stat.totalUseCount} uses`, color: "#00aa00" },
+        tag: { value: `${stat.totalUseCount} uses`, color: Color.Green },
       });
     }
 
@@ -151,7 +151,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
       });
     } else {
       accessories.push({
-        tag: { value: "Never used", color: "#999" },
+        tag: { value: "Never used", color: Color.SecondaryText },
       });
     }
 

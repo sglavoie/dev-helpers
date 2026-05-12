@@ -30,6 +30,7 @@ function createQuery(overrides: Partial<ParsedQuery>): ParsedQuery {
     exactPhrases: [],
     fuzzyText: "",
     hasOperators: false,
+    hasStructuredOperators: false,
     ...overrides,
   };
 }
