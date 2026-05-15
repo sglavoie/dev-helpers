@@ -9,8 +9,9 @@ import {
 } from "@raycast/api";
 import { Snippet } from "../types";
 import { toggleArchive } from "../utils/storage";
-import { computeSnippetAnalytics } from "../utils/analytics";
+import { computeSnippetAnalytics, getUnusedTags } from "../utils/analytics";
 import { getErrorMessage } from "../utils/errorMessage";
+import { extractPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import { SearchOperatorsHelp } from "./SearchOperatorsHelp";
 import { SnippetContentAction } from "./SnippetContentAction";
@@ -18,8 +19,10 @@ import {
   CreateSnippetAction,
   DuplicateSnippetAction,
   EditSnippetAction,
+  ImportDataAction,
   ManagePlaceholderHistoryAction,
   ManageTagsAction,
+  PasteWithLastValuesAction,
   QuickAddTagAction,
   QuickRemoveTagAction,
   SimilarSnippetsAction,
@@ -46,6 +49,7 @@ interface SnippetListItemProps {
   onToggleNeedsAttention: () => void;
   onLoadData: () => void;
   onDelete: (snippet: Snippet) => void;
+  setSearchQuery: (query: string) => void;
 }
 
 export function SnippetListItem({
@@ -66,9 +70,15 @@ export function SnippetListItem({
   onToggleNeedsAttention,
   onLoadData,
   onDelete,
+  setSearchQuery,
 }: SnippetListItemProps) {
   const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
   const analytics = computeSnippetAnalytics(snippet);
+  const systemKeys = new Set(getSystemPlaceholderNames());
+  const requiredInputCount = extractPlaceholders(snippet.content).filter(
+    (p) => p.isRequired && !systemKeys.has(p.key),
+  ).length;
+  const unusedTagCount = getUnusedTags(allSnippets, allTags).length;
 
   return (
     <List.Item
@@ -92,15 +102,23 @@ export function SnippetListItem({
         showingDetail
           ? undefined
           : [
-              ...(analytics.isStale
+              ...(analytics.isStale && !snippet.isArchived
                 ? [
                     {
-                      icon: { source: Icon.ExclamationMark, tintColor: Color.Orange },
+                      text: { value: "stale", color: Color.SecondaryText },
                       tooltip: analytics.stalenessReason ?? "Stale snippet",
                     },
                   ]
                 : []),
-              ...(snippet.isPinned && snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Favorite" }] : []),
+              ...(requiredInputCount > 0
+                ? [
+                    {
+                      text: `⌨ ${requiredInputCount}`,
+                      tooltip: `${requiredInputCount} required placeholder${requiredInputCount > 1 ? "s" : ""}`,
+                    },
+                  ]
+                : []),
+              ...(snippet.isPinned && snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Bookmarked" }] : []),
               ...(snippet.tags.length > 0
                 ? snippet.tags.slice(0, 3).map((tag) => ({ tag: { value: tag, color: Color.Blue } }))
                 : [{ tag: { value: "untagged", color: Color.SecondaryText } }]),
@@ -149,22 +167,12 @@ export function SnippetListItem({
       }
       actions={
         <ActionPanel>
-          <ActionPanel.Section title="Primary">
+          <ActionPanel.Section>
             <SnippetContentAction snippet={snippet} mode="paste" onComplete={onLoadData} />
             <SnippetContentAction snippet={snippet} mode="copy" onComplete={onLoadData} />
-            <Action.CopyToClipboard
-              title="Copy Title"
-              content={snippet.title}
-              shortcut={{ modifiers: ["cmd"], key: "c" }}
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Edit">
+            <PasteWithLastValuesAction snippet={snippet} onComplete={onLoadData} />
             <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={allTags} />
             <TogglePinAction snippet={snippet} onToggled={onLoadData} />
-            <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
-            <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
-            <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
-            <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
             <Action
               title="Delete Snippet"
               icon={Icon.Trash}
@@ -173,10 +181,12 @@ export function SnippetListItem({
               onAction={() => onDelete(snippet)}
             />
           </ActionPanel.Section>
-          <ActionPanel.Section title="Organize">
+          <ActionPanel.Submenu title="Organize" icon={Icon.Folder}>
+            <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
+            <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
+            <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
             <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
             <QuickRemoveTagAction snippet={snippet} onUpdated={onLoadData} />
-            <ManageTagsAction onUpdated={onLoadData} />
             {analytics.isStale && (
               <Action
                 title={`Archive — ${analytics.stalenessReason}`}
@@ -197,55 +207,75 @@ export function SnippetListItem({
                 }}
               />
             )}
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Navigate">
+            <Action.CopyToClipboard
+              title="Copy Title"
+              content={snippet.title}
+              shortcut={{ modifiers: ["cmd"], key: "c" }}
+            />
+          </ActionPanel.Submenu>
+          <ActionPanel.Submenu title="Manage" icon={Icon.Gear}>
+            <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
+            <ManageTagsAction onUpdated={onLoadData} unusedCount={unusedTagCount} />
+            <Action.Push
+              title="View Usage Analytics"
+              icon={Icon.BarChart}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "y" }}
+              target={<AnalyticsDashboard onUpdated={onLoadData} />}
+            />
+            <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
+            <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
+            <ImportDataAction onImported={onLoadData} />
+          </ActionPanel.Submenu>
+          <ActionPanel.Submenu title="View" icon={Icon.Eye}>
             <Action
               title="Toggle Detail View"
               icon={Icon.AppWindowSidebarLeft}
               shortcut={{ modifiers: ["cmd"], key: "d" }}
               onAction={onToggleDetail}
             />
-            <ActionPanel.Submenu title="View Options" icon={Icon.Eye}>
-              <Action
-                title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
-                icon={Icon.Star}
-                shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
-                onAction={onToggleFavorites}
-              />
-              <Action
-                title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
-                icon={Icon.Clock}
-                shortcut={{ modifiers: ["cmd"], key: "r" }}
-                onAction={onToggleRecent}
-              />
-              <Action
-                title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
-                icon={Icon.Box}
-                shortcut={{ modifiers: ["cmd"], key: "b" }}
-                onAction={onToggleArchived}
-              />
-              <Action
-                title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
-                icon={Icon.Warning}
-                shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
-                onAction={onToggleNeedsAttention}
-              />
-            </ActionPanel.Submenu>
+            <Action
+              title={showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked"}
+              icon={Icon.Star}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
+              onAction={onToggleFavorites}
+            />
+            <Action
+              title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
+              icon={Icon.Clock}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+              onAction={onToggleRecent}
+            />
+            <Action
+              title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
+              icon={Icon.Box}
+              shortcut={{ modifiers: ["cmd"], key: "b" }}
+              onAction={onToggleArchived}
+            />
+            <Action
+              title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
+              icon={Icon.Warning}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
+              onAction={onToggleNeedsAttention}
+            />
             <Action.Push
               title="Search Operators Help"
               icon={Icon.QuestionMark}
               shortcut={{ modifiers: ["cmd"], key: "/" }}
               target={<SearchOperatorsHelp />}
             />
-            <Action.Push
-              title="View Usage Analytics"
-              icon={Icon.BarChart}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-              target={<AnalyticsDashboard onUpdated={onLoadData} />}
-            />
-            <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
-            <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
-          </ActionPanel.Section>
+          </ActionPanel.Submenu>
+          {snippet.tags.length > 0 && (
+            <ActionPanel.Section title="Filter by Tag">
+              {snippet.tags.slice(0, 5).map((tag) => (
+                <Action
+                  key={tag}
+                  title={`Filter by tag: ${tag}`}
+                  icon={Icon.Tag}
+                  onAction={() => setSearchQuery(`tag:${tag}`)}
+                />
+              ))}
+            </ActionPanel.Section>
+          )}
         </ActionPanel>
       }
     />

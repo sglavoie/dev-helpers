@@ -204,11 +204,11 @@ export function ManageTagsView(props: { onUpdated: () => void }) {
                   </ActionPanel.Section>
                   <ActionPanel.Section title="Bulk Actions">
                     <Action
-                      title="Merge Tags"
+                      title="Merge into Another Tag…"
                       icon={Icon.Link}
                       shortcut={{ modifiers: ["cmd"], key: "m" }}
                       onAction={() => {
-                        push(<MergeTagsForm tags={tags} onMerged={handleTagRenamed} />);
+                        push(<MergeTagsForm tags={tags} onMerged={handleTagRenamed} initialSourceTag={tagItem.tag} />);
                       }}
                     />
                   </ActionPanel.Section>

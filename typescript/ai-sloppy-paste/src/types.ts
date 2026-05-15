@@ -8,6 +8,7 @@ export interface Snippet {
   updatedAt: number;
   lastUsedAt?: number;
   useCount: number;
+  /** Bookmarked for quick filtering; does not affect list order (use isPinned for that). */
   isFavorite: boolean;
   isArchived: boolean;
   isPinned: boolean;

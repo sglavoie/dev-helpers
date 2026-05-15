@@ -11,6 +11,7 @@ import { CreateSnippetAction, ImportDataAction } from "./components/SnippetActio
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { useSnippets } from "./hooks/useSnippets";
 import { useSnippetFiltering } from "./hooks/useSnippetFiltering";
+import { useSearchSuggestions } from "./hooks/useSearchSuggestions";
 
 /**
  * Note: Search highlighting in markdown detail view has been removed to prevent
@@ -53,6 +54,8 @@ export default function Command() {
     hasStructuredOperators,
   } = useSnippetFiltering(snippets, sortOption as SortOption, showRecentSection as boolean);
 
+  const suggestions = useSearchSuggestions(searchQuery, allTags);
+
   const sharedItemProps = {
     allSnippets: snippets,
     showingDetail: showingDetail as boolean,
@@ -70,6 +73,7 @@ export default function Command() {
     onToggleNeedsAttention: () => setShowNeedsAttention((v) => !v),
     onLoadData: loadData,
     onDelete: handleDelete,
+    setSearchQuery,
   };
 
   return (
@@ -77,8 +81,9 @@ export default function Command() {
       isLoading={isLoading}
       isShowingDetail={showingDetail as boolean}
       filtering={false}
+      searchText={searchQuery}
       onSearchTextChange={setSearchQuery}
-      searchBarPlaceholder='Search or use: tag:work, is:favorite, not:archived, "exact"'
+      searchBarPlaceholder='Search… (tag:, is:favorite, not:, "exact") — Cmd+/ for help'
       searchBarAccessory={
         <>
           <List.Dropdown
@@ -108,14 +113,14 @@ export default function Command() {
           icon={showOnlyFavorites ? Icon.Star : showNeedsAttention ? Icon.Checkmark : Icon.Document}
           title={
             showOnlyFavorites
-              ? "No favorites yet"
+              ? "No bookmarks yet"
               : showNeedsAttention
                 ? "No snippets need attention"
                 : "No snippets yet"
           }
           description={
             showOnlyFavorites
-              ? "Mark snippets as favorites with ⌘+Shift+V or press ⌘+Shift+F to view all snippets"
+              ? "Bookmark snippets with ⌘+Shift+V or press ⌘+Shift+F to view all bookmarks"
               : showNeedsAttention
                 ? "All snippets are in good shape. Press ⌘+Shift+N to return to the full list"
                 : "Press ⌘+N to create your first snippet"
@@ -124,7 +129,7 @@ export default function Command() {
             <ActionPanel>
               <CreateSnippetAction onCreated={loadData} tags={allTags} />
               <Action
-                title={showOnlyFavorites ? "Show All Snippets" : "Show Favorites"}
+                title={showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked"}
                 icon={Icon.Star}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
                 onAction={() => setShowOnlyFavorites(!showOnlyFavorites)}
@@ -147,6 +152,27 @@ export default function Command() {
         />
       ) : (
         <>
+          {suggestions.length > 0 && (
+            <List.Section title="Search Suggestions">
+              {suggestions.map((suggestion) => (
+                <List.Item
+                  key={suggestion.title}
+                  title={suggestion.title}
+                  subtitle={suggestion.subtitle}
+                  icon={Icon.MagnifyingGlass}
+                  actions={
+                    <ActionPanel>
+                      <Action
+                        title="Apply Filter"
+                        icon={Icon.MagnifyingGlass}
+                        onAction={() => setSearchQuery(suggestion.completion)}
+                      />
+                    </ActionPanel>
+                  }
+                />
+              ))}
+            </List.Section>
+          )}
           {pinnedSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
             <List.Section title="Pinned" subtitle={`${pinnedSnippets.length} snippets`}>
               {pinnedSnippets.map((snippet: Snippet) => (
@@ -154,7 +180,7 @@ export default function Command() {
               ))}
             </List.Section>
           )}
-          {recentSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
+          {recentSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && snippets.filter((s) => !s.isArchived).length >= 3 && (
             <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
               {recentSnippets.map((snippet: Snippet) => (
                 <SnippetListItem key={snippet.id} snippet={snippet} {...sharedItemProps} />

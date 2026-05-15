@@ -25,7 +25,7 @@ export interface ParsedQuery {
 /**
  * Valid values for is:/not: operators
  */
-const VALID_BOOLEAN_OPERATORS = ["favorite", "archived", "untagged"] as const;
+const VALID_BOOLEAN_OPERATORS = ["favorite", "bookmarked", "archived", "untagged"] as const;
 
 /**
  * Parses a search query string into structured operators and filters.

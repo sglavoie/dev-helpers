@@ -40,14 +40,14 @@ export function applySearchFilters(snippets: Snippet[], query: ParsedQuery): Sni
 
     // 3. Boolean "is:" filters - check snippet properties
     for (const condition of query.is) {
-      if (condition === "favorite" && !snippet.isFavorite) return false;
+      if ((condition === "favorite" || condition === "bookmarked") && !snippet.isFavorite) return false;
       if (condition === "archived" && !snippet.isArchived) return false;
       if (condition === "untagged" && snippet.tags.length > 0) return false;
     }
 
     // 4. Boolean "not:" filters - check negated properties
     for (const condition of query.not) {
-      if (condition === "favorite" && snippet.isFavorite) return false;
+      if ((condition === "favorite" || condition === "bookmarked") && snippet.isFavorite) return false;
       if (condition === "archived" && snippet.isArchived) return false;
       if (condition === "untagged" && snippet.tags.length === 0) return false;
     }

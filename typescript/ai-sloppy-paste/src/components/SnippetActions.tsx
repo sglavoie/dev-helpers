@@ -1,8 +1,12 @@
-import { Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, closeMainWindow, Icon, showHUD, showToast, Toast, useNavigation } from "@raycast/api";
+import { useEffect, useState } from "react";
 import { Snippet } from "../types";
-import { toggleFavorite, duplicateSnippet, toggleArchive, togglePin } from "../utils/storage";
+import { toggleFavorite, duplicateSnippet, toggleArchive, togglePin, incrementUsage, getPlaceholderHistoryForKey } from "../utils/storage";
 import { findSimilarSnippets } from "../utils/analytics";
 import { getErrorMessage } from "../utils/errorMessage";
+import { extractPlaceholders, processSystemPlaceholders, replacePlaceholders, processConditionalBlocks, getSystemPlaceholderNames } from "../utils/placeholders";
+import { getLastUsedValue } from "../utils/placeholderHistory";
+import { pasteWithClipboardRestore } from "../utils/clipboard";
 import { SnippetForm } from "./SnippetForm";
 import { ManageTagsView } from "./ManageTagsView";
 import { ManagePlaceholderHistoryView } from "./ManagePlaceholderHistoryView";
@@ -46,7 +50,7 @@ export function ToggleFavoriteAction(props: { snippet: Snippet; onToggled: () =>
       const isFavorite = await toggleFavorite(props.snippet.id);
       showToast({
         style: Toast.Style.Success,
-        title: isFavorite ? "Added to Favorites" : "Removed from Favorites",
+        title: isFavorite ? "Bookmarked" : "Removed bookmark",
       });
       props.onToggled();
     } catch (error) {
@@ -60,7 +64,7 @@ export function ToggleFavoriteAction(props: { snippet: Snippet; onToggled: () =>
 
   return (
     <Action
-      title={props.snippet.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+      title={props.snippet.isFavorite ? "Remove Bookmark" : "Add Bookmark"}
       icon={props.snippet.isFavorite ? Icon.StarDisabled : Icon.Star}
       shortcut={{ modifiers: ["cmd", "shift"], key: "v" }}
       onAction={handleToggle}
@@ -194,12 +198,13 @@ export function TogglePinAction(props: { snippet: Snippet; onToggled: () => void
   );
 }
 
-export function ManageTagsAction(props: { onUpdated: () => void }) {
+export function ManageTagsAction(props: { onUpdated: () => void; unusedCount?: number }) {
   const { push } = useNavigation();
+  const title = props.unusedCount ? `Manage Tags (${props.unusedCount} unused)` : "Manage Tags";
 
   return (
     <Action
-      title="Manage Tags"
+      title={title}
       icon={Icon.Tag}
       shortcut={{ modifiers: ["cmd"], key: "t" }}
       onAction={() => {
@@ -247,6 +252,88 @@ export function SimilarSnippetsAction(props: { snippet: Snippet; allSnippets: Sn
       target={
         <SimilarSnippetsView target={props.snippet} allSnippets={props.allSnippets} onUpdated={props.onUpdated} />
       }
+    />
+  );
+}
+
+export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete: () => void }) {
+  const [isAvailable, setIsAvailable] = useState(false);
+
+  useEffect(() => {
+    const systemKeys = new Set(getSystemPlaceholderNames());
+    const processed = processSystemPlaceholders(props.snippet.content);
+    const required = extractPlaceholders(processed).filter((p) => p.isRequired && !systemKeys.has(p.key));
+
+    if (required.length === 0) {
+      setIsAvailable(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      for (const placeholder of required) {
+        const values = await getPlaceholderHistoryForKey(placeholder.key);
+        if (cancelled) return;
+        if (!getLastUsedValue(values)) {
+          setIsAvailable(false);
+          return;
+        }
+      }
+      if (!cancelled) setIsAvailable(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.snippet.content]);
+
+  if (!isAvailable) return null;
+
+  async function handlePaste() {
+    try {
+      const systemKeys = new Set(getSystemPlaceholderNames());
+      const processed = processSystemPlaceholders(props.snippet.content);
+      const allPlaceholders = extractPlaceholders(processed);
+      const required = allPlaceholders.filter((p) => p.isRequired && !systemKeys.has(p.key));
+
+      const finalValues: Record<string, string> = {};
+
+      for (const placeholder of required) {
+        const values = await getPlaceholderHistoryForKey(placeholder.key);
+        const lastValue = getLastUsedValue(values);
+        if (lastValue === undefined) {
+          showToast({ style: Toast.Style.Failure, title: "Missing history", message: `No history for {{${placeholder.key}}}` });
+          return;
+        }
+        finalValues[placeholder.key] = lastValue;
+      }
+
+      for (const placeholder of allPlaceholders) {
+        if (!placeholder.isRequired && placeholder.defaultValue !== undefined && !(placeholder.key in finalValues)) {
+          finalValues[placeholder.key] = placeholder.defaultValue;
+        }
+      }
+
+      const afterBlocks = processConditionalBlocks(processed, finalValues);
+      const filledContent = replacePlaceholders(afterBlocks, finalValues, allPlaceholders);
+
+      await pasteWithClipboardRestore(filledContent);
+      await incrementUsage(props.snippet.id);
+      const truncatedTitle = props.snippet.title.length > 40 ? props.snippet.title.slice(0, 40) + "…" : props.snippet.title;
+      await closeMainWindow();
+      await showHUD(`✓ Pasted "${truncatedTitle}" with last values`);
+      props.onComplete();
+    } catch (error) {
+      showToast({ style: Toast.Style.Failure, title: "Failed to paste", message: getErrorMessage(error) });
+    }
+  }
+
+  return (
+    <Action
+      title="Paste with Last Values"
+      icon={Icon.ArrowDownCircle}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "return" }}
+      onAction={handlePaste}
     />
   );
 }

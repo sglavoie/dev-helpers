@@ -240,48 +240,50 @@ Excludes snippets with "archived" OR "old" tags (either exclusion applies)
       <List.Section title="Boolean Operators">
         <List.Item
           icon={{ source: Icon.Star, tintColor: Color.Yellow }}
-          title="is:favorite"
-          subtitle={isShowingDetail ? undefined : "Show only favorite snippets"}
-          accessories={isShowingDetail ? undefined : [{ text: "Example: is:favorite api" }]}
+          title="is:favorite / is:bookmarked"
+          subtitle={isShowingDetail ? undefined : "Show only bookmarked snippets"}
+          accessories={isShowingDetail ? undefined : [{ text: "Example: is:bookmarked api" }]}
           detail={
             <List.Item.Detail
               markdown={`
-# is:favorite
+# is:favorite / is:bookmarked
 
-Filter to show only snippets marked as **favorites**.
+Filter to show only snippets marked as **bookmarks**.
+
+\`is:bookmarked\` and \`is:favorite\` are aliases — both work identically.
 
 ## Behavior
 
 - Shows only snippets where \`isFavorite = true\`
-- Overrides the favorites toggle in UI
+- Overrides the bookmarks toggle in UI
 - Can combine with other operators
 
 ## Examples
 
 \`\`\`
-is:favorite
+is:bookmarked
 \`\`\`
-Shows all favorite snippets
+Shows all bookmarked snippets
 
 \`\`\`
-is:favorite api
+is:bookmarked api
 \`\`\`
-Shows favorite snippets containing "api"
+Shows bookmarked snippets containing "api"
 
 \`\`\`
-tag:work is:favorite
+tag:work is:bookmarked
 \`\`\`
-Shows favorite snippets that have work tag
+Shows bookmarked snippets that have work tag
 
 \`\`\`
-is:favorite not:archived "meeting"
+is:bookmarked not:archived "meeting"
 \`\`\`
-Shows favorites that aren't archived and contain "meeting" exactly
+Shows bookmarks that aren't archived and contain "meeting" exactly
 
 ## Related Operators
 
-- \`not:favorite\` - Show only non-favorite snippets
-- Use with \`tag:\` to find favorite snippets in specific categories
+- \`not:bookmarked\` / \`not:favorite\` - Show only non-bookmarked snippets
+- Use with \`tag:\` to find bookmarked snippets in specific categories
 `}
             />
           }
@@ -292,7 +294,7 @@ Shows favorites that aren't archived and contain "meeting" exactly
                 icon={Icon.AppWindowSidebarLeft}
                 onAction={() => setIsShowingDetail(!isShowingDetail)}
               />
-              <Action.CopyToClipboard title="Copy Example" content="is:favorite api" />
+              <Action.CopyToClipboard title="Copy Example" content="is:bookmarked api" />
             </ActionPanel>
           }
         />
@@ -435,7 +437,7 @@ Shows untagged snippets that aren't archived
 ## Available Negations
 
 - \`not:archived\` - Exclude archived snippets
-- \`not:favorite\` - Exclude favorite snippets
+- \`not:bookmarked\` / \`not:favorite\` - Exclude bookmarked snippets
 - \`not:untagged\` - Exclude untagged snippets (show only tagged)
 
 ## Behavior
@@ -1248,7 +1250,7 @@ Invalid operators are simply treated as fuzzy search text:
 ## Valid Operator Values
 
 ### is: and not:
-- ✓ \`favorite\`
+- ✓ \`favorite\` / \`bookmarked\` (aliases)
 - ✓ \`archived\`
 - ✓ \`untagged\`
 - ✗ Anything else → fuzzy text

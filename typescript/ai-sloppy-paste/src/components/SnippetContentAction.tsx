@@ -1,4 +1,4 @@
-import { Action, Clipboard, closeMainWindow, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, Clipboard, closeMainWindow, Icon, showHUD, showToast, Toast, useNavigation } from "@raycast/api";
 import type { Keyboard } from "@raycast/api";
 import { Snippet } from "../types";
 import { extractPlaceholders, processConditionalBlocks, processSystemPlaceholders } from "../utils/placeholders";
@@ -62,8 +62,9 @@ export function SnippetContentAction({ snippet, mode, onComplete }: SnippetConte
           await Clipboard.copy(afterBlocks);
         }
         await incrementUsage(snippet.id);
+        const truncatedTitle = snippet.title.length > 40 ? snippet.title.slice(0, 40) + "…" : snippet.title;
         await closeMainWindow();
-        showToast({ style: Toast.Style.Success, title: config.successTitle });
+        await showHUD(mode === "paste" ? `✓ Pasted "${truncatedTitle}"` : `✓ Copied "${truncatedTitle}" to clipboard`);
         onComplete();
       } catch (error) {
         showToast({ style: Toast.Style.Failure, title: config.failTitle, message: getErrorMessage(error) });

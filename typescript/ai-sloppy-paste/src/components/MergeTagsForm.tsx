@@ -3,9 +3,9 @@ import { useState } from "react";
 import { mergeTags } from "../utils/storage";
 import { getErrorMessage } from "../utils/errorMessage";
 
-export function MergeTagsForm(props: { tags: string[]; onMerged: () => void }) {
+export function MergeTagsForm(props: { tags: string[]; onMerged: () => void; initialSourceTag?: string }) {
   const { pop } = useNavigation();
-  const [sourceTag, setSourceTag] = useState<string>("");
+  const [sourceTag, setSourceTag] = useState<string>(props.initialSourceTag ?? "");
   const [sourceTagError, setSourceTagError] = useState<string | undefined>();
   const [targetTagError, setTargetTagError] = useState<string | undefined>();
 

@@ -1,10 +1,11 @@
 import { Action, ActionPanel, Clipboard, Form, Icon, Keyboard, showToast, Toast, useNavigation } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Snippet, SnippetFormValues } from "../types";
 import { addSnippet, updateSnippet } from "../utils/storage";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "../utils/validation";
 import { getErrorMessage } from "../utils/errorMessage";
 import { PlaceholderSyntaxHelp } from "./PlaceholderSyntaxHelp";
+import { processSystemPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
 
 const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] = [
   { title: "Basic Placeholder", subtitle: "{{key}}", content: "{{key}}", icon: Icon.CodeBlock, key: "1" },
@@ -25,6 +26,50 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
   const [selectedTags, setSelectedTags] = useState<string[]>(props.snippet?.tags || []);
   const [newTagInput, setNewTagInput] = useState<string>("");
   const [newTagError, setNewTagError] = useState<string | undefined>();
+  const [contentValue, setContentValue] = useState(props.snippet?.content || "");
+
+  const previewString = useMemo(() => {
+    if (!contentValue.includes("{{")) return "";
+    const systemNames = getSystemPlaceholderNames();
+    let result = contentValue;
+
+    for (const name of systemNames) {
+      const resolved = processSystemPlaceholders(`{{${name}}}`);
+      result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, "g"), `⟨${name} → ${resolved}⟩`);
+    }
+
+    result = result.replace(/\{\{#if ([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_m, key, body) => {
+      const k = key.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
+      const cleanBody = body.replace(/\{\{#else\}\}/g, " | else: ").replace(/\{\{\/else\}\}/g, "");
+      return `⟨if ${k}: ${cleanBody.trim()}⟩`;
+    });
+
+    result = result.replace(/\{\{!?([^}]+)\}\}/g, (m, inner) => {
+      const noSave = m.startsWith("{{!");
+      const c = inner.trim();
+      if (c.startsWith("#") || c.startsWith("/")) return m;
+
+      const pipeIdx = c.lastIndexOf("|");
+      const hasDefault = pipeIdx !== -1;
+      const def = hasDefault ? c.slice(pipeIdx + 1).trim() : undefined;
+      const core = hasDefault ? c.slice(0, pipeIdx).trim() : c;
+      const parts = core.split(":");
+
+      let displayKey: string;
+      if (parts.length === 3) {
+        const [prefix, key, suffix] = parts.map((p: string) => p.trim());
+        const main = prefix ? `${prefix}${key}` : key;
+        displayKey = suffix ? `${main} ${suffix}` : main;
+      } else {
+        displayKey = core;
+      }
+
+      const label = noSave ? `!${displayKey}` : displayKey;
+      return hasDefault && def ? `⟨${label} = "${def}"⟩` : `⟨${label}⟩`;
+    });
+
+    return result.slice(0, 500);
+  }, [contentValue]);
 
   // Initialize character counts for edit mode
   useEffect(() => {
@@ -180,12 +225,13 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         id="content"
         title="Content"
         placeholder="Enter snippet content"
-        defaultValue={props.snippet?.content || ""}
+        value={contentValue}
         error={contentError}
         info={contentCharInfo}
         enableMarkdown={true}
         onChange={(value) => {
           setContentError(undefined);
+          setContentValue(value);
           const charInfo = getCharacterInfo(value, VALIDATION_LIMITS.CONTENT_MAX_LENGTH);
           setContentCharInfo(charInfo.info);
         }}
@@ -206,6 +252,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         title="System (auto)"
         text="{{DATE}}  {{TIME}}  {{DATETIME}}  {{TODAY}}  {{NOW}}  {{YEAR}}  {{MONTH}}  {{DAY}}"
       />
+      {previewString && <Form.Description title="Preview" text={previewString} />}
       <Form.Separator />
       <Form.TextArea
         id="description"
