@@ -257,6 +257,7 @@ export function SimilarSnippetsAction(props: { snippet: Snippet; allSnippets: Sn
 }
 
 export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete: () => void }) {
+  const [hasRequiredPlaceholders, setHasRequiredPlaceholders] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
 
   useEffect(() => {
@@ -265,10 +266,12 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
     const required = extractPlaceholders(processed).filter((p) => p.isRequired && !systemKeys.has(p.key));
 
     if (required.length === 0) {
+      setHasRequiredPlaceholders(false);
       setIsAvailable(false);
       return;
     }
 
+    setHasRequiredPlaceholders(true);
     let cancelled = false;
     (async () => {
       for (const placeholder of required) {
@@ -287,7 +290,9 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
     };
   }, [props.snippet.content]);
 
-  if (!isAvailable) return null;
+  if (!hasRequiredPlaceholders) return null;
+
+  const title = isAvailable ? "Paste with Last Values" : "Paste with Last Values (no history yet)";
 
   async function handlePaste() {
     try {
@@ -330,10 +335,19 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
 
   return (
     <Action
-      title="Paste with Last Values"
+      title={title}
       icon={Icon.ArrowDownCircle}
       shortcut={{ modifiers: ["cmd", "shift"], key: "return" }}
-      onAction={handlePaste}
+      onAction={
+        isAvailable
+          ? handlePaste
+          : () =>
+              showToast({
+                style: Toast.Style.Animated,
+                title: "No history yet",
+                message: "Use Paste (Cmd+Return) once to build history for this snippet.",
+              })
+      }
     />
   );
 }

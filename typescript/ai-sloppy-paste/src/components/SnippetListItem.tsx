@@ -50,6 +50,7 @@ interface SnippetListItemProps {
   onLoadData: () => void;
   onDelete: (snippet: Snippet) => void;
   setSearchQuery: (query: string) => void;
+  historyAvailable: boolean;
 }
 
 export function SnippetListItem({
@@ -71,6 +72,7 @@ export function SnippetListItem({
   onLoadData,
   onDelete,
   setSearchQuery,
+  historyAvailable,
 }: SnippetListItemProps) {
   const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
   const analytics = computeSnippetAnalytics(snippet);
@@ -113,8 +115,10 @@ export function SnippetListItem({
               ...(requiredInputCount > 0
                 ? [
                     {
-                      text: `⌨ ${requiredInputCount}`,
-                      tooltip: `${requiredInputCount} required placeholder${requiredInputCount > 1 ? "s" : ""}`,
+                      text: { value: `⌨ ${requiredInputCount}`, color: historyAvailable ? Color.Green : Color.SecondaryText },
+                      tooltip: historyAvailable
+                        ? "Cmd+Shift+Return: paste with last values"
+                        : `${requiredInputCount} required placeholder${requiredInputCount > 1 ? "s" : ""}`,
                     },
                   ]
                 : []),
@@ -171,7 +175,13 @@ export function SnippetListItem({
             <SnippetContentAction snippet={snippet} mode="paste" onComplete={onLoadData} />
             <SnippetContentAction snippet={snippet} mode="copy" onComplete={onLoadData} />
             <PasteWithLastValuesAction snippet={snippet} onComplete={onLoadData} />
+            <Action.CopyToClipboard
+              title="Copy Title"
+              content={snippet.title}
+              shortcut={{ modifiers: ["cmd"], key: "c" }}
+            />
             <EditSnippetAction snippet={snippet} onEdited={onLoadData} tags={allTags} />
+            <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
             <TogglePinAction snippet={snippet} onToggled={onLoadData} />
             <Action
               title="Delete Snippet"
@@ -183,6 +193,7 @@ export function SnippetListItem({
           </ActionPanel.Section>
           <ActionPanel.Submenu title="Organize" icon={Icon.Folder}>
             <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
+            <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
             <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
             <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
             <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
@@ -207,14 +218,8 @@ export function SnippetListItem({
                 }}
               />
             )}
-            <Action.CopyToClipboard
-              title="Copy Title"
-              content={snippet.title}
-              shortcut={{ modifiers: ["cmd"], key: "c" }}
-            />
           </ActionPanel.Submenu>
-          <ActionPanel.Submenu title="Manage" icon={Icon.Gear}>
-            <CreateSnippetAction onCreated={onLoadData} tags={allTags} />
+          <ActionPanel.Submenu title="Tools" icon={Icon.Gear}>
             <ManageTagsAction onUpdated={onLoadData} unusedCount={unusedTagCount} />
             <Action.Push
               title="View Usage Analytics"
@@ -223,7 +228,6 @@ export function SnippetListItem({
               target={<AnalyticsDashboard onUpdated={onLoadData} />}
             />
             <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
-            <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
             <ImportDataAction onImported={onLoadData} />
           </ActionPanel.Submenu>
           <ActionPanel.Submenu title="View" icon={Icon.Eye}>

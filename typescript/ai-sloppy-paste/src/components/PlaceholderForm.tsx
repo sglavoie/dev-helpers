@@ -10,7 +10,7 @@ import {
   Toast,
   useNavigation,
 } from "@raycast/api";
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useRef } from "react";
 import { Snippet, Placeholder } from "../types";
 import {
   incrementUsage,
@@ -40,6 +40,7 @@ export function PlaceholderForm(props: {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [useCustomInput, setUseCustomInput] = useState<Record<string, boolean>>({});
   const [enabledOptionals, setEnabledOptionals] = useState<Record<string, boolean>>({});
+  const prefilledRef = useRef(new Set<string>());
 
   // Sort placeholders: required first, optional after
   const sorted = [...props.placeholders].sort((a, b) => (a.isRequired === b.isRequired ? 0 : a.isRequired ? -1 : 1));
@@ -71,6 +72,9 @@ export function PlaceholderForm(props: {
         // Pre-fill with last-used value from history, or default value
         // Use ?? to preserve empty strings (for {{key|}} syntax)
         const lastUsedValue = getLastUsedValue(history);
+        if (lastUsedValue) {
+          prefilledRef.current.add(placeholder.key);
+        }
         const defaultValue = lastUsedValue ?? placeholder.defaultValue ?? "";
 
         initial[placeholder.key] = defaultValue;
@@ -320,6 +324,7 @@ export function PlaceholderForm(props: {
     // Build title with indicators
     let title = placeholder.key;
     if (placeholder.isRequired) title += " *";
+    if (prefilledRef.current.has(placeholder.key)) title += " (↻ last used)";
     // isSaved=false is indicated via buildInfoText ("Won't be saved to history")
 
     return (
@@ -384,6 +389,14 @@ export function PlaceholderForm(props: {
     );
   }
 
+  const prefilledCount = prefilledRef.current.size;
+  const allFieldsPrefilled = requiredPlaceholders.length > 0 && prefilledCount === requiredPlaceholders.length;
+  const formSummary = allFieldsPrefilled
+    ? `All ${requiredPlaceholders.length} field${requiredPlaceholders.length !== 1 ? "s" : ""} pre-filled from history — submit to ${props.mode === "paste-direct" ? "paste" : "copy"}.`
+    : prefilledCount > 0
+      ? `${prefilledCount} of ${requiredPlaceholders.length} field${requiredPlaceholders.length !== 1 ? "s" : ""} pre-filled from history — review and submit.`
+      : undefined;
+
   return (
     <Form
       navigationTitle={`Step 2 of 2 — Fill Placeholders (${filledCount}/${totalRequired}): ${props.snippet.title}`}
@@ -408,6 +421,7 @@ export function PlaceholderForm(props: {
       }
     >
       <Form.Description text="Fill in the placeholder values below. Required fields (*) must be filled. Wrapper fields (checkbox) are omitted from output when unchecked. Conditional fields (checkbox) control whether entire blocks appear." />
+      {formSummary && <Form.Description text={formSummary} />}
       {requiredPlaceholders.map(renderPlaceholderField)}
       {hasBothSections && (
         <>

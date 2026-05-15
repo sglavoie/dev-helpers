@@ -12,6 +12,7 @@ import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { useSnippets } from "./hooks/useSnippets";
 import { useSnippetFiltering } from "./hooks/useSnippetFiltering";
 import { useSearchSuggestions } from "./hooks/useSearchSuggestions";
+import { useHistoryAvailability } from "./hooks/useHistoryAvailability";
 
 /**
  * Note: Search highlighting in markdown detail view has been removed to prevent
@@ -55,6 +56,7 @@ export default function Command() {
   } = useSnippetFiltering(snippets, sortOption as SortOption, showRecentSection as boolean);
 
   const suggestions = useSearchSuggestions(searchQuery, allTags);
+  const historyAvailableFor = useHistoryAvailability(snippets);
 
   const sharedItemProps = {
     allSnippets: snippets,
@@ -76,6 +78,29 @@ export default function Command() {
     setSearchQuery,
   };
 
+  const searchBarPlaceholder = (() => {
+    if (showOnlyFavorites) return '★ Bookmarked — Cmd+Shift+F to show all';
+    if (showArchivedSnippets) return '⊟ Archived — Cmd+B to show all';
+    if (showNeedsAttention) return '⚠ Needs Attention — Cmd+Shift+N to show all';
+    if (hasStructuredOperators) return 'Operators active — Cmd+/ for syntax help';
+    return 'Search… (tag:, is:favorite, not:, "exact") — Cmd+/ for help';
+  })();
+
+  const hasPinnedOrRecent = pinnedSnippets.length > 0 || recentSnippets.length > 0;
+  const mainSectionTitle = showArchivedSnippets
+    ? `⊟ Archived (${filtered.length})`
+    : showNeedsAttention
+    ? `⚠ Needs Attention (${filtered.length})`
+    : showOnlyFavorites
+    ? `★ Bookmarked (${filtered.length})`
+    : hasPinnedOrRecent
+    ? 'All Snippets'
+    : undefined;
+  const displayTitle =
+    hasStructuredOperators && !showArchivedSnippets && !showNeedsAttention && !showOnlyFavorites
+      ? `${mainSectionTitle ?? 'All Snippets'} — operators active`
+      : mainSectionTitle;
+
   return (
     <List
       isLoading={isLoading}
@@ -83,7 +108,7 @@ export default function Command() {
       filtering={false}
       searchText={searchQuery}
       onSearchTextChange={setSearchQuery}
-      searchBarPlaceholder='Search… (tag:, is:favorite, not:, "exact") — Cmd+/ for help'
+      searchBarPlaceholder={searchBarPlaceholder}
       searchBarAccessory={
         <>
           <List.Dropdown
@@ -176,32 +201,22 @@ export default function Command() {
           {pinnedSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
             <List.Section title="Pinned" subtitle={`${pinnedSnippets.length} snippets`}>
               {pinnedSnippets.map((snippet: Snippet) => (
-                <SnippetListItem key={snippet.id} snippet={snippet} {...sharedItemProps} />
+                <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
               ))}
             </List.Section>
           )}
           {recentSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && snippets.filter((s) => !s.isArchived).length >= 3 && (
             <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
               {recentSnippets.map((snippet: Snippet) => (
-                <SnippetListItem key={snippet.id} snippet={snippet} {...sharedItemProps} />
+                <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
               ))}
             </List.Section>
           )}
           <List.Section
-            title={
-              hasStructuredOperators
-                ? `${showArchivedSnippets ? "Archived Snippets" : showNeedsAttention ? `Needs Attention (${filtered.length})` : "All Snippets"} — operators active, UI filters bypassed`
-                : showArchivedSnippets
-                  ? "Archived Snippets"
-                  : showNeedsAttention
-                    ? `Needs Attention (${filtered.length})`
-                    : pinnedSnippets.length > 0 || recentSnippets.length > 0
-                      ? "All Snippets"
-                      : undefined
-            }
+            title={displayTitle}
           >
             {sortedSnippets.map((snippet: Snippet) => (
-              <SnippetListItem key={snippet.id} snippet={snippet} {...sharedItemProps} />
+              <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
             ))}
           </List.Section>
         </>
