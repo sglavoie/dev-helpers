@@ -276,6 +276,10 @@ export function PlaceholderForm(props: {
     }
   }
 
+  function truncateTitle(text: string, max = 25): string {
+    return text.length <= max ? text : text.slice(0, max - 1) + "…";
+  }
+
   function buildInfoText(placeholder: Placeholder): string {
     if (placeholder.isGuardOnly) {
       return "Conditional — checked = block shown, unchecked = block omitted";
@@ -304,14 +308,18 @@ export function PlaceholderForm(props: {
     const showCustomInput = useCustomInput[placeholder.key];
     if (placeholder.isGuardOnly) {
       const isChecked = enabledOptionals[placeholder.key] ?? false;
+      const label = placeholder.label || `Include ${placeholder.key}?`;
+      const truncated = truncateTitle(label);
+      const infoBase = buildInfoText(placeholder);
+      const info = label !== truncated ? [label, infoBase].filter(Boolean).join(" • ") : infoBase || undefined;
       return (
         <Form.Checkbox
           key={placeholder.key}
           id={placeholder.key}
-          title={placeholder.label || `Include ${placeholder.key}?`}
+          title={truncated}
           label="Include in output"
           value={isChecked}
-          info={buildInfoText(placeholder)}
+          info={info}
           onChange={(checked) => setEnabledOptionals((prev) => ({ ...prev, [placeholder.key]: checked }))}
         />
       );
