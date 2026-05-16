@@ -191,7 +191,7 @@ export function SnippetListItem({
               onAction={() => onDelete(snippet)}
             />
           </ActionPanel.Section>
-          <ActionPanel.Submenu title="Organize" icon={Icon.Folder}>
+          <ActionPanel.Section title="Organize">
             <ToggleFavoriteAction snippet={snippet} onToggled={onLoadData} />
             <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
             <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
@@ -218,8 +218,8 @@ export function SnippetListItem({
                 }}
               />
             )}
-          </ActionPanel.Submenu>
-          <ActionPanel.Submenu title="Tools" icon={Icon.Gear}>
+          </ActionPanel.Section>
+          <ActionPanel.Section title="Tools">
             <ManageTagsAction onUpdated={onLoadData} unusedCount={unusedTagCount} />
             <Action.Push
               title="View Usage Analytics"
@@ -229,8 +229,8 @@ export function SnippetListItem({
             />
             <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
             <ImportDataAction onImported={onLoadData} />
-          </ActionPanel.Submenu>
-          <ActionPanel.Submenu title="View" icon={Icon.Eye}>
+          </ActionPanel.Section>
+          <ActionPanel.Section title="View">
             <Action
               title="Toggle Detail View"
               icon={Icon.AppWindowSidebarLeft}
@@ -267,7 +267,7 @@ export function SnippetListItem({
               shortcut={{ modifiers: ["cmd"], key: "/" }}
               target={<SearchOperatorsHelp />}
             />
-          </ActionPanel.Submenu>
+          </ActionPanel.Section>
           {snippet.tags.length > 0 && (
             <ActionPanel.Section title="Filter by Tag">
               {snippet.tags.slice(0, 5).map((tag) => (
