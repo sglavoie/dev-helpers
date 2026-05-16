@@ -13,6 +13,7 @@ import { computeSnippetAnalytics, getUnusedTags } from "../utils/analytics";
 import { getErrorMessage } from "../utils/errorMessage";
 import { extractPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
+import { BrowseByTagView } from "./BrowseByTagView";
 import { SearchOperatorsHelp } from "./SearchOperatorsHelp";
 import { SnippetContentAction } from "./SnippetContentAction";
 import {
@@ -43,14 +44,15 @@ interface SnippetListItemProps {
   visibleTags: string[];
   allTags: string[];
   onToggleDetail: () => void;
-  onToggleFavorites: () => void;
-  onToggleRecent: () => void;
+  onToggleFavorites?: () => void;
+  onToggleRecent?: () => void;
   onToggleArchived: () => void;
-  onToggleNeedsAttention: () => void;
+  onToggleNeedsAttention?: () => void;
   onLoadData: () => void;
   onDelete: (snippet: Snippet) => void;
   setSearchQuery: (query: string) => void;
   historyAvailable: boolean;
+  viewContext?: "main" | "browse";
 }
 
 export function SnippetListItem({
@@ -73,6 +75,7 @@ export function SnippetListItem({
   onDelete,
   setSearchQuery,
   historyAvailable,
+  viewContext = "main",
 }: SnippetListItemProps) {
   const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
   const analytics = computeSnippetAnalytics(snippet);
@@ -237,30 +240,44 @@ export function SnippetListItem({
               shortcut={{ modifiers: ["cmd"], key: "d" }}
               onAction={onToggleDetail}
             />
-            <Action
-              title={showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked"}
-              icon={Icon.Star}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
-              onAction={onToggleFavorites}
-            />
-            <Action
-              title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
-              icon={Icon.Clock}
-              shortcut={{ modifiers: ["cmd"], key: "r" }}
-              onAction={onToggleRecent}
-            />
+            {viewContext !== "browse" && onToggleFavorites && (
+              <Action
+                title={showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked"}
+                icon={Icon.Star}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
+                onAction={onToggleFavorites}
+              />
+            )}
+            {viewContext !== "browse" && onToggleRecent && (
+              <Action
+                title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
+                icon={Icon.Clock}
+                shortcut={{ modifiers: ["cmd"], key: "r" }}
+                onAction={onToggleRecent}
+              />
+            )}
             <Action
               title={showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets"}
               icon={Icon.Box}
               shortcut={{ modifiers: ["cmd"], key: "b" }}
               onAction={onToggleArchived}
             />
-            <Action
-              title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
-              icon={Icon.Warning}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
-              onAction={onToggleNeedsAttention}
-            />
+            {viewContext !== "browse" && onToggleNeedsAttention && (
+              <Action
+                title={showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention"}
+                icon={Icon.Warning}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
+                onAction={onToggleNeedsAttention}
+              />
+            )}
+            {viewContext !== "browse" && (
+              <Action.Push
+                title="Browse by Tag"
+                icon={Icon.Folder}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "g" }}
+                target={<BrowseByTagView onUpdated={onLoadData} />}
+              />
+            )}
             <Action.Push
               title="Search Operators Help"
               icon={Icon.QuestionMark}

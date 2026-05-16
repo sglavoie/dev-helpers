@@ -7,6 +7,7 @@ import {
 import { useLocalStorage } from "@raycast/utils";
 import { Snippet, SortOption, SORT_LABELS } from "./types";
 import { SnippetListItem } from "./components/SnippetListItem";
+import { BrowseByTagView } from "./components/BrowseByTagView";
 import { CreateSnippetAction, ImportDataAction } from "./components/SnippetActions";
 import { SearchOperatorsHelp } from "./components/SearchOperatorsHelp";
 import { useSnippets } from "./hooks/useSnippets";
@@ -159,6 +160,14 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
                 onAction={() => setShowOnlyFavorites(!showOnlyFavorites)}
               />
+              <ActionPanel.Section title="Tools">
+                <Action.Push
+                  title="Browse by Tag"
+                  icon={Icon.Folder}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "g" }}
+                  target={<BrowseByTagView onUpdated={loadData} />}
+                />
+              </ActionPanel.Section>
               <ActionPanel.Section title="Help">
                 <Action.Push
                   title="Search Operators Help"

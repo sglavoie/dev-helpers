@@ -17,7 +17,10 @@ import {
   deduplicateTags,
   expandTagsWithParents,
   removeRedundantParents,
+  filterSnippetsByTag,
+  UNTAGGED_SENTINEL,
 } from "./tags";
+import { Snippet } from "../types";
 
 describe("normalizeTag", () => {
   it("should convert tags to lowercase", () => {
@@ -395,5 +398,56 @@ describe("removeRedundantParents", () => {
       "other",
     ]);
     expect(result).toEqual(["other", "root/level1/level2/level3"]);
+  });
+});
+
+describe("filterSnippetsByTag", () => {
+  const makeSnippet = (id: string, tags: string[]): Snippet => ({
+    id,
+    title: `Snippet ${id}`,
+    content: `Content ${id}`,
+    tags,
+    createdAt: 1000,
+    updatedAt: 2000,
+    lastUsedAt: 5000,
+    useCount: 1,
+    isFavorite: false,
+    isArchived: false,
+    isPinned: false,
+  });
+
+  const snippets: Snippet[] = [
+    makeSnippet("1", ["work"]),
+    makeSnippet("2", ["work/projects"]),
+    makeSnippet("3", ["work/projects/client-a"]),
+    makeSnippet("4", ["personal"]),
+    makeSnippet("5", []),
+    makeSnippet("6", []),
+    makeSnippet("7", ["personal", "work"]),
+  ];
+
+  it("returns snippets matching the exact tag", () => {
+    const result = filterSnippetsByTag(snippets, "personal");
+    expect(result.map((s) => s.id).sort()).toEqual(["4", "7"]);
+  });
+
+  it("includes snippets tagged with child tags", () => {
+    const result = filterSnippetsByTag(snippets, "work");
+    expect(result.map((s) => s.id).sort()).toEqual(["1", "2", "3", "7"]);
+  });
+
+  it("returns only snippets with no tags when filtering by UNTAGGED_SENTINEL", () => {
+    const result = filterSnippetsByTag(snippets, UNTAGGED_SENTINEL);
+    expect(result.map((s) => s.id).sort()).toEqual(["5", "6"]);
+  });
+
+  it("returns an empty array when no snippet matches", () => {
+    const result = filterSnippetsByTag(snippets, "nonexistent");
+    expect(result).toEqual([]);
+  });
+
+  it("does not include a parent tag's snippets when filtering by a child", () => {
+    const result = filterSnippetsByTag(snippets, "work/projects");
+    expect(result.map((s) => s.id).sort()).toEqual(["2", "3"]);
   });
 });

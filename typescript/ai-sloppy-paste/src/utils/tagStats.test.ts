@@ -292,6 +292,31 @@ describe("tagStats", () => {
       expect(sorted.map((s) => s.tag)).toEqual(["gamma", "alpha", "zebra", "beta"]);
     });
 
+    it("should sort by last used ascending (never used first)", () => {
+      const sorted = sortTagStatistics(stats, TagSortOption.LastUsedAsc);
+      expect(sorted.map((s) => s.tag)).toEqual(["beta", "zebra", "alpha", "gamma"]);
+    });
+
+    it("should tie-break by name when last used ascending and timestamps equal", () => {
+      const tieStats = [
+        { tag: "zebra", snippetCount: 1, lastUsedAt: 1000, totalUsageCount: 1, neverUsed: false },
+        { tag: "alpha", snippetCount: 1, lastUsedAt: 1000, totalUsageCount: 1, neverUsed: false },
+      ];
+
+      const sorted = sortTagStatistics(tieStats, TagSortOption.LastUsedAsc);
+      expect(sorted.map((s) => s.tag)).toEqual(["alpha", "zebra"]);
+    });
+
+    it("should tie-break never-used tags by name when sorting last used ascending", () => {
+      const neverUsedStats = [
+        { tag: "zebra", snippetCount: 1, lastUsedAt: undefined, totalUsageCount: 0, neverUsed: true },
+        { tag: "alpha", snippetCount: 1, lastUsedAt: undefined, totalUsageCount: 0, neverUsed: true },
+      ];
+
+      const sorted = sortTagStatistics(neverUsedStats, TagSortOption.LastUsedAsc);
+      expect(sorted.map((s) => s.tag)).toEqual(["alpha", "zebra"]);
+    });
+
     it("should sort by usage count descending", () => {
       const sorted = sortTagStatistics(stats, TagSortOption.UsageCountDesc);
       expect(sorted.map((s) => s.tag)).toEqual(["gamma", "alpha", "zebra", "beta"]);

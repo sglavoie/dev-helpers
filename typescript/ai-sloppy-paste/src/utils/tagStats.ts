@@ -85,6 +85,7 @@ export enum TagSortOption {
   NameAsc = "name-asc",
   SnippetCountDesc = "snippet-count-desc",
   LastUsedDesc = "last-used-desc",
+  LastUsedAsc = "last-used-asc",
   UsageCountDesc = "usage-count-desc",
   NeverUsedFirst = "never-used-first",
 }
@@ -93,6 +94,7 @@ export const TAG_SORT_LABELS: Record<TagSortOption, string> = {
   [TagSortOption.NameAsc]: "Name (A-Z)",
   [TagSortOption.SnippetCountDesc]: "Most Snippets",
   [TagSortOption.LastUsedDesc]: "Recently Used",
+  [TagSortOption.LastUsedAsc]: "Least Recently Used",
   [TagSortOption.UsageCountDesc]: "Most Used",
   [TagSortOption.NeverUsedFirst]: "Never Used First",
 };
@@ -128,6 +130,23 @@ export function sortTagStatistics(stats: TagStatistics[], sortOption: TagSortOpt
         const bTime = b.lastUsedAt || 0;
         if (bTime !== aTime) {
           return bTime - aTime;
+        }
+        // Tie-breaker: name
+        return a.tag.localeCompare(b.tag);
+      });
+
+    case TagSortOption.LastUsedAsc:
+      return sorted.sort((a, b) => {
+        // Put never-used tags at the top (strongest rediscovery signal)
+        if (a.neverUsed && !b.neverUsed) return -1;
+        if (!a.neverUsed && b.neverUsed) return 1;
+        if (a.neverUsed && b.neverUsed) return a.tag.localeCompare(b.tag);
+
+        // Sort by oldest first (ascending lastUsedAt)
+        const aTime = a.lastUsedAt || 0;
+        const bTime = b.lastUsedAt || 0;
+        if (aTime !== bTime) {
+          return aTime - bTime;
         }
         // Tie-breaker: name
         return a.tag.localeCompare(b.tag);

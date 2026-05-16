@@ -2,6 +2,13 @@
  * Tag utilities for handling tag normalization and hierarchy
  */
 
+import { Snippet } from "../types";
+
+/**
+ * Sentinel value used to represent the "Untagged" pseudo-category.
+ */
+export const UNTAGGED_SENTINEL = "__untagged__";
+
 /**
  * Normalizes a tag to lowercase and trims whitespace
  */
@@ -267,6 +274,18 @@ export function expandTagsWithParents(tags: string[]): string[] {
  * Example: ["work", "work/projects", "work/projects/client-a"] -> ["work/projects/client-a"]
  * This keeps only the deepest nested tags, as parent tags are implied by children
  */
+/**
+ * Filters snippets by a tag, including descendants of that tag.
+ * If `tag === UNTAGGED_SENTINEL`, returns snippets with no tags.
+ * Mirrors the filtering pattern used by the main snippet list view.
+ */
+export function filterSnippetsByTag(snippets: Snippet[], tag: string): Snippet[] {
+  if (tag === UNTAGGED_SENTINEL) {
+    return snippets.filter((s) => s.tags.length === 0);
+  }
+  return snippets.filter((s) => s.tags.some((t) => t === tag || isChildOf(t, tag)));
+}
+
 export function removeRedundantParents(tags: string[]): string[] {
   // Normalize and deduplicate input first
   const normalizedTags = deduplicateTags(normalizeTags(tags));
