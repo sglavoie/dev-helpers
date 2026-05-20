@@ -22,6 +22,7 @@ import { pasteWithClipboardRestore } from "../utils/clipboard";
 import { replacePlaceholders, processConditionalBlocks } from "../utils/placeholders";
 import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
 import { getErrorMessage } from "../utils/errorMessage";
+import { buildFieldPreview } from "../utils/fieldPreview";
 
 const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
 
@@ -306,22 +307,34 @@ export function PlaceholderForm(props: {
     const suggestions = historySuggestions[placeholder.key] || [];
     const hasHistory = suggestions.length > 0;
     const showCustomInput = useCustomInput[placeholder.key];
+    const fieldHint = buildFieldPreview(placeholder, props.snippet.content, formValues[placeholder.key] ?? "");
+    const fieldHintFull = buildFieldPreview(placeholder, props.snippet.content, formValues[placeholder.key] ?? "", {
+      truncate: false,
+    });
+    const fieldHintTooltip = fieldHintFull && fieldHintFull !== fieldHint ? fieldHintFull : undefined;
+    const withFieldHint = (base: string | undefined): string | undefined => {
+      const parts = [base, fieldHintTooltip].filter(Boolean) as string[];
+      return parts.length > 0 ? parts.join("\n\n") : undefined;
+    };
     if (placeholder.isGuardOnly) {
       const isChecked = enabledOptionals[placeholder.key] ?? false;
       const label = placeholder.label || `Include ${placeholder.key}?`;
       const truncated = truncateTitle(label);
       const infoBase = buildInfoText(placeholder);
-      const info = label !== truncated ? [label, infoBase].filter(Boolean).join(" • ") : infoBase || undefined;
+      const baseInfo = label !== truncated ? [label, infoBase].filter(Boolean).join(" • ") : infoBase;
+      const info = withFieldHint(baseInfo || undefined);
       return (
-        <Form.Checkbox
-          key={placeholder.key}
-          id={placeholder.key}
-          title={truncated}
-          label="Include in output"
-          value={isChecked}
-          info={info}
-          onChange={(checked) => setEnabledOptionals((prev) => ({ ...prev, [placeholder.key]: checked }))}
-        />
+        <Fragment key={placeholder.key}>
+          <Form.Checkbox
+            id={placeholder.key}
+            title={truncated}
+            label="Include in output"
+            value={isChecked}
+            info={info}
+            onChange={(checked) => setEnabledOptionals((prev) => ({ ...prev, [placeholder.key]: checked }))}
+          />
+          {fieldHint && <Form.Description text={fieldHint} />}
+        </Fragment>
       );
     }
 
@@ -355,7 +368,7 @@ export function PlaceholderForm(props: {
                 value={dropdownSelections[placeholder.key] || CUSTOM_VALUE_MARKER}
                 onChange={(value) => handleDropdownChange(placeholder.key, value)}
                 error={!showCustomInput ? errors[placeholder.key] : undefined}
-                info={!placeholder.isSaved ? "Won't be saved to history" : undefined}
+                info={withFieldHint(!placeholder.isSaved ? "Won't be saved to history" : undefined)}
               >
                 {suggestions.map((value) => (
                   <Form.Dropdown.Item key={value} value={value} title={value} />
@@ -370,7 +383,7 @@ export function PlaceholderForm(props: {
                   value={customValues[placeholder.key] ?? ""}
                   error={errors[placeholder.key]}
                   onChange={(value) => handleCustomInputChange(placeholder.key, value)}
-                  info={buildInfoText(placeholder)}
+                  info={withFieldHint(buildInfoText(placeholder))}
                 />
               )}
             </>
@@ -382,9 +395,10 @@ export function PlaceholderForm(props: {
               value={formValues[placeholder.key] ?? ""}
               error={errors[placeholder.key]}
               onChange={(value) => handleCustomInputChange(placeholder.key, value)}
-              info={buildInfoText(placeholder)}
+              info={withFieldHint(buildInfoText(placeholder))}
             />
           ))}
+        {fieldHint && <Form.Description text={fieldHint} />}
       </Fragment>
     );
   }

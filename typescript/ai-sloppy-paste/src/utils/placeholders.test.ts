@@ -5,6 +5,7 @@ import {
   processSystemPlaceholders,
   getSystemPlaceholderNames,
   processConditionalBlocks,
+  extractConditionalBlockBodies,
 } from "./placeholders";
 
 describe("extractPlaceholders", () => {
@@ -931,5 +932,87 @@ describe("getSystemPlaceholderNames", () => {
   it("should return at least 8 system placeholders", () => {
     const names = getSystemPlaceholderNames();
     expect(names.length).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("extractConditionalBlockBodies", () => {
+  it("extracts a simple if-only block", () => {
+    expect(extractConditionalBlockBodies("{{#if k}}A{{/if}}", "k")).toEqual([{ ifBody: "A" }]);
+  });
+
+  it("extracts if/else block", () => {
+    expect(extractConditionalBlockBodies("{{#if k}}A{{#else}}B{{/if}}", "k")).toEqual([
+      { ifBody: "A", elseBody: "B" },
+    ]);
+  });
+
+  it("extracts if/else block with optional {{/else}} closing tag", () => {
+    expect(extractConditionalBlockBodies("{{#if k}}A{{#else}}B{{/else}}{{/if}}", "k")).toEqual([
+      { ifBody: "A", elseBody: "B" },
+    ]);
+  });
+
+  it("matches default-on guard with + prefix", () => {
+    expect(extractConditionalBlockBodies("{{#if +k}}A{{/if}}", "k")).toEqual([{ ifBody: "A" }]);
+  });
+
+  it("matches labeled guard", () => {
+    expect(extractConditionalBlockBodies('{{#if k "Label"}}A{{/if}}', "k")).toEqual([{ ifBody: "A" }]);
+  });
+
+  it("extracts outer block without descending into nested inner block", () => {
+    const text = "{{#if outer}}x{{#if inner}}y{{/if}}z{{/if}}";
+    expect(extractConditionalBlockBodies(text, "outer")).toEqual([
+      { ifBody: "x{{#if inner}}y{{/if}}z" },
+    ]);
+  });
+
+  it("extracts inner block when querying for inner key", () => {
+    const text = "{{#if outer}}x{{#if inner}}y{{/if}}z{{/if}}";
+    expect(extractConditionalBlockBodies(text, "inner")).toEqual([{ ifBody: "y" }]);
+  });
+
+  it("skips non-matching sibling block", () => {
+    const text = "{{#if other}}A{{/if}}{{#if k}}B{{/if}}";
+    expect(extractConditionalBlockBodies(text, "k")).toEqual([{ ifBody: "B" }]);
+  });
+
+  it("returns multiple entries for repeated same-key sibling blocks", () => {
+    const text = "{{#if k}}A{{/if}} {{#if k}}B{{/if}}";
+    expect(extractConditionalBlockBodies(text, "k")).toEqual([{ ifBody: "A" }, { ifBody: "B" }]);
+  });
+
+  it("returns [] for unterminated block", () => {
+    expect(extractConditionalBlockBodies("{{#if k}}A", "k")).toEqual([]);
+  });
+
+  it("returns [] when text contains no matching {{#if k}}", () => {
+    expect(extractConditionalBlockBodies("plain text {{name}} no blocks", "k")).toEqual([]);
+  });
+
+  it("handles {{#if k}} with surrounding text — body excludes tokens themselves", () => {
+    const text = "before {{#if k}}middle{{/if}} after";
+    expect(extractConditionalBlockBodies(text, "k")).toEqual([{ ifBody: "middle" }]);
+  });
+
+  it("handles three siblings in document order", () => {
+    const text = "{{#if k}}A{{/if}}-{{#if k}}B{{/if}}-{{#if k}}C{{/if}}";
+    expect(extractConditionalBlockBodies(text, "k")).toEqual([
+      { ifBody: "A" },
+      { ifBody: "B" },
+      { ifBody: "C" },
+    ]);
+  });
+
+  it("returns [] when scanning would run off the end of text without {{/if}}", () => {
+    const text = "{{#if k}}A{{#if nested}}B";
+    expect(extractConditionalBlockBodies(text, "k")).toEqual([]);
+  });
+
+  it("does NOT promote nested {{#else}} to outer block", () => {
+    const text = "{{#if outer}}{{#if inner}}{{#else}}fallback{{/if}}{{/if}}";
+    expect(extractConditionalBlockBodies(text, "outer")).toEqual([
+      { ifBody: "{{#if inner}}{{#else}}fallback{{/if}}" },
+    ]);
   });
 });

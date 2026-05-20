@@ -307,3 +307,67 @@ export function processConditionalBlocks(text: string, values: Record<string, st
 
   return result;
 }
+
+export interface ConditionalBlockBody {
+  ifBody: string;
+  elseBody?: string;
+}
+
+// Nested {{#if}} blocks require a depth-aware scan — a regex alone cannot balance them.
+export function extractConditionalBlockBodies(text: string, key: string): ConditionalBlockBody[] {
+  // Captures the key while ignoring the optional `+` prefix and `"Label"`; both are stripped before comparison.
+  const openRegex = /\{\{#if\s+\+?([^\s}"]+)(?:\s+"[^"]*")?\s*\}\}/g;
+  const results: ConditionalBlockBody[] = [];
+
+  let openMatch: RegExpExecArray | null;
+  while ((openMatch = openRegex.exec(text)) !== null) {
+    if (openMatch[1].trim() !== key) continue;
+
+    const openEnd = openRegex.lastIndex;
+    const close = findMatchingClose(text, openEnd);
+    if (close === null) continue;
+
+    results.push(splitTopLevelElse(text.slice(openEnd, close.start)));
+    openRegex.lastIndex = close.end;
+  }
+
+  return results;
+}
+
+function findMatchingClose(text: string, from: number): { start: number; end: number } | null {
+  const tokenRegex = /\{\{#if\s|\{\{\/if\}\}/g;
+  tokenRegex.lastIndex = from;
+  let depth = 1;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRegex.exec(text)) !== null) {
+    if (m[0] === "{{/if}}") {
+      depth--;
+      if (depth === 0) return { start: m.index, end: tokenRegex.lastIndex };
+    } else {
+      depth++;
+    }
+  }
+  return null;
+}
+
+function splitTopLevelElse(body: string): ConditionalBlockBody {
+  const tokenRegex = /\{\{#if\s|\{\{\/if\}\}|\{\{#else\}\}/g;
+  let depth = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRegex.exec(body)) !== null) {
+    const tok = m[0];
+    if (tok === "{{#else}}") {
+      if (depth === 0) {
+        const ifBody = body.slice(0, m.index);
+        let elseBody = body.slice(tokenRegex.lastIndex);
+        if (elseBody.endsWith("{{/else}}")) elseBody = elseBody.slice(0, -9);
+        return { ifBody, elseBody };
+      }
+    } else if (tok === "{{/if}}") {
+      depth--;
+    } else {
+      depth++;
+    }
+  }
+  return { ifBody: body };
+}
