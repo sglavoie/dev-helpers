@@ -272,7 +272,10 @@ export function processConditionalBlocks(text: string, values: Record<string, st
     let foundLeaf = false;
     result = result.replace(leafRegex, (_match, rawKey, ifBody, elseBody) => {
       foundLeaf = true;
-      const key = rawKey.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
+      const key = rawKey
+        .trim()
+        .replace(/\s+"[^"]*"$/, "")
+        .replace(/^\+/, "");
       const value = values[key] ?? "";
       const isTruthy = value.trim().length > 0;
       const selectedBody = isTruthy ? ifBody : (elseBody ?? "");

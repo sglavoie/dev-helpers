@@ -1,10 +1,23 @@
 import { Action, closeMainWindow, Icon, showHUD, showToast, Toast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { Snippet } from "../types";
-import { toggleFavorite, duplicateSnippet, toggleArchive, togglePin, incrementUsage, getPlaceholderHistoryForKey } from "../utils/storage";
+import {
+  toggleFavorite,
+  duplicateSnippet,
+  toggleArchive,
+  togglePin,
+  incrementUsage,
+  getPlaceholderHistoryForKey,
+} from "../utils/storage";
 import { findSimilarSnippets } from "../utils/analytics";
 import { getErrorMessage } from "../utils/errorMessage";
-import { extractPlaceholders, processSystemPlaceholders, replacePlaceholders, processConditionalBlocks, getSystemPlaceholderNames } from "../utils/placeholders";
+import {
+  extractPlaceholders,
+  processSystemPlaceholders,
+  replacePlaceholders,
+  processConditionalBlocks,
+  getSystemPlaceholderNames,
+} from "../utils/placeholders";
 import { getLastUsedValue } from "../utils/placeholderHistory";
 import { pasteWithClipboardRestore } from "../utils/clipboard";
 import { SnippetForm } from "./SnippetForm";
@@ -307,7 +320,11 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
         const values = await getPlaceholderHistoryForKey(placeholder.key);
         const lastValue = getLastUsedValue(values);
         if (lastValue === undefined) {
-          showToast({ style: Toast.Style.Failure, title: "Missing history", message: `No history for {{${placeholder.key}}}` });
+          showToast({
+            style: Toast.Style.Failure,
+            title: "Missing history",
+            message: `No history for {{${placeholder.key}}}`,
+          });
           return;
         }
         finalValues[placeholder.key] = lastValue;
@@ -324,7 +341,8 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
 
       await pasteWithClipboardRestore(filledContent);
       await incrementUsage(props.snippet.id);
-      const truncatedTitle = props.snippet.title.length > 40 ? props.snippet.title.slice(0, 40) + "…" : props.snippet.title;
+      const truncatedTitle =
+        props.snippet.title.length > 40 ? props.snippet.title.slice(0, 40) + "…" : props.snippet.title;
       await closeMainWindow();
       await showHUD(`✓ Pasted "${truncatedTitle}" with last values`);
       props.onComplete();

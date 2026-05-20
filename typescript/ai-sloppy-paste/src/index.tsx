@@ -1,9 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Icon,
-  List,
-} from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { useLocalStorage } from "@raycast/utils";
 import { Snippet, SortOption, SORT_LABELS } from "./types";
 import { SnippetListItem } from "./components/SnippetListItem";
@@ -80,10 +75,10 @@ export default function Command() {
   };
 
   const searchBarPlaceholder = (() => {
-    if (showOnlyFavorites) return '★ Bookmarked — Cmd+Shift+F to show all';
-    if (showArchivedSnippets) return '⊟ Archived — Cmd+B to show all';
-    if (showNeedsAttention) return '⚠ Needs Attention — Cmd+Shift+N to show all';
-    if (hasStructuredOperators) return 'Operators active — Cmd+/ for syntax help';
+    if (showOnlyFavorites) return "★ Bookmarked — Cmd+Shift+F to show all";
+    if (showArchivedSnippets) return "⊟ Archived — Cmd+B to show all";
+    if (showNeedsAttention) return "⚠ Needs Attention — Cmd+Shift+N to show all";
+    if (hasStructuredOperators) return "Operators active — Cmd+/ for syntax help";
     return 'Search… (tag:, is:favorite, not:, "exact") — Cmd+/ for help';
   })();
 
@@ -91,15 +86,15 @@ export default function Command() {
   const mainSectionTitle = showArchivedSnippets
     ? `⊟ Archived (${filtered.length})`
     : showNeedsAttention
-    ? `⚠ Needs Attention (${filtered.length})`
-    : showOnlyFavorites
-    ? `★ Bookmarked (${filtered.length})`
-    : hasPinnedOrRecent
-    ? 'All Snippets'
-    : undefined;
+      ? `⚠ Needs Attention (${filtered.length})`
+      : showOnlyFavorites
+        ? `★ Bookmarked (${filtered.length})`
+        : hasPinnedOrRecent
+          ? "All Snippets"
+          : undefined;
   const displayTitle =
     hasStructuredOperators && !showArchivedSnippets && !showNeedsAttention && !showOnlyFavorites
-      ? `${mainSectionTitle ?? 'All Snippets'} — operators active`
+      ? `${mainSectionTitle ?? "All Snippets"} — operators active`
       : mainSectionTitle;
 
   return (
@@ -210,22 +205,38 @@ export default function Command() {
           {pinnedSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && (
             <List.Section title="Pinned" subtitle={`${pinnedSnippets.length} snippets`}>
               {pinnedSnippets.map((snippet: Snippet) => (
-                <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
+                <SnippetListItem
+                  key={snippet.id}
+                  snippet={snippet}
+                  historyAvailable={historyAvailableFor.has(snippet.id)}
+                  {...sharedItemProps}
+                />
               ))}
             </List.Section>
           )}
-          {recentSnippets.length > 0 && !showArchivedSnippets && !showNeedsAttention && snippets.filter((s) => !s.isArchived).length >= 3 && (
-            <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
-              {recentSnippets.map((snippet: Snippet) => (
-                <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
-              ))}
-            </List.Section>
-          )}
-          <List.Section
-            title={displayTitle}
-          >
+          {recentSnippets.length > 0 &&
+            !showArchivedSnippets &&
+            !showNeedsAttention &&
+            snippets.filter((s) => !s.isArchived).length >= 3 && (
+              <List.Section title="Recently Used" subtitle={`${recentSnippets.length} snippets`}>
+                {recentSnippets.map((snippet: Snippet) => (
+                  <SnippetListItem
+                    key={snippet.id}
+                    snippet={snippet}
+                    historyAvailable={historyAvailableFor.has(snippet.id)}
+                    {...sharedItemProps}
+                  />
+                ))}
+              </List.Section>
+            )}
+          <List.Section title={displayTitle}>
             {sortedSnippets.map((snippet: Snippet) => (
-              <SnippetListItem key={snippet.id} snippet={snippet} historyAvailable={historyAvailableFor.has(snippet.id)} {...sharedItemProps} />
+              <SnippetListItem
+                key={snippet.id}
+                snippet={snippet}
+                historyAvailable={historyAvailableFor.has(snippet.id)}
+                {...sharedItemProps}
+              />
             ))}
           </List.Section>
         </>

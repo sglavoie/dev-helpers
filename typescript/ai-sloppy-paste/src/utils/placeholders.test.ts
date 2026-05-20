@@ -787,7 +787,7 @@ describe("extractPlaceholders — conditional blocks", () => {
     expect(result[0].label).toBe("Accept terms & conditions");
   });
 
-  it("key used in both {{#if KEY \"label\"}} and {{KEY}} is not guard-only, no label", () => {
+  it('key used in both {{#if KEY "label"}} and {{KEY}} is not guard-only, no label', () => {
     const text = '{{#if cc "Show CC field"}}\nCC: {{cc}}\n{{/if}}';
     const result = extractPlaceholders(text);
     expect(result).toHaveLength(1);

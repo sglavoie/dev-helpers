@@ -1,12 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Color,
-  Icon,
-  List,
-  Toast,
-  showToast,
-} from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List, Toast, showToast } from "@raycast/api";
 import { Snippet } from "../types";
 import { toggleArchive } from "../utils/storage";
 import { computeSnippetAnalytics, getUnusedTags } from "../utils/analytics";
@@ -118,7 +110,10 @@ export function SnippetListItem({
               ...(requiredInputCount > 0
                 ? [
                     {
-                      text: { value: `⌨ ${requiredInputCount}`, color: historyAvailable ? Color.Green : Color.SecondaryText },
+                      text: {
+                        value: `⌨ ${requiredInputCount}`,
+                        color: historyAvailable ? Color.Green : Color.SecondaryText,
+                      },
                       tooltip: historyAvailable
                         ? "Cmd+Shift+Return: paste with last values"
                         : `${requiredInputCount} required placeholder${requiredInputCount > 1 ? "s" : ""}`,

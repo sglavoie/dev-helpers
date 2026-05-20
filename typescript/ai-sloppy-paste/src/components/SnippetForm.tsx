@@ -7,14 +7,33 @@ import { getErrorMessage } from "../utils/errorMessage";
 import { PlaceholderSyntaxHelp } from "./PlaceholderSyntaxHelp";
 import { processSystemPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
 
-const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] = [
-  { title: "Basic Placeholder", subtitle: "{{key}}", content: "{{key}}", icon: Icon.CodeBlock, key: "1" },
-  { title: "With Default", subtitle: "{{key|default}}", content: "{{key|default}}", icon: Icon.CodeBlock, key: "2" },
-  { title: "No-Save Placeholder", subtitle: "{{!key}}", content: "{{!key}}", icon: Icon.EyeDisabled, key: "3" },
-  { title: "Wrapper Placeholder", subtitle: "{{prefix:key:suffix}}", content: "{{prefix:key:suffix}}", icon: Icon.ArrowNe, key: "4" },
-  { title: "Conditional Block", subtitle: "{{#if key}}...{{/if}}", content: "{{#if key}}\n\n{{/if}}", icon: Icon.Filter, key: "5" },
-  { title: "If/Else Block", subtitle: "{{#if key}}...{{#else}}...{{/if}}", content: "{{#if key}}\n\n{{#else}}\n\n{{/if}}", icon: Icon.Switch, key: "6" },
-];
+const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] =
+  [
+    { title: "Basic Placeholder", subtitle: "{{key}}", content: "{{key}}", icon: Icon.CodeBlock, key: "1" },
+    { title: "With Default", subtitle: "{{key|default}}", content: "{{key|default}}", icon: Icon.CodeBlock, key: "2" },
+    { title: "No-Save Placeholder", subtitle: "{{!key}}", content: "{{!key}}", icon: Icon.EyeDisabled, key: "3" },
+    {
+      title: "Wrapper Placeholder",
+      subtitle: "{{prefix:key:suffix}}",
+      content: "{{prefix:key:suffix}}",
+      icon: Icon.ArrowNe,
+      key: "4",
+    },
+    {
+      title: "Conditional Block",
+      subtitle: "{{#if key}}...{{/if}}",
+      content: "{{#if key}}\n\n{{/if}}",
+      icon: Icon.Filter,
+      key: "5",
+    },
+    {
+      title: "If/Else Block",
+      subtitle: "{{#if key}}...{{#else}}...{{/if}}",
+      content: "{{#if key}}\n\n{{#else}}\n\n{{/if}}",
+      icon: Icon.Switch,
+      key: "6",
+    },
+  ];
 
 export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: string[] }) {
   const { pop } = useNavigation();
@@ -39,7 +58,10 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
     }
 
     result = result.replace(/\{\{#if ([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_m, key, body) => {
-      const k = key.trim().replace(/\s+"[^"]*"$/, "").replace(/^\+/, "");
+      const k = key
+        .trim()
+        .replace(/\s+"[^"]*"$/, "")
+        .replace(/^\+/, "");
       const cleanBody = body.replace(/\{\{#else\}\}/g, " | else: ").replace(/\{\{\/else\}\}/g, "");
       return `⟨if ${k}: ${cleanBody.trim()}⟩`;
     });
@@ -194,7 +216,11 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
                 shortcut={{ modifiers: ["cmd"], key: h.key }}
                 onAction={async () => {
                   await Clipboard.copy(h.content);
-                  await showToast({ style: Toast.Style.Success, title: "Copied", message: `${h.subtitle} — Paste with ⌘V` });
+                  await showToast({
+                    style: Toast.Style.Success,
+                    title: "Copied",
+                    message: `${h.subtitle} — Paste with ⌘V`,
+                  });
                 }}
               />
             ))}
@@ -246,7 +272,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       />
       <Form.Description
         title="Conditionals"
-        text='{{#if key}}...{{/if}} — toggle section.  Else: ...{{#else}}...  Press Cmd+Shift+P to insert syntax.'
+        text="{{#if key}}...{{/if}} — toggle section.  Else: ...{{#else}}...  Press Cmd+Shift+P to insert syntax."
       />
       <Form.Description
         title="System (auto)"

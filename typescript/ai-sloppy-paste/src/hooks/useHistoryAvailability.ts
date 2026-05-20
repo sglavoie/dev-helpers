@@ -17,9 +17,7 @@ export function useHistoryAvailability(snippets: Snippet[]): Set<string> {
 
       for (const snippet of snippets) {
         const processed = processSystemPlaceholders(snippet.content);
-        const required = extractPlaceholders(processed).filter(
-          (p) => p.isRequired && !systemKeys.has(p.key),
-        );
+        const required = extractPlaceholders(processed).filter((p) => p.isRequired && !systemKeys.has(p.key));
         if (required.length === 0) continue;
         const keys = required.map((p) => p.key);
         snippetRequirements.set(snippet.id, keys);

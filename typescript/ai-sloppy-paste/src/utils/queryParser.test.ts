@@ -14,6 +14,7 @@ describe("queryParser", () => {
           exactPhrases: [],
           fuzzyText: "",
           hasOperators: false,
+          hasStructuredOperators: false,
         });
       });
 
@@ -27,6 +28,7 @@ describe("queryParser", () => {
           exactPhrases: [],
           fuzzyText: "",
           hasOperators: false,
+          hasStructuredOperators: false,
         });
       });
     });

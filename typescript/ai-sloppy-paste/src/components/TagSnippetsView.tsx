@@ -69,9 +69,7 @@ export function TagSnippetsView(props: { tag: string; onUpdated: () => void }) {
   }
 
   const filteredByTag = filterSnippetsByTag(snippets, tag);
-  const visibleSnippets = showArchivedSnippets
-    ? filteredByTag
-    : filteredByTag.filter((s) => !s.isArchived);
+  const visibleSnippets = showArchivedSnippets ? filteredByTag : filteredByTag.filter((s) => !s.isArchived);
 
   const navigationTitle = tag === UNTAGGED_SENTINEL ? "Untagged" : `Tag: ${tag}`;
 

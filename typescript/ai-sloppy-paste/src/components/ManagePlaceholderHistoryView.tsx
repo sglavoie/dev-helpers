@@ -1,4 +1,15 @@
-import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Alert,
+  Color,
+  confirmAlert,
+  Icon,
+  List,
+  showToast,
+  Toast,
+  useNavigation,
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { PlaceholderHistoryDetailView } from "./PlaceholderHistoryDetailView";

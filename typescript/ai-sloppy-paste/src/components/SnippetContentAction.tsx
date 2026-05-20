@@ -19,9 +19,7 @@ export function SnippetContentAction({ snippet, mode, onComplete }: SnippetConte
   const { push } = useNavigation();
 
   const shortcut: Keyboard.Shortcut =
-    mode === "paste"
-      ? { modifiers: ["cmd"], key: "return" }
-      : { modifiers: ["cmd", "opt"], key: "return" };
+    mode === "paste" ? { modifiers: ["cmd"], key: "return" } : { modifiers: ["cmd", "opt"], key: "return" };
 
   const config =
     mode === "paste"

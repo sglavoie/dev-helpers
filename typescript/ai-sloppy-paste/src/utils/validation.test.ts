@@ -54,7 +54,7 @@ describe("validateContent", () => {
 describe("validateTag", () => {
   it("should accept valid tags", () => {
     expect(validateTag("valid-tag")).toEqual({ isValid: true });
-    expect(validateTag("Tag_123")).toEqual({ isValid: true });
+    expect(validateTag("Tag_123")).toEqual({ isValid: true, normalizedValue: "tag_123" });
     expect(validateTag("  trimmed  ")).toEqual({ isValid: true });
   });
 
@@ -84,9 +84,9 @@ describe("validateTag", () => {
     expect(validateTag("invalid.tag").isValid).toBe(false);
   });
 
-  it("should reject tags with spaces", () => {
-    expect(validateTag("invalid tag").isValid).toBe(false);
-    expect(validateTag("work project").isValid).toBe(false);
+  it("should normalize spaces in tags to hyphens", () => {
+    expect(validateTag("invalid tag")).toEqual({ isValid: true, normalizedValue: "invalid-tag" });
+    expect(validateTag("work project")).toEqual({ isValid: true, normalizedValue: "work-project" });
   });
 
   it("should accept tags with valid special characters", () => {

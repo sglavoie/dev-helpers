@@ -391,7 +391,10 @@ export function PlaceholderForm(props: {
 
   if (isLoadingHistory) {
     return (
-      <Form navigationTitle={`Step 2 of 2 — Fill Placeholders (${filledCount}/${totalRequired}): ${props.snippet.title}`} isLoading={true}>
+      <Form
+        navigationTitle={`Step 2 of 2 — Fill Placeholders (${filledCount}/${totalRequired}): ${props.snippet.title}`}
+        isLoading={true}
+      >
         <Form.Description text="Loading history..." />
       </Form>
     );
