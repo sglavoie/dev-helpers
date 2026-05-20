@@ -74,19 +74,21 @@ export default function SaveClipboardCommand() {
       return;
     }
 
-    if (selectedTags.includes(trimmedTag)) {
+    const tagToAdd = tagValidation.normalizedValue ?? trimmedTag;
+
+    if (selectedTags.includes(tagToAdd)) {
       setNewTagError("Tag already added");
       return;
     }
 
-    setSelectedTags([...selectedTags, trimmedTag]);
+    setSelectedTags([...selectedTags, tagToAdd]);
     setNewTagInput("");
     setNewTagError(undefined);
 
     showToast({
       style: Toast.Style.Success,
       title: "Tag added",
-      message: trimmedTag,
+      message: tagValidation.normalizedValue ? `Tag saved as '${tagValidation.normalizedValue}'` : tagToAdd,
     });
   }
 

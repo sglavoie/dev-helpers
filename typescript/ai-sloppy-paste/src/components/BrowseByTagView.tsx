@@ -65,7 +65,7 @@ export function BrowseByTagView(props: { onUpdated: () => void }) {
 
   const untaggedSnippets = snippets.filter((s) => s.tags.length === 0);
   const untaggedLastUsedAt = untaggedSnippets.reduce<number | undefined>((acc, snippet) => {
-    if (!snippet.lastUsedAt) return acc;
+    if (snippet.lastUsedAt === undefined) return acc;
     if (acc === undefined || snippet.lastUsedAt > acc) return snippet.lastUsedAt;
     return acc;
   }, undefined);

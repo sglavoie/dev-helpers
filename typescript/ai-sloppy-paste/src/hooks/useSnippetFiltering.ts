@@ -41,6 +41,20 @@ export function filterSnippets(snippets: Snippet[], parsedQuery: ParsedQuery, op
   return result;
 }
 
+/**
+ * Returns the up-to-5 most recently used snippets from the filtered set,
+ * excluding any already shown in the "Pinned" section.
+ *
+ * Uses strict `lastUsedAt !== undefined` so that a snippet whose lastUsedAt
+ * is 0 (epoch — a valid, ancient timestamp) is still considered "used".
+ */
+export function computeRecentSnippets(filtered: Snippet[], pinnedIds: Set<string>, limit = 5): Snippet[] {
+  return [...filtered]
+    .filter((s) => s.lastUsedAt !== undefined && !pinnedIds.has(s.id))
+    .sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0))
+    .slice(0, limit);
+}
+
 export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption, showRecentSection: boolean) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("All");
@@ -85,13 +99,7 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
   const pinnedIds = useMemo(() => new Set(pinnedSnippets.map((s) => s.id)), [pinnedSnippets]);
 
   const recentSnippets = useMemo(
-    () =>
-      showRecentSection
-        ? [...filtered]
-            .filter((s) => s.lastUsedAt && !pinnedIds.has(s.id))
-            .sort((a, b) => (b.lastUsedAt || 0) - (a.lastUsedAt || 0))
-            .slice(0, 5)
-        : [],
+    () => (showRecentSection ? computeRecentSnippets(filtered, pinnedIds) : []),
     [filtered, pinnedIds, showRecentSection],
   );
 

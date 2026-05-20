@@ -18,14 +18,16 @@ export function RenameTagForm(props: { tag: string; onRenamed: () => void }) {
       return;
     }
 
-    // Check if tag name is unchanged
-    if (newTag === props.tag) {
+    const normalizedNewTag = validation.normalizedValue ?? newTag;
+
+    // Check if tag name is unchanged (compare against the canonical, post-normalization form)
+    if (normalizedNewTag === props.tag) {
       setError("New tag name must be different");
       return;
     }
 
     try {
-      const affectedCount = await renameTag(props.tag, newTag);
+      const affectedCount = await renameTag(props.tag, normalizedNewTag);
       props.onRenamed();
       pop();
       showToast({
