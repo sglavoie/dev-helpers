@@ -4,10 +4,19 @@ import { Placeholder } from "../types";
  * System placeholders that auto-resolve without user input.
  * Use ALL-CAPS names to distinguish from user-defined placeholders.
  */
+function localDateISO(now: Date): string {
+  // Use the local-timezone YYYY-MM-DD; toISOString() converts to UTC and would
+  // return tomorrow's date when the user runs the snippet late in the evening
+  // in a timezone west of UTC.
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const SYSTEM_PLACEHOLDERS: Record<string, () => string> = {
   DATE: () => {
-    const now = new Date();
-    return now.toISOString().split("T")[0];
+    return localDateISO(new Date());
   },
   TIME: () => {
     const now = new Date();
@@ -15,7 +24,7 @@ const SYSTEM_PLACEHOLDERS: Record<string, () => string> = {
   },
   DATETIME: () => {
     const now = new Date();
-    const date = now.toISOString().split("T")[0];
+    const date = localDateISO(now);
     const time = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
     return `${date} ${time}`;
   },
@@ -181,27 +190,29 @@ export function replacePlaceholders(text: string, values: Record<string, string>
   for (const placeholder of placeholders) {
     // Determine final value
     const value = values[placeholder.key] ?? placeholder.defaultValue ?? "";
+    const hasWrappers = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
+    const trimmedValue = value.trim();
 
-    // Build replacement with conditional wrappers
-    let replacement: string;
-
-    if (value.trim()) {
-      // Non-empty value: apply wrappers
-      replacement = value;
-      if (placeholder.prefixWrapper) {
-        replacement = placeholder.prefixWrapper + replacement;
-      }
-      if (placeholder.suffixWrapper) {
-        replacement = replacement + placeholder.suffixWrapper;
-      }
-    } else {
-      // Empty or whitespace-only: no wrappers
-      replacement = "";
-    }
-
-    // Replace all occurrences
+    // Replace all occurrences. When the placeholder was registered with wrappers,
+    // the same key may still appear in the plain `{{key}}` form elsewhere; that
+    // plain form must NOT receive the wrappers (a callback is used to inspect
+    // the matched text and decide on a per-match basis).
     const regex = buildPlaceholderRegex(placeholder);
-    result = result.replace(regex, replacement);
+    result = result.replace(regex, (match) => {
+      if (!trimmedValue) {
+        // Empty or whitespace-only: no wrappers, no value
+        return "";
+      }
+
+      // A match contains the wrappers only when it uses the `prefix:key:suffix`
+      // syntax (i.e. there is a `:` between the opening braces and the key).
+      const matchUsesWrapperSyntax = hasWrappers && /\{\{\s*!?\s*[^:}]*:/.test(match);
+
+      if (matchUsesWrapperSyntax) {
+        return (placeholder.prefixWrapper ?? "") + value + (placeholder.suffixWrapper ?? "");
+      }
+      return value;
+    });
   }
 
   return result;
@@ -237,9 +248,11 @@ function buildPlaceholderRegex(placeholder: Placeholder): RegExp {
 
   // Optional wrapper syntax
   if (placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined) {
-    // Has wrappers: match prefix:key:suffix format. Wrappers are intentionally
-    // preserved verbatim (no whitespace trimming) since they are emitted as-is.
-    pattern += "[^:]*:\\s*" + escapedKey + "\\s*:[^|}]*";
+    // Has wrappers: match BOTH `{{prefix:key:suffix}}` and the simple `{{key}}` form,
+    // so a key that appears in both forms in the same text gets replaced everywhere.
+    // The wrapper segment is preserved verbatim (no whitespace trimming) since it is
+    // emitted as-is.
+    pattern += "(?:[^:]*:\\s*" + escapedKey + "\\s*:[^|}]*|" + escapedKey + ")";
   } else {
     // No wrappers: match simple key
     pattern += escapedKey;

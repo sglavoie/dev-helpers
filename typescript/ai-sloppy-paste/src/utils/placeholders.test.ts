@@ -441,6 +441,25 @@ describe("replacePlaceholders", () => {
     expect(result).not.toContain("{{");
     expect(result).toContain("done");
   });
+
+  it("should replace both wrapper and plain forms of the same key", () => {
+    // Regression: when {{prefix:key:suffix}} appeared before {{key}}, the
+    // wrapper-mode regex required the `prefix:key:suffix` syntax, so the plain
+    // {{key}} form was left unreplaced in the output.
+    const text = "Order {{#:id:}} (ref {{id}})";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, { id: "42" }, placeholders);
+    expect(result).toBe("Order #42 (ref 42)");
+  });
+
+  it("should replace plain key after wrapper form even with empty value", () => {
+    // Both forms should disappear when the value is empty (wrappers omitted,
+    // plain form replaced with empty string).
+    const text = "[{{$:price: USD}}] {{price}}";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, { price: "" }, placeholders);
+    expect(result).toBe("[] ");
+  });
 });
 
 describe("processSystemPlaceholders", () => {
@@ -546,6 +565,25 @@ describe("processSystemPlaceholders", () => {
     // placeholder would survive into the prompt for user input.
     expect(processSystemPlaceholders("Date: {{ DATE }}")).toBe("Date: 2024-03-15");
     expect(processSystemPlaceholders("Year: {{  YEAR  }}")).toBe("Year: 2024");
+  });
+
+  it("should use the local-timezone calendar date for {{DATE}}", () => {
+    // Regression: {{DATE}} previously used toISOString() (UTC), so running the
+    // snippet at 23:00 local in a UTC-negative timezone would emit tomorrow's
+    // date. The system time below corresponds to 2024-03-15 in every local
+    // timezone (08:00 UTC is well inside the day everywhere on Earth).
+    vi.setSystemTime(new Date("2024-03-15T08:00:00.000Z"));
+    const result = processSystemPlaceholders("{{DATE}}");
+    expect(result).toMatch(/^2024-03-(14|15|16)$/); // Local date, not blindly UTC.
+    // The local date can only be 2024-03-15 (every TZ rolls over at midnight
+    // local, and 08:00 UTC is at least 19:00 on the previous day at UTC-13 and
+    // at most 22:00 on the next day at UTC+14 — neither boundary is crossed
+    // since 08:00 UTC is within the same calendar day in every IANA timezone).
+    const now = new Date("2024-03-15T08:00:00.000Z");
+    const expectedYear = now.getFullYear();
+    const expectedMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const expectedDay = String(now.getDate()).padStart(2, "0");
+    expect(result).toBe(`${expectedYear}-${expectedMonth}-${expectedDay}`);
   });
 });
 
