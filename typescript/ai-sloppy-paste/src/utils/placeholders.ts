@@ -56,7 +56,9 @@ export function processSystemPlaceholders(text: string): string {
   let result = text;
 
   for (const [name, getValue] of Object.entries(SYSTEM_PLACEHOLDERS)) {
-    const regex = new RegExp(`\\{\\{${name}\\}\\}`, "g");
+    // Allow optional whitespace around the name to mirror extractPlaceholders
+    // (which trims keys), so e.g. `{{ DATE }}` is resolved.
+    const regex = new RegExp(`\\{\\{\\s*${name}\\s*\\}\\}`, "g");
     if (regex.test(result)) {
       result = result.replace(regex, getValue());
     }
@@ -223,24 +225,28 @@ function buildPlaceholderRegex(placeholder: Placeholder): RegExp {
   // - {{prefix:key:suffix}}
   // - {{!key|default}}
   // - {{key}}
+  //
+  // Whitespace is permitted around the key and default (mirrors extractPlaceholders,
+  // which trims keys/defaults) so e.g. `{{ name | John }}` is replaced correctly.
 
   // Build pattern that matches all variations of this placeholder
-  let pattern = "\\{\\{";
+  let pattern = "\\{\\{\\s*";
 
   // Optional ! prefix
-  pattern += "!?";
+  pattern += "!?\\s*";
 
   // Optional wrapper syntax
   if (placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined) {
-    // Has wrappers: match prefix:key:suffix format
-    pattern += "[^:]*:" + escapedKey + ":[^|]*";
+    // Has wrappers: match prefix:key:suffix format. Wrappers are intentionally
+    // preserved verbatim (no whitespace trimming) since they are emitted as-is.
+    pattern += "[^:]*:\\s*" + escapedKey + "\\s*:[^|}]*";
   } else {
     // No wrappers: match simple key
     pattern += escapedKey;
   }
 
   // Optional |default
-  pattern += "(?:\\|[^}]*)?";
+  pattern += "\\s*(?:\\|[^}]*)?";
 
   pattern += "\\}\\}";
 

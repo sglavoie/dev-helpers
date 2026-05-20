@@ -154,7 +154,7 @@ export function getCharacterInfo(text: string, maxLength: number): { count: numb
     info = `${count} / ${maxLength}`;
   } else if (percentage < 90) {
     info = `${count} / ${maxLength} (${remaining} remaining)`;
-  } else if (percentage < 100) {
+  } else if (count <= maxLength) {
     info = `⚠️ ${remaining} characters remaining`;
   } else {
     info = `❌ Exceeds limit by ${Math.abs(remaining)} characters`;

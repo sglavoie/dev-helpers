@@ -403,6 +403,44 @@ describe("replacePlaceholders", () => {
     const result = replacePlaceholders(text, values, placeholders);
     expect(result).toBe("Message");
   });
+
+  it("should replace placeholders with whitespace around the key", () => {
+    // Regression: extractPlaceholders trims keys, so the built replacement regex
+    // must tolerate whitespace around the key inside `{{ ... }}` or the original
+    // text would be left untouched.
+    const text = "Hello {{ name }}!";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, { name: "Alice" }, placeholders);
+    expect(result).toBe("Hello Alice!");
+  });
+
+  it("should replace placeholders with whitespace around key and default value", () => {
+    const text = "Hello {{ name | World }}!";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, {}, placeholders);
+    expect(result).toBe("Hello World!");
+  });
+
+  it("should not greedily consume a following placeholder when wrappers are used", () => {
+    // Regression: the wrapper-mode regex previously used `[^|]*` for the suffix,
+    // which crossed `}}` boundaries and swallowed every subsequent placeholder.
+    const text = "Price {{$:amount: USD}} and qty {{qty}}";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, { amount: "25", qty: "3" }, placeholders);
+    expect(result).toBe("Price $25 USD and qty 3");
+  });
+
+  it("should replace wrapper placeholders with whitespace around the key", () => {
+    // Wrappers are emitted verbatim (including their own whitespace); only the
+    // whitespace immediately adjacent to the key is what previously broke
+    // matching, so the assertion focuses on the placeholder disappearing.
+    const text = "Price {{ $ : amount : USD }} done";
+    const placeholders = extractPlaceholders(text);
+    const result = replacePlaceholders(text, { amount: "25" }, placeholders);
+    expect(result).toContain("25");
+    expect(result).not.toContain("{{");
+    expect(result).toContain("done");
+  });
 });
 
 describe("processSystemPlaceholders", () => {
@@ -500,6 +538,14 @@ describe("processSystemPlaceholders", () => {
     const text = "";
     const result = processSystemPlaceholders(text);
     expect(result).toBe("");
+  });
+
+  it("should resolve system placeholders with whitespace around the name", () => {
+    // Regression: extractPlaceholders treats `{{ DATE }}` as the key `DATE`,
+    // so processSystemPlaceholders must also tolerate that whitespace or the
+    // placeholder would survive into the prompt for user input.
+    expect(processSystemPlaceholders("Date: {{ DATE }}")).toBe("Date: 2024-03-15");
+    expect(processSystemPlaceholders("Year: {{  YEAR  }}")).toBe("Year: 2024");
   });
 });
 

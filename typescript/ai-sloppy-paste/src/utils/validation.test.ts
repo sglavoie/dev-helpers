@@ -146,4 +146,14 @@ describe("getCharacterInfo", () => {
     expect(result.info).toContain("❌");
     expect(result.info).toContain("Exceeds limit");
   });
+
+  it("should show the warning (not the error) when exactly at the limit", () => {
+    // Regression: a length equal to maxLength is still valid per validateTitle,
+    // but the previous `percentage < 100` branch falsely produced
+    // "Exceeds limit by 0 characters" at this boundary.
+    const result = getCharacterInfo("a".repeat(100), 100);
+    expect(result.remaining).toBe(0);
+    expect(result.info).toContain("⚠️");
+    expect(result.info).not.toContain("Exceeds limit");
+  });
 });
