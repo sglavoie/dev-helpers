@@ -71,7 +71,7 @@ export function applySearchFilters(snippets: Snippet[], query: ParsedQuery): Sni
       for (const word of words) {
         const inTitle = snippet.title.toLowerCase().includes(word);
         const inContent = snippet.content.toLowerCase().includes(word);
-        const inTags = snippet.tags.some((tag) => tag.includes(word));
+        const inTags = snippet.tags.some((tag) => tag.toLowerCase().includes(word));
         if (!inTitle && !inContent && !inTags) return false;
       }
     }
@@ -99,7 +99,7 @@ export function matchesFuzzySearch(snippet: Snippet, searchText: string): boolea
   for (const word of words) {
     const inTitle = snippet.title.toLowerCase().includes(word);
     const inContent = snippet.content.toLowerCase().includes(word);
-    const inTags = snippet.tags.some((tag) => tag.includes(word));
+    const inTags = snippet.tags.some((tag) => tag.toLowerCase().includes(word));
     if (!inTitle && !inContent && !inTags) return false;
   }
 

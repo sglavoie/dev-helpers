@@ -171,6 +171,29 @@ describe("tagStats", () => {
       expect(stats).toEqual([]);
     });
 
+    it("should not mark a tag as never-used when its snippet has lastUsedAt === 0", () => {
+      const snippets: Snippet[] = [
+        {
+          id: "1",
+          title: "Snippet 1",
+          content: "Content 1",
+          tags: ["work"],
+          createdAt: 1000,
+          updatedAt: 2000,
+          lastUsedAt: 0, // Epoch is a valid (if unusual) timestamp
+          useCount: 1,
+          isFavorite: false,
+          isArchived: false,
+          isPinned: false,
+        },
+      ];
+
+      const stats = computeTagStatistics(snippets, ["work"]);
+      const workStats = stats.find((s) => s.tag === "work");
+      expect(workStats?.neverUsed).toBe(false);
+      expect(workStats?.lastUsedAt).toBe(0);
+    });
+
     it("should correctly sum usage counts", () => {
       const snippets: Snippet[] = [
         {
@@ -233,6 +256,16 @@ describe("tagStats", () => {
       expect(formatRelativeTime(now - 2 * 7 * 24 * 60 * 60 * 1000)).toBe("2w ago"); // 2 weeks ago
       expect(formatRelativeTime(now - 2 * 30 * 24 * 60 * 60 * 1000)).toBe("2mo ago"); // 2 months ago
       expect(formatRelativeTime(now - 2 * 365 * 24 * 60 * 60 * 1000)).toBe("2y ago"); // 2 years ago
+    });
+
+    it("should bridge the week/month gap without reporting 0mo", () => {
+      const now = Date.now();
+      const DAY = 24 * 60 * 60 * 1000;
+      // 28 and 29 days previously rounded to 0 months because weeks (=4) failed `weeks < 4`
+      // and Math.floor(28/30) === 0.
+      expect(formatRelativeTime(now - 28 * DAY)).toBe("4w ago");
+      expect(formatRelativeTime(now - 29 * DAY)).toBe("4w ago");
+      expect(formatRelativeTime(now - 30 * DAY)).toBe("1mo ago");
     });
   });
 

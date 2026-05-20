@@ -426,5 +426,20 @@ describe("searchFilter", () => {
       const snippet = createSnippet({ title: "api documentation" });
       expect(matchesFuzzySearch(snippet, "API")).toBe(true);
     });
+
+    it("should match against tags case-insensitively", () => {
+      const snippet = createSnippet({ title: "x", content: "y", tags: ["Work"] });
+      expect(matchesFuzzySearch(snippet, "work")).toBe(true);
+    });
+  });
+
+  describe("fuzzy text tag matching (case-insensitive)", () => {
+    it("should match a mixed-case tag when fuzzy text is lowercase", () => {
+      const snippets = [createSnippet({ id: "1", title: "x", content: "y", tags: ["Work"] })];
+      const query = createQuery({ fuzzyText: "work", hasOperators: true });
+      const result = applySearchFilters(snippets, query);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("1");
+    });
   });
 });

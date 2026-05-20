@@ -316,4 +316,13 @@ describe("formatRelativeTime", () => {
     // Future timestamp should show as "just now" since diff is negative
     expect(formatRelativeTime(now + 1000)).toBe("just now");
   });
+
+  it("should bridge the week/month gap without reporting 0mo", () => {
+    const now = Date.now();
+    // 28 and 29 days previously rounded to 0 months because weeks (=4) failed `weeks < 4`
+    // and Math.floor(28/30) === 0.
+    expect(formatRelativeTime(now - 28 * ONE_DAY_MS)).toBe("4w ago");
+    expect(formatRelativeTime(now - 29 * ONE_DAY_MS)).toBe("4w ago");
+    expect(formatRelativeTime(now - 30 * ONE_DAY_MS)).toBe("1mo ago");
+  });
 });
