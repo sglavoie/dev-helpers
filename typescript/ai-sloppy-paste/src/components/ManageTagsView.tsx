@@ -148,7 +148,7 @@ export function ManageTagsView(props: { onUpdated: () => void }) {
     }
 
     // Last used
-    if (stat.lastUsedAt) {
+    if (stat.lastUsedAt !== undefined) {
       accessories.push({
         text: formatRelativeTime(stat.lastUsedAt),
         tooltip: `Last used: ${new Date(stat.lastUsedAt).toLocaleString()}`,

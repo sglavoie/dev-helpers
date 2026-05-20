@@ -156,7 +156,7 @@ export function SnippetListItem({
               )}
               <List.Item.Detail.Metadata.Label title="Created" text={new Date(snippet.createdAt).toLocaleString()} />
               <List.Item.Detail.Metadata.Label title="Updated" text={new Date(snippet.updatedAt).toLocaleString()} />
-              {snippet.lastUsedAt && (
+              {snippet.lastUsedAt !== undefined && (
                 <List.Item.Detail.Metadata.Label
                   title="Last Used"
                   text={new Date(snippet.lastUsedAt).toLocaleString()}

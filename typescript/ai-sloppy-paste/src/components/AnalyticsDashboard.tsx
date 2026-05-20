@@ -259,7 +259,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
                     color: getUsageColor(snippet.useCount),
                   },
                 },
-                ...(snippet.lastUsedAt ? [{ text: formatRelativeTime(snippet.lastUsedAt) }] : []),
+                ...(snippet.lastUsedAt !== undefined ? [{ text: formatRelativeTime(snippet.lastUsedAt) }] : []),
               ]}
               actions={renderSnippetActions(snippet)}
             />
@@ -284,7 +284,7 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
                 ...(stat.totalUsageCount > 0
                   ? [{ tag: { value: `${formatNumber(stat.totalUsageCount)} uses`, color: Color.Green } }]
                   : []),
-                ...(stat.lastUsedAt
+                ...(stat.lastUsedAt !== undefined
                   ? [{ text: formatRelativeTime(stat.lastUsedAt) }]
                   : stat.snippetCount > 0
                     ? [{ tag: { value: "Never used", color: Color.Orange } }]
