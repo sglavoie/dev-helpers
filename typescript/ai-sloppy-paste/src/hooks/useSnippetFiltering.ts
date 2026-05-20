@@ -1,9 +1,45 @@
 import { useMemo, useState } from "react";
 import { Snippet, SortOption } from "../types";
 import { computeSnippetAnalytics } from "../utils/analytics";
-import { parseSearchQuery } from "../utils/queryParser";
+import { ParsedQuery, parseSearchQuery } from "../utils/queryParser";
 import { applySearchFilters } from "../utils/searchFilter";
 import { expandTagsWithParents, isChildOf } from "../utils/tags";
+
+export interface FilterOptions {
+  selectedTag: string;
+  showOnlyFavorites: boolean;
+  showArchivedSnippets: boolean;
+  showNeedsAttention: boolean;
+}
+
+/**
+ * Pure filtering pipeline shared by the hook and unit tests.
+ *
+ * Tag-dropdown and favorites filters are applied BEFORE search operators
+ * so dropdowns/toggles don't silently stop working once the user types
+ * a query that contains operators (e.g. `tag:foo`).
+ */
+export function filterSnippets(snippets: Snippet[], parsedQuery: ParsedQuery, options: FilterOptions): Snippet[] {
+  const { selectedTag, showOnlyFavorites, showArchivedSnippets, showNeedsAttention } = options;
+
+  const baseSnippets = showArchivedSnippets
+    ? snippets.filter((s) => s.isArchived)
+    : snippets.filter((s) => !s.isArchived);
+
+  const tagFiltered =
+    selectedTag === "All"
+      ? baseSnippets
+      : baseSnippets.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
+  const favoriteFiltered = showOnlyFavorites ? tagFiltered.filter((s) => s.isFavorite) : tagFiltered;
+
+  const result = parsedQuery.hasOperators ? applySearchFilters(favoriteFiltered, parsedQuery) : favoriteFiltered;
+
+  if (showNeedsAttention) {
+    return result.filter((s) => computeSnippetAnalytics(s).isStale);
+  }
+
+  return result;
+}
 
 export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption, showRecentSection: boolean) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,30 +50,16 @@ export function useSnippetFiltering(snippets: Snippet[], sortOption: SortOption,
 
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
 
-  const filtered = useMemo(() => {
-    const baseSnippets = showArchivedSnippets
-      ? snippets.filter((s) => s.isArchived)
-      : snippets.filter((s) => !s.isArchived);
-
-    let result: Snippet[];
-
-    if (parsedQuery.hasOperators) {
-      result = applySearchFilters(baseSnippets, parsedQuery);
-    } else {
-      const tagFiltered =
-        selectedTag === "All"
-          ? baseSnippets
-          : baseSnippets.filter((s) => s.tags.some((tag) => tag === selectedTag || isChildOf(tag, selectedTag)));
-
-      result = showOnlyFavorites ? tagFiltered.filter((s) => s.isFavorite) : tagFiltered;
-    }
-
-    if (showNeedsAttention) {
-      return result.filter((s) => computeSnippetAnalytics(s).isStale);
-    }
-
-    return result;
-  }, [snippets, parsedQuery, showArchivedSnippets, selectedTag, showOnlyFavorites, showNeedsAttention]);
+  const filtered = useMemo(
+    () =>
+      filterSnippets(snippets, parsedQuery, {
+        selectedTag,
+        showOnlyFavorites,
+        showArchivedSnippets,
+        showNeedsAttention,
+      }),
+    [snippets, parsedQuery, showArchivedSnippets, selectedTag, showOnlyFavorites, showNeedsAttention],
+  );
 
   const visibleTags = useMemo(() => {
     const tagSet = new Set<string>();
