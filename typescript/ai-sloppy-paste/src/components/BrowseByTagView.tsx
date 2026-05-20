@@ -26,10 +26,7 @@ export function BrowseByTagView(props: { onUpdated: () => void }) {
     TagSortOption.LastUsedAsc,
   );
 
-  const tagStats = useMemo(
-    () => sortTagStatistics(unsortedTagStats, sortOption),
-    [unsortedTagStats, sortOption],
-  );
+  const tagStats = useMemo(() => sortTagStatistics(unsortedTagStats, sortOption), [unsortedTagStats, sortOption]);
 
   useEffect(() => {
     loadData();

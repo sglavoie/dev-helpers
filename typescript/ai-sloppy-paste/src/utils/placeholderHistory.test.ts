@@ -7,6 +7,8 @@ import {
   getLastUsedValue,
   calculateKeyStats,
   formatRelativeTime,
+  sortPlaceholderKeyStats,
+  PlaceholderKeyStats,
 } from "./placeholderHistory";
 import { PlaceholderHistoryValue } from "../types";
 
@@ -324,5 +326,59 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime(now - 28 * ONE_DAY_MS)).toBe("4w ago");
     expect(formatRelativeTime(now - 29 * ONE_DAY_MS)).toBe("4w ago");
     expect(formatRelativeTime(now - 30 * ONE_DAY_MS)).toBe("1mo ago");
+  });
+});
+
+describe("sortPlaceholderKeyStats", () => {
+  const mkStat = (
+    key: string,
+    lastUsed: number | undefined,
+    valueCount = 1,
+    totalUseCount = 1,
+  ): PlaceholderKeyStats => ({
+    key,
+    valueCount,
+    totalUseCount,
+    lastUsed,
+  });
+
+  it("should sort by name ascending", () => {
+    const stats = [mkStat("c", 1), mkStat("a", 1), mkStat("b", 1)];
+    const sorted = sortPlaceholderKeyStats(stats, "name-asc");
+    expect(sorted.map((s) => s.key)).toEqual(["a", "b", "c"]);
+  });
+
+  it("should sort by value count descending", () => {
+    const stats = [mkStat("a", 1, 2), mkStat("b", 1, 5), mkStat("c", 1, 3)];
+    const sorted = sortPlaceholderKeyStats(stats, "value-count-desc");
+    expect(sorted.map((s) => s.key)).toEqual(["b", "c", "a"]);
+  });
+
+  it("should sort by usage descending", () => {
+    const stats = [mkStat("a", 1, 1, 2), mkStat("b", 1, 1, 10), mkStat("c", 1, 1, 5)];
+    const sorted = sortPlaceholderKeyStats(stats, "usage-desc");
+    expect(sorted.map((s) => s.key)).toEqual(["b", "c", "a"]);
+  });
+
+  it("should sort by lastUsed descending and put undefined at the end", () => {
+    const stats = [mkStat("old", 100), mkStat("never", undefined), mkStat("recent", 1_000_000)];
+    const sorted = sortPlaceholderKeyStats(stats, "last-used-desc");
+    expect(sorted.map((s) => s.key)).toEqual(["recent", "old", "never"]);
+  });
+
+  it("should treat lastUsed === 0 as a valid (epoch) timestamp, NOT as 'never used'", () => {
+    // Regression: a previous implementation used `if (!a.lastUsed)` which
+    // wrongly grouped epoch timestamps with `undefined` and pushed them to the
+    // bottom of the list. lastUsed === 0 should sort before undefined and
+    // ascending against other ordinary timestamps.
+    const stats = [mkStat("epoch", 0), mkStat("never", undefined), mkStat("recent", 1_000_000)];
+    const sorted = sortPlaceholderKeyStats(stats, "last-used-desc");
+    expect(sorted.map((s) => s.key)).toEqual(["recent", "epoch", "never"]);
+  });
+
+  it("should keep order stable when all lastUsed are undefined", () => {
+    const stats = [mkStat("a", undefined), mkStat("b", undefined)];
+    const sorted = sortPlaceholderKeyStats(stats, "last-used-desc");
+    expect(sorted.map((s) => s.key)).toEqual(["a", "b"]);
   });
 });

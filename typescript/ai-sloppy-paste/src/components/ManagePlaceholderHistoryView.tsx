@@ -14,7 +14,13 @@ import { useEffect, useState } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { PlaceholderHistoryDetailView } from "./PlaceholderHistoryDetailView";
 import { getAllPlaceholderKeys, getPlaceholderHistory, clearPlaceholderHistoryForKey } from "../utils/storage";
-import { calculateKeyStats, formatRelativeTime, PlaceholderKeyStats } from "../utils/placeholderHistory";
+import {
+  calculateKeyStats,
+  formatRelativeTime,
+  PlaceholderKeyStats,
+  sortPlaceholderKeyStats,
+  PlaceholderKeySortOption,
+} from "../utils/placeholderHistory";
 import { getErrorMessage } from "../utils/errorMessage";
 
 enum SortOption {
@@ -79,29 +85,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
   }
 
   function sortStats(stats: PlaceholderKeyStats[], option: SortOption): PlaceholderKeyStats[] {
-    const sorted = [...stats];
-
-    switch (option) {
-      case SortOption.NameAsc:
-        sorted.sort((a, b) => a.key.localeCompare(b.key));
-        break;
-      case SortOption.ValueCountDesc:
-        sorted.sort((a, b) => b.valueCount - a.valueCount);
-        break;
-      case SortOption.UsageDesc:
-        sorted.sort((a, b) => b.totalUseCount - a.totalUseCount);
-        break;
-      case SortOption.LastUsedDesc:
-        sorted.sort((a, b) => {
-          if (!a.lastUsed && !b.lastUsed) return 0;
-          if (!a.lastUsed) return 1;
-          if (!b.lastUsed) return -1;
-          return b.lastUsed - a.lastUsed;
-        });
-        break;
-    }
-
-    return sorted;
+    return sortPlaceholderKeyStats(stats, option as PlaceholderKeySortOption);
   }
 
   async function handleClearKey(key: string, valueCount: number) {
@@ -154,8 +138,9 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
       });
     }
 
-    // Last used
-    if (stat.lastUsed) {
+    // Last used — use strict undefined check so that lastUsed === 0 (epoch) is
+    // still treated as a valid (ancient) timestamp rather than "Never used".
+    if (stat.lastUsed !== undefined) {
       accessories.push({
         text: formatRelativeTime(stat.lastUsed),
         tooltip: `Last used: ${new Date(stat.lastUsed).toLocaleString()}`,

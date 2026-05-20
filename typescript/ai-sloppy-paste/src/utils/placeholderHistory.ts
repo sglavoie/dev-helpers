@@ -113,6 +113,47 @@ export function calculateKeyStats(key: string, values: PlaceholderHistoryValue[]
 }
 
 /**
+ * Sort options for placeholder key statistics (shared between the view and tests)
+ */
+export type PlaceholderKeySortOption = "name-asc" | "value-count-desc" | "usage-desc" | "last-used-desc";
+
+/**
+ * Pure sort helper for placeholder key statistics.
+ *
+ * Important invariant for "last-used-desc": lastUsed === 0 is a valid Unix-epoch
+ * timestamp (Jan 1 1970) and must NOT be treated as "never used". Only
+ * lastUsed === undefined means the key has no recorded usage.
+ */
+export function sortPlaceholderKeyStats(
+  stats: PlaceholderKeyStats[],
+  option: PlaceholderKeySortOption,
+): PlaceholderKeyStats[] {
+  const sorted = [...stats];
+
+  switch (option) {
+    case "name-asc":
+      sorted.sort((a, b) => a.key.localeCompare(b.key));
+      break;
+    case "value-count-desc":
+      sorted.sort((a, b) => b.valueCount - a.valueCount);
+      break;
+    case "usage-desc":
+      sorted.sort((a, b) => b.totalUseCount - a.totalUseCount);
+      break;
+    case "last-used-desc":
+      sorted.sort((a, b) => {
+        if (a.lastUsed === undefined && b.lastUsed === undefined) return 0;
+        if (a.lastUsed === undefined) return 1;
+        if (b.lastUsed === undefined) return -1;
+        return b.lastUsed - a.lastUsed;
+      });
+      break;
+  }
+
+  return sorted;
+}
+
+/**
  * Format timestamp to relative time string
  */
 export function formatRelativeTime(timestamp: number): string {
