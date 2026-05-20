@@ -80,6 +80,24 @@ describe("analytics", () => {
 
       expect(analytics.isStale).toBe(false);
     });
+
+    it("should treat lastUsedAt === 0 as a real (very old) timestamp, not 'never used'", () => {
+      const snippet = createSnippet({
+        createdAt: Date.now() - 200 * 24 * 60 * 60 * 1000,
+        lastUsedAt: 0, // Epoch: technically valid, just ancient
+        useCount: 5,
+      });
+
+      const analytics = computeSnippetAnalytics(snippet);
+
+      // daysUnused must be defined (not undefined like a never-used snippet)
+      expect(analytics.daysUnused).toBeDefined();
+      expect(analytics.daysUnused).toBeGreaterThan(0);
+      // And the snippet should be flagged stale via the "Not used in N days" path,
+      // not the "Never used" path.
+      expect(analytics.isStale).toBe(true);
+      expect(analytics.stalenessReason).toContain("Not used in");
+    });
   });
 
   describe("computeAnalyticsSummary", () => {
@@ -126,7 +144,7 @@ describe("analytics", () => {
       expect(summary.staleSnippets).toBe(1);
       expect(summary.archivedSnippets).toBe(1);
       expect(summary.totalUsageCount).toBe(18);
-      expect(summary.averageUsagePerSnippet).toBe(9); // (10 + 5) / 2 non-archived
+      expect(summary.averageUsagePerSnippet).toBe(8); // (10 + 5) / 2 non-archived, rounded
       expect(summary.totalTags).toBe(3);
       expect(summary.unusedTags).toBe(1); // unused-tag
     });
@@ -138,6 +156,28 @@ describe("analytics", () => {
       const summary = computeAnalyticsSummary(snippets, tags);
 
       expect(summary.unusedTags).toBe(2);
+    });
+
+    it("should exclude archived snippets' useCount from the average", () => {
+      const snippets = [
+        createSnippet({ id: "1", useCount: 4, isArchived: false }),
+        createSnippet({ id: "2", useCount: 6, isArchived: false }),
+        // Archived snippet with a huge useCount must NOT skew the average.
+        createSnippet({ id: "3", useCount: 1000, isArchived: true }),
+      ];
+
+      const summary = computeAnalyticsSummary(snippets, []);
+
+      expect(summary.averageUsagePerSnippet).toBe(5); // (4 + 6) / 2
+    });
+
+    it("should count a snippet with lastUsedAt === 0 as inactive (not active)", () => {
+      // lastUsedAt === 0 is older than the 30-day active threshold, so it is NOT active.
+      // The bug-prone code path is `lastUsedAt && lastUsedAt >= threshold` which would
+      // skip 0 entirely; this test makes the intent explicit.
+      const snippets = [createSnippet({ id: "1", lastUsedAt: 0, useCount: 1 })];
+      const summary = computeAnalyticsSummary(snippets, []);
+      expect(summary.activeSnippets).toBe(0);
     });
   });
 

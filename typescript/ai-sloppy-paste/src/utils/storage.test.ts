@@ -130,6 +130,28 @@ describe("Tag Operations", () => {
       const tags = await getTags();
       expect(tags).toEqual(["personal"]);
     });
+
+    it("should not bump updatedAt on snippets that did not have the deleted tag", async () => {
+      await addSnippet({ title: "Has Tag", content: "Content", tags: ["work"] });
+      await addSnippet({ title: "No Tag", content: "Content", tags: ["personal"] });
+
+      const before = await getSnippets();
+      const untouchedOriginal = before.find((s) => s.title === "No Tag")!;
+
+      // Ensure Date.now() differs from the snippet's original updatedAt.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      await deleteTag("work");
+
+      const after = await getSnippets();
+      const untouchedAfter = after.find((s) => s.title === "No Tag")!;
+      const affectedAfter = after.find((s) => s.title === "Has Tag")!;
+
+      // The unrelated snippet's updatedAt must be unchanged.
+      expect(untouchedAfter.updatedAt).toBe(untouchedOriginal.updatedAt);
+      // The affected snippet's updatedAt must move forward.
+      expect(affectedAfter.updatedAt).toBeGreaterThan(untouchedOriginal.updatedAt);
+    });
   });
 
   describe("renameTag", () => {

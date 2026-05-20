@@ -11,7 +11,7 @@ const ACTIVE_THRESHOLD_DAYS = 30;
  */
 export function computeSnippetAnalytics(snippet: Snippet): SnippetAnalytics {
   const now = Date.now();
-  const daysUnused = snippet.lastUsedAt ? Math.floor((now - snippet.lastUsedAt) / MS_PER_DAY) : undefined;
+  const daysUnused = snippet.lastUsedAt !== undefined ? Math.floor((now - snippet.lastUsedAt) / MS_PER_DAY) : undefined;
   const daysSinceCreation = Math.floor((now - snippet.createdAt) / MS_PER_DAY);
 
   let isStale = false;
@@ -47,6 +47,7 @@ export function computeAnalyticsSummary(snippets: Snippet[], tags: string[]): An
   let staleSnippets = 0;
   let archivedSnippets = 0;
   let totalUsageCount = 0;
+  let nonArchivedUsageCount = 0;
 
   const usedTags = new Set<string>();
 
@@ -58,6 +59,7 @@ export function computeAnalyticsSummary(snippets: Snippet[], tags: string[]): An
       continue;
     }
 
+    nonArchivedUsageCount += snippet.useCount;
     snippet.tags.forEach((tag) => usedTags.add(tag));
 
     const analytics = computeSnippetAnalytics(snippet);
@@ -65,7 +67,7 @@ export function computeAnalyticsSummary(snippets: Snippet[], tags: string[]): An
       staleSnippets++;
     }
 
-    if (snippet.lastUsedAt && snippet.lastUsedAt >= activeThreshold) {
+    if (snippet.lastUsedAt !== undefined && snippet.lastUsedAt >= activeThreshold) {
       activeSnippets++;
     }
   }
@@ -79,7 +81,7 @@ export function computeAnalyticsSummary(snippets: Snippet[], tags: string[]): An
     staleSnippets,
     archivedSnippets,
     totalUsageCount,
-    averageUsagePerSnippet: nonArchivedCount > 0 ? Math.round(totalUsageCount / nonArchivedCount) : 0,
+    averageUsagePerSnippet: nonArchivedCount > 0 ? Math.round(nonArchivedUsageCount / nonArchivedCount) : 0,
     totalTags: tags.length,
     unusedTags: unusedTagCount,
   };

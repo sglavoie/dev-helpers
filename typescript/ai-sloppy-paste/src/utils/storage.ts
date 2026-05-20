@@ -331,11 +331,14 @@ export async function deleteTag(tag: string): Promise<void> {
 
   // Remove tag from all snippets that have it
   // (master tags list is computed dynamically, so no need to update it)
-  data.snippets = data.snippets.map((snippet) => ({
-    ...snippet,
-    tags: snippet.tags.filter((t) => t !== tag),
-    updatedAt: Date.now(),
-  }));
+  data.snippets = data.snippets.map((snippet) => {
+    if (!snippet.tags.includes(tag)) return snippet;
+    return {
+      ...snippet,
+      tags: snippet.tags.filter((t) => t !== tag),
+      updatedAt: Date.now(),
+    };
+  });
 
   await saveStorageData(data);
 }
