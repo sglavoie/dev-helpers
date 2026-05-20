@@ -2,8 +2,6 @@
  * Input validation utilities
  */
 
-import { normalizeTag } from "./tags";
-
 export const VALIDATION_LIMITS = {
   TITLE_MAX_LENGTH: 200,
   CONTENT_MAX_LENGTH: 100000, // ~100KB of text
@@ -70,10 +68,6 @@ export function validateTag(tag: string): ValidationResult {
 
   if (normalized.length === 0) {
     return { isValid: false, error: "Tag name is required" };
-  }
-
-  if (normalized.length < VALIDATION_LIMITS.TAG_MIN_LENGTH) {
-    return { isValid: false, error: "Tag name is too short" };
   }
 
   if (normalized.length > VALIDATION_LIMITS.TAG_MAX_LENGTH) {

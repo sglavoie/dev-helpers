@@ -1,5 +1,5 @@
 import { Action, ActionPanel, Color, Icon, List, showToast, Toast } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { getTags, getSnippets } from "../utils/storage";
 import { buildTagTree, flattenTagTree, UNTAGGED_SENTINEL } from "../utils/tags";
@@ -19,23 +19,21 @@ import { TagSnippetsView } from "./TagSnippetsView";
 export function BrowseByTagView(props: { onUpdated: () => void }) {
   const [tags, setTags] = useState<string[]>([]);
   const [snippets, setSnippets] = useState<Snippet[]>([]);
-  const [tagStats, setTagStats] = useState<TagStatistics[]>([]);
+  const [unsortedTagStats, setUnsortedTagStats] = useState<TagStatistics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { value: sortOption = TagSortOption.LastUsedAsc, setValue: setSortOption } = useLocalStorage<TagSortOption>(
     "browseByTagSort",
     TagSortOption.LastUsedAsc,
   );
 
+  const tagStats = useMemo(
+    () => sortTagStatistics(unsortedTagStats, sortOption),
+    [unsortedTagStats, sortOption],
+  );
+
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (tagStats.length > 0) {
-      const sorted = sortTagStatistics(tagStats, sortOption);
-      setTagStats(sorted);
-    }
-  }, [sortOption]);
 
   async function loadData() {
     setIsLoading(true);
@@ -45,8 +43,7 @@ export function BrowseByTagView(props: { onUpdated: () => void }) {
       setSnippets(loadedSnippets);
 
       const stats = computeTagStatistics(loadedSnippets, loadedTags);
-      const sorted = sortTagStatistics(stats, sortOption);
-      setTagStats(sorted);
+      setUnsortedTagStats(stats);
     } catch (error) {
       showToast({
         style: Toast.Style.Failure,

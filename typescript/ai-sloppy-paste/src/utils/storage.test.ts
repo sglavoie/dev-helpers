@@ -298,6 +298,35 @@ describe("Tag Operations", () => {
       const snippets = await getSnippets();
       expect(snippets[1].tags).toEqual(["personal"]); // Unchanged
     });
+
+    it("should cascade merge to descendant tags", async () => {
+      await addSnippet({ title: "Test 1", content: "Content 1", tags: ["work"] });
+      await addSnippet({ title: "Test 2", content: "Content 2", tags: ["work/projects"] });
+      await addSnippet({ title: "Test 3", content: "Content 3", tags: ["work/projects/client-a"] });
+      await addSnippet({ title: "Test 4", content: "Content 4", tags: ["personal"] });
+
+      const affectedCount = await mergeTags("work", "office");
+
+      // work, work/projects, work/projects/client-a all matched: 3 affected
+      expect(affectedCount).toBe(3);
+      const snippets = await getSnippets();
+      expect(snippets[0].tags).toEqual(["office"]);
+      expect(snippets[1].tags).toEqual(["office/projects"]);
+      expect(snippets[2].tags).toEqual(["office/projects/client-a"]);
+      expect(snippets[3].tags).toEqual(["personal"]); // Untouched
+    });
+
+    it("should cascade merge with descendant collision deduplication", async () => {
+      // Snippet has both work/admin and office/admin — after merging "work" into "office",
+      // both become office/admin and should be deduplicated.
+      await addSnippet({ title: "Test", content: "Content", tags: ["work/admin", "office/admin"] });
+
+      const affectedCount = await mergeTags("work", "office");
+
+      expect(affectedCount).toBe(1);
+      const snippets = await getSnippets();
+      expect(snippets[0].tags).toEqual(["office/admin"]);
+    });
   });
 
   describe("Tag edge cases", () => {

@@ -175,18 +175,6 @@ export async function getTags(): Promise<string[]> {
   return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
 }
 
-async function saveSnippets(snippets: Snippet[]): Promise<void> {
-  const data = await loadStorageData();
-  data.snippets = snippets;
-  await saveStorageData(data);
-}
-
-async function saveTags(tags: string[]): Promise<void> {
-  const data = await loadStorageData();
-  data.tags = tags;
-  await saveStorageData(data);
-}
-
 export async function addSnippet(
   snippet: Omit<
     Snippet,
@@ -394,15 +382,28 @@ export async function mergeTags(sourceTag: string, targetTag: string): Promise<n
     throw new Error("Cannot merge a tag with itself");
   }
 
-  // Merge sourceTag into targetTag - replace all instances of sourceTag with targetTag
-  // and remove duplicates
-  let affectedCount = 0;
+  // Merge sourceTag into targetTag - replace all instances of sourceTag (and any
+  // descendant tags like `${sourceTag}/...`) with targetTag (cascading the prefix)
+  // and remove duplicates. Mirrors renameTag's cascade behavior.
+  const affectedSnippetIds = new Set<string>();
+
   data.snippets = data.snippets.map((snippet) => {
-    if (snippet.tags.includes(sourceTag)) {
-      affectedCount++;
-      const newTags = snippet.tags.map((t) => (t === sourceTag ? targetTag : t));
-      // Remove duplicates (in case snippet already had targetTag)
-      const uniqueTags = Array.from(new Set(newTags));
+    const hasTagOrDescendant = snippet.tags.some((t) => t === sourceTag || t.startsWith(`${sourceTag}/`));
+
+    if (hasTagOrDescendant) {
+      affectedSnippetIds.add(snippet.id);
+
+      const newTags = snippet.tags.map((t) => {
+        if (t === sourceTag) {
+          return targetTag;
+        } else if (t.startsWith(`${sourceTag}/`)) {
+          return targetTag + t.slice(sourceTag.length);
+        }
+        return t;
+      });
+
+      // Deduplicate (in case snippet already had targetTag or any cascaded child)
+      const uniqueTags = [...new Set(newTags.map((t) => t.toLowerCase()))];
       return {
         ...snippet,
         tags: uniqueTags,
@@ -413,7 +414,7 @@ export async function mergeTags(sourceTag: string, targetTag: string): Promise<n
   });
 
   await saveStorageData(data);
-  return affectedCount;
+  return affectedSnippetIds.size;
 }
 
 /**
