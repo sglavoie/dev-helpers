@@ -7,24 +7,8 @@ import {
   computeCleanupSuggestions,
   findSimilarSnippets,
 } from "./analytics";
-import { Snippet, TimeRange } from "../types";
-
-function createSnippet(overrides: Partial<Snippet> = {}): Snippet {
-  return {
-    id: "test-id",
-    title: "Test Snippet",
-    content: "Test content",
-    tags: [],
-    createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // 60 days ago
-    updatedAt: Date.now(),
-    lastUsedAt: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
-    useCount: 5,
-    isFavorite: false,
-    isArchived: false,
-    isPinned: false,
-    ...overrides,
-  };
-}
+import { createSnippet } from "./analytics.test.helpers";
+import { TimeRange } from "../types";
 
 describe("analytics", () => {
   describe("computeSnippetAnalytics", () => {
