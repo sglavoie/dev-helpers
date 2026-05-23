@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeRecentSnippets, filterSnippets, FilterOptions } from "./useSnippetFiltering";
+import { filterSnippets, FilterOptions } from "./useSnippetFiltering";
 import { parseSearchQuery } from "../utils/queryParser";
 import type { Snippet } from "../types";
 

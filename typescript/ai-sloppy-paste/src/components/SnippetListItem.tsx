@@ -56,7 +56,6 @@ export function SnippetListItem({
   showArchivedSnippets,
   showRecentSection,
   searchQuery,
-  visibleTags,
   allTags,
   onToggleDetail,
   onToggleFavorites,
@@ -285,7 +284,7 @@ export function SnippetListItem({
               {snippet.tags.slice(0, 5).map((tag) => (
                 <Action
                   key={tag}
-                  title={`Filter by tag: ${tag}`}
+                  title={`Filter by Tag: ${tag}`}
                   icon={Icon.Tag}
                   onAction={() => setSearchQuery(`tag:${tag}`)}
                 />

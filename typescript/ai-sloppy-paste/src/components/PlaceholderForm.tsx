@@ -4,7 +4,6 @@ import {
   Clipboard,
   closeMainWindow,
   Form,
-  getPreferenceValues,
   Icon,
   showToast,
   Toast,
@@ -127,7 +126,7 @@ export function PlaceholderForm(props: {
   const afterBlocks = processConditionalBlocks(props.snippet.content, previewValues);
   const previewContent = replacePlaceholders(afterBlocks, previewValues, props.placeholders);
 
-  async function handleSubmit(values: Record<string, string>) {
+  async function handleSubmit() {
     // Build final values: use formValues which is kept in sync
     const finalValues: Record<string, string> = { ...formValues };
 

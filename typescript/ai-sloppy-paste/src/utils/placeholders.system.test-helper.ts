@@ -20,7 +20,7 @@ describe("processSystemPlaceholders", () => {
   it("should replace {{TIME}} with 24-hour time format", () => {
     const text = "The time is {{TIME}}";
     const result = processSystemPlaceholders(text);
-    expect(result).toMatch(/^\The time is \d{2}:\d{2}$/);
+    expect(result).toMatch(/^The time is \d{2}:\d{2}$/);
   });
 
   it("should replace {{DATETIME}} with date and time", () => {

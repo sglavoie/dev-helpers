@@ -260,7 +260,7 @@ export function SimilarSnippetsAction(props: { snippet: Snippet; allSnippets: Sn
   if (results.length === 0) return null;
   return (
     <Action.Push
-      title={`Find Similar Snippets (${results.length} found)`}
+      title={`Find Similar Snippets (${results.length} Found)`}
       icon={Icon.TwoArrowsClockwise}
       target={
         <SimilarSnippetsView target={props.snippet} allSnippets={props.allSnippets} onUpdated={props.onUpdated} />

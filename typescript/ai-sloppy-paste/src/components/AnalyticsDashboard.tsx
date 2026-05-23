@@ -1,10 +1,10 @@
 import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, Color, Clipboard } from "@raycast/api";
 import { useEffect, useState, useMemo } from "react";
 import { useLocalStorage } from "@raycast/utils";
-import { Snippet, TimeRange, TIME_RANGE_LABELS, CleanupSuggestion, AnalyticsSummary } from "../types";
+import { Snippet, TimeRange, TIME_RANGE_LABELS, CleanupSuggestion } from "../types";
 import { deleteSnippet, toggleArchive, deleteTag, getSnippets, getTags } from "../utils/storage";
 import { computeAnalyticsSummary, getTopSnippets, computeCleanupSuggestions, getUnusedTags } from "../utils/analytics";
-import { formatRelativeTime, formatNumber, computeTagStatistics, TagStatistics } from "../utils/tagStats";
+import { formatRelativeTime, formatNumber, computeTagStatistics } from "../utils/tagStats";
 import { getErrorMessage } from "../utils/errorMessage";
 
 interface AnalyticsDashboardProps {

@@ -26,6 +26,11 @@ export interface ParsedQuery {
  * Valid values for is:/not: operators
  */
 const VALID_BOOLEAN_OPERATORS = ["favorite", "bookmarked", "archived", "untagged"] as const;
+type BooleanOperator = (typeof VALID_BOOLEAN_OPERATORS)[number];
+
+function isBooleanOperator(value: string): value is BooleanOperator {
+  return (VALID_BOOLEAN_OPERATORS as readonly string[]).includes(value);
+}
 
 /**
  * Parses a search query string into structured operators and filters.
@@ -78,7 +83,7 @@ export function parseSearchQuery(query: string): ParsedQuery {
   }
 
   // Remove quoted phrases from query for operator parsing
-  let remainingQuery = query.replace(quoteRegex, "").trim();
+  const remainingQuery = query.replace(quoteRegex, "").trim();
 
   // Step 2: Parse operators from remaining text
   // Split by whitespace and process each token
@@ -109,7 +114,7 @@ export function parseSearchQuery(query: string): ParsedQuery {
     // Check for not:value (boolean operators)
     else if (token.startsWith("not:")) {
       const notValue = token.substring("not:".length);
-      if (VALID_BOOLEAN_OPERATORS.includes(notValue as any)) {
+      if (isBooleanOperator(notValue)) {
         result.not.push(notValue);
         consumed = true;
       }
@@ -117,7 +122,7 @@ export function parseSearchQuery(query: string): ParsedQuery {
     // Check for is:value (boolean operators)
     else if (token.startsWith("is:")) {
       const isValue = token.substring("is:".length);
-      if (VALID_BOOLEAN_OPERATORS.includes(isValue as any)) {
+      if (isBooleanOperator(isValue)) {
         result.is.push(isValue);
         consumed = true;
       }

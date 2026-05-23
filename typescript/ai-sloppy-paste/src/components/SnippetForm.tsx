@@ -39,7 +39,6 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
   const { pop } = useNavigation();
   const [titleError, setTitleError] = useState<string | undefined>();
   const [contentError, setContentError] = useState<string | undefined>();
-  const [tagsError, setTagsError] = useState<string | undefined>();
   const [titleCharInfo, setTitleCharInfo] = useState("");
   const [contentCharInfo, setContentCharInfo] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>(props.snippet?.tags || []);
@@ -294,7 +293,6 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         value={selectedTags}
         onChange={setSelectedTags}
         placeholder="Select tags to add to this snippet"
-        error={tagsError}
       >
         {(() => {
           // Combine existing tags with any newly created tags that aren't in the list yet
@@ -305,7 +303,6 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
               // Calculate display: show hierarchy with visual indentation
               const parts = tag.split("/");
               const depth = parts.length - 1;
-              const name = parts[parts.length - 1];
               const indent = "  ".repeat(depth); // 2 spaces per level
 
               return <Form.TagPicker.Item key={tag} value={tag} title={`${indent}${tag}`} icon={Icon.Tag} />;

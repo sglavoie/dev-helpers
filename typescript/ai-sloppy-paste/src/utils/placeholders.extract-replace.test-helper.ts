@@ -191,7 +191,7 @@ describe("extractPlaceholders", () => {
       { text: "{{with :context:}}", desc: "prefix with space" },
     ];
 
-    for (const { text, desc } of cases) {
+    for (const { text } of cases) {
       const result = extractPlaceholders(text);
       expect(result).toHaveLength(1);
       // Wrapper syntax should make placeholder optional

@@ -25,13 +25,11 @@ import {
   TAG_SORT_LABELS,
   TagStatistics,
 } from "../utils/tagStats";
-import { Snippet } from "../types";
 import { getErrorMessage } from "../utils/errorMessage";
 
 export function ManageTagsView(props: { onUpdated: () => void }) {
   const { push } = useNavigation();
   const [tags, setTags] = useState<string[]>([]);
-  const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [tagStats, setTagStats] = useState<TagStatistics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { value: sortOption = TagSortOption.NameAsc, setValue: setSortOption } = useLocalStorage<TagSortOption>(
@@ -56,7 +54,6 @@ export function ManageTagsView(props: { onUpdated: () => void }) {
     try {
       const [loadedTags, loadedSnippets] = await Promise.all([getTags(), getSnippets()]);
       setTags(loadedTags);
-      setSnippets(loadedSnippets);
 
       // Compute statistics
       const stats = computeTagStatistics(loadedSnippets, loadedTags);

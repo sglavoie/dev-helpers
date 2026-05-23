@@ -1,12 +1,29 @@
 import type { ExportData, Snippet, StorageData } from "../types";
+import { deduplicateTags, normalizeTags } from "./tags";
 import { CURRENT_VERSION } from "./storage-constants";
 import { mergePlaceholderHistory } from "./storage-placeholder-history";
 
-function sanitizeImportedSnippet(snippet: Snippet): Snippet {
+type ImportableSnippet = Omit<Snippet, "description" | "tags" | "useCount" | "isFavorite" | "isArchived" | "isPinned"> &
+  Partial<Pick<Snippet, "description" | "tags" | "useCount" | "isFavorite" | "isArchived" | "isPinned">> & {
+    category?: string;
+  };
+
+function getImportedTags(snippet: ImportableSnippet): string[] {
+  if (Array.isArray(snippet.tags)) {
+    return snippet.tags;
+  }
+  return typeof snippet.category === "string" ? [snippet.category] : [];
+}
+
+function sanitizeImportedSnippet(snippet: ImportableSnippet): Snippet {
+  const snippetWithoutLegacyCategory = { ...snippet };
+  delete snippetWithoutLegacyCategory.category;
+
   return {
-    ...snippet,
-    useCount: snippet.useCount || 0,
-    tags: snippet.tags || [],
+    ...snippetWithoutLegacyCategory,
+    useCount: snippet.useCount ?? 0,
+    tags: deduplicateTags(normalizeTags(getImportedTags(snippet))),
+    isFavorite: snippet.isFavorite ?? false,
     isArchived: snippet.isArchived ?? false,
     isPinned: snippet.isPinned ?? false,
     description: snippet.description ?? "",

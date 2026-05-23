@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSearchQuery, isEmptyQuery, type ParsedQuery } from "./queryParser";
+import { parseSearchQuery, isEmptyQuery } from "./queryParser";
 
 describe("queryParser", () => {
   describe("parseSearchQuery", () => {
