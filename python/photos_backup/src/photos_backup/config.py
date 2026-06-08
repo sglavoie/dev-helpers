@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 class Config:
     apple_photos_dst_path: Path
     apple_photos_limit_export: int
+    apple_photos_spouse_device_models: tuple[str, ...]
     sd_card_src_path: Path
     sd_card_dst_path: Path
     sd_card_exclude_file: Path | None
@@ -35,6 +36,9 @@ class Config:
 
         apple_photos_dst_path = Path(get_required("APPLE_PHOTOS_DST_PATH"))
         apple_photos_limit_export = int(os.getenv("APPLE_PHOTOS_LIMIT_EXPORT", "0"))
+        apple_photos_spouse_device_models = parse_csv_env(
+            os.getenv("APPLE_PHOTOS_SPOUSE_DEVICE_MODELS", "")
+        )
         sd_card_src_path = Path(get_required("SD_CARD_SRC_PATH"))
         sd_card_dst_path = Path(get_required("SD_CARD_DST_PATH"))
         all_photos_path = Path(get_required("ALL_PHOTOS_PATH"))
@@ -62,6 +66,7 @@ class Config:
         return cls(
             apple_photos_dst_path=apple_photos_dst_path,
             apple_photos_limit_export=apple_photos_limit_export,
+            apple_photos_spouse_device_models=apple_photos_spouse_device_models,
             sd_card_src_path=sd_card_src_path,
             sd_card_dst_path=sd_card_dst_path,
             sd_card_exclude_file=sd_card_exclude_file,
@@ -71,3 +76,8 @@ class Config:
             rclone_remote=rclone_remote,
             rclone_src_path=rclone_src_path,
         )
+
+
+def parse_csv_env(value: str) -> tuple[str, ...]:
+    """Parse a comma-separated environment variable value."""
+    return tuple(part.strip() for part in value.split(",") if part.strip())

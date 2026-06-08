@@ -29,6 +29,36 @@ flowchart TD
 | `cli remote` | Sync backup to cloud via rclone |
 | `cli backup-all` | Run the full pipeline (all of the above) |
 
+## Finding late shared photos
+
+Apple Photos exports are organized by the photo's content creation date, so a
+photo taken in March or April can appear in an older month directory even when
+it is first synchronized in June. The Apple Photos export command writes an
+additional `late_photo_additions_YYYY-MM-DD.csv` report next to the
+`photos_export_YYYY-MM-DD.csv` report. It lists files that were `new` or
+`updated` during the run, their Spotlight/Finder dates, device make/model, and
+whether the file matches configured spouse-device models.
+
+Configure spouse-device models in `~/.osxphotos.env`:
+
+```sh
+APPLE_PHOTOS_SPOUSE_DEVICE_MODELS="iPhone SE (2nd generation),iPhone 17"
+```
+
+For an immediate Finder-compatible search, use Spotlight metadata directly:
+
+```sh
+mdfind -onlyin /Users/sglavoie/Pictures/export \
+'kMDItemDateAdded >= $time.iso(2026-06-01T00:00:00Z) &&
+ kMDItemContentCreationDate < $time.iso(2026-06-01T00:00:00Z) &&
+ kMDItemAcquisitionModel == "*iPhone SE*"'
+```
+
+The same fields can be used in a Finder Smart Folder scoped to the export
+directory: `Date Added`, `Content created`, and, when Finder exposes it,
+`Device model`. Use the generated CSV when Finder cannot show `Device model` as
+a list column.
+
 ## Remote backup (rclone)
 
 The `remote` command syncs your backup to a cloud storage provider using

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import click
 
+from photos_backup.apple_photos.late_additions import csv_flag
+
 
 @dataclass
 class BackupSummary:
@@ -45,12 +47,55 @@ def parse_apple_photos_csv(csv_path: str) -> dict[str, int]:
         return counts
     with path.open(newline="") as f:
         reader = csv.DictReader(f)
+        fieldnames = set(reader.fieldnames or [])
+        one_hot_fields = {
+            "exported",
+            "new",
+            "updated",
+            "skipped",
+            "exif_updated",
+            "touched",
+            "converted_to_jpeg",
+            "sidecar_xmp",
+            "sidecar_json",
+            "sidecar_exiftool",
+            "missing",
+            "error",
+            "exiftool_warning",
+            "exiftool_error",
+            "extended_attributes_written",
+            "extended_attributes_skipped",
+            "cleanup_deleted_file",
+            "cleanup_deleted_directory",
+            "sidecar_user",
+            "sidecar_user_error",
+            "user_written",
+            "user_skipped",
+            "user_error",
+            "aae_written",
+            "aae_skipped",
+        }.intersection(fieldnames)
+
         for row in reader:
-            # osxphotos CSV has an 'export_status' or similar column
-            # Common statuses: exported, updated, skipped, error, missing
-            status = row.get("export_status", "unknown").lower().strip()
-            counts[status] = counts.get(status, 0) + 1
+            if one_hot_fields:
+                for field in one_hot_fields:
+                    counts[field] = counts.get(field, 0) + _csv_count(row.get(field))
+                continue
+
+            status = row.get("export_status", "").lower().strip()
+            if status:
+                counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+def _csv_count(value: str | None) -> int:
+    if not csv_flag(value):
+        return 0
+
+    try:
+        return int((value or "").strip())
+    except ValueError:
+        return 1
 
 
 def print_summary(summary: BackupSummary) -> None:
