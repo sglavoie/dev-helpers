@@ -79,22 +79,14 @@ func QueryRows(query string, callback func(*sql.Rows), args ...any) {
 	})
 }
 
-func checkTableExists(db *sql.DB) {
-	sqlStmt := `SELECT name FROM sqlite_master WHERE type='table' AND name='backups';`
-	row := db.QueryRow(sqlStmt)
-	var name string
-	err := row.Scan(&name)
-	if err != nil {
-		CreateTableIfNotExists(db)
-	}
-}
-
 func open() *sql.DB {
 	home, err := os.UserHomeDir()
 	cobra.CheckErr(err)
 	var file = home + "/.goback.db"
 	db, err := sql.Open("sqlite3", file)
 	cobra.CheckErr(err)
-	checkTableExists(db)
+	CreateTableIfNotExists(db)
+	MigrateProfileColumn(db)
+	MigrateExitCodeColumn(db)
 	return db
 }

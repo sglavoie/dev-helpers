@@ -150,12 +150,10 @@ func ResolveProfiles() error {
 	matching := MatchingProfiles()
 	if len(matching) > 0 {
 		ActiveProfileName = matching[0]
-		fmt.Fprintf(os.Stderr, "Using profile: %s\n", ActiveProfileName)
 	} else if names := ProfileNames(); len(names) > 0 {
 		// If no hostname match but only one profile, use it
 		if len(names) == 1 {
 			ActiveProfileName = names[0]
-			fmt.Fprintf(os.Stderr, "Using profile: %s\n", ActiveProfileName)
 		} else {
 			return fmt.Errorf("could not auto-detect profile for this machine.\nNo profile hostname matches %q.\nAvailable profiles: %v\nUse --profile to specify one, or add a 'hostname' field to your profile.", mustHostname(), names)
 		}
