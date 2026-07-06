@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Simple backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
-    "click>=8.3.2",
+    "click>=8.4.2",
     "osxphotos>=0.76.1",
     "python-dotenv>=1.2.2",
 ]
@@ -16,7 +16,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["ruff>=0.15.5"]
+dev = [
+    "ruff>=0.15.20",
+]
 
 [project.scripts]
 cli = "photos_backup.cli.cli:cli"
