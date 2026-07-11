@@ -1,4 +1,15 @@
-import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Alert,
+  confirmAlert,
+  Icon,
+  Keyboard,
+  List,
+  showToast,
+  Toast,
+  useNavigation,
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import { EditPlaceholderValueForm } from "./EditPlaceholderValueForm";
 import { getPlaceholderHistoryForKey, deletePlaceholderValue, getMaxPlaceholderHistoryValues } from "../utils/storage";
@@ -135,7 +146,7 @@ export function PlaceholderHistoryDetailView(props: { placeholderKey: string; on
                         title="Delete Value"
                         icon={Icon.Trash}
                         style={Action.Style.Destructive}
-                        shortcut={{ modifiers: ["cmd"], key: "delete" }}
+                        shortcut={Keyboard.Shortcut.Common.Remove}
                         onAction={() => handleDeleteValue(historyValue.value)}
                       />
                     </ActionPanel.Section>

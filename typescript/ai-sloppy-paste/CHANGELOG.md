@@ -2,6 +2,15 @@
 
 All notable changes to the AI Sloppy Paste extension will be documented in this file.
 
+## [Unreleased] - Reliable Clipboard Paste
+
+### Changed
+
+- Pasting now uses a single direct clipboard paste and intentionally leaves the prepared snippet on the clipboard.
+- Removed automatic clipboard restoration and its delay preference to prevent stale clipboard content from winning a paste race.
+- When a target app misses a synthetic paste, `⌘ + V` is the reliable manual fallback; do not retry the extension action because that could duplicate content.
+- Local validation is available through `npm run lint`, `npm test`, and `npm run check`; Raycast Store publishing validation requires a signed-in Raycast Store author account.
+
 ## [2.1.0] - Paste-First Update
 
 ### Breaking Changes
@@ -20,8 +29,8 @@ This change makes the extension more intuitive for its primary use case: quickly
 ### Breaking Changes
 
 - **Multi-Tag System**: Migrated from single category to multiple tags per snippet
-    - Existing snippets automatically migrated (category → single tag)
-    - Storage format updated to v2 with versioned schema
+  - Existing snippets automatically migrated (category → single tag)
+  - Storage format updated to v2 with versioned schema
 
 ### New Features
 

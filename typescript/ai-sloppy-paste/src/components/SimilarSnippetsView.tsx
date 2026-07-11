@@ -1,9 +1,10 @@
-import { Action, ActionPanel, Alert, Clipboard, Color, confirmAlert, Icon, List, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showToast, Toast } from "@raycast/api";
 import { useState, useMemo } from "react";
 import { Snippet } from "../types";
 import { findSimilarSnippets } from "../utils/analytics";
-import { deleteSnippet, toggleArchive } from "../utils/storage";
+import { deleteSnippet, getSnippets, toggleArchive } from "../utils/storage";
 import { getErrorMessage } from "../utils/errorMessage";
+import { copySnippetContent, runBestEffort } from "../utils/snippet-use";
 
 interface SimilarSnippetsViewProps {
   target: Snippet;
@@ -45,6 +46,30 @@ export function SimilarSnippetsView({ target, allSnippets, onUpdated }: SimilarS
     }
   }
 
+  async function handleCopyContent(snippet: Snippet) {
+    const didComplete = await copySnippetContent({
+      snippetId: snippet.id,
+      content: snippet.content,
+      onPrimaryFailure: (error) =>
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Failed to copy content",
+          message: getErrorMessage(error),
+        }),
+    });
+    if (!didComplete) return;
+
+    await runBestEffort(
+      () => showToast({ style: Toast.Style.Success, title: "Content copied" }),
+      "Unable to show copy success",
+    );
+    await runBestEffort(
+      async () => setLocalSnippets(await getSnippets()),
+      "Unable to refresh similar snippets after copy",
+    );
+    await runBestEffort(() => onUpdated(), "Unable to refresh snippets after similar-snippet copy");
+  }
+
   function getMatchColor(score: number): Color {
     if (score >= 0.6) return Color.Red;
     if (score >= 0.45) return Color.Orange;
@@ -73,14 +98,7 @@ export function SimilarSnippetsView({ target, allSnippets, onUpdated }: SimilarS
             actions={
               <ActionPanel>
                 <ActionPanel.Section title="Snippet Actions">
-                  <Action
-                    title="Copy Content"
-                    icon={Icon.Clipboard}
-                    onAction={async () => {
-                      await Clipboard.copy(snippet.content);
-                      showToast({ style: Toast.Style.Success, title: "Content copied" });
-                    }}
-                  />
+                  <Action title="Copy Content" icon={Icon.Clipboard} onAction={() => handleCopyContent(snippet)} />
                   <Action title="Archive Snippet" icon={Icon.Box} onAction={() => handleArchive(snippet)} />
                   <Action
                     title="Delete Snippet"

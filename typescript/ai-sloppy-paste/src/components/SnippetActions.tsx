@@ -1,4 +1,4 @@
-import { Action, closeMainWindow, Icon, showHUD, showToast, Toast, useNavigation } from "@raycast/api";
+import { Action, closeMainWindow, Icon, Keyboard, showHUD, showToast, Toast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { Snippet } from "../types";
 import {
@@ -6,7 +6,6 @@ import {
   duplicateSnippet,
   toggleArchive,
   togglePin,
-  incrementUsage,
   getPlaceholderHistoryForKey,
 } from "../utils/storage";
 import { findSimilarSnippets } from "../utils/analytics";
@@ -19,7 +18,8 @@ import {
   getSystemPlaceholderNames,
 } from "../utils/placeholders";
 import { getLastUsedValue } from "../utils/placeholderHistory";
-import { pasteWithClipboardRestore } from "../utils/clipboard";
+import { pasteSnippet } from "../utils/clipboard";
+import { runBestEffort, runSnippetAction } from "../utils/snippet-use";
 import { SnippetForm } from "./SnippetForm";
 import { ManageTagsView } from "./ManageTagsView";
 import { ManagePlaceholderHistoryView } from "./ManagePlaceholderHistoryView";
@@ -34,7 +34,7 @@ export function CreateSnippetAction(props: { onCreated: () => void; tags: string
     <Action
       title="Create Snippet"
       icon={Icon.Plus}
-      shortcut={{ modifiers: ["cmd"], key: "n" }}
+      shortcut={Keyboard.Shortcut.Common.New}
       onAction={() => {
         push(<SnippetForm onSubmit={props.onCreated} tags={props.tags} />);
       }}
@@ -49,7 +49,7 @@ export function EditSnippetAction(props: { snippet: Snippet; onEdited: () => voi
     <Action
       title="Edit Snippet"
       icon={Icon.Pencil}
-      shortcut={{ modifiers: ["cmd"], key: "e" }}
+      shortcut={Keyboard.Shortcut.Common.Edit}
       onAction={() => {
         push(<SnippetForm snippet={props.snippet} onSubmit={props.onEdited} tags={props.tags} />);
       }}
@@ -308,47 +308,70 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
   const title = isAvailable ? "Paste with Last Values" : "Paste with Last Values (no history yet)";
 
   async function handlePaste() {
-    try {
-      const systemKeys = new Set(getSystemPlaceholderNames());
-      const processed = processSystemPlaceholders(props.snippet.content);
-      const allPlaceholders = extractPlaceholders(processed);
-      const required = allPlaceholders.filter((p) => p.isRequired && !systemKeys.has(p.key));
+    const didComplete = await runSnippetAction({
+      prepare: async () => {
+        const systemKeys = new Set(getSystemPlaceholderNames());
+        const processed = processSystemPlaceholders(props.snippet.content);
+        const allPlaceholders = extractPlaceholders(processed);
+        const required = allPlaceholders.filter((p) => p.isRequired && !systemKeys.has(p.key));
+        const finalValues: Record<string, string> = {};
 
-      const finalValues: Record<string, string> = {};
+        for (const placeholder of required) {
+          const values = await getPlaceholderHistoryForKey(placeholder.key);
+          const lastValue = getLastUsedValue(values);
+          if (lastValue === undefined) {
+            throw new MissingPlaceholderHistoryError(placeholder.key);
+          }
+          finalValues[placeholder.key] = lastValue;
+        }
 
-      for (const placeholder of required) {
-        const values = await getPlaceholderHistoryForKey(placeholder.key);
-        const lastValue = getLastUsedValue(values);
-        if (lastValue === undefined) {
-          showToast({
+        for (const placeholder of allPlaceholders) {
+          if (!placeholder.isRequired && placeholder.defaultValue !== undefined && !(placeholder.key in finalValues)) {
+            finalValues[placeholder.key] = placeholder.defaultValue;
+          }
+        }
+
+        const afterBlocks = processConditionalBlocks(processed, finalValues);
+        return {
+          content: replacePlaceholders(afterBlocks, finalValues, allPlaceholders),
+          placeholderValues: allPlaceholders
+            .filter((placeholder) => !systemKeys.has(placeholder.key))
+            .map((placeholder) => ({
+              key: placeholder.key,
+              value: finalValues[placeholder.key] ?? "",
+              isSaved: placeholder.isSaved,
+            })),
+        };
+      },
+      primaryOperation: ({ content }) => pasteSnippet(content),
+      snippetId: props.snippet.id,
+      onPreparationFailure: (error) => {
+        if (error instanceof MissingPlaceholderHistoryError) {
+          return showToast({
             style: Toast.Style.Failure,
             title: "Missing history",
-            message: `No history for {{${placeholder.key}}}`,
+            message: `No history for {{${error.placeholderKey}}}`,
           });
-          return;
         }
-        finalValues[placeholder.key] = lastValue;
-      }
+        return showToast({
+          style: Toast.Style.Failure,
+          title: "Failed to prepare paste",
+          message: getErrorMessage(error),
+        });
+      },
+      onPrimaryFailure: (error) =>
+        showToast({ style: Toast.Style.Failure, title: "Failed to paste", message: getErrorMessage(error) }),
+    });
+    if (!didComplete) return;
 
-      for (const placeholder of allPlaceholders) {
-        if (!placeholder.isRequired && placeholder.defaultValue !== undefined && !(placeholder.key in finalValues)) {
-          finalValues[placeholder.key] = placeholder.defaultValue;
-        }
-      }
-
-      const afterBlocks = processConditionalBlocks(processed, finalValues);
-      const filledContent = replacePlaceholders(afterBlocks, finalValues, allPlaceholders);
-
-      await pasteWithClipboardRestore(filledContent);
-      await incrementUsage(props.snippet.id);
-      const truncatedTitle =
-        props.snippet.title.length > 40 ? props.snippet.title.slice(0, 40) + "…" : props.snippet.title;
-      await closeMainWindow();
-      await showHUD(`✓ Pasted "${truncatedTitle}" with last values`);
-      props.onComplete();
-    } catch (error) {
-      showToast({ style: Toast.Style.Failure, title: "Failed to paste", message: getErrorMessage(error) });
-    }
+    const truncatedTitle =
+      props.snippet.title.length > 40 ? props.snippet.title.slice(0, 40) + "…" : props.snippet.title;
+    await runBestEffort(() => closeMainWindow(), "Unable to close Raycast after last-values paste");
+    await runBestEffort(
+      () => showHUD(`✓ Pasted "${truncatedTitle}" with last values`),
+      "Unable to show last-values HUD",
+    );
+    await runBestEffort(() => props.onComplete(), "Unable to refresh after last-values paste");
   }
 
   return (
@@ -368,4 +391,10 @@ export function PasteWithLastValuesAction(props: { snippet: Snippet; onComplete:
       }
     />
   );
+}
+
+class MissingPlaceholderHistoryError extends Error {
+  constructor(readonly placeholderKey: string) {
+    super(`No history for {{${placeholderKey}}}`);
+  }
 }

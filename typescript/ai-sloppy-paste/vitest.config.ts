@@ -1,4 +1,8 @@
 import { defineConfig } from "vitest/config";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -8,8 +12,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@raycast/api":
-        "/Users/sglavoie/1_dev_projects/sglavoie_dev-helpers/dev-helpers/typescript/ai-sloppy-paste/src/__mocks__/@raycast/api.ts",
+      "@raycast/api": resolve(projectRoot, "src/__mocks__/@raycast/api.ts"),
     },
   },
 });

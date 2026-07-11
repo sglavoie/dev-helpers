@@ -1,5 +1,7 @@
 // Mock implementation of @raycast/api for testing
 
+import { vi } from "vitest";
+
 const storage: Record<string, string> = {};
 
 export const LocalStorage = {
@@ -19,10 +21,16 @@ export const LocalStorage = {
   _storage: storage,
 };
 
-// Export other commonly used mocks
-export const showToast = async () => {};
-export const closeMainWindow = async () => {};
+// Controllable Raycast API mocks used by component and utility tests.
+export const getPreferenceValues = vi.fn(() => ({}));
+export const showToast = vi.fn(async () => {});
+export const showHUD = vi.fn(async () => {});
+export const closeMainWindow = vi.fn(async () => {});
+export const popToRoot = vi.fn(async () => {});
 export const Clipboard = {
-  copy: async () => {},
-  paste: async () => {},
+  clear: vi.fn(async () => {}),
+  copy: vi.fn(async () => {}),
+  paste: vi.fn(async () => {}),
+  read: vi.fn(async () => ({})),
+  readText: vi.fn(async () => undefined),
 };

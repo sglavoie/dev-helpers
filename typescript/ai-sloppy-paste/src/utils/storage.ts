@@ -22,6 +22,12 @@ interface Preferences {
   maxPlaceholderHistoryValues?: string;
 }
 
+export interface PlaceholderValueToRecord {
+  key: string;
+  value: string;
+  isSaved: boolean;
+}
+
 export function getMaxPlaceholderHistoryValues(): number {
   const preferences = getPreferenceValues<Preferences>();
   const value = parseInt(preferences.maxPlaceholderHistoryValues || "20", 10);
@@ -221,12 +227,30 @@ export async function togglePin(id: string): Promise<boolean> {
   return toggleSnippetFlag(id, "isPinned");
 }
 
-export async function incrementUsage(id: string): Promise<void> {
+export async function recordSnippetUse(id: string, placeholderValues: PlaceholderValueToRecord[] = []): Promise<void> {
   const data = await loadStorageData();
   const snippet = getSnippetOrThrow(data, id);
+  const now = Date.now();
+
   snippet.useCount = (snippet.useCount || 0) + 1;
-  snippet.lastUsedAt = Date.now();
-  snippet.updatedAt = Date.now();
+  snippet.lastUsedAt = now;
+  snippet.updatedAt = now;
+
+  const recordedValues = new Set<string>();
+  for (const { key, value, isSaved } of placeholderValues) {
+    if (!isSaved || !value.trim()) {
+      continue;
+    }
+
+    const recordKey = JSON.stringify([key, value]);
+    if (recordedValues.has(recordKey)) {
+      continue;
+    }
+
+    recordedValues.add(recordKey);
+    addPlaceholderValueToData(data, key, value, now);
+  }
+
   await saveStorageData(data);
 }
 
@@ -274,14 +298,6 @@ export async function getPlaceholderHistoryForKey(key: string): Promise<Placehol
 
 export async function getAllPlaceholderKeys(): Promise<string[]> {
   return getAllPlaceholderKeysFromData(await loadStorageData());
-}
-
-export async function addPlaceholderValue(key: string, value: string): Promise<void> {
-  const data = await loadStorageData();
-  if (!addPlaceholderValueToData(data, key, value)) {
-    return;
-  }
-  await saveStorageData(data);
 }
 
 export async function updatePlaceholderValueUsage(key: string, value: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, Color, Clipboard } from "@raycast/api";
+import { Action, ActionPanel, Alert, confirmAlert, Icon, List, showToast, Toast, Color } from "@raycast/api";
 import { useEffect, useState, useMemo } from "react";
 import { useLocalStorage } from "@raycast/utils";
 import { Snippet, TimeRange, TIME_RANGE_LABELS, CleanupSuggestion } from "../types";
@@ -6,6 +6,7 @@ import { deleteSnippet, toggleArchive, deleteTag, getSnippets, getTags } from ".
 import { computeAnalyticsSummary, getTopSnippets, computeCleanupSuggestions, getUnusedTags } from "../utils/analytics";
 import { formatRelativeTime, formatNumber, computeTagStatistics } from "../utils/tagStats";
 import { getErrorMessage } from "../utils/errorMessage";
+import { copySnippetContent, runBestEffort } from "../utils/snippet-use";
 
 interface AnalyticsDashboardProps {
   onUpdated: () => void;
@@ -135,11 +136,24 @@ export function AnalyticsDashboard({ onUpdated }: AnalyticsDashboardProps) {
   }
 
   async function handleCopyContent(snippet: Snippet) {
-    await Clipboard.copy(snippet.content);
-    showToast({
-      style: Toast.Style.Success,
-      title: "Content copied",
+    const didComplete = await copySnippetContent({
+      snippetId: snippet.id,
+      content: snippet.content,
+      onPrimaryFailure: (error) =>
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Failed to copy content",
+          message: getErrorMessage(error),
+        }),
     });
+    if (!didComplete) return;
+
+    await runBestEffort(
+      () => showToast({ style: Toast.Style.Success, title: "Content copied" }),
+      "Unable to show copy success",
+    );
+    await runBestEffort(() => loadData(), "Unable to refresh analytics after snippet copy");
+    await runBestEffort(() => onUpdated(), "Unable to refresh snippets after analytics copy");
   }
 
   function getUsageColor(useCount: number): Color {

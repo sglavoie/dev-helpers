@@ -44,36 +44,6 @@
           "value": "100"
         }
       ]
-    },
-    {
-      "name": "clipboardRestoreDelay",
-      "type": "dropdown",
-      "required": false,
-      "title": "Clipboard Restore Delay",
-      "description": "How long to wait before restoring the original clipboard after pasting a snippet. Increase if the wrong content is pasted. Set to 'Never' to skip restoration entirely.",
-      "default": "500",
-      "data": [
-        {
-          "title": "Never restore clipboard",
-          "value": "0"
-        },
-        {
-          "title": "200 ms",
-          "value": "200"
-        },
-        {
-          "title": "500 ms (default)",
-          "value": "500"
-        },
-        {
-          "title": "1000 ms",
-          "value": "1000"
-        },
-        {
-          "title": "2000 ms",
-          "value": "2000"
-        }
-      ]
     }
   ],
   "commands": [
@@ -91,24 +61,25 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.103.4",
-    "@raycast/utils": "^2.2.1"
+    "@raycast/api": "^1.104.22",
+    "@raycast/utils": "^2.2.7"
   },
   "devDependencies": {
-    "@raycast/eslint-config": "^2.1.1",
-    "@types/node": "24.9.1",
-    "@types/react": "19.2.2",
-    "@vitest/ui": "^4.0.1",
-    "eslint": "^9.38.0",
-    "prettier": "^3.6.2",
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "@vitest/ui": "^4.1.10",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.5",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.1"
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "build": "ray build -e dist",
     "dev": "ray develop",
-    "fix-lint": "ray lint --fix",
-    "lint": "ray lint",
+    "fix-lint": "eslint src --fix && prettier --write \"src/**/*.{ts,tsx}\" package.json tsconfig.json vitest.config.ts eslint.config.js README.md CHANGELOG.md",
+    "lint": "eslint src --max-warnings=0 && prettier --check \"src/**/*.{ts,tsx}\" package.json tsconfig.json vitest.config.ts eslint.config.js README.md CHANGELOG.md",
+    "check": "npm run lint && npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

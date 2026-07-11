@@ -2,9 +2,9 @@ import { Action, Clipboard, closeMainWindow, Icon, showHUD, showToast, Toast, us
 import type { Keyboard } from "@raycast/api";
 import { Snippet } from "../types";
 import { extractPlaceholders, processConditionalBlocks, processSystemPlaceholders } from "../utils/placeholders";
-import { pasteWithClipboardRestore } from "../utils/clipboard";
-import { incrementUsage } from "../utils/storage";
+import { pasteSnippet } from "../utils/clipboard";
 import { getErrorMessage } from "../utils/errorMessage";
+import { runBestEffort, runSnippetAction } from "../utils/snippet-use";
 import { PlaceholderForm } from "./PlaceholderForm";
 
 type ContentActionMode = "paste" | "copy";
@@ -29,6 +29,7 @@ export function SnippetContentAction({ snippet, mode, onComplete }: SnippetConte
           formMode: "paste-direct" as const,
           successTitle: "Pasted to frontmost app",
           failTitle: "Failed to paste",
+          preparationFailTitle: "Failed to prepare paste",
         }
       : {
           title: "Copy Content",
@@ -36,37 +37,65 @@ export function SnippetContentAction({ snippet, mode, onComplete }: SnippetConte
           formMode: "copy" as const,
           successTitle: "Copied to clipboard",
           failTitle: "Failed to copy",
+          preparationFailTitle: "Failed to prepare copy",
         };
 
   async function handleAction() {
-    const processed = processSystemPlaceholders(snippet.content);
-    const placeholders = extractPlaceholders(processed);
+    let processed: string;
+    let placeholders;
+    try {
+      processed = processSystemPlaceholders(snippet.content);
+      placeholders = extractPlaceholders(processed);
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: config.preparationFailTitle,
+        message: getErrorMessage(error),
+      });
+      return;
+    }
 
     if (placeholders.length > 0) {
-      push(
-        <PlaceholderForm
-          snippet={{ ...snippet, content: processed }}
-          placeholders={placeholders}
-          mode={config.formMode}
-          onComplete={onComplete}
-        />,
-      );
-    } else {
       try {
-        const afterBlocks = processConditionalBlocks(processed, {});
-        if (mode === "paste") {
-          await pasteWithClipboardRestore(afterBlocks);
-        } else {
-          await Clipboard.copy(afterBlocks);
-        }
-        await incrementUsage(snippet.id);
-        const truncatedTitle = snippet.title.length > 40 ? snippet.title.slice(0, 40) + "…" : snippet.title;
-        await closeMainWindow();
-        await showHUD(mode === "paste" ? `✓ Pasted "${truncatedTitle}"` : `✓ Copied "${truncatedTitle}" to clipboard`);
-        onComplete();
+        push(
+          <PlaceholderForm
+            snippet={{ ...snippet, content: processed }}
+            placeholders={placeholders}
+            mode={config.formMode}
+            onComplete={onComplete}
+          />,
+        );
       } catch (error) {
-        showToast({ style: Toast.Style.Failure, title: config.failTitle, message: getErrorMessage(error) });
+        await showToast({
+          style: Toast.Style.Failure,
+          title: config.preparationFailTitle,
+          message: getErrorMessage(error),
+        });
       }
+      return;
+    } else {
+      const didComplete = await runSnippetAction({
+        prepare: () => processConditionalBlocks(processed, {}),
+        primaryOperation: (content) => (mode === "paste" ? pasteSnippet(content) : Clipboard.copy(content)),
+        snippetId: snippet.id,
+        onPreparationFailure: (error) =>
+          showToast({
+            style: Toast.Style.Failure,
+            title: config.preparationFailTitle,
+            message: getErrorMessage(error),
+          }),
+        onPrimaryFailure: (error) =>
+          showToast({ style: Toast.Style.Failure, title: config.failTitle, message: getErrorMessage(error) }),
+      });
+      if (!didComplete) return;
+
+      const truncatedTitle = snippet.title.length > 40 ? snippet.title.slice(0, 40) + "…" : snippet.title;
+      await runBestEffort(() => closeMainWindow(), "Unable to close Raycast after snippet action");
+      await runBestEffort(
+        () => showHUD(mode === "paste" ? `✓ Pasted "${truncatedTitle}"` : `✓ Copied "${truncatedTitle}" to clipboard`),
+        "Unable to show snippet action HUD",
+      );
+      await runBestEffort(() => onComplete(), "Unable to refresh after snippet action");
     }
   }
 

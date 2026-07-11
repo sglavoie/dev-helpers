@@ -1,9 +1,102 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { addSnippet, getTags, deleteTag, renameTag, mergeTags, clearAllData, getSnippets } from "./storage";
+import { LocalStorage } from "@raycast/api";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  addSnippet,
+  clearAllData,
+  deleteTag,
+  getPlaceholderHistoryForKey,
+  getSnippets,
+  getTags,
+  mergeTags,
+  recordSnippetUse,
+  renameTag,
+} from "./storage";
 
 beforeEach(async () => {
   // Clear storage before each test
   await clearAllData();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("recordSnippetUse", () => {
+  it("records usage and eligible placeholder history with one save and one timestamp", async () => {
+    const snippet = await addSnippet({ title: "Test", content: "Content", tags: [] });
+    const now = 1_700_000_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+    const setItemSpy = vi.spyOn(LocalStorage, "setItem");
+
+    await recordSnippetUse(snippet.id, [{ key: "name", value: "Ada", isSaved: true }]);
+
+    expect(nowSpy).toHaveBeenCalledTimes(1);
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    expect(await getSnippets()).toMatchObject([{ id: snippet.id, useCount: 1, lastUsedAt: now, updatedAt: now }]);
+    expect(await getPlaceholderHistoryForKey("name")).toEqual([
+      { value: "Ada", useCount: 1, lastUsed: now, createdAt: now },
+    ]);
+  });
+
+  it("does not save blank or opted-out placeholder values", async () => {
+    const snippet = await addSnippet({ title: "Test", content: "Content", tags: [] });
+    const setItemSpy = vi.spyOn(LocalStorage, "setItem");
+
+    await recordSnippetUse(snippet.id, [
+      { key: "blank", value: "  ", isSaved: true },
+      { key: "not-saved", value: "value", isSaved: false },
+    ]);
+
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    expect((await getSnippets())[0].useCount).toBe(1);
+    expect(await getPlaceholderHistoryForKey("blank")).toEqual([]);
+    expect(await getPlaceholderHistoryForKey("not-saved")).toEqual([]);
+  });
+
+  it("deduplicates repeated key/value pairs within a use", async () => {
+    const snippet = await addSnippet({ title: "Test", content: "Content", tags: [] });
+    const setItemSpy = vi.spyOn(LocalStorage, "setItem");
+
+    await recordSnippetUse(snippet.id, [
+      { key: "name", value: "Ada", isSaved: true },
+      { key: "name", value: "Ada", isSaved: true },
+    ]);
+
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    expect(await getPlaceholderHistoryForKey("name")).toMatchObject([{ value: "Ada", useCount: 1 }]);
+  });
+
+  it("updates existing placeholder history using the shared timestamp", async () => {
+    const originalNow = 1_700_000_000_000;
+    const updatedNow = originalNow + 1_000;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(originalNow);
+    const snippet = await addSnippet({ title: "Test", content: "Content", tags: [] });
+    const historySnippet = await addSnippet({ title: "History", content: "Content", tags: [] });
+    await recordSnippetUse(historySnippet.id, [{ key: "name", value: "Ada", isSaved: true }]);
+    nowSpy.mockReturnValue(updatedNow);
+    const setItemSpy = vi.spyOn(LocalStorage, "setItem");
+
+    await recordSnippetUse(snippet.id, [{ key: "name", value: "Ada", isSaved: true }]);
+
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    expect(await getPlaceholderHistoryForKey("name")).toEqual([
+      { value: "Ada", useCount: 2, lastUsed: updatedNow, createdAt: originalNow },
+    ]);
+  });
+
+  it("does not mutate placeholder history or save when the snippet is missing", async () => {
+    const historySnippet = await addSnippet({ title: "History", content: "Content", tags: [] });
+    await recordSnippetUse(historySnippet.id, [{ key: "existing", value: "keep", isSaved: true }]);
+    const setItemSpy = vi.spyOn(LocalStorage, "setItem");
+
+    await expect(recordSnippetUse("missing", [{ key: "new", value: "value", isSaved: true }])).rejects.toThrow(
+      "Snippet not found",
+    );
+
+    expect(setItemSpy).not.toHaveBeenCalled();
+    expect(await getPlaceholderHistoryForKey("existing")).toMatchObject([{ value: "keep", useCount: 1 }]);
+    expect(await getPlaceholderHistoryForKey("new")).toEqual([]);
+  });
 });
 
 describe("Tag Operations", () => {

@@ -11,19 +11,61 @@ import {
 } from "@raycast/api";
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Snippet, Placeholder } from "../types";
-import {
-  incrementUsage,
-  getPlaceholderHistoryForKey,
-  addPlaceholderValue,
-  getMaxPlaceholderHistoryValues,
-} from "../utils/storage";
-import { pasteWithClipboardRestore } from "../utils/clipboard";
+import { getPlaceholderHistoryForKey, getMaxPlaceholderHistoryValues } from "../utils/storage";
+import { pasteSnippet } from "../utils/clipboard";
 import { replacePlaceholders, processConditionalBlocks } from "../utils/placeholders";
 import { getLastUsedValue, getRankedValuesForAutocomplete } from "../utils/placeholderHistory";
 import { getErrorMessage } from "../utils/errorMessage";
 import { buildFieldPreview } from "../utils/fieldPreview";
+import { PlaceholderValueToRecord } from "../utils/storage";
+import { runBestEffort, runSnippetAction } from "../utils/snippet-use";
 
 const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
+
+interface PlaceholderFormSubmission {
+  snippet: Snippet;
+  placeholders: Placeholder[];
+  finalValues: Record<string, string>;
+  mode: "copy" | "paste" | "paste-direct";
+  onPreparationFailure: (error: unknown) => unknown | Promise<unknown>;
+  onPrimaryFailure: (error: unknown) => unknown | Promise<unknown>;
+}
+
+/**
+ * Retains the submitted value and parsed placeholder metadata for the atomic
+ * storage operation. recordSnippetUse owns the no-save and blank exclusions.
+ */
+export function buildTrackedPlaceholderValues(
+  placeholders: Placeholder[],
+  finalValues: Record<string, string>,
+): PlaceholderValueToRecord[] {
+  return placeholders.map((placeholder) => ({
+    key: placeholder.key,
+    value: finalValues[placeholder.key] ?? "",
+    isSaved: placeholder.isSaved,
+  }));
+}
+
+export async function submitPlaceholderForm({
+  snippet,
+  placeholders,
+  finalValues,
+  mode,
+  onPreparationFailure,
+  onPrimaryFailure,
+}: PlaceholderFormSubmission): Promise<boolean> {
+  return runSnippetAction({
+    prepare: () => {
+      const afterBlocks = processConditionalBlocks(snippet.content, finalValues);
+      return replacePlaceholders(afterBlocks, finalValues, placeholders);
+    },
+    primaryOperation: (content) => (mode === "paste-direct" ? pasteSnippet(content) : Clipboard.copy(content)),
+    snippetId: snippet.id,
+    placeholderValues: buildTrackedPlaceholderValues(placeholders, finalValues),
+    onPreparationFailure,
+    onPrimaryFailure,
+  });
+}
 
 export function PlaceholderForm(props: {
   snippet: Snippet;
@@ -155,65 +197,69 @@ export function PlaceholderForm(props: {
       }
     }
 
-    // Replace placeholders
-    const afterBlocks = processConditionalBlocks(props.snippet.content, finalValues);
-    const filledContent = replacePlaceholders(afterBlocks, finalValues, props.placeholders);
-
-    try {
-      // Save placeholder values to history (respect isSaved flag)
-      for (const placeholder of props.placeholders) {
-        const value = finalValues[placeholder.key];
-        // Only save if isSaved is true and value is non-empty
-        if (placeholder.isSaved && value && value.trim()) {
-          await addPlaceholderValue(placeholder.key, value);
-        }
-      }
-
-      if (props.mode === "paste-direct") {
-        // Paste directly to frontmost app
-        await pasteWithClipboardRestore(filledContent);
-        await incrementUsage(props.snippet.id);
-        props.onComplete();
-        pop();
-        await closeMainWindow();
+    const didComplete = await submitPlaceholderForm({
+      snippet: props.snippet,
+      placeholders: props.placeholders,
+      finalValues,
+      mode: props.mode,
+      onPreparationFailure: (error) =>
         showToast({
-          style: Toast.Style.Success,
-          title: "Pasted to frontmost app",
-          message: "Snippet with filled placeholders",
-        });
-      } else {
-        // Copy to clipboard
-        await Clipboard.copy(filledContent);
-        await incrementUsage(props.snippet.id);
+          style: Toast.Style.Failure,
+          title: props.mode === "paste-direct" ? "Failed to prepare paste" : "Failed to prepare copy",
+          message: getErrorMessage(error),
+        }),
+      onPrimaryFailure: (error) =>
+        showToast({
+          style: Toast.Style.Failure,
+          title: props.mode === "paste-direct" ? "Failed to paste" : "Failed to copy",
+          message: getErrorMessage(error),
+        }),
+    });
+    if (!didComplete) return;
 
-        if (props.mode === "copy") {
-          // Navigate back to main view, then close window
-          props.onComplete();
-          pop();
-          await closeMainWindow();
+    if (props.mode === "paste-direct") {
+      await runBestEffort(() => props.onComplete(), "Unable to refresh after placeholder paste");
+      await runBestEffort(() => pop(), "Unable to navigate after placeholder paste");
+      await runBestEffort(() => closeMainWindow(), "Unable to close Raycast after placeholder paste");
+      await runBestEffort(
+        () =>
+          showToast({
+            style: Toast.Style.Success,
+            title: "Pasted to frontmost app",
+            message: "Snippet with filled placeholders",
+          }),
+        "Unable to show placeholder paste success",
+      );
+      return;
+    }
+
+    if (props.mode === "copy") {
+      await runBestEffort(() => props.onComplete(), "Unable to refresh after placeholder copy");
+      await runBestEffort(() => pop(), "Unable to navigate after placeholder copy");
+      await runBestEffort(() => closeMainWindow(), "Unable to close Raycast after placeholder copy");
+      await runBestEffort(
+        () =>
           showToast({
             style: Toast.Style.Success,
             title: "Copied to clipboard",
             message: "Snippet with filled placeholders",
-          });
-        } else {
-          // Copy without closing: keep window open for multiple operations
-          showToast({
-            style: Toast.Style.Success,
-            title: "Copied to clipboard",
-            message: "Window stays open for multiple copies",
-          });
-          props.onComplete();
-          pop();
-        }
-      }
-    } catch (error) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: props.mode === "paste-direct" ? "Failed to paste" : "Failed to copy",
-        message: getErrorMessage(error),
-      });
+          }),
+        "Unable to show placeholder copy success",
+      );
+      return;
     }
+
+    await runBestEffort(
+      () =>
+        showToast({
+          style: Toast.Style.Success,
+          title: "Copied to clipboard",
+          message: "Window stays open for multiple copies",
+        }),
+      "Unable to show placeholder copy success",
+    );
+    await runBestEffort(() => props.onComplete(), "Unable to refresh after placeholder copy");
+    await runBestEffort(() => pop(), "Unable to navigate after placeholder copy");
   }
 
   function handleUseDefaults() {

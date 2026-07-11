@@ -13,7 +13,7 @@ export function getAllPlaceholderKeysFromData(data: StorageData): string[] {
   return Object.keys(getPlaceholderHistoryFromData(data)).sort((a, b) => a.localeCompare(b));
 }
 
-export function addPlaceholderValueToData(data: StorageData, key: string, value: string): boolean {
+export function addPlaceholderValueToData(data: StorageData, key: string, value: string, now?: number): boolean {
   if (!key || !value.trim()) {
     return false;
   }
@@ -23,18 +23,18 @@ export function addPlaceholderValueToData(data: StorageData, key: string, value:
     history[key] = [];
   }
 
-  const now = Date.now();
+  const timestamp = now ?? Date.now();
   const existingIndex = history[key].findIndex((item) => item.value === value);
 
   if (existingIndex !== -1) {
     history[key][existingIndex].useCount += 1;
-    history[key][existingIndex].lastUsed = now;
+    history[key][existingIndex].lastUsed = timestamp;
   } else {
     history[key].push({
       value,
       useCount: 1,
-      lastUsed: now,
-      createdAt: now,
+      lastUsed: timestamp,
+      createdAt: timestamp,
     });
 
     if (history[key].length > MAX_STORED_VALUES_PER_KEY) {

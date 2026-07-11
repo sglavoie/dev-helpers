@@ -5,6 +5,7 @@ import {
   Color,
   confirmAlert,
   Icon,
+  Keyboard,
   List,
   showToast,
   Toast,
@@ -198,7 +199,7 @@ export function ManagePlaceholderHistoryView(props: { onUpdated?: () => void }) 
                     title={`Clear All Values (${stat.valueCount})`}
                     icon={Icon.Trash}
                     style={Action.Style.Destructive}
-                    shortcut={{ modifiers: ["cmd"], key: "delete" }}
+                    shortcut={Keyboard.Shortcut.Common.RemoveAll}
                     onAction={() => handleClearKey(stat.key, stat.valueCount)}
                   />
                 </ActionPanel.Section>

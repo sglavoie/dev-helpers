@@ -39,6 +39,12 @@ A powerful Raycast extension for storing and quickly pasting text snippets with 
 - `⌘ + Shift + I`: Import snippets
 - `⌘ + Shift + S`: View storage info
 
+## Reliable Pasting
+
+`⌘ + Return` pastes the prepared snippet directly into the frontmost app. To keep this action reliable, the extension does not read, clear, or schedule later changes to the clipboard after a paste. The former automatic-reversal delay setting has been removed; the pasted snippet intentionally remains on the clipboard.
+
+If a synthetic paste is ever missed by the target app, do not repeat the paste action: focus the target and use the standard `⌘ + V` shortcut. It pastes the same prepared snippet from the clipboard and avoids an accidental duplicate.
+
 ## Using Tags
 
 Tags allow you to organize snippets in multiple categories simultaneously with powerful hierarchy support:
@@ -65,21 +71,25 @@ Tags allow you to organize snippets in multiple categories simultaneously with p
 Create dynamic snippet templates with enhanced placeholder syntax:
 
 ### Basic Syntax
+
 - **Required**: `{{name}}` - prompts for value when copying
 - **Optional**: `{{name|John Doe}}` - with default value
 - **No-save**: `{{!date}}` - value NOT saved to history
 
 ### Conditional Blocks
+
 - **If block**: `{{#if key}}...{{/if}}` - includes block only when key is non-empty
 - **If/else**: `{{#if key}}...{{#else}}...{{/if}}` - alternate content when key is empty
 - **Nested**: blocks can be nested inside each other for compound logic (up to 10 levels deep)
 
 ### Conditional Wrapper Text
+
 - **Prefix**: `{{#:id:}}` - adds "#" before value (only if value present)
 - **Suffix**: `{{:id:#}}` - adds "#" after value (only if value present)
 - **Both**: `{{$:price: USD}}` - adds "$" before and " USD" after
 
 ### Examples
+
 ```
 Hello {{:name:}}, your order {{#:order_id:}} is ready!
 → "Hello Alice, your order #12345 is ready!"
@@ -98,6 +108,7 @@ Values are saved to history for autocomplete (unless `!` flag is used).
 ## Usage Statistics
 
 Every time you use a snippet (paste or copy), the extension tracks:
+
 - **Use Count**: How many times you've used this snippet
 - **Last Used**: When you last used this snippet
 
@@ -112,16 +123,30 @@ View these statistics in the detail view (⌘+D) to understand which snippets ar
 
 ## Setup
 
-1. Install dependencies: `npm install`
+1. Install dependencies: `npm ci`
 2. Run development mode: `npm run dev`
 3. Build for production: `npm run build`
+
+For a local quality check, run:
+
+```bash
+npm run lint
+npm test
+npm run check
+```
+
+`npm run check` runs linting, tests, and a production build. To apply ESLint and Prettier fixes locally, run `npm run fix-lint`.
+
+## Publishing
+
+This extension is intended for local development unless you have a Raycast Store author account. `npm run publish` validates and submits through Raycast, which requires being signed in to a Raycast Store account; local validation does not require publishing access.
 
 ## Development
 
 Built with:
 
 - React + TypeScript
-- Raycast API v1.103.4
+- Raycast API v1.104.22
 - Versioned LocalStorage for persistence
 - Comprehensive TypeScript validation
 

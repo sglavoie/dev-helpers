@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Color, Icon, List, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Keyboard, List, Toast, showToast } from "@raycast/api";
 import { Snippet } from "../types";
 import { toggleArchive } from "../utils/storage";
 import { computeSnippetAnalytics, getUnusedTags } from "../utils/analytics";
@@ -246,7 +246,7 @@ export function SnippetListItem({
               <Action
                 title={showRecentSection ? "Hide Recent Section" : "Show Recent Section"}
                 icon={Icon.Clock}
-                shortcut={{ modifiers: ["cmd"], key: "r" }}
+                shortcut={Keyboard.Shortcut.Common.Refresh}
                 onAction={onToggleRecent}
               />
             )}
