@@ -1,4 +1,5 @@
 import { Placeholder } from "../types";
+import { parsePlaceholderSyntax } from "./placeholderSyntax";
 
 /**
  * System placeholders that auto-resolve without user input.
@@ -88,96 +89,7 @@ export function getSystemPlaceholderNames(): string[] {
  * Returns an array of unique placeholders with their keys and default values
  */
 export function extractPlaceholders(text: string): Placeholder[] {
-  const regex = /\{\{([^}]+)\}\}/g;
-  const placeholders: Placeholder[] = [];
-  const seen = new Set<string>();
-
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    let content = match[1].trim();
-
-    // Skip block control tokens — these are handled by processConditionalBlocks
-    if (content.startsWith("#if ") || content === "#else" || content === "/else" || content === "/if") {
-      continue;
-    }
-
-    // 1. Check for no-save flag (!)
-    const isSaved = !content.startsWith("!");
-    if (!isSaved) {
-      content = content.slice(1).trim();
-    }
-
-    // 2. Extract default value (split on rightmost |)
-    const pipeIndex = content.lastIndexOf("|");
-    const hasDefault = pipeIndex !== -1;
-    const defaultValue = hasDefault ? content.slice(pipeIndex + 1).trim() : undefined;
-    const coreContent = hasDefault ? content.slice(0, pipeIndex).trim() : content;
-
-    // 3. Parse key and wrappers
-    const parts = coreContent.split(":");
-
-    let key: string;
-    let prefixWrapper: string | undefined;
-    let suffixWrapper: string | undefined;
-
-    if (parts.length === 1) {
-      // Simple format: {{key}}
-      key = parts[0].trim();
-    } else if (parts.length === 3) {
-      // Wrapper format: {{prefix:key:suffix}}
-      const prefix = parts[0];
-      key = parts[1].trim();
-      const suffix = parts[2];
-
-      // Convert empty strings to undefined
-      prefixWrapper = prefix || undefined;
-      suffixWrapper = suffix || undefined;
-    } else {
-      // Invalid format (1, 2, or 4+ colons) - treat entire content as key
-      key = coreContent;
-    }
-
-    // Only add unique placeholders (by key)
-    if (key && !seen.has(key)) {
-      // Wrapper syntax implies optionality because replacement logic
-      // already handles empty values by omitting the wrapper
-      // Exception: {{:key:}} with both wrappers empty is equivalent to {{key}}
-      const hasNonEmptyWrappers = prefixWrapper !== undefined || suffixWrapper !== undefined;
-
-      placeholders.push({
-        key,
-        defaultValue,
-        isRequired: !hasDefault && !hasNonEmptyWrappers,
-        isSaved,
-        prefixWrapper,
-        suffixWrapper,
-      });
-      seen.add(key);
-    }
-  }
-
-  // Second pass: extract guard-only keys from {{#if key}} patterns
-  const ifRegex = /\{\{#if\s+(\+?)(\S+?)(?:\s+"([^"]*)")?\s*\}\}/g;
-  let ifMatch;
-  while ((ifMatch = ifRegex.exec(text)) !== null) {
-    const plusPrefix = ifMatch[1];
-    const guardKey = ifMatch[2].trim();
-    const label = ifMatch[3]; // undefined when no label provided
-    if (guardKey && !seen.has(guardKey)) {
-      placeholders.push({
-        key: guardKey,
-        defaultValue: undefined,
-        isRequired: false,
-        isSaved: false,
-        isGuardOnly: true,
-        label,
-        defaultOn: plusPrefix === "+",
-      });
-      seen.add(guardKey);
-    }
-  }
-
-  return placeholders;
+  return parsePlaceholderSyntax(text).placeholders;
 }
 
 /**
@@ -185,85 +97,26 @@ export function extractPlaceholders(text: string): Placeholder[] {
  * Falls back to default values if no value provided
  */
 export function replacePlaceholders(text: string, values: Record<string, string>, placeholders: Placeholder[]): string {
-  let result = text;
+  const canonicalByKey = new Map(placeholders.map((placeholder) => [placeholder.key, placeholder]));
+  const occurrences = parsePlaceholderSyntax(text).occurrences;
+  let result = "";
+  let cursor = 0;
 
-  for (const placeholder of placeholders) {
-    // Determine final value
-    const value = values[placeholder.key] ?? placeholder.defaultValue ?? "";
-    const hasWrappers = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
-    const trimmedValue = value.trim();
+  for (const occurrence of occurrences) {
+    result += text.slice(cursor, occurrence.range.start);
+    const canonical = canonicalByKey.get(occurrence.key);
+    if (!canonical) {
+      result += occurrence.raw;
+      cursor = occurrence.range.end;
+      continue;
+    }
 
-    // Replace all occurrences. When the placeholder was registered with wrappers,
-    // the same key may still appear in the plain `{{key}}` form elsewhere; that
-    // plain form must NOT receive the wrappers (a callback is used to inspect
-    // the matched text and decide on a per-match basis).
-    const regex = buildPlaceholderRegex(placeholder);
-    result = result.replace(regex, (match) => {
-      if (!trimmedValue) {
-        // Empty or whitespace-only: no wrappers, no value
-        return "";
-      }
-
-      // A match contains the wrappers only when it uses the `prefix:key:suffix`
-      // syntax (i.e. there is a `:` between the opening braces and the key).
-      const matchUsesWrapperSyntax = hasWrappers && /\{\{\s*!?\s*[^:}]*:/.test(match);
-
-      if (matchUsesWrapperSyntax) {
-        return (placeholder.prefixWrapper ?? "") + value + (placeholder.suffixWrapper ?? "");
-      }
-      return value;
-    });
+    const value = values[occurrence.key] ?? canonical.defaultValue ?? "";
+    result += value.trim() ? (occurrence.prefixWrapper ?? "") + value + (occurrence.suffixWrapper ?? "") : "";
+    cursor = occurrence.range.end;
   }
 
-  return result;
-}
-
-/**
- * Escapes special regex characters in a string
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Builds regex pattern to match original placeholder syntax including wrappers
- */
-function buildPlaceholderRegex(placeholder: Placeholder): RegExp {
-  const escapedKey = escapeRegex(placeholder.key);
-
-  // Handle different syntax variations:
-  // - {{!prefix:key:suffix|default}}
-  // - {{prefix:key:suffix}}
-  // - {{!key|default}}
-  // - {{key}}
-  //
-  // Whitespace is permitted around the key and default (mirrors extractPlaceholders,
-  // which trims keys/defaults) so e.g. `{{ name | John }}` is replaced correctly.
-
-  // Build pattern that matches all variations of this placeholder
-  let pattern = "\\{\\{\\s*";
-
-  // Optional ! prefix
-  pattern += "!?\\s*";
-
-  // Optional wrapper syntax
-  if (placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined) {
-    // Has wrappers: match BOTH `{{prefix:key:suffix}}` and the simple `{{key}}` form,
-    // so a key that appears in both forms in the same text gets replaced everywhere.
-    // The wrapper segment is preserved verbatim (no whitespace trimming) since it is
-    // emitted as-is.
-    pattern += "(?:[^:]*:\\s*" + escapedKey + "\\s*:[^|}]*|" + escapedKey + ")";
-  } else {
-    // No wrappers: match simple key
-    pattern += escapedKey;
-  }
-
-  // Optional |default
-  pattern += "\\s*(?:\\|[^}]*)?";
-
-  pattern += "\\}\\}";
-
-  return new RegExp(pattern, "g");
+  return result + text.slice(cursor);
 }
 
 /**

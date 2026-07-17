@@ -76,6 +76,32 @@ Create dynamic snippet templates with enhanced placeholder syntax:
 - **Optional**: `{{name|John Doe}}` - with default value
 - **No-save**: `{{!date}}` - value NOT saved to history
 
+### Authored Choice Dropdowns
+
+Attach a bracketed list to a key to define a stable single-select dropdown. The full grammar is `{{[!]prefix:key[choice1|choice2]:suffix[|default]}}`; the choice brackets are literal, while `!` and the trailing default are optional.
+
+- `{{tone[Formal|Casual|Technical]}}` starts on the first choice (`Formal`).
+- `{{tone[Formal|Casual|Technical]|Casual}}` starts on the explicit default (`Casual`).
+- A default outside the list starts in **Custom** with that value; an empty default starts in Custom with an empty value.
+- Every choice dropdown contains exactly the authored values in order plus **Custom**. Saved history does not initialize or populate it during normal insertion, though **Paste with Last Values** can restore a prior value.
+- Authored and custom submissions are recorded unless `!` disables saving. Recorded custom values never become authored choices.
+- Repeated plain references share the declaration's value and field settings, regardless of source order. Multiple declarations for one key must agree on choices, default, save policy, and required/optional behavior; their wrappers may differ.
+
+Escape literal characters inside a choice list with `\|`, `\[`, `\]`, and `\\`. Choice values are trimmed and decoded, and the editor rejects empty or duplicate entries, fewer than two choices, unmatched brackets, dangling/unsupported escapes, and conflicting declarations.
+
+End-to-end example:
+
+```text
+{{tone[Formal|Casual|Technical]|Casual}} opening — finish in {{tone}} tone.
+```
+
+The form starts on `Casual`, and both occurrences receive the selected value. Selecting **Custom** and entering `Direct` replaces both with `Direct`.
+
+Choices also compose with no-save and wrappers:
+
+- `{{!$:amount[10|20]: USD|10}}` starts included as `$10 USD` and does not record history.
+- `{{$:amount[10|20]: USD}}` starts unchecked and uses `10` if enabled. Only a non-empty wrapper default starts included.
+
 ### Conditional Blocks
 
 - **If block**: `{{#if key}}...{{/if}}` - includes block only when key is non-empty

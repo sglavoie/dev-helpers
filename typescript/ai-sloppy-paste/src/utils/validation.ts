@@ -2,6 +2,8 @@
  * Input validation utilities
  */
 
+import { parsePlaceholderSyntax } from "./placeholderSyntax";
+
 export const VALIDATION_LIMITS = {
   TITLE_MAX_LENGTH: 200,
   CONTENT_MAX_LENGTH: 100000, // ~100KB of text
@@ -53,6 +55,11 @@ export function validateContent(content: string): ValidationResult {
       isValid: false,
       error: `Content is too large (${sizeKB}KB). Maximum size is ${maxKB}KB.`,
     };
+  }
+
+  const choiceDiagnostic = parsePlaceholderSyntax(content).diagnostics[0];
+  if (choiceDiagnostic) {
+    return { isValid: false, error: choiceDiagnostic.message };
   }
 
   return { isValid: true };

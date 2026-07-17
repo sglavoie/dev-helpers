@@ -49,6 +49,26 @@ describe("validateContent", () => {
     expect(result.isValid).toBe(false);
     expect(result.error).toContain("too large");
   });
+
+  it("should accept valid authored placeholder choices", () => {
+    expect(validateContent("Use {{tone[Formal|Casual]|Casual}} here")).toEqual({ isValid: true });
+  });
+
+  it("should reject the first malformed or conflicting choice declaration", () => {
+    const malformed = validateContent("{{first[A||B]}} {{second[X|X]}}");
+    expect(malformed.isValid).toBe(false);
+    expect(malformed.error).toContain("{{first[A||B]}}");
+
+    const conflicting = validateContent("{{tone[A|B]}} {{tone[A|C]}}");
+    expect(conflicting.isValid).toBe(false);
+    expect(conflicting.error).toContain("Conflicting authored choices");
+    expect(conflicting.error).toContain("{{tone[A|B]}}");
+  });
+
+  it("should keep empty and length validation ahead of choice diagnostics", () => {
+    const largeMalformed = "x".repeat(VALIDATION_LIMITS.CONTENT_MAX_LENGTH + 1) + " {{tone[A||B]}}";
+    expect(validateContent(largeMalformed).error).toContain("too large");
+  });
 });
 
 describe("validateTag", () => {

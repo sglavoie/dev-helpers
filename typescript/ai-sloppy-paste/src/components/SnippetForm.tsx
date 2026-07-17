@@ -5,7 +5,7 @@ import { addSnippet, updateSnippet } from "../utils/storage";
 import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "../utils/validation";
 import { getErrorMessage } from "../utils/errorMessage";
 import { PlaceholderSyntaxHelp } from "./PlaceholderSyntaxHelp";
-import { processSystemPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
+import { buildSnippetPreview } from "../utils/snippetPreview";
 
 const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] =
   [
@@ -33,6 +33,13 @@ const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: 
       icon: Icon.Switch,
       key: "6",
     },
+    {
+      title: "Choice Placeholder",
+      subtitle: "{{tone[Formal|Casual|Technical]|Casual}}",
+      content: "{{tone[Formal|Casual|Technical]|Casual}}",
+      icon: Icon.CodeBlock,
+      key: "7",
+    },
   ];
 
 export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; tags: string[] }) {
@@ -46,51 +53,7 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
   const [newTagError, setNewTagError] = useState<string | undefined>();
   const [contentValue, setContentValue] = useState(props.snippet?.content || "");
 
-  const previewString = useMemo(() => {
-    if (!contentValue.includes("{{")) return "";
-    const systemNames = getSystemPlaceholderNames();
-    let result = contentValue;
-
-    for (const name of systemNames) {
-      const resolved = processSystemPlaceholders(`{{${name}}}`);
-      result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, "g"), `⟨${name} → ${resolved}⟩`);
-    }
-
-    result = result.replace(/\{\{#if ([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_m, key, body) => {
-      const k = key
-        .trim()
-        .replace(/\s+"[^"]*"$/, "")
-        .replace(/^\+/, "");
-      const cleanBody = body.replace(/\{\{#else\}\}/g, " | else: ").replace(/\{\{\/else\}\}/g, "");
-      return `⟨if ${k}: ${cleanBody.trim()}⟩`;
-    });
-
-    result = result.replace(/\{\{!?([^}]+)\}\}/g, (m, inner) => {
-      const noSave = m.startsWith("{{!");
-      const c = inner.trim();
-      if (c.startsWith("#") || c.startsWith("/")) return m;
-
-      const pipeIdx = c.lastIndexOf("|");
-      const hasDefault = pipeIdx !== -1;
-      const def = hasDefault ? c.slice(pipeIdx + 1).trim() : undefined;
-      const core = hasDefault ? c.slice(0, pipeIdx).trim() : c;
-      const parts = core.split(":");
-
-      let displayKey: string;
-      if (parts.length === 3) {
-        const [prefix, key, suffix] = parts.map((p: string) => p.trim());
-        const main = prefix ? `${prefix}${key}` : key;
-        displayKey = suffix ? `${main} ${suffix}` : main;
-      } else {
-        displayKey = core;
-      }
-
-      const label = noSave ? `!${displayKey}` : displayKey;
-      return hasDefault && def ? `⟨${label} = "${def}"⟩` : `⟨${label}⟩`;
-    });
-
-    return result.slice(0, 500);
-  }, [contentValue]);
+  const previewString = useMemo(() => buildSnippetPreview(contentValue), [contentValue]);
 
   // Initialize character counts for edit mode
   useEffect(() => {
@@ -264,6 +227,14 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       <Form.Description
         title="Placeholders"
         text="Required: {{name}}   Optional: {{name|default}}   No-save: {{!name}}"
+      />
+      <Form.Description
+        title="Choices"
+        text="{{tone[Formal|Casual|Technical]}} — dropdown plus Custom; the first choice starts selected. Default: {{tone[Formal|Casual]|Casual}}"
+      />
+      <Form.Description
+        title="Choice + Wrappers"
+        text="{{!$:amount[10|20]: USD|10}} — combine no-save (!), wrappers, authored choices, and a default."
       />
       <Form.Description
         title="Wrappers"

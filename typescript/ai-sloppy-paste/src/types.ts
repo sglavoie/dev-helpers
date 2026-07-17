@@ -38,6 +38,7 @@ export interface ExportData {
 
 export interface Placeholder {
   key: string;
+  choices?: string[]; // Stable authored choices, in declaration order
   defaultValue?: string;
   isRequired: boolean;
   isSaved: boolean; // NEW: Whether to save to history (default true)

@@ -20,7 +20,106 @@ import { buildFieldPreview } from "../utils/fieldPreview";
 import { PlaceholderValueToRecord } from "../utils/storage";
 import { runBestEffort, runSnippetAction } from "../utils/snippet-use";
 
-const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
+export const CUSTOM_VALUE_MARKER = "__CUSTOM_VALUE__";
+const AUTHORED_CHOICE_OPTION_PREFIX = "__AUTHORED_CHOICE__";
+
+export interface AuthoredChoiceFieldState {
+  formValue: string;
+  dropdownSelection: string;
+  customValue: string;
+  useCustomInput: boolean;
+  enabledOptional?: boolean;
+}
+
+function hasAuthoredChoices(placeholder: Placeholder): placeholder is Placeholder & { choices: string[] } {
+  return (placeholder.choices?.length ?? 0) > 0;
+}
+
+export function getAuthoredChoiceOptionId(index: number): string {
+  return `${AUTHORED_CHOICE_OPTION_PREFIX}${index}`;
+}
+
+export function getAuthoredChoiceValue(choices: readonly string[], optionId: string): string | undefined {
+  if (!optionId.startsWith(AUTHORED_CHOICE_OPTION_PREFIX)) return undefined;
+  const rawIndex = optionId.slice(AUTHORED_CHOICE_OPTION_PREFIX.length);
+  if (!/^\d+$/.test(rawIndex)) return undefined;
+  return choices[Number(rawIndex)];
+}
+
+export function initializeAuthoredChoiceState(
+  placeholder: Placeholder & { choices: string[] },
+): AuthoredChoiceFieldState {
+  const { choices, defaultValue } = placeholder;
+  const hasExplicitDefault = defaultValue !== undefined;
+  const matchingDefaultIndex = hasExplicitDefault ? choices.indexOf(defaultValue) : -1;
+  const isWrapper = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
+  const enabledOptional = !placeholder.isRequired && isWrapper ? !!defaultValue : undefined;
+
+  if (matchingDefaultIndex >= 0) {
+    return {
+      formValue: choices[matchingDefaultIndex],
+      dropdownSelection: getAuthoredChoiceOptionId(matchingDefaultIndex),
+      customValue: "",
+      useCustomInput: false,
+      enabledOptional,
+    };
+  }
+
+  if (hasExplicitDefault) {
+    return {
+      formValue: defaultValue,
+      dropdownSelection: CUSTOM_VALUE_MARKER,
+      customValue: defaultValue,
+      useCustomInput: true,
+      enabledOptional,
+    };
+  }
+
+  return {
+    formValue: choices[0] ?? "",
+    dropdownSelection: choices.length > 0 ? getAuthoredChoiceOptionId(0) : CUSTOM_VALUE_MARKER,
+    customValue: "",
+    useCustomInput: choices.length === 0,
+    enabledOptional,
+  };
+}
+
+export function resolveAuthoredChoiceSelection(
+  choices: readonly string[],
+  optionId: string,
+  customValue: string,
+): AuthoredChoiceFieldState | undefined {
+  if (optionId === CUSTOM_VALUE_MARKER) {
+    return {
+      formValue: customValue,
+      dropdownSelection: CUSTOM_VALUE_MARKER,
+      customValue,
+      useCustomInput: true,
+    };
+  }
+
+  const authoredValue = getAuthoredChoiceValue(choices, optionId);
+  if (authoredValue === undefined) return undefined;
+  return {
+    formValue: authoredValue,
+    dropdownSelection: optionId,
+    customValue,
+    useCustomInput: false,
+  };
+}
+
+export function buildRequiredPlaceholderErrors(
+  placeholders: Placeholder[],
+  finalValues: Record<string, string>,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const placeholder of placeholders) {
+    if (placeholder.isRequired && !finalValues[placeholder.key]?.trim()) {
+      errors[placeholder.key] = "This field is required";
+    }
+  }
+  return errors;
+}
 
 interface PlaceholderFormSubmission {
   snippet: Snippet;
@@ -98,13 +197,28 @@ export function PlaceholderForm(props: {
       const initial: Record<string, string> = {};
       const suggestions: Record<string, string[]> = {};
       const dropdownInit: Record<string, string> = {};
+      const customInit: Record<string, string> = {};
       const customInputMode: Record<string, boolean> = {};
       const enabledInit: Record<string, boolean> = {};
 
       // Get max display values from preferences (storage keeps up to 100)
       const maxDisplayValues = getMaxPlaceholderHistoryValues();
+      prefilledRef.current.clear();
 
       for (const placeholder of props.placeholders) {
+        if (hasAuthoredChoices(placeholder)) {
+          const choiceState = initializeAuthoredChoiceState(placeholder);
+          suggestions[placeholder.key] = [];
+          initial[placeholder.key] = choiceState.formValue;
+          dropdownInit[placeholder.key] = choiceState.dropdownSelection;
+          customInit[placeholder.key] = choiceState.customValue;
+          customInputMode[placeholder.key] = choiceState.useCustomInput;
+          if (choiceState.enabledOptional !== undefined) {
+            enabledInit[placeholder.key] = choiceState.enabledOptional;
+          }
+          continue;
+        }
+
         const history = await getPlaceholderHistoryForKey(placeholder.key);
         // Limit displayed values to preference setting (storage may have up to 100)
         const rankedValues = getRankedValuesForAutocomplete(history, maxDisplayValues);
@@ -146,6 +260,7 @@ export function PlaceholderForm(props: {
       setHistorySuggestions(suggestions);
       setFormValues(initial);
       setDropdownSelections(dropdownInit);
+      setCustomValues(customInit);
       setUseCustomInput(customInputMode);
       setEnabledOptionals(enabledInit);
       setIsLoadingHistory(false);
@@ -178,12 +293,7 @@ export function PlaceholderForm(props: {
     }
 
     // Validate required fields
-    const newErrors: Record<string, string> = {};
-    for (const placeholder of props.placeholders) {
-      if (placeholder.isRequired && !finalValues[placeholder.key]?.trim()) {
-        newErrors[placeholder.key] = "This field is required";
-      }
-    }
+    const newErrors = buildRequiredPlaceholderErrors(props.placeholders, finalValues);
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -264,38 +374,71 @@ export function PlaceholderForm(props: {
 
   function handleUseDefaults() {
     const newFormValues = { ...formValues };
+    const newDropdownSelections = { ...dropdownSelections };
     const newCustomValues = { ...customValues };
+    const newUseCustomInput = { ...useCustomInput };
     const newEnabledOptionals = { ...enabledOptionals };
 
     for (const placeholder of props.placeholders) {
-      if (!placeholder.isRequired) {
-        const defaultVal = placeholder.defaultValue ?? "";
-        newFormValues[placeholder.key] = defaultVal;
-        // Keep custom input fields in sync so the text field reflects the default
-        newCustomValues[placeholder.key] = defaultVal;
-        const isWrapper = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
-        if (isWrapper && !placeholder.defaultValue) {
-          newEnabledOptionals[placeholder.key] = false;
+      if (placeholder.isRequired || placeholder.isGuardOnly) continue;
+
+      if (hasAuthoredChoices(placeholder)) {
+        const choiceState = initializeAuthoredChoiceState(placeholder);
+        newFormValues[placeholder.key] = choiceState.formValue;
+        newDropdownSelections[placeholder.key] = choiceState.dropdownSelection;
+        newUseCustomInput[placeholder.key] = choiceState.useCustomInput;
+        if (choiceState.useCustomInput) {
+          newCustomValues[placeholder.key] = choiceState.customValue;
         }
+        if (choiceState.enabledOptional !== undefined) {
+          newEnabledOptionals[placeholder.key] = choiceState.enabledOptional;
+        }
+        continue;
+      }
+
+      const defaultVal = placeholder.defaultValue ?? "";
+      const suggestions = historySuggestions[placeholder.key] ?? [];
+      newFormValues[placeholder.key] = defaultVal;
+      newCustomValues[placeholder.key] = defaultVal;
+      if (suggestions.length > 0) {
+        const useDefaultSuggestion = defaultVal !== "" && suggestions.includes(defaultVal);
+        newDropdownSelections[placeholder.key] = useDefaultSuggestion ? defaultVal : CUSTOM_VALUE_MARKER;
+        newUseCustomInput[placeholder.key] = !useDefaultSuggestion;
+      }
+      const isWrapper = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
+      if (isWrapper) {
+        newEnabledOptionals[placeholder.key] = !!placeholder.defaultValue;
       }
     }
 
     setFormValues(newFormValues);
+    setDropdownSelections(newDropdownSelections);
     setCustomValues(newCustomValues);
+    setUseCustomInput(newUseCustomInput);
     setEnabledOptionals(newEnabledOptionals);
   }
 
-  function handleDropdownChange(key: string, value: string) {
-    setDropdownSelections((prev) => ({ ...prev, [key]: value }));
+  function handleDropdownChange(placeholder: Placeholder, optionId: string) {
+    const { key } = placeholder;
 
-    if (value === CUSTOM_VALUE_MARKER) {
-      // User selected "Enter new value..." - show custom input
-      setUseCustomInput((prev) => ({ ...prev, [key]: true }));
-      setFormValues((prev) => ({ ...prev, [key]: customValues[key] || "" }));
+    if (hasAuthoredChoices(placeholder)) {
+      const choiceState = resolveAuthoredChoiceSelection(placeholder.choices, optionId, customValues[key] ?? "");
+      if (!choiceState) return;
+      setDropdownSelections((prev) => ({ ...prev, [key]: choiceState.dropdownSelection }));
+      setUseCustomInput((prev) => ({ ...prev, [key]: choiceState.useCustomInput }));
+      setFormValues((prev) => ({ ...prev, [key]: choiceState.formValue }));
     } else {
-      // User selected a historical value
-      setUseCustomInput((prev) => ({ ...prev, [key]: false }));
-      setFormValues((prev) => ({ ...prev, [key]: value }));
+      setDropdownSelections((prev) => ({ ...prev, [key]: optionId }));
+
+      if (optionId === CUSTOM_VALUE_MARKER) {
+        // User selected "Enter new value..." - show custom input
+        setUseCustomInput((prev) => ({ ...prev, [key]: true }));
+        setFormValues((prev) => ({ ...prev, [key]: customValues[key] ?? "" }));
+      } else {
+        // User selected a historical value
+        setUseCustomInput((prev) => ({ ...prev, [key]: false }));
+        setFormValues((prev) => ({ ...prev, [key]: optionId }));
+      }
     }
 
     // Clear error if exists
@@ -337,10 +480,14 @@ export function PlaceholderForm(props: {
       const hasWrappers = placeholder.prefixWrapper !== undefined || placeholder.suffixWrapper !== undefined;
       if (hasWrappers) {
         const example = `${placeholder.prefixWrapper ?? ""}value${placeholder.suffixWrapper ?? ""}`;
-        parts.push(`Optional • Output when filled: "${example}" | empty → omitted`);
+        parts.push(`Optional wrapper • Output when included: "${example}" • Uncheck to omit it`);
       } else {
         parts.push(`Optional (default: "${placeholder.defaultValue ?? "none"}")`);
       }
+    }
+    if (hasAuthoredChoices(placeholder)) {
+      parts.push(`Configured choices: ${placeholder.choices.map((choice) => JSON.stringify(choice)).join(", ")}`);
+      parts.push("Choose Enter custom value… to type another value");
     }
     if (!placeholder.isSaved) {
       parts.push("Won't be saved to history");
@@ -350,6 +497,8 @@ export function PlaceholderForm(props: {
 
   function renderPlaceholderField(placeholder: Placeholder) {
     const suggestions = historySuggestions[placeholder.key] || [];
+    const authoredChoices = hasAuthoredChoices(placeholder) ? placeholder.choices : undefined;
+    const hasAuthoredChoiceDropdown = authoredChoices !== undefined;
     const hasHistory = suggestions.length > 0;
     const showCustomInput = useCustomInput[placeholder.key];
     const fieldHint = buildFieldPreview(placeholder, props.snippet.content, formValues[placeholder.key] ?? "");
@@ -401,24 +550,32 @@ export function PlaceholderForm(props: {
             title={`Include ${placeholder.key}`}
             label="Include in output"
             value={isEnabled}
+            info={withFieldHint(buildInfoText(placeholder))}
             onChange={(checked) => setEnabledOptionals((prev) => ({ ...prev, [placeholder.key]: checked }))}
           />
         )}
         {(!isWrapperField || isEnabled) &&
-          (hasHistory ? (
+          (hasAuthoredChoiceDropdown || hasHistory ? (
             <>
               <Form.Dropdown
                 id={`${placeholder.key}-dropdown`}
                 title={title}
                 value={dropdownSelections[placeholder.key] || CUSTOM_VALUE_MARKER}
-                onChange={(value) => handleDropdownChange(placeholder.key, value)}
+                onChange={(value) => handleDropdownChange(placeholder, value)}
                 error={!showCustomInput ? errors[placeholder.key] : undefined}
-                info={withFieldHint(!placeholder.isSaved ? "Won't be saved to history" : undefined)}
+                info={withFieldHint(buildInfoText(placeholder))}
               >
-                {suggestions.map((value) => (
-                  <Form.Dropdown.Item key={value} value={value} title={value} />
-                ))}
-                <Form.Dropdown.Item value={CUSTOM_VALUE_MARKER} title="Enter new value..." icon={Icon.Pencil} />
+                {authoredChoices
+                  ? authoredChoices.map((value, index) => {
+                      const optionId = getAuthoredChoiceOptionId(index);
+                      return <Form.Dropdown.Item key={optionId} value={optionId} title={value} />;
+                    })
+                  : suggestions.map((value) => <Form.Dropdown.Item key={value} value={value} title={value} />)}
+                <Form.Dropdown.Item
+                  value={CUSTOM_VALUE_MARKER}
+                  title={authoredChoices ? "Enter custom value…" : "Enter new value..."}
+                  icon={Icon.Pencil}
+                />
               </Form.Dropdown>
               {showCustomInput && (
                 <Form.TextField

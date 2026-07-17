@@ -4,6 +4,12 @@ All notable changes to the AI Sloppy Paste extension will be documented in this 
 
 ## [Unreleased] - Reliable Clipboard Paste
 
+### Added
+
+- Added authored placeholder choices with `{{key[one|two]|default}}` syntax, ordered single-select dropdowns, an always-available Custom entry, repeated-key value sharing, wrapper/no-save composition, and escaped choice literals.
+- Normal insertion keeps authored dropdowns independent of saved history; **Paste with Last Values** can still restore prior authored or custom values, and `!` continues to disable history recording.
+- Snippet authoring now includes choice syntax insertion, parser-backed previews, actionable validation for malformed or conflicting declarations, and expanded inline/detailed documentation.
+
 ### Changed
 
 - Pasting now uses a single direct clipboard paste and intentionally leaves the prepared snippet on the clipboard.
