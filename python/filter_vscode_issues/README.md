@@ -21,7 +21,12 @@ The tool reads an optional exclusion config from:
 ```
 
 `XDG_CONFIG_HOME` is honoured when set. If the file is absent the tool behaves
-exactly as before — all issues pass through.
+with its built-in exclusions only.
+
+### Default exclusions
+
+cspell diagnostics whose messages end in `: Unknown word.` are always dropped,
+so they do not need to be added to the config file.
 
 ### `[exclude]` table
 
@@ -32,7 +37,6 @@ case-insensitive matching).
 
 ```toml
 [exclude]
-message  = [': Unknown word\.$']   # drop cspell "Unknown word" warnings
 resource = ['/node_modules/']      # drop issues inside node_modules
 ```
 

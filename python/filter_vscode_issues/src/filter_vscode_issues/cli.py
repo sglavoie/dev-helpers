@@ -24,18 +24,24 @@ FIELDS: tuple[str, ...] = (
 CONFIG_FILENAME = "config.toml"
 APP_DIR = "filter-vscode-issues"
 
+DEFAULT_EXCLUSIONS: dict[str, tuple[str, ...]] = {
+    "message": (r': Unknown word\.$',),
+}
+
 DEFAULT_TEMPLATE = """\
 # filter-vscode-issues configuration
+#
+# cspell "Unknown word" diagnostics are excluded by default. Add any other
+# exclusions below.
 #
 # Under [exclude], each key is an issue field name and each value is a list
 # of Python regex patterns. An issue is dropped if any pattern matches the
 # corresponding field value (re.search — substring match, case-sensitive;
 # use (?i) inline flag for case-insensitive matching).
 #
-# Example — drop cspell "Unknown word" warnings and node_modules issues:
+# Example — drop node_modules issues:
 #
 # [exclude]
-# message  = [': Unknown word\\.$']
 # resource = ['/node_modules/']
 """
 
@@ -53,10 +59,14 @@ def config_path() -> Path:
 
 
 def load_exclusions() -> dict[str, list[re.Pattern[str]]]:
-    """Load and compile exclusion patterns from config; return {} if absent."""
+    """Return built-in exclusions plus any patterns loaded from config."""
+    exclusions = {
+        field: [re.compile(pattern) for pattern in patterns]
+        for field, patterns in DEFAULT_EXCLUSIONS.items()
+    }
     path = config_path()
     if not path.exists():
-        return {}
+        return exclusions
     try:
         with open(path, "rb") as fh:
             data = tomllib.load(fh)
@@ -67,7 +77,6 @@ def load_exclusions() -> dict[str, list[re.Pattern[str]]]:
         print(f"filter-vscode-issues: malformed TOML config: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    exclusions: dict[str, list[re.Pattern[str]]] = {}
     for field, patterns in data.get("exclude", {}).items():
         compiled: list[re.Pattern[str]] = []
         for pat in patterns:
@@ -79,7 +88,7 @@ def load_exclusions() -> dict[str, list[re.Pattern[str]]]:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-        exclusions[field] = compiled
+        exclusions.setdefault(field, []).extend(compiled)
     return exclusions
 
 
