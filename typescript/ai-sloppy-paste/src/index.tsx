@@ -71,6 +71,7 @@ export default function Command() {
     onToggleNeedsAttention: () => setShowNeedsAttention((v) => !v),
     onLoadData: loadData,
     onDelete: handleDelete,
+    onExport: handleExport,
     setSearchQuery,
   };
 
@@ -173,7 +174,12 @@ export default function Command() {
               </ActionPanel.Section>
               <ActionPanel.Section title="Data">
                 <ImportDataAction onImported={loadData} />
-                <Action title="Export All Snippets" icon={Icon.Download} onAction={handleExport} />
+                <Action
+                  title="Export All Snippets"
+                  icon={Icon.Download}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "e" }}
+                  onAction={handleExport}
+                />
                 <Action title="View Storage Info" icon={Icon.HardDrive} onAction={handleShowStorageInfo} />
               </ActionPanel.Section>
             </ActionPanel>

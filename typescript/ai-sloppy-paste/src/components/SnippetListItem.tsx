@@ -42,6 +42,7 @@ interface SnippetListItemProps {
   onToggleNeedsAttention?: () => void;
   onLoadData: () => void;
   onDelete: (snippet: Snippet) => void;
+  onExport?: () => void;
   setSearchQuery: (query: string) => void;
   historyAvailable: boolean;
   viewContext?: "main" | "browse";
@@ -64,6 +65,7 @@ export function SnippetListItem({
   onToggleNeedsAttention,
   onLoadData,
   onDelete,
+  onExport,
   setSearchQuery,
   historyAvailable,
   viewContext = "main",
@@ -226,6 +228,14 @@ export function SnippetListItem({
             />
             <ManagePlaceholderHistoryAction onUpdated={onLoadData} />
             <ImportDataAction onImported={onLoadData} />
+            {onExport && (
+              <Action
+                title="Export All Snippets"
+                icon={Icon.Download}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "e" }}
+                onAction={onExport}
+              />
+            )}
           </ActionPanel.Section>
           <ActionPanel.Section title="View">
             <Action
