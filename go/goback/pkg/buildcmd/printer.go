@@ -38,7 +38,7 @@ func (r *builder) getFlags() []string {
 	}
 
 	// dryRun and verbose have CLI override logic handled separately
-	if viper.GetBool(cfgPrefix+"dryRun") || viper.GetBool("cliDryRun") {
+	if IsDryRun(r.builderType.String()) {
 		flags = append(flags, "--dry-run")
 	}
 	if viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose") {

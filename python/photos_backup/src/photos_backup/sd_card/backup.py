@@ -5,23 +5,24 @@ import subprocess
 import time
 from typing import TYPE_CHECKING
 
+from photos_backup.exclude import exclude_from_arg
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
-    from photos_backup.config import Config
+    from photos_backup.config import SdCardConfig
 
 
 class Backup:
-    def __init__(self, config: Config, dry_run: bool) -> None:
+    def __init__(self, config: SdCardConfig, dry_run: bool) -> None:
         self.dry_run = dry_run
-        self.src_path = config.sd_card_src_path
-        self.dst_path = config.sd_card_dst_path
-        self.exclude_file = config.sd_card_exclude_file
+        self.src_path = config.source
+        self.dst_path = config.destination
+        self.exclude_file = config.exclude_file
 
     def backup(self) -> BackupSummary:
         self.dst_path.mkdir(parents=True, exist_ok=True)
         dry_run = "--dry-run" if self.dry_run else ""
-        exclude = "" if not self.exclude_file else f"--exclude-from={self.exclude_file}"
+        exclude = exclude_from_arg(self.exclude_file)
         cmd = f"""rsync -a --progress --stats \
             {dry_run} \
             {exclude} \

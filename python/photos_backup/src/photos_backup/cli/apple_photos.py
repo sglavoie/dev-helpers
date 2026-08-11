@@ -1,13 +1,15 @@
 import click
 
 from photos_backup.apple_photos.export import ApplePhotosExport
-from photos_backup.config import Config
-from photos_backup.summary import print_summary
+from photos_backup.archive import open_archive
+from photos_backup.cli.context import config_path_from
+from photos_backup.config import load_apple_photos_config
+from photos_backup.summary import print_export_result
 
 
 @click.command(
     name="apple-photos",
-    help="Work with Apple Photos. Extra flags are forwarded to osxphotos export.",
+    help="Export Apple Photos manually. Extra flags are forwarded to osxphotos.",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
 @click.option(
@@ -17,14 +19,19 @@ from photos_backup.summary import print_summary
 )
 @click.pass_context
 def apple_photos(ctx: click.Context, testing: bool) -> None:
-    config = Config.from_env()
-    extra_kwargs = _parse_extra_args(ctx.args)
-    summary = ApplePhotosExport(
-        config=config,
-        testing=testing,
-        extra_kwargs=extra_kwargs,
-    ).export()
-    print_summary(summary)
+    config = load_apple_photos_config(config_path_from(ctx))
+    extra_arguments = _parse_extra_args(ctx.args)
+    with open_archive(config, dry_run=testing) as archive:
+        result = ApplePhotosExport(
+            config=config,
+            archive=archive,
+            verbose=testing,
+            limit=config.limit_export if testing else 0,
+            extra_arguments=extra_arguments,
+        ).export()
+    print_export_result(result, dry_run=testing)
+    if not result.clean:
+        raise click.ClickException(str(result.failure_reason()))
 
 
 def _parse_extra_args(args: list[str]) -> dict:

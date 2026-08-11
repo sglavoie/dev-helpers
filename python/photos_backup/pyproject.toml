@@ -6,7 +6,6 @@ authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
     "click>=8.4.2",
     "osxphotos>=0.76.1",
-    "python-dotenv>=1.2.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
@@ -21,6 +20,7 @@ dev = [
 ]
 
 [project.scripts]
+photos-backup = "photos_backup.cli.cli:cli"
 cli = "photos_backup.cli.cli:cli"
 
 [tool.hatch.metadata]

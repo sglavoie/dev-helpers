@@ -8,16 +8,7 @@ from pathlib import Path
 from photos_backup.apple_photos.late_additions import (
     generate_late_photo_additions_report,
 )
-from photos_backup.config import parse_csv_env
-from photos_backup.summary import parse_apple_photos_csv
-
-
-class ConfigTests(unittest.TestCase):
-    def test_parse_csv_env_trims_empty_values(self) -> None:
-        self.assertEqual(
-            parse_csv_env(" iPhone SE (2nd generation),, iPhone 17 "),
-            ("iPhone SE (2nd generation)", "iPhone 17"),
-        )
+from photos_backup.summary import read_export_report
 
 
 class ApplePhotosCsvTests(unittest.TestCase):
@@ -72,7 +63,7 @@ class ApplePhotosCsvTests(unittest.TestCase):
                     }
                 )
 
-            counts = parse_apple_photos_csv(str(report_path))
+            counts = read_export_report(report_path).counts
 
         self.assertEqual(counts["exported"], 2)
         self.assertEqual(counts["new"], 1)
@@ -86,9 +77,7 @@ class ApplePhotosCsvTests(unittest.TestCase):
             with report_path.open("w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=["filename", "export_status"])
                 writer.writeheader()
-                writer.writerow(
-                    {"filename": "/tmp/new.heic", "export_status": "new"}
-                )
+                writer.writerow({"filename": "/tmp/new.heic", "export_status": "new"})
                 writer.writerow(
                     {"filename": "/tmp/updated.heic", "export_status": "updated"}
                 )
@@ -96,7 +85,7 @@ class ApplePhotosCsvTests(unittest.TestCase):
                     {"filename": "/tmp/skipped.heic", "export_status": "skipped"}
                 )
 
-            counts = parse_apple_photos_csv(str(report_path))
+            counts = read_export_report(report_path).counts
 
         self.assertEqual(counts, {"new": 1, "updated": 1, "skipped": 1})
 

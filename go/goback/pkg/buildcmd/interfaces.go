@@ -1,7 +1,6 @@
 package buildcmd
 
 import (
-	"database/sql"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
@@ -14,7 +13,6 @@ type builder struct {
 	updatedDestDir     string
 	updatedSrc         string
 	builderType        models.BackupTypes
-	db                 *sql.DB
 	hasIncludePatterns bool
 	exitCode           int
 }

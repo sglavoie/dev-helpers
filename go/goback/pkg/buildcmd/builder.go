@@ -2,20 +2,41 @@ package buildcmd
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/spf13/viper"
 )
+
+// ExecutionResult reports how the rsync command ended. An interruption is
+// reported separately from a failure because the two lead to different
+// decisions about what may run afterwards.
+type ExecutionResult struct {
+	Interrupted bool
+	ExitCode    int
+	Duration    time.Duration
+	Err         error
+}
+
+// RequireRsync reports whether rsync can be executed at all.
+func RequireRsync() error {
+	if _, err := exec.LookPath("rsync"); err != nil {
+		return fmt.Errorf("rsync not found in PATH: %w", err)
+	}
+	return nil
+}
+
+// IsDryRun reports whether a backup type transfers nothing, either because its
+// profile configures a dry run or because --dry-run was passed.
+func IsDryRun(backupType string) bool {
+	return viper.GetBool(config.ActiveProfilePrefix()+"rsync."+backupType+".dryRun") || viper.GetBool("cliDryRun")
+}
 
 func (r *builder) BuildNoCheck() {
 	r.build()
@@ -29,43 +50,39 @@ func (r *builder) BuildCheck() error {
 	return r.validateBeforeRun()
 }
 
-func (r *builder) Execute() error {
-	if _, err := exec.LookPath("rsync"); err != nil {
-		return fmt.Errorf("rsync not found in PATH: %w", err)
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
+func (r *builder) Execute(ctx context.Context) ExecutionResult {
 	cmd := exec.CommandContext(ctx, "bash", "-c", r.CommandString())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	start := time.Now()
 	err := cmd.Run()
-	r.executionTime = time.Since(start).String()
+	duration := time.Since(start)
+	r.executionTime = duration.String()
 
 	if ctx.Err() != nil {
 		fmt.Println("\nBackup interrupted, cleaning up...")
-		return fmt.Errorf("backup interrupted")
+		return ExecutionResult{
+			Interrupted: true,
+			ExitCode:    -1,
+			Duration:    duration,
+			Err:         fmt.Errorf("backup interrupted"),
+		}
 	}
 
 	if err != nil {
 		fmt.Println("Error running rsync command: ", err)
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			r.exitCode = exitErr.ExitCode()
 		} else {
 			r.exitCode = 1
 		}
-		if !viper.GetBool("cliDryRun") {
-			r.updateDBWithUsage()
-		}
-		return err
 	}
 	if !viper.GetBool("cliDryRun") {
 		r.updateDBWithUsage()
 	}
-	return nil
+	return ExecutionResult{ExitCode: r.exitCode, Duration: duration, Err: err}
 }
 
 func (r *builder) build() {
@@ -85,22 +102,13 @@ func (r *builder) initBuilder() {
 	r.sb.WriteString("rsync")
 }
 
-func (r *builder) insertIntoDb() {
-	createdAt := time.Now().Format("2006-01-02 15:04:05")
-	_, err := r.db.Exec("INSERT INTO backups VALUES(NULL,?,?,?,?,?,?);", createdAt, r.builderType.String(), r.executionTime, r.CommandString(), config.ActiveProfileName, r.exitCode)
-	if err != nil {
-		log.Printf("warning: failed to record backup in history: %v", err)
-	}
-}
-
 func (r *builder) updateDBWithUsage() {
-	db.CreateDatabaseFileIfNotExists()
-
-	db.WithDb(func(sqldb *sql.DB) {
-		db.CreateTableIfNotExists(sqldb)
-		db.MigrateProfileColumn(sqldb)
-		db.MigrateExitCodeColumn(sqldb)
-		r.db = sqldb
-		r.insertIntoDb()
+	db.RecordBackup(db.HistoryEntry{
+		CreatedAt:     time.Now(),
+		BackupType:    r.builderType.String(),
+		ExecutionTime: r.executionTime,
+		Command:       r.CommandString(),
+		Profile:       config.ActiveProfileName,
+		ExitCode:      r.exitCode,
 	})
 }

@@ -15,6 +15,7 @@ select = ["E101", "E4", "E7", "E9", "F", "PL", "W"]
 ignore = [
     "E402",    # module-import-not-at-top-of-file
     "PLR0913", # too-many-arguments
+    "PLR0917", # too-many-positional-arguments
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

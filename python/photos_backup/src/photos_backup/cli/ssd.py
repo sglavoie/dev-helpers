@@ -1,6 +1,16 @@
+from __future__ import annotations
+
+from pathlib import Path
+
 import click
 
-from photos_backup.config import Config
+from photos_backup.cli.context import config_path_from
+from photos_backup.config import (
+    MissingSection,
+    SdCardConfig,
+    load_sd_card_config,
+    load_ssd_config,
+)
 from photos_backup.ssd.backup import Backup
 from photos_backup.summary import print_summary
 
@@ -16,15 +26,25 @@ from photos_backup.summary import print_summary
     is_flag=True,
     help="Dry run.",
 )
+@click.pass_context
 def ssd(
+    ctx: click.Context,
     delete: bool,
     dry_run: bool,
 ) -> None:
-    config = Config.from_env()
+    config_path = config_path_from(ctx)
     summaries = Backup(
-        config=config,
+        config=load_ssd_config(config_path),
         delete_at_destination=delete,
         dry_run=dry_run,
+        sd_card=load_optional_sd_card_config(config_path),
     ).backup()
     for summary in summaries:
         print_summary(summary)
+
+
+def load_optional_sd_card_config(config_path: Path | None) -> SdCardConfig | None:
+    try:
+        return load_sd_card_config(config_path)
+    except MissingSection:
+        return None

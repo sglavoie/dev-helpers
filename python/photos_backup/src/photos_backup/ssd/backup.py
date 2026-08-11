@@ -8,24 +8,27 @@ from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.exclude import exclude_from_arg
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
-    from photos_backup.config import Config
+    from photos_backup.config import SdCardConfig, SsdConfig
 
 
 class Backup:
     def __init__(
-        self, config: Config, delete_at_destination: bool, dry_run: bool
+        self,
+        config: SsdConfig,
+        delete_at_destination: bool,
+        dry_run: bool,
+        sd_card: SdCardConfig | None = None,
     ) -> None:
         self.delete_at_destination = delete_at_destination
         self.dry_run = dry_run
-        self.all_photos_path = config.all_photos_path
-        self.all_photos_exclude_file = config.all_photos_exclude_file
-        self.apple_photos_path = config.apple_photos_dst_path
-        self.sd_card_path = config.sd_card_dst_path
-        self.sd_card_exclude_file = config.sd_card_exclude_file
-        self.ssd_dst_path = config.ssd_dst_path
+        self.source = config.source
+        self.exclude_file = config.exclude_file
+        self.destination = config.destination
+        self.sd_card = sd_card
 
     def _run_rsync(
         self, step_name: str, src_path: Path, exclude: str = ""
@@ -39,7 +42,7 @@ class Backup:
         cmd = f"""rsync -avh --progress --stats {delete} \
             {dry_run} \
             {exclude} \
-            {src_path} {self.ssd_dst_path}"""
+            {src_path} {self.destination}"""
 
         start = time.monotonic()
         result = subprocess.run(
@@ -59,23 +62,21 @@ class Backup:
         )
 
     def backup(self) -> list[BackupSummary]:
-        self.ssd_dst_path.mkdir(parents=True, exist_ok=True)
-        exclude_all_photos = (
-            ""
-            if not self.all_photos_exclude_file
-            else f"--exclude-from={self.all_photos_exclude_file}"
-        )
-        exclude_sd_card = (
-            ""
-            if not self.sd_card_exclude_file
-            else f"--exclude-from={self.sd_card_exclude_file}"
-        )
+        self.destination.mkdir(parents=True, exist_ok=True)
 
         summaries = [
             self._run_rsync(
-                "SSD: All Photos", self.all_photos_path, exclude_all_photos
-            ),
-            self._run_rsync("SSD: Apple Photos", self.apple_photos_path),
-            self._run_rsync("SSD: SD Card", self.sd_card_path, exclude_sd_card),
+                "SSD: All Photos", self.source, exclude_from_arg(self.exclude_file)
+            )
         ]
+        if self.sd_card is None:
+            summaries.append(BackupSummary(step_name="SSD: SD Card", skipped=True))
+        else:
+            summaries.append(
+                self._run_rsync(
+                    "SSD: SD Card",
+                    self.sd_card.destination,
+                    exclude_from_arg(self.sd_card.exclude_file),
+                )
+            )
         return summaries

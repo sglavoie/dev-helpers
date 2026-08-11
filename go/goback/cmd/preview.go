@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +51,12 @@ func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.Back
 		case showExcluded:
 			buildcmd.TestAllExcluded(backupType, subdir, depth)
 		default:
-			return buildFn()
+			if err := buildFn(); err != nil {
+				return err
+			}
+			if _, daily := backupType.(models.Daily); daily {
+				return run.PrintCompanions(os.Stdout)
+			}
 		}
 		return nil
 	})

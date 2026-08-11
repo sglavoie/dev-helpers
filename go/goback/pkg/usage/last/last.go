@@ -2,7 +2,6 @@ package last
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
@@ -19,11 +18,6 @@ func Summary() {
 	querySummaryBackupTypes(func(rows *sql.Rows) {
 		view.SqlToTextSummary(rows)
 	})
-}
-
-func SummaryWithLineBreak() {
-	fmt.Println()
-	Summary()
 }
 
 func queryAllLatestBackupTypes(e int, callback func(*sql.Rows)) {

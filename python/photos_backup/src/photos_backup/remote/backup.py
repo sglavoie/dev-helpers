@@ -4,17 +4,21 @@ import re
 import shutil
 import subprocess
 import time
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
-from photos_backup.config import Config
 from photos_backup.summary import BackupSummary
+
+if TYPE_CHECKING:
+    from photos_backup.config import RcloneConfig
 
 
 class Backup:
-    def __init__(self, config: Config, dry_run: bool) -> None:
-        self.remote = config.rclone_remote
-        self.src_path = config.rclone_src_path or config.ssd_dst_path
+    def __init__(self, config: RcloneConfig, source: Path, dry_run: bool) -> None:
+        self.remote = config.remote
+        self.src_path = source
         self.dry_run = dry_run
         self._check_rclone_installed()
 
@@ -25,9 +29,6 @@ class Backup:
             )
 
     def backup(self) -> BackupSummary:
-        if not self.remote:
-            raise click.UsageError("RCLONE_REMOTE is not set in ~/.osxphotos.env")
-
         cmd = [
             "rclone",
             "sync",

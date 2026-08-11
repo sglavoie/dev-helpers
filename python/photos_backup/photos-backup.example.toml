@@ -1,0 +1,46 @@
+# Example configuration for photos_backup.
+# Copy to ~/.config/osxphotos-backup/photos-backup.toml and edit the paths.
+# Every path is expanded for `~` and environment variables, then must be
+# absolute. This file contains no secrets and none should be added to it.
+
+[apple_photos]
+# Removable volume holding the shared archive, and the archive beneath it.
+volume = "/Volumes/SanDisk"
+archive = "/Volumes/SanDisk/Media/Apple Photos"
+library = "~/Pictures/Photos Library.photoslibrary"
+
+# Legacy local export directory. Nothing writes here any more; it is the only
+# directory `photos-backup cleanup-local-export` is allowed to delete.
+legacy_export = "~/Pictures/export"
+
+# Number of assets exported when running in testing mode (0 means no limit).
+limit_export = 100
+spouse_device_models = ["iPhone SE (2nd generation)"]
+
+# Incremental runs re-export the last N days; full runs happen on the given
+# weekday, or as soon as the last full run is older than max age.
+incremental_overlap_days = 14
+full_export_weekday = "monday"
+full_export_max_age_days = 7
+
+# Mirror deletions from the library into the archive, capped so that an
+# unexpected mass deletion needs explicit approval.
+mirror = true
+cleanup_max_assets = 10
+cleanup_max_fraction = 0.001
+
+[sd_card]
+source = "/Volumes/SDSONY/DCIM/100MSDCF"
+destination = "~/Pictures/SDSONY"
+exclude_file = "~/.osxphotos.sd.exclude"
+
+[ssd]
+# Copy the shared archive, not the legacy export, to the second on-site drive.
+source = "/Volumes/SanDisk/Media/Apple Photos"
+destination = "/Volumes/Data/Pictures"
+# exclude_file = "~/.osxphotos.exclude"
+
+[rclone]
+# Remote name as configured with `rclone config`, plus the directory to sync.
+remote = "b2:my-photos-bucket"
+source = "/Volumes/Data/Pictures"
