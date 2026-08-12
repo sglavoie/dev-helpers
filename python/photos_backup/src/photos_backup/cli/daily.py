@@ -34,7 +34,9 @@ def daily(ctx: click.Context, dry_run: bool) -> None:
                 "run 'photos-backup bootstrap' before the first daily run"
             )
         takeover = ensure_writer(config, archive)
-        result = ApplePhotosExport(config=config, archive=archive).export()
+        result = ApplePhotosExport(
+            config=config, archive=archive, plan_only=dry_run
+        ).export()
         mirror = reconcile_mirror(config, archive, result)
 
     if takeover.status is not WriterStatus.UNCHANGED:

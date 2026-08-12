@@ -61,6 +61,7 @@ def backup_all(
                         archive=archive,
                         verbose=dry_run,
                         limit=config.limit_export if dry_run else 0,
+                        plan_only=dry_run,
                     )
                     .export()
                     .summary()

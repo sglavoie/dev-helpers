@@ -177,6 +177,8 @@ def mirror_skip_reason(config: ApplePhotosConfig, result: ExportResult) -> str |
     """Why this export may not reconcile the mirror at all, or None when it may."""
     if not config.mirror:
         return MIRROR_DISABLED
+    if not result.performed:
+        return "the export was only planned"
     if not result.plan.is_full:
         return INCREMENTAL_EXPORT
     if not result.clean:

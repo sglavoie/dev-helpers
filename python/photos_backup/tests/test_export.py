@@ -447,6 +447,15 @@ class DirectExportTests(ExportTestCase):
 
 
 class DryRunExportTests(ExportTestCase):
+    def test_a_planning_only_dry_run_never_invokes_osxphotos(self) -> None:
+        runner = FakeRunner([row("a.jpg", new=1)])
+
+        result = self.run_export(runner, dry_run=True, plan_only=True)
+
+        self.assertIsNone(runner.arguments)
+        self.assertFalse(result.performed)
+        self.assertTrue(result.summary().planned)
+
     def test_a_dry_run_writes_nothing_into_the_archive(self) -> None:
         runner = FakeRunner([row("a.jpg", new=1)])
 

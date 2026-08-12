@@ -303,16 +303,20 @@ class BootstrapTests(ArchiveCommandTestCase):
         self.assertIn("again to resume", result.output)
 
     def test_a_dry_run_explains_the_work_and_succeeds(self) -> None:
+        runner = FakeRunner([row("a.jpg", new=1)])
         result = self.run_bootstrap(
-            FakeRunner([row("a.jpg", new=1)]),
+            runner,
             "--dry-run",
             library=(ASSET,),
             recorded=(),
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIsNone(runner.arguments)
         self.assertIn("Would bootstrap", result.output)
         self.assertIn("Would export", result.output)
+        self.assertIn("Status: PLANNED", result.output)
+        self.assertIn("Coverage: deferred until the real export", result.output)
         self.assertIn("was not initialized", result.output)
         self.assertEqual(list(self.volume.iterdir()), [])
 

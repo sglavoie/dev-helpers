@@ -42,6 +42,7 @@ class ApplePhotosExport:
         runner: ExportRunner | None = None,
         extra_arguments: dict[str, Any] | None = None,
         metadata_reader: MetadataReader | None = None,
+        plan_only: bool = False,
     ) -> None:
         self.config = config
         self.archive = archive
@@ -51,12 +52,15 @@ class ApplePhotosExport:
         self.runner = runner or run_osxphotos_export
         self.extra_arguments = dict(extra_arguments or {})
         self.metadata_reader = metadata_reader or read_spotlight_metadata
+        self.plan_only = plan_only
 
     def export(self) -> ExportResult:
         now = self.archive.now()
         plan = self.plan or plan_export(
             self.config, self.archive.state_store.load(), now
         )
+        if self.plan_only:
+            return ExportResult(plan=plan, exit_code=0, performed=False)
         if self.archive.dry_run:
             with tempfile.TemporaryDirectory() as scratch:
                 return self._run(plan, now, Path(scratch) / DRY_RUN_REPORT_NAME, None)

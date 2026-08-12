@@ -9,6 +9,12 @@ func setDefaultValues() {
 	viper.Set("editor", "")
 	setDaily()
 	setWeekly()
+	setMirror()
+}
+
+func setMirror() {
+	viper.Set(MirrorKey+".source", DefaultMirrorSource)
+	viper.Set(MirrorKey+".destination", DefaultMirrorDestination)
 }
 
 func setDaily() {

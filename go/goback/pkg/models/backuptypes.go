@@ -23,6 +23,12 @@ func (Monthly) String() string {
 	return "monthly"
 }
 
+type Mirror struct{}
+
+func (Mirror) String() string {
+	return "mirror"
+}
+
 type NoBackupType struct{}
 
 func (NoBackupType) String() string {

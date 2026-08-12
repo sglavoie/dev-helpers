@@ -51,6 +51,7 @@ class ExportResult:
     elapsed_seconds: float = 0.0
     state_advanced: bool = False
     report_problem: str | None = None
+    performed: bool = True
 
     @property
     def error_count(self) -> int:
@@ -74,6 +75,7 @@ class ExportResult:
             step_name="Apple Photos",
             files_transferred=self.files_transferred,
             elapsed_seconds=self.elapsed_seconds,
+            planned=not self.performed,
             error=None if self.clean else self.failure_reason(),
         )
 

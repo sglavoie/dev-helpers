@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/last"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/reset"
@@ -86,43 +89,53 @@ func init() {
 	resetUsageCmd.Flags().BoolP("daily", "d", false, "Remove by daily usage")
 	resetUsageCmd.Flags().BoolP("weekly", "w", false, "Remove by weekly usage")
 	resetUsageCmd.Flags().BoolP("monthly", "m", false, "Remove by monthly usage")
+	resetUsageCmd.Flags().Bool("mirror", false, "Remove by mirror usage")
 
 	viewUsageCmd.Flags().IntP("entries", "e", 20, "Number of entries to display")
 	viewUsageCmd.Flags().BoolP("daily", "d", false, "Display by daily usage")
 	viewUsageCmd.Flags().BoolP("weekly", "w", false, "Display by weekly usage")
 	viewUsageCmd.Flags().BoolP("monthly", "m", false, "Display by monthly usage")
+	viewUsageCmd.Flags().Bool("mirror", false, "Display by mirror usage")
 }
 
-func parseBuilderTypeFlags(cmd *cobra.Command) (builderType models.BackupTypes) {
-	d, err := cmd.Flags().GetBool("daily")
-	cobra.CheckErr(err)
-	w, err := cmd.Flags().GetBool("weekly")
-	cobra.CheckErr(err)
-	m, err := cmd.Flags().GetBool("monthly")
-	cobra.CheckErr(err)
-
-	flagCount := 0
-	if d {
-		flagCount++
-	}
-	if w {
-		flagCount++
-	}
-	if m {
-		flagCount++
-	}
-	if flagCount > 1 {
-		cobra.CheckErr("Only one of daily, weekly, or monthly can be set")
+func parseBuilderTypeFlags(cmd *cobra.Command) models.BackupTypes {
+	selected := make(map[string]bool, len(backupTypeSelectors))
+	for _, selector := range backupTypeSelectors {
+		set, err := cmd.Flags().GetBool(selector.flag)
+		cobra.CheckErr(err)
+		selected[selector.flag] = set
 	}
 
-	if d {
-		return models.Daily{}
+	backupType, err := selectBackupType(selected)
+	cobra.CheckErr(err)
+	return backupType
+}
+
+// backupTypeSelectors are the mutually exclusive flags that narrow a usage
+// command to one backup type, in the order they are reported.
+var backupTypeSelectors = []struct {
+	flag       string
+	backupType models.BackupTypes
+}{
+	{"daily", models.Daily{}},
+	{"weekly", models.Weekly{}},
+	{"monthly", models.Monthly{}},
+	{"mirror", models.Mirror{}},
+}
+
+func selectBackupType(selected map[string]bool) (models.BackupTypes, error) {
+	var chosen []string
+	backupType := models.BackupTypes(models.NoBackupType{})
+	for _, selector := range backupTypeSelectors {
+		if !selected[selector.flag] {
+			continue
+		}
+		chosen = append(chosen, selector.flag)
+		backupType = selector.backupType
 	}
-	if w {
-		return models.Weekly{}
+
+	if len(chosen) > 1 {
+		return models.NoBackupType{}, fmt.Errorf("only one of daily, weekly, monthly, or mirror can be set, but %s were", strings.Join(chosen, ", "))
 	}
-	if m {
-		return models.Monthly{}
-	}
-	return models.NoBackupType{}
+	return backupType, nil
 }

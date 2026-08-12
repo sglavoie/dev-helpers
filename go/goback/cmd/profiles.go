@@ -14,7 +14,7 @@ import (
 // before each profile when running multiple profiles, and handles eject once
 // after all profiles complete. If any profile fails, it prints the error and
 // continues to the next profile. After all profiles complete, it exits with
-// code 1 if any profile failed.
+// code 1 if any profile failed or any volume could not be ejected.
 func forEachProfile(action func() error) {
 	profiles := profilesToRun()
 	ejectOnExit := viper.GetBool("ejectOnExit")
@@ -42,8 +42,11 @@ func forEachProfile(action func() error) {
 		}
 	}
 
-	if ejectOnExit {
-		eject.EjectPaths(destinations)
+	if ejectOnExit && len(destinations) > 0 {
+		if err := eject.EjectPaths(os.Stdout, destinations, eject.OSDeps()); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			anyFailed = true
+		}
 	}
 
 	if anyFailed {

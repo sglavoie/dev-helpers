@@ -38,6 +38,7 @@ class BackupSummary:
     total_size: str = ""
     elapsed_seconds: float = 0.0
     skipped: bool = False
+    planned: bool = False
     error: str | None = None
 
 
@@ -150,7 +151,9 @@ def print_summary(summary: BackupSummary) -> None:
     """Print a formatted summary for a single backup step."""
     click.echo()
     click.echo(f"--- {summary.step_name} ---")
-    if summary.skipped:
+    if summary.planned:
+        click.echo("  Status: PLANNED — command was not invoked")
+    elif summary.skipped:
         click.echo("  Status: SKIPPED")
     elif summary.error:
         click.echo(f"  Status: ERROR — {summary.error}")
@@ -210,10 +213,13 @@ def print_bootstrap_result(result: BootstrapResult, *, dry_run: bool = False) ->
     print_export_result(result.export, dry_run=dry_run)
 
     coverage = result.coverage
-    click.echo(
-        f"Coverage: {coverage.library - len(coverage.unrecorded)} of "
-        f"{coverage.library} library asset(s) recorded in the export database"
-    )
+    if coverage is None:
+        click.echo("Coverage: deferred until the real export")
+    else:
+        click.echo(
+            f"Coverage: {coverage.library - len(coverage.unrecorded)} of "
+            f"{coverage.library} library asset(s) recorded in the export database"
+        )
 
     reason = result.blocking_reason()
     if result.initialized:
@@ -337,6 +343,8 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
         if s.error:
             has_errors = True
             status = f"ERROR: {s.error}"
+        elif s.planned:
+            status = "PLANNED"
         elif s.skipped:
             status = "SKIPPED"
         else:

@@ -131,8 +131,9 @@ archive that holds other content but no `.photos-backup` metadata is refused
 with exit 3, naming what it found, rather than exporting into someone else's
 directory.
 
-A `--dry-run` prints the export and the coverage it would have to reach, writes
-nothing, and never initializes.
+A `bootstrap --dry-run` validates the archive and prints the full export plan,
+but does not invoke osxphotos or scan the Photos library for coverage. Coverage
+is checked after the real export. It writes nothing and never initializes.
 
 ### Verifying an archive
 
@@ -192,9 +193,10 @@ yet, so the evidence always belongs to the run being judged: a second export on
 the same host and day that writes no report fails instead of inheriting the
 first export's report.
 
-A dry run writes its report to a temporary directory, skips the late-additions
-report, touches neither `export.db` nor `state.json`, and prints the export it
-would have run.
+Operational dry runs (`bootstrap`, `daily`, and `backup-all`) are planning-only:
+they do not invoke osxphotos, write reports, or touch `export.db` or `state.json`.
+The manual `apple-photos --testing` command is the deliberate exception: it runs
+a limited osxphotos simulation for exporter development without writing assets.
 
 ### Mirroring deletions
 

@@ -16,6 +16,11 @@ type HistoryEntry struct {
 	ExitCode      int
 }
 
+// MirrorProfile is the profile recorded for a mirror. A mirror is one global
+// operation described by the top-level mirror configuration, so it belongs to
+// no profile.
+const MirrorProfile = "global"
+
 // CompanionBackupType returns the backup_type recorded for a companion.
 func CompanionBackupType(id string) string {
 	return "companion/" + id

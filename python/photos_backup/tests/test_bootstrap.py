@@ -230,24 +230,37 @@ class ResumeBootstrapTests(BootstrapTestCase):
 
 
 class DryRunBootstrapTests(BootstrapTestCase):
-    def test_a_dry_run_writes_nothing_and_never_initializes(self) -> None:
+    def test_a_dry_run_never_invokes_the_exporter_or_initializes(self) -> None:
         runner = FakeRunner([row("a.jpg", new=1)])
 
         result = self.bootstrap(runner, library=(asset("a"),), after=(), dry_run=True)
 
-        self.assertTrue(runner.arguments["dry_run"])
+        self.assertIsNone(runner.arguments)
+        self.assertFalse(result.export.performed)
         self.assertFalse(result.initialized)
         self.assertFalse(self.archive_root.exists())
         self.assertEqual(list(self.volume.iterdir()), [])
 
-    def test_a_dry_run_reports_the_coverage_it_would_have_to_reach(self) -> None:
-        result = self.bootstrap(
-            FakeRunner(), library=(asset("a"), asset("b")), after=(), dry_run=True
-        )
+    def test_a_dry_run_defers_the_expensive_library_coverage_scan(self) -> None:
+        runner = FakeRunner()
 
-        self.assertEqual(result.coverage.library, 2)
-        self.assertEqual(len(result.coverage.unrecorded), 2)
-        self.assertIn("no export-database record", str(result.blocking_reason()))
+        def unexpected_library_read(_path: Path):
+            self.fail("a planning-only bootstrap must not scan the Photos library")
+
+        with self.archive(dry_run=True) as opened:
+            result = bootstrap_archive(
+                self.config,
+                opened,
+                probes=PhotosProbes(
+                    read_library=unexpected_library_read,
+                    read_export_db=lambda _: (),
+                ),
+                runner=runner,
+            )
+
+        self.assertIsNone(runner.arguments)
+        self.assertIsNone(result.coverage)
+        self.assertIsNone(result.blocking_reason())
 
 
 if __name__ == "__main__":

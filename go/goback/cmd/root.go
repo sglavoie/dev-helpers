@@ -16,13 +16,16 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Parent().Name() != "config" {
-			if err := config.MustInitConfig(true, true); err != nil {
-				return err
-			}
-			return config.ResolveProfiles()
+		if cmd.Parent().Name() == "config" {
+			return config.MustInitConfig(false, false)
 		}
-		return config.MustInitConfig(false, false)
+		if err := config.MustInitConfig(true, true); err != nil {
+			return err
+		}
+		if !needsProfileResolution(cmd) {
+			return nil
+		}
+		return config.ResolveProfiles()
 	},
 }
 

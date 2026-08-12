@@ -32,7 +32,7 @@ class BootstrapResult:
 
     takeover: TakeoverCheck
     export: ExportResult
-    coverage: CoverageReport
+    coverage: CoverageReport | None
     resumed: bool
     initialized_at: datetime.datetime | None = None
 
@@ -49,7 +49,7 @@ class BootstrapResult:
                 f"{self.export.missing_count} asset(s) could not be downloaded "
                 "from iCloud, so the export is not complete"
             )
-        if not self.coverage.complete:
+        if self.coverage is not None and not self.coverage.complete:
             return (
                 f"{len(self.coverage.unrecorded)} of {self.coverage.library} library "
                 "asset(s) have no export-database record"
@@ -83,12 +83,15 @@ def bootstrap_archive(
         plan=plan,
         runner=runner,
         metadata_reader=metadata_reader,
+        plan_only=archive.dry_run,
     ).export()
 
-    coverage = assess_coverage(
-        active.read_library(config.library),
-        active.read_export_db(archive.paths.export_db),
-    )
+    coverage = None
+    if not archive.dry_run:
+        coverage = assess_coverage(
+            active.read_library(config.library),
+            active.read_export_db(archive.paths.export_db),
+        )
     result = BootstrapResult(
         takeover=takeover, export=export, coverage=coverage, resumed=resumed
     )

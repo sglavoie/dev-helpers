@@ -476,6 +476,18 @@ class RefusedMirrorTests(MirrorTestCase):
         self.assert_nothing_happened(outcome)
         self.assertEqual(outcome.reason, MIRROR_DISABLED)
 
+    def test_a_planned_export_never_reconciles_or_deletes(self) -> None:
+        planned = ExportResult(
+            plan=ExportPlan(ExportMode.FULL, "weekly"),
+            exit_code=0,
+            performed=False,
+        )
+
+        outcome = self.reconcile(result=planned)
+
+        self.assert_nothing_happened(outcome)
+        self.assertEqual(outcome.reason, "the export was only planned")
+
     def test_a_dry_run_previews_without_writing_anything(self) -> None:
         outcome = self.reconcile(dry_run=True)
 
