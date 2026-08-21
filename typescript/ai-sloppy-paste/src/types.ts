@@ -25,7 +25,6 @@ export interface SnippetFormValues {
   title: string;
   content: string;
   description?: string;
-  tags: string; // Comma-separated tag string from TextField
 }
 
 export interface ExportData {

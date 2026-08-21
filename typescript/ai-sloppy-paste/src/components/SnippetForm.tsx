@@ -2,9 +2,10 @@ import { Action, ActionPanel, Clipboard, Form, Icon, Keyboard, showToast, Toast,
 import { useEffect, useMemo, useState } from "react";
 import { Snippet, SnippetFormValues } from "../types";
 import { addSnippet, updateSnippet } from "../utils/storage";
-import { validateTitle, validateContent, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "../utils/validation";
+import { validateTitle, validateContent, getCharacterInfo, VALIDATION_LIMITS } from "../utils/validation";
 import { getErrorMessage } from "../utils/errorMessage";
 import { PlaceholderSyntaxHelp } from "./PlaceholderSyntaxHelp";
+import { TagPickerView } from "./TagPickerView";
 import { buildSnippetPreview } from "../utils/snippetPreview";
 
 const SYNTAX_HELPERS: { title: string; subtitle: string; content: string; icon: Icon; key: Keyboard.KeyEquivalent }[] =
@@ -49,8 +50,6 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
   const [titleCharInfo, setTitleCharInfo] = useState("");
   const [contentCharInfo, setContentCharInfo] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>(props.snippet?.tags || []);
-  const [newTagInput, setNewTagInput] = useState<string>("");
-  const [newTagError, setNewTagError] = useState<string | undefined>();
   const [contentValue, setContentValue] = useState(props.snippet?.content || "");
 
   const previewString = useMemo(() => buildSnippetPreview(contentValue), [contentValue]);
@@ -64,41 +63,6 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       setContentCharInfo(contentInfo.info);
     }
   }, [props.snippet]);
-
-  // Handle adding a new tag
-  function handleAddTag() {
-    const trimmedTag = newTagInput.trim();
-
-    if (!trimmedTag) {
-      return;
-    }
-
-    // Validate the tag
-    const tagValidation = validateTag(trimmedTag);
-    if (!tagValidation.isValid) {
-      setNewTagError(tagValidation.error);
-      return;
-    }
-
-    const tagToAdd = tagValidation.normalizedValue ?? trimmedTag;
-
-    // Check if tag already exists
-    if (selectedTags.includes(tagToAdd)) {
-      setNewTagError("Tag already added");
-      return;
-    }
-
-    // Add the tag
-    setSelectedTags([...selectedTags, tagToAdd]);
-    setNewTagInput("");
-    setNewTagError(undefined);
-
-    showToast({
-      style: Toast.Style.Success,
-      title: "Tag added",
-      message: tagValidation.normalizedValue ? `Tag saved as '${tagValidation.normalizedValue}'` : tagToAdd,
-    });
-  }
 
   async function handleSubmit(values: SnippetFormValues) {
     // Validation
@@ -159,11 +123,18 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
       actions={
         <ActionPanel>
           <Action.SubmitForm title={props.snippet ? "Update Snippet" : "Create Snippet"} onSubmit={handleSubmit} />
-          <Action
-            title="Add Tag"
-            icon={Icon.Plus}
+          <Action.Push
+            title="Edit Tags"
+            icon={Icon.Tag}
             shortcut={{ modifiers: ["cmd"], key: "t" }}
-            onAction={handleAddTag}
+            target={
+              <TagPickerView
+                navigationTitle="Edit Tags"
+                initialTags={selectedTags}
+                allTags={props.tags}
+                onTagsChange={setSelectedTags}
+              />
+            }
           />
           <ActionPanel.Submenu
             title="Insert Placeholder Syntax"
@@ -258,44 +229,8 @@ export function SnippetForm(props: { snippet?: Snippet; onSubmit: () => void; ta
         enableMarkdown={true}
       />
       <Form.Separator />
-      <Form.TagPicker
-        id="tags"
-        title="Tags"
-        value={selectedTags}
-        onChange={setSelectedTags}
-        placeholder="Select tags to add to this snippet"
-      >
-        {(() => {
-          // Combine existing tags with any newly created tags that aren't in the list yet
-          const allTags = Array.from(new Set([...props.tags, ...selectedTags])).sort();
-
-          return allTags.length > 0 ? (
-            allTags.map((tag) => {
-              // Calculate display: show hierarchy with visual indentation
-              const parts = tag.split("/");
-              const depth = parts.length - 1;
-              const indent = "  ".repeat(depth); // 2 spaces per level
-
-              return <Form.TagPicker.Item key={tag} value={tag} title={`${indent}${tag}`} icon={Icon.Tag} />;
-            })
-          ) : (
-            <Form.TagPicker.Item value="" title="No tags available" />
-          );
-        })()}
-      </Form.TagPicker>
-      <Form.TextField
-        id="newTag"
-        title="Add New Tag"
-        placeholder="e.g., work/projects or personal"
-        value={newTagInput}
-        error={newTagError}
-        info="Type a tag name and press Cmd+T to add it"
-        onChange={(value) => {
-          setNewTagInput(value);
-          setNewTagError(undefined);
-        }}
-      />
-      <Form.Description text="Press Cmd+T to add tags. Tags appear as badges above - click to remove. Use slashes for hierarchy (e.g., work/projects). No spaces - use dashes (e.g., my-project)." />
+      <Form.Description title="Tags" text={selectedTags.join(", ") || "None"} />
+      <Form.Description text="Press Cmd+T from any field to filter, toggle, and create tags. Use slashes for hierarchy (e.g., work/projects). No spaces - use dashes (e.g., my-project)." />
     </Form>
   );
 }

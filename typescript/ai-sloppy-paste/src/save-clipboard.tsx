@@ -1,8 +1,9 @@
 import { Action, ActionPanel, Clipboard, Form, Icon, popToRoot, showToast, Toast } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { addSnippet, getTags } from "./utils/storage";
-import { validateTitle, validateTag, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
+import { validateTitle, getCharacterInfo, VALIDATION_LIMITS } from "./utils/validation";
 import { getErrorMessage } from "./utils/errorMessage";
+import { TagPickerView } from "./components/TagPickerView";
 
 export default function SaveClipboardCommand() {
   const [clipboardContent, setClipboardContent] = useState<string>("");
@@ -11,8 +12,6 @@ export default function SaveClipboardCommand() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [titleError, setTitleError] = useState<string | undefined>();
   const [titleCharInfo, setTitleCharInfo] = useState("");
-  const [newTagInput, setNewTagInput] = useState<string>("");
-  const [newTagError, setNewTagError] = useState<string | undefined>();
 
   useEffect(() => {
     async function loadData() {
@@ -61,37 +60,6 @@ export default function SaveClipboardCommand() {
     return firstLine.substring(0, maxLength - 3) + "...";
   }
 
-  function handleAddTag() {
-    const trimmedTag = newTagInput.trim();
-
-    if (!trimmedTag) {
-      return;
-    }
-
-    const tagValidation = validateTag(trimmedTag);
-    if (!tagValidation.isValid) {
-      setNewTagError(tagValidation.error);
-      return;
-    }
-
-    const tagToAdd = tagValidation.normalizedValue ?? trimmedTag;
-
-    if (selectedTags.includes(tagToAdd)) {
-      setNewTagError("Tag already added");
-      return;
-    }
-
-    setSelectedTags([...selectedTags, tagToAdd]);
-    setNewTagInput("");
-    setNewTagError(undefined);
-
-    showToast({
-      style: Toast.Style.Success,
-      title: "Tag added",
-      message: tagValidation.normalizedValue ? `Tag saved as '${tagValidation.normalizedValue}'` : tagToAdd,
-    });
-  }
-
   async function handleSubmit(values: { title: string }) {
     const titleValidation = validateTitle(values.title);
     if (!titleValidation.isValid) {
@@ -132,7 +100,19 @@ export default function SaveClipboardCommand() {
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Save Snippet" icon={Icon.Plus} onSubmit={handleSubmit} />
-          <Action title="Add Tag" icon={Icon.Tag} shortcut={{ modifiers: ["cmd"], key: "t" }} onAction={handleAddTag} />
+          <Action.Push
+            title="Edit Tags"
+            icon={Icon.Tag}
+            shortcut={{ modifiers: ["cmd"], key: "t" }}
+            target={
+              <TagPickerView
+                navigationTitle="Edit Tags"
+                initialTags={selectedTags}
+                allTags={availableTags}
+                onTagsChange={setSelectedTags}
+              />
+            }
+          />
         </ActionPanel>
       }
     >
@@ -154,38 +134,8 @@ export default function SaveClipboardCommand() {
         title="Content Preview"
         text={clipboardContent.substring(0, 200) + (clipboardContent.length > 200 ? "..." : "")}
       />
-      <Form.TagPicker
-        id="tags"
-        title="Tags"
-        value={selectedTags}
-        onChange={setSelectedTags}
-        placeholder="Select tags (optional)"
-      >
-        {(() => {
-          const allTags = Array.from(new Set([...availableTags, ...selectedTags])).sort();
-
-          return allTags.length > 0
-            ? allTags.map((tag) => {
-                const parts = tag.split("/");
-                const depth = parts.length - 1;
-                const indent = "  ".repeat(depth);
-                return <Form.TagPicker.Item key={tag} value={tag} title={`${indent}${tag}`} icon={Icon.Tag} />;
-              })
-            : null;
-        })()}
-      </Form.TagPicker>
-      <Form.TextField
-        id="newTag"
-        title="Add New Tag"
-        placeholder="e.g., work/projects or personal"
-        value={newTagInput}
-        error={newTagError}
-        info="Type a tag name and press Cmd+T to add it"
-        onChange={(value) => {
-          setNewTagInput(value);
-          setNewTagError(undefined);
-        }}
-      />
+      <Form.Description title="Tags" text={selectedTags.join(", ") || "None"} />
+      <Form.Description text="Press Cmd+T from any field to filter, toggle, and create tags. Use slashes for hierarchy (e.g., work/projects)." />
     </Form>
   );
 }

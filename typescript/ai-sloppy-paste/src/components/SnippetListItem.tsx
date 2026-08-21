@@ -12,12 +12,11 @@ import {
   CreateSnippetAction,
   DuplicateSnippetAction,
   EditSnippetAction,
+  EditSnippetTagsAction,
   ImportDataAction,
   ManagePlaceholderHistoryAction,
   ManageTagsAction,
   PasteWithLastValuesAction,
-  QuickAddTagAction,
-  QuickRemoveTagAction,
   SimilarSnippetsAction,
   ToggleArchiveAction,
   ToggleFavoriteAction,
@@ -195,8 +194,7 @@ export function SnippetListItem({
             <SimilarSnippetsAction snippet={snippet} allSnippets={allSnippets} onUpdated={onLoadData} />
             <DuplicateSnippetAction snippet={snippet} onDuplicated={onLoadData} />
             <ToggleArchiveAction snippet={snippet} onToggled={onLoadData} />
-            <QuickAddTagAction snippet={snippet} availableTags={allTags} onUpdated={onLoadData} />
-            <QuickRemoveTagAction snippet={snippet} onUpdated={onLoadData} />
+            <EditSnippetTagsAction snippet={snippet} allTags={allTags} onUpdated={onLoadData} />
             {analytics.isStale && (
               <Action
                 title={`Archive — ${analytics.stalenessReason}`}

@@ -6,16 +6,25 @@ All notable changes to the AI Sloppy Paste extension will be documented in this 
 
 ### Added
 
+- Added a unified tag picker (⌘ + T) whose search bar both filters existing tags and creates new ones; Enter toggles a tag and the picker stays open for the next one.
+- Tags implied by a nested child (for example `work` under `work/projects`) now render dimmed with an "implied" badge instead of silently failing to save.
+
 - Added authored placeholder choices with `{{key[one|two]|default}}` syntax, ordered single-select dropdowns, an always-available Custom entry, repeated-key value sharing, wrapper/no-save composition, and escaped choice literals.
 - Normal insertion keeps authored dropdowns independent of saved history; **Paste with Last Values** can still restore prior authored or custom values, and `!` continues to disable history recording.
 - Snippet authoring now includes choice syntax insertion, parser-backed previews, actionable validation for malformed or conflicting declarations, and expanded inline/detailed documentation.
 
 ### Changed
 
+- **⌘ + T now edits the selected snippet's tags**; tag management (rename, merge, delete) moved to ⌘ + Option + T.
+- Tag edits made from the snippet list save immediately; edits made from a snippet form apply on submit.
 - Pasting now uses a single direct clipboard paste and intentionally leaves the prepared snippet on the clipboard.
 - Removed automatic clipboard restoration and its delay preference to prevent stale clipboard content from winning a paste race.
 - When a target app misses a synthetic paste, `⌘ + V` is the reliable manual fallback; do not retry the extension action because that could duplicate content.
 - Local validation is available through `npm run lint`, `npm test`, and `npm run check`; Raycast Store publishing validation requires a signed-in Raycast Store author account.
+
+### Removed
+
+- Removed the "Quick Add Tag" and "Quick Remove Tag" forms, the `Form.TagPicker`, and the separate "Add New Tag" field; the unified tag picker replaces all three flows.
 
 ## [2.1.0] - Paste-First Update
 

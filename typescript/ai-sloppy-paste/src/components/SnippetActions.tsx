@@ -7,6 +7,7 @@ import {
   toggleArchive,
   togglePin,
   getPlaceholderHistoryForKey,
+  updateSnippet,
 } from "../utils/storage";
 import { findSimilarSnippets } from "../utils/analytics";
 import { getErrorMessage } from "../utils/errorMessage";
@@ -24,7 +25,7 @@ import { SnippetForm } from "./SnippetForm";
 import { ManageTagsView } from "./ManageTagsView";
 import { ManagePlaceholderHistoryView } from "./ManagePlaceholderHistoryView";
 import { ImportForm } from "./ImportForm";
-import { QuickTagForm } from "./QuickTagForm";
+import { TagPickerView } from "./TagPickerView";
 import { SimilarSnippetsView } from "./SimilarSnippetsView";
 
 export function CreateSnippetAction(props: { onCreated: () => void; tags: string[] }) {
@@ -142,42 +143,26 @@ export function ToggleArchiveAction(props: { snippet: Snippet; onToggled: () => 
   );
 }
 
-export function QuickAddTagAction(props: { snippet: Snippet; availableTags: string[]; onUpdated: () => void }) {
+export function EditSnippetTagsAction(props: { snippet: Snippet; allTags: string[]; onUpdated: () => void }) {
   const { push } = useNavigation();
 
   return (
     <Action
-      title="Quick Add Tag"
-      icon={Icon.PlusCircle}
-      shortcut={{ modifiers: ["cmd", "shift"], key: "t" }}
+      title="Edit Tags"
+      icon={Icon.Tag}
+      shortcut={{ modifiers: ["cmd"], key: "t" }}
       onAction={() => {
         push(
-          <QuickTagForm
-            snippet={props.snippet}
-            availableTags={props.availableTags}
-            mode="add"
-            onUpdated={props.onUpdated}
+          <TagPickerView
+            navigationTitle={`Tags for "${props.snippet.title}"`}
+            initialTags={props.snippet.tags}
+            allTags={props.allTags}
+            onTagsChange={async (tags) => {
+              await updateSnippet(props.snippet.id, { tags });
+              props.onUpdated();
+            }}
           />,
         );
-      }}
-    />
-  );
-}
-
-export function QuickRemoveTagAction(props: { snippet: Snippet; onUpdated: () => void }) {
-  const { push } = useNavigation();
-
-  if (props.snippet.tags.length === 0) {
-    return null;
-  }
-
-  return (
-    <Action
-      title="Quick Remove Tag"
-      icon={Icon.MinusCircle}
-      shortcut={{ modifiers: ["cmd", "opt"], key: "t" }}
-      onAction={() => {
-        push(<QuickTagForm snippet={props.snippet} availableTags={[]} mode="remove" onUpdated={props.onUpdated} />);
       }}
     />
   );
@@ -219,7 +204,7 @@ export function ManageTagsAction(props: { onUpdated: () => void; unusedCount?: n
     <Action
       title={title}
       icon={Icon.Tag}
-      shortcut={{ modifiers: ["cmd"], key: "t" }}
+      shortcut={{ modifiers: ["cmd", "opt"], key: "t" }}
       onAction={() => {
         push(<ManageTagsView onUpdated={props.onUpdated} />);
       }}

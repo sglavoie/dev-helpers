@@ -5,8 +5,8 @@ A powerful Raycast extension for storing and quickly pasting text snippets with 
 ## Features
 
 - 🏷️ **Hierarchical Tag System**: Organize snippets with hierarchical tags (e.g., `work/projects/client-a`)
-  - Quick Add dropdown for selecting existing tags
-  - TextField for creating new tags with full hierarchy support
+  - Unified tag picker (⌘ + T) where the search bar filters existing tags and creates new ones
+  - Toggle tags on and off with Enter, without leaving the picker
   - Automatic lowercase normalization
   - Parent/child tag filtering
   - Visual hierarchy in all tag dropdowns and management view
@@ -34,7 +34,8 @@ A powerful Raycast extension for storing and quickly pasting text snippets with 
 - `⌘ + C`: Copy title
 - `⌘ + D`: Toggle detail view
 - `⌘ + A`: Toggle archived snippets view
-- `⌘ + T`: Manage tags
+- `⌘ + T`: Edit tags for the selected snippet (also works inside the snippet forms)
+- `⌘ + Option + T`: Manage tags
 - `⌘ + Shift + E`: Export all snippets
 - `⌘ + Shift + I`: Import snippets
 - `⌘ + Shift + S`: View storage info
@@ -49,13 +50,15 @@ If a synthetic paste is ever missed by the target app, do not repeat the paste a
 
 Tags allow you to organize snippets in multiple categories simultaneously with powerful hierarchy support:
 
-- **Creating snippets**: Use the "Quick Add Tag" dropdown to select existing tags, or type directly in the Tags field
-  - **Quick Add dropdown**: Click to add existing tags instantly (includes hierarchical tags)
-  - **Tags field**: Type comma-separated tags for full control (e.g., `work/projects, personal, urgent`)
-  - Create new hierarchical tags by typing them directly
+- **Assigning tags**: Press ⌘+T from the snippet list or from either snippet form to open the tag picker
+  - The search bar filters existing tags and doubles as the input for new ones
+  - Enter toggles the highlighted tag on or off; the picker stays open for the next tag
+  - An unmatched search shows a "Create and add …" row at the top
+  - From the snippet list, each toggle saves immediately; from a form, changes apply when you submit
 - **Hierarchy**: Use slashes for hierarchical tags (e.g., `work/projects/client-a`)
   - Parent tag filters show all child snippets (selecting `work` shows `work`, `work/projects`, etc.)
-  - Hierarchical display in tag dropdown and management view with indentation
+  - Hierarchical display in the tag dropdown and management view with indentation
+  - A parent tag is implied by its children, so it is shown dimmed and cannot be toggled separately
   - Maximum 5 levels of hierarchy depth
 - **Normalization**: Tags are automatically converted to lowercase for consistency
 - **Validation**: Tags can contain letters, numbers, hyphens, underscores, and slashes (no spaces)
@@ -64,7 +67,7 @@ Tags allow you to organize snippets in multiple categories simultaneously with p
 - **Filtering**: Use the dropdown to filter by a specific tag (includes child tags)
 - **Searching**: Search works across all tags automatically
 - **Untagged**: Snippets without tags are labeled as "untagged"
-- **Management**: Use ⌘+T to view, rename, merge, and delete tags with hierarchical tree view
+- **Management**: Use ⌘+Option+T to view, rename, merge, and delete tags with hierarchical tree view
 
 ## Using Placeholders
 
