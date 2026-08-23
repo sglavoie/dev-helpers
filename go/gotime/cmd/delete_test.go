@@ -2,65 +2,17 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
-	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 )
 
+// createTestConfigForDelete builds the shared tagged fixture in a directory of
+// its own.
 func createTestConfigForDelete(t *testing.T) (*config.Manager, string) {
-	// Create temporary config file
-	tmpDir, err := ioutil.TempDir("", "gotime_delete_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	configPath := filepath.Join(tmpDir, "test_config.json")
-	configManager := config.NewManager(configPath)
-
-	// Create test data with multiple entries having different short IDs
-	cfg := &models.Config{
-		Entries: []models.Entry{
-			{
-				ID:       "entry1",
-				ShortID:  1,
-				Keyword:  "meeting",
-				Tags:     []string{"work", "important"},
-				Duration: 3600,
-			},
-			{
-				ID:       "entry2",
-				ShortID:  2,
-				Keyword:  "coding",
-				Tags:     []string{"work", "project1"},
-				Duration: 7200,
-			},
-			{
-				ID:       "entry3",
-				ShortID:  3,
-				Keyword:  "documentation",
-				Tags:     []string{"project1", "writing"},
-				Duration: 1800,
-			},
-			{
-				ID:       "entry4",
-				ShortID:  4,
-				Keyword:  "meeting",
-				Tags:     []string{"important", "client"},
-				Duration: 1200,
-			},
-		},
-	}
-
-	if err := configManager.Save(cfg); err != nil {
-		t.Fatalf("Failed to save test config: %v", err)
-	}
-
-	return configManager, tmpDir
+	return writeTestConfig(t, "gotime_delete_test", taggedTestEntries())
 }
 
 func TestDeleteByIDDisplaysCorrectID(t *testing.T) {

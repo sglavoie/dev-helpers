@@ -240,18 +240,18 @@ class TestGetLastCommitDate:
 
 class TestResolveAlias:
     def test_returns_name_when_free(self) -> None:
-        from gitbrief.cli import _resolve_alias
+        from gitbrief.commands.scan import _resolve_alias
 
         assert _resolve_alias("myproject", {}) == "myproject"
 
     def test_appends_2_when_taken(self) -> None:
-        from gitbrief.cli import _resolve_alias
+        from gitbrief.commands.scan import _resolve_alias
 
         existing = {"myproject": {}}
         assert _resolve_alias("myproject", existing) == "myproject-2"
 
     def test_increments_further_when_needed(self) -> None:
-        from gitbrief.cli import _resolve_alias
+        from gitbrief.commands.scan import _resolve_alias
 
         existing = {"myproject": {}, "myproject-2": {}, "myproject-3": {}}
         assert _resolve_alias("myproject", existing) == "myproject-4"

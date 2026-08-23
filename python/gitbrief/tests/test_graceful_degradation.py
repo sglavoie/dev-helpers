@@ -211,11 +211,11 @@ class TestGracefulDegradation:
         runner = CliRunner()
 
         with (
-            patch("gitbrief.cli.load_config") as mock_load,
-            patch("gitbrief.cli.validate_repo", return_value=None),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@example.com"),
-            patch("gitbrief.cli.extract_commits", return_value=SAMPLE_COMMITS),
-            patch("gitbrief.cli.invoke_ai", side_effect=AIBackendError("AI failed")),
+            patch("gitbrief.commands.summary.load_config") as mock_load,
+            patch("gitbrief.commands.collect.validate_repo", return_value=None),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@example.com"),
+            patch("gitbrief.commands.collect.extract_commits", return_value=SAMPLE_COMMITS),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=AIBackendError("AI failed")),
         ):
             mock_load.return_value = {
                 "projects": {"myproj": {"path": "/some/path"}},
@@ -237,11 +237,11 @@ class TestGracefulDegradation:
         runner = CliRunner()
 
         with (
-            patch("gitbrief.cli.load_config") as mock_load,
-            patch("gitbrief.cli.validate_repo", return_value=None),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@example.com"),
-            patch("gitbrief.cli.extract_commits", return_value=SAMPLE_COMMITS),
-            patch("gitbrief.cli.invoke_ai", side_effect=AIBackendError("AI failed")),
+            patch("gitbrief.commands.summary.load_config") as mock_load,
+            patch("gitbrief.commands.collect.validate_repo", return_value=None),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@example.com"),
+            patch("gitbrief.commands.collect.extract_commits", return_value=SAMPLE_COMMITS),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=AIBackendError("AI failed")),
         ):
             mock_load.return_value = {
                 "projects": {"myproj": {"path": "/some/path"}},
@@ -265,11 +265,11 @@ class TestGracefulDegradation:
         runner = CliRunner()
 
         with (
-            patch("gitbrief.cli.load_config") as mock_load,
-            patch("gitbrief.cli.validate_repo", return_value=None),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@example.com"),
-            patch("gitbrief.cli.extract_commits", return_value=SAMPLE_COMMITS),
-            patch("gitbrief.cli.invoke_ai", side_effect=AIBackendError("AI failed")),
+            patch("gitbrief.commands.summary.load_config") as mock_load,
+            patch("gitbrief.commands.collect.validate_repo", return_value=None),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@example.com"),
+            patch("gitbrief.commands.collect.extract_commits", return_value=SAMPLE_COMMITS),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=AIBackendError("AI failed")),
         ):
             mock_load.return_value = {
                 "projects": {"myproj": {"path": "/some/path"}},
@@ -290,12 +290,12 @@ class TestGracefulDegradation:
         runner = CliRunner()
 
         with (
-            patch("gitbrief.cli.load_config") as mock_load,
-            patch("gitbrief.cli.validate_repo", return_value=None),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@example.com"),
-            patch("gitbrief.cli.extract_commits", return_value=SAMPLE_COMMITS),
+            patch("gitbrief.commands.summary.load_config") as mock_load,
+            patch("gitbrief.commands.collect.validate_repo", return_value=None),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@example.com"),
+            patch("gitbrief.commands.collect.extract_commits", return_value=SAMPLE_COMMITS),
             patch(
-                "gitbrief.cli.invoke_ai",
+                "gitbrief.commands.summary.invoke_ai",
                 side_effect=AIBackendError("AI failed", hint="Do this"),
             ),
         ):

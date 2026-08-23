@@ -4,14 +4,13 @@ import type { Placeholder } from "../types";
 import { addSnippet, getPlaceholderHistoryForKey, getSnippets } from "../utils/storage";
 import {
   buildRequiredPlaceholderErrors,
-  buildTrackedPlaceholderValues,
   CUSTOM_VALUE_MARKER,
   getAuthoredChoiceOptionId,
   getAuthoredChoiceValue,
   initializeAuthoredChoiceState,
   resolveAuthoredChoiceSelection,
-  submitPlaceholderForm,
-} from "./PlaceholderForm";
+} from "../utils/placeholderFormChoices";
+import { buildTrackedPlaceholderValues, submitPlaceholderForm } from "../utils/placeholderFormSubmit";
 
 function makeChoicePlaceholder(overrides: Partial<Placeholder> = {}): Placeholder & { choices: string[] } {
   return {

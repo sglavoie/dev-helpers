@@ -260,10 +260,10 @@ def _invoke_summary(
     runner: CliRunner, alias: str, extra_args: list[str]
 ) -> object:
     with (
-        patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-        patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-        patch("gitbrief.cli.invoke_ai", return_value=_AI_RESULT),
-        patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+        patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+        patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+        patch("gitbrief.commands.summary.invoke_ai", return_value=_AI_RESULT),
+        patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
     ):
         return runner.invoke(
             cli, ["summary", "--last", "1w", "--no-clipboard"] + extra_args + [alias]
@@ -315,10 +315,10 @@ class TestSummaryDetailOption:
             return _AI_RESULT
 
         with (
-            patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-            patch("gitbrief.cli.invoke_ai", side_effect=fake_ai),
-            patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+            patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=fake_ai),
+            patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
         ):
             runner.invoke(
                 cli,
@@ -339,10 +339,10 @@ class TestSummaryDetailOption:
             return _AI_RESULT
 
         with (
-            patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-            patch("gitbrief.cli.invoke_ai", side_effect=fake_ai),
-            patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+            patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=fake_ai),
+            patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
         ):
             runner.invoke(
                 cli,
@@ -363,10 +363,10 @@ class TestSummaryDetailOption:
             return _AI_RESULT
 
         with (
-            patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-            patch("gitbrief.cli.invoke_ai", side_effect=fake_ai),
-            patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+            patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=fake_ai),
+            patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
         ):
             runner.invoke(
                 cli,
@@ -425,10 +425,10 @@ class TestSummaryTemplateOption:
             return _AI_RESULT
 
         with (
-            patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-            patch("gitbrief.cli.invoke_ai", side_effect=fake_ai),
-            patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+            patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=fake_ai),
+            patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
         ):
             result = runner.invoke(
                 cli,
@@ -458,10 +458,10 @@ class TestSummaryTemplateOption:
             return _AI_RESULT
 
         with (
-            patch("gitbrief.cli.extract_commits", return_value=_SAMPLE_COMMITS),
-            patch("gitbrief.cli.get_git_user_email", return_value="user@test.com"),
-            patch("gitbrief.cli.invoke_ai", side_effect=fake_ai),
-            patch("gitbrief.cli.copy_to_clipboard", return_value=True),
+            patch("gitbrief.commands.collect.extract_commits", return_value=_SAMPLE_COMMITS),
+            patch("gitbrief.commands.collect.get_git_user_email", return_value="user@test.com"),
+            patch("gitbrief.commands.summary.invoke_ai", side_effect=fake_ai),
+            patch("gitbrief.commands.summary.copy_to_clipboard", return_value=True),
         ):
             runner.invoke(
                 cli,

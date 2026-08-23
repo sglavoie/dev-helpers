@@ -1,6 +1,6 @@
 import { Action, ActionPanel, Icon, List } from "@raycast/api";
 
-import type { PlaceholderSyntaxHelpItemData } from "./PlaceholderSyntaxHelpData";
+import type { PlaceholderSyntaxHelpItemData } from "./PlaceholderSyntaxHelpTypes";
 
 type Props = {
   item: PlaceholderSyntaxHelpItemData;

@@ -107,9 +107,15 @@ The duration updates automatically every second!
 ```
 gotime-raycast/
 ├── src/
-│   ├── active-timers.tsx    # Active timers list view
-│   ├── weekly-report.tsx    # Weekly report view
-│   └── start-timer.tsx      # Start timer form
+│   ├── *.tsx                    # One file per command declared in package.json
+│   ├── components/
+│   │   ├── EditEntryForm.tsx    # Entry edit form, shared by the entry commands
+│   │   └── EntryListItem.tsx    # Entry row with its action panel
+│   └── utils/
+│       ├── duration.ts          # Duration parsing and formatting
+│       ├── entries.ts           # Entry type, gt binary path, entry hooks
+│       ├── entry-edit.ts        # gt commands that edit or delete an entry
+│       └── time.ts              # Time-of-day parsing and formatting
 ├── package.json            # Extension manifest
 ├── tsconfig.json          # TypeScript config
 └── README.md              # This file
