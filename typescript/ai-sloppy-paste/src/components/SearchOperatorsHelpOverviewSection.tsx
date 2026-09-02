@@ -36,6 +36,7 @@ Use operators to precisely filter your snippets. When operators are present in y
 
 When you use multiple operators, **all conditions must be met**:
 - \`tag:work tag:client\` → Must have BOTH work AND client tags
+- \`ctx:asl is:favorite\` → Must be in the \`asl:\` context AND favorite
 - \`is:favorite not:archived\` → Must be favorite AND not archived
 - \`tag:work "api docs" rest\` → Must have work tag AND contain "api docs" exactly AND match "rest" fuzzy
 

@@ -1,6 +1,8 @@
 import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { useLocalStorage } from "@raycast/utils";
+import { useMemo } from "react";
 import { Snippet, SortOption, SORT_LABELS } from "./types";
+import { getAllContexts } from "./utils/context";
 import { SnippetListItem } from "./components/SnippetListItem";
 import { BrowseByTagView } from "./components/BrowseByTagView";
 import { CreateSnippetAction, ImportDataAction } from "./components/SnippetActions";
@@ -51,7 +53,8 @@ export default function Command() {
     hasStructuredOperators,
   } = useSnippetFiltering(snippets, sortOption as SortOption, showRecentSection as boolean);
 
-  const suggestions = useSearchSuggestions(searchQuery, allTags);
+  const allContexts = useMemo(() => getAllContexts(snippets), [snippets]);
+  const suggestions = useSearchSuggestions(searchQuery, allTags, allContexts);
   const historyAvailableFor = useHistoryAvailability(snippets);
 
   const sharedItemProps = {
@@ -80,7 +83,7 @@ export default function Command() {
     if (showArchivedSnippets) return "⊟ Archived — Cmd+B to show all";
     if (showNeedsAttention) return "⚠ Needs Attention — Cmd+Shift+N to show all";
     if (hasStructuredOperators) return "Operators active — Cmd+/ for syntax help";
-    return 'Search… (tag:, is:favorite, not:, "exact") — Cmd+/ for help';
+    return 'Search… (tag:, ctx:, is:, not:, "exact") — Cmd+/ for help';
   })();
 
   const hasPinnedOrRecent = pinnedSnippets.length > 0 || recentSnippets.length > 0;

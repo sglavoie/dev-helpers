@@ -2,6 +2,7 @@ import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showToast,
 import { useState, useMemo } from "react";
 import { Snippet } from "../types";
 import { findSimilarSnippets } from "../utils/analytics";
+import { contextBadgeIcon, parseTitleContext } from "../utils/context";
 import { deleteSnippet, getSnippets, toggleArchive } from "../utils/storage";
 import { getErrorMessage } from "../utils/errorMessage";
 import { copySnippetContent, runBestEffort } from "../utils/snippet-use";
@@ -81,36 +82,49 @@ export function SimilarSnippetsView({ target, allSnippets, onUpdated }: SimilarS
       {results.length === 0 ? (
         <List.EmptyView icon={Icon.Checkmark} title="No similar snippets found" />
       ) : (
-        results.map(({ snippet, score }) => (
-          <List.Item
-            key={snippet.id}
-            icon={snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document}
-            title={snippet.title}
-            subtitle={snippet.content.slice(0, 60)}
-            accessories={[
-              {
-                tag: {
-                  value: `${Math.round(score * 100)}% match`,
-                  color: getMatchColor(score),
+        results.map(({ snippet, score }) => {
+          const { context, displayTitle } = parseTitleContext(snippet.title);
+          return (
+            <List.Item
+              key={snippet.id}
+              icon={
+                context
+                  ? contextBadgeIcon(context)
+                  : snippet.isPinned
+                    ? Icon.Pin
+                    : snippet.isFavorite
+                      ? Icon.Star
+                      : Icon.Document
+              }
+              title={{ value: displayTitle, tooltip: snippet.title }}
+              subtitle={snippet.content.slice(0, 60)}
+              accessories={[
+                ...(snippet.isPinned ? [{ icon: Icon.Pin, tooltip: "Pinned" }] : []),
+                ...(snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Bookmarked" }] : []),
+                {
+                  tag: {
+                    value: `${Math.round(score * 100)}% match`,
+                    color: getMatchColor(score),
+                  },
                 },
-              },
-            ]}
-            actions={
-              <ActionPanel>
-                <ActionPanel.Section title="Snippet Actions">
-                  <Action title="Copy Content" icon={Icon.Clipboard} onAction={() => handleCopyContent(snippet)} />
-                  <Action title="Archive Snippet" icon={Icon.Box} onAction={() => handleArchive(snippet)} />
-                  <Action
-                    title="Delete Snippet"
-                    icon={Icon.Trash}
-                    style={Action.Style.Destructive}
-                    onAction={() => handleDelete(snippet)}
-                  />
-                </ActionPanel.Section>
-              </ActionPanel>
-            }
-          />
-        ))
+              ]}
+              actions={
+                <ActionPanel>
+                  <ActionPanel.Section title="Snippet Actions">
+                    <Action title="Copy Content" icon={Icon.Clipboard} onAction={() => handleCopyContent(snippet)} />
+                    <Action title="Archive Snippet" icon={Icon.Box} onAction={() => handleArchive(snippet)} />
+                    <Action
+                      title="Delete Snippet"
+                      icon={Icon.Trash}
+                      style={Action.Style.Destructive}
+                      onAction={() => handleDelete(snippet)}
+                    />
+                  </ActionPanel.Section>
+                </ActionPanel>
+              }
+            />
+          );
+        })
       )}
     </List>
   );

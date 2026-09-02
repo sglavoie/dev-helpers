@@ -1,4 +1,5 @@
 import type { Snippet } from "../types";
+import { getSnippetContext } from "./context";
 import type { ParsedQuery } from "./queryParser";
 import { isChildOf } from "./tags";
 
@@ -10,10 +11,12 @@ import { isChildOf } from "./tags";
  * Filter order:
  * 1. Tag filters (hierarchical matching via isChildOf)
  * 2. Negative tag filters
- * 3. Boolean "is:" filters (favorite, archived, untagged)
- * 4. Boolean "not:" filters
- * 5. Exact phrase filters (case-insensitive substring in title or content)
- * 6. Fuzzy text filters (all words must match somewhere in title/content/tags)
+ * 3. Context filters (flat equality on the title's `Prefix:` context)
+ * 4. Negative context filters
+ * 5. Boolean "is:" filters (favorite, archived, untagged)
+ * 6. Boolean "not:" filters
+ * 7. Exact phrase filters (case-insensitive substring in title or content)
+ * 8. Fuzzy text filters (all words must match somewhere in title/content/tags)
  *
  * @param snippets - Array of snippets to filter
  * @param query - Parsed query object with extracted operators
@@ -38,21 +41,34 @@ export function applySearchFilters(snippets: Snippet[], query: ParsedQuery): Sni
       if (hasTag) return false;
     }
 
-    // 3. Boolean "is:" filters - check snippet properties
+    // 3/4. Context filters - contexts are flat, so plain equality (no hierarchy)
+    if (query.contexts.length > 0 || query.notContexts.length > 0) {
+      const snippetContext = getSnippetContext(snippet);
+
+      for (const requiredContext of query.contexts) {
+        if (snippetContext !== requiredContext) return false;
+      }
+
+      for (const excludedContext of query.notContexts) {
+        if (snippetContext === excludedContext) return false;
+      }
+    }
+
+    // 5. Boolean "is:" filters - check snippet properties
     for (const condition of query.is) {
       if ((condition === "favorite" || condition === "bookmarked") && !snippet.isFavorite) return false;
       if (condition === "archived" && !snippet.isArchived) return false;
       if (condition === "untagged" && snippet.tags.length > 0) return false;
     }
 
-    // 4. Boolean "not:" filters - check negated properties
+    // 6. Boolean "not:" filters - check negated properties
     for (const condition of query.not) {
       if ((condition === "favorite" || condition === "bookmarked") && snippet.isFavorite) return false;
       if (condition === "archived" && snippet.isArchived) return false;
       if (condition === "untagged" && snippet.tags.length === 0) return false;
     }
 
-    // 5. Exact phrase filters - ALL phrases must appear in title or content
+    // 7. Exact phrase filters - ALL phrases must appear in title or content
     // Case-insensitive substring matching
     for (const phrase of query.exactPhrases) {
       const lowerPhrase = phrase.toLowerCase();
@@ -61,7 +77,7 @@ export function applySearchFilters(snippets: Snippet[], query: ParsedQuery): Sni
       if (!inTitle && !inContent) return false;
     }
 
-    // 6. Fuzzy text - ALL words must appear somewhere in title/content/tags
+    // 8. Fuzzy text - ALL words must appear somewhere in title/content/tags
     // Case-insensitive partial matching
     if (query.fuzzyText) {
       const words = query.fuzzyText

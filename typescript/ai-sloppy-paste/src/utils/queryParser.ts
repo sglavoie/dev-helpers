@@ -1,3 +1,4 @@
+import { normalizeContext } from "./context";
 import { normalizeTag } from "./tags";
 
 /**
@@ -8,6 +9,10 @@ export interface ParsedQuery {
   tags: string[];
   /** Negative tag filters - snippet must NOT have these tags */
   notTags: string[];
+  /** Context filters - snippet title must carry all these `Prefix:` contexts */
+  contexts: string[];
+  /** Negative context filters - snippet must NOT carry these contexts */
+  notContexts: string[];
   /** Boolean "is" filters - favorite, archived, untagged */
   is: string[];
   /** Boolean "not" filters - negated favorite, archived, untagged */
@@ -38,6 +43,8 @@ function isBooleanOperator(value: string): value is BooleanOperator {
  * Supported operators:
  * - tag:work          - Must have tag (supports hierarchy)
  * - not:tag:personal  - Must NOT have tag
+ * - ctx:asl           - Title must carry the `asl:` context prefix
+ * - not:ctx:asl       - Title must NOT carry the `asl:` context prefix
  * - is:favorite       - Must be favorite/archived/untagged
  * - not:archived      - Must NOT be archived/favorite/untagged
  * - "exact phrase"    - Must contain exact phrase (case-insensitive)
@@ -58,6 +65,8 @@ export function parseSearchQuery(query: string): ParsedQuery {
   const result: ParsedQuery = {
     tags: [],
     notTags: [],
+    contexts: [],
+    notContexts: [],
     is: [],
     not: [],
     exactPhrases: [],
@@ -103,11 +112,29 @@ export function parseSearchQuery(query: string): ParsedQuery {
         consumed = true;
       }
     }
+    // Check for not:ctx:value (must check before the generic not: branch below,
+    // which would otherwise swallow the token as an invalid boolean operator
+    // and silently degrade it to fuzzy text)
+    else if (token.startsWith("not:ctx:")) {
+      const contextValue = token.substring("not:ctx:".length);
+      if (contextValue) {
+        result.notContexts.push(normalizeContext(contextValue));
+        consumed = true;
+      }
+    }
     // Check for tag:value
     else if (token.startsWith("tag:")) {
       const tagValue = token.substring("tag:".length);
       if (tagValue) {
         result.tags.push(normalizeTag(tagValue));
+        consumed = true;
+      }
+    }
+    // Check for ctx:value
+    else if (token.startsWith("ctx:")) {
+      const contextValue = token.substring("ctx:".length);
+      if (contextValue) {
+        result.contexts.push(normalizeContext(contextValue));
         consumed = true;
       }
     }
@@ -142,6 +169,8 @@ export function parseSearchQuery(query: string): ParsedQuery {
   result.hasOperators =
     result.tags.length > 0 ||
     result.notTags.length > 0 ||
+    result.contexts.length > 0 ||
+    result.notContexts.length > 0 ||
     result.is.length > 0 ||
     result.not.length > 0 ||
     result.exactPhrases.length > 0 ||
@@ -150,6 +179,8 @@ export function parseSearchQuery(query: string): ParsedQuery {
   result.hasStructuredOperators =
     result.tags.length > 0 ||
     result.notTags.length > 0 ||
+    result.contexts.length > 0 ||
+    result.notContexts.length > 0 ||
     result.is.length > 0 ||
     result.not.length > 0 ||
     result.exactPhrases.length > 0;

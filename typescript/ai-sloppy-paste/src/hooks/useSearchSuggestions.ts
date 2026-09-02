@@ -19,9 +19,26 @@ const NOT_SUGGESTIONS: Array<{ value: string; subtitle: string }> = [
   { value: "untagged", subtitle: "Exclude untagged snippets" },
 ];
 
-export function useSearchSuggestions(searchQuery: string, allTags: string[]): SearchSuggestion[] {
+export function useSearchSuggestions(
+  searchQuery: string,
+  allTags: string[],
+  allContexts: string[] = [],
+): SearchSuggestion[] {
   return useMemo(() => {
     const trimmed = searchQuery.trimEnd();
+
+    // Checked before `tag:` so `not:ctx:` isn't mistaken for anything else,
+    // and before `is:`/`not:` so the generic branches don't win.
+    if (trimmed.endsWith("ctx:")) {
+      const prefix = trimmed.slice(0, trimmed.length - "ctx:".length);
+      return allContexts.slice(0, 4).map((context) => ({
+        title: `${prefix.endsWith("not:") ? "not:" : ""}ctx:${context}`,
+        subtitle: prefix.endsWith("not:")
+          ? `Exclude snippets in the ${context} context`
+          : `Filter to snippets in the ${context} context`,
+        completion: `${prefix}ctx:${context} `,
+      }));
+    }
 
     if (trimmed.endsWith("tag:")) {
       const prefix = trimmed.slice(0, trimmed.length - "tag:".length);
@@ -59,5 +76,5 @@ export function useSearchSuggestions(searchQuery: string, allTags: string[]): Se
     }
 
     return [];
-  }, [searchQuery, allTags]);
+  }, [searchQuery, allTags, allContexts]);
 }

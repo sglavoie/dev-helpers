@@ -9,6 +9,8 @@ describe("queryParser", () => {
         expect(result).toEqual({
           tags: [],
           notTags: [],
+          contexts: [],
+          notContexts: [],
           is: [],
           not: [],
           exactPhrases: [],
@@ -23,6 +25,8 @@ describe("queryParser", () => {
         expect(result).toEqual({
           tags: [],
           notTags: [],
+          contexts: [],
+          notContexts: [],
           is: [],
           not: [],
           exactPhrases: [],
@@ -93,6 +97,78 @@ describe("queryParser", () => {
         const result = parseSearchQuery("tag:work not:tag:client");
         expect(result.tags).toEqual(["work"]);
         expect(result.notTags).toEqual(["client"]);
+      });
+    });
+
+    describe("ctx: operators", () => {
+      it("should parse a single context operator", () => {
+        const result = parseSearchQuery("ctx:asl");
+        expect(result.contexts).toEqual(["asl"]);
+        expect(result.hasOperators).toBe(true);
+        expect(result.hasStructuredOperators).toBe(true);
+      });
+
+      it("should normalize the context to lowercase", () => {
+        const result = parseSearchQuery("ctx:Refactor");
+        expect(result.contexts).toEqual(["refactor"]);
+      });
+
+      it("should parse multiple context operators", () => {
+        const result = parseSearchQuery("ctx:asl ctx:refactor");
+        expect(result.contexts).toEqual(["asl", "refactor"]);
+      });
+
+      it("should combine a context with fuzzy text", () => {
+        const result = parseSearchQuery("ctx:asl run");
+        expect(result.contexts).toEqual(["asl"]);
+        expect(result.fuzzyText).toBe("run");
+      });
+
+      it("should combine a context with a tag", () => {
+        const result = parseSearchQuery("ctx:asl tag:work");
+        expect(result.contexts).toEqual(["asl"]);
+        expect(result.tags).toEqual(["work"]);
+      });
+    });
+
+    describe("not:ctx: operators", () => {
+      it("should parse a negative context operator", () => {
+        const result = parseSearchQuery("not:ctx:asl");
+        expect(result.notContexts).toEqual(["asl"]);
+        expect(result.contexts).toEqual([]);
+        expect(result.hasStructuredOperators).toBe(true);
+      });
+
+      // Regression: not:ctx: must be matched before the generic not: branch,
+      // otherwise it fails isBooleanOperator and degrades to fuzzy text.
+      it("should not degrade not:ctx: to fuzzy text", () => {
+        const result = parseSearchQuery("not:ctx:asl");
+        expect(result.fuzzyText).toBe("");
+        expect(result.not).toEqual([]);
+      });
+
+      it("should normalize the negative context to lowercase", () => {
+        const result = parseSearchQuery("not:ctx:REFACTOR");
+        expect(result.notContexts).toEqual(["refactor"]);
+      });
+
+      it("should parse multiple negative contexts", () => {
+        const result = parseSearchQuery("not:ctx:asl not:ctx:refactor");
+        expect(result.notContexts).toEqual(["asl", "refactor"]);
+      });
+
+      it("should distinguish not:ctx: from not: boolean and not:tag:", () => {
+        const result = parseSearchQuery("not:archived not:tag:work not:ctx:asl");
+        expect(result.not).toEqual(["archived"]);
+        expect(result.notTags).toEqual(["work"]);
+        expect(result.notContexts).toEqual(["asl"]);
+        expect(result.fuzzyText).toBe("");
+      });
+
+      it("should parse a mix of positive and negative contexts", () => {
+        const result = parseSearchQuery("ctx:asl not:ctx:refactor");
+        expect(result.contexts).toEqual(["asl"]);
+        expect(result.notContexts).toEqual(["refactor"]);
       });
     });
 
@@ -271,6 +347,18 @@ describe("queryParser", () => {
         const result = parseSearchQuery("not:tag:");
         expect(result.notTags).toEqual([]);
         expect(result.fuzzyText).toBe("not:tag:");
+      });
+
+      it("should handle ctx: without value", () => {
+        const result = parseSearchQuery("ctx:");
+        expect(result.contexts).toEqual([]);
+        expect(result.fuzzyText).toBe("ctx:");
+      });
+
+      it("should handle not:ctx: without value", () => {
+        const result = parseSearchQuery("not:ctx:");
+        expect(result.notContexts).toEqual([]);
+        expect(result.fuzzyText).toBe("not:ctx:");
       });
 
       it("should handle multiple spaces between operators", () => {

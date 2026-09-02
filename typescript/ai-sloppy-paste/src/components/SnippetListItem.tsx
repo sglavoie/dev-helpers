@@ -2,6 +2,7 @@ import { Action, ActionPanel, Color, Icon, Keyboard, List, Toast, showToast } fr
 import { Snippet } from "../types";
 import { toggleArchive } from "../utils/storage";
 import { computeSnippetAnalytics, getUnusedTags } from "../utils/analytics";
+import { contextBadgeIcon, contextColor, normalizeContext, parseTitleContext } from "../utils/context";
 import { getErrorMessage } from "../utils/errorMessage";
 import { extractPlaceholders, getSystemPlaceholderNames } from "../utils/placeholders";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
@@ -69,6 +70,8 @@ export function SnippetListItem({
   historyAvailable,
   viewContext = "main",
 }: SnippetListItemProps) {
+  // The badge claims the icon slot, so pin/favourite state moves to accessories below.
+  const { context, displayTitle } = parseTitleContext(snippet.title);
   const primaryIcon = snippet.isPinned ? Icon.Pin : snippet.isFavorite ? Icon.Star : Icon.Document;
   const analytics = computeSnippetAnalytics(snippet);
   const systemKeys = new Set(getSystemPlaceholderNames());
@@ -80,8 +83,8 @@ export function SnippetListItem({
   return (
     <List.Item
       key={snippet.id}
-      icon={primaryIcon}
-      title={snippet.title}
+      icon={context ? contextBadgeIcon(context) : primaryIcon}
+      title={{ value: displayTitle, tooltip: snippet.title }}
       subtitle={
         showingDetail
           ? undefined
@@ -120,7 +123,10 @@ export function SnippetListItem({
                     },
                   ]
                 : []),
-              ...(snippet.isPinned && snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Bookmarked" }] : []),
+              // Independent indicators: a context badge can occupy the icon slot,
+              // so pin/bookmark state has to be readable from the accessories alone.
+              ...(snippet.isPinned ? [{ icon: Icon.Pin, tooltip: "Pinned" }] : []),
+              ...(snippet.isFavorite ? [{ icon: Icon.Star, tooltip: "Bookmarked" }] : []),
               ...(snippet.tags.length > 0
                 ? snippet.tags.slice(0, 3).map((tag) => ({ tag: { value: tag, color: Color.Blue } }))
                 : [{ tag: { value: "untagged", color: Color.SecondaryText } }]),
@@ -138,6 +144,14 @@ export function SnippetListItem({
           markdown={snippet.content}
           metadata={
             <List.Item.Detail.Metadata>
+              {context && (
+                <>
+                  <List.Item.Detail.Metadata.TagList title="Context">
+                    <List.Item.Detail.Metadata.TagList.Item text={context} color={contextColor(context)} />
+                  </List.Item.Detail.Metadata.TagList>
+                  <List.Item.Detail.Metadata.Separator />
+                </>
+              )}
               <List.Item.Detail.Metadata.TagList title="Tags">
                 {snippet.tags.length > 0 ? (
                   snippet.tags.map((tag) => (
@@ -287,8 +301,15 @@ export function SnippetListItem({
               target={<SearchOperatorsHelp />}
             />
           </ActionPanel.Section>
-          {snippet.tags.length > 0 && (
-            <ActionPanel.Section title="Filter by Tag">
+          {(context || snippet.tags.length > 0) && (
+            <ActionPanel.Section title="Filter">
+              {context && (
+                <Action
+                  title={`Filter by Context: ${context}`}
+                  icon={{ source: Icon.Bookmark, tintColor: contextColor(context) }}
+                  onAction={() => setSearchQuery(`ctx:${normalizeContext(context)}`)}
+                />
+              )}
               {snippet.tags.slice(0, 5).map((tag) => (
                 <Action
                   key={tag}

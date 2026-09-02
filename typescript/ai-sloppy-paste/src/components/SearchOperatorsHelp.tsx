@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { SearchOperatorsHelpBooleanSection } from "./SearchOperatorsHelpBooleanSection";
 import { SearchOperatorsHelpComplexExamplesSection } from "./SearchOperatorsHelpComplexExamplesSection";
+import { SearchOperatorsHelpContextSection } from "./SearchOperatorsHelpContextSection";
 import { SearchOperatorsHelpOverviewSection } from "./SearchOperatorsHelpOverviewSection";
 import { SearchOperatorsHelpPlaceholderSection } from "./SearchOperatorsHelpPlaceholderSection";
 import { SearchOperatorsHelpTagSection } from "./SearchOperatorsHelpTagSection";
@@ -24,6 +25,7 @@ export function SearchOperatorsHelp() {
     >
       <SearchOperatorsHelpOverviewSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
       <SearchOperatorsHelpTagSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
+      <SearchOperatorsHelpContextSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
       <SearchOperatorsHelpBooleanSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
       <SearchOperatorsHelpTextSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
       <SearchOperatorsHelpPlaceholderSection isShowingDetail={isShowingDetail} onToggleDetail={toggleDetail} />
