@@ -186,9 +186,10 @@ type substitutingRunner struct {
 	scans int
 }
 
-func (r *substitutingRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
+func (r *substitutingRunner) Run(ctx context.Context, command Command) (CommandResult, error) {
+	argv := command.Argv
 	if len(argv) == 2 && argv[1] == "--version" {
-		return r.inner.Run(ctx, argv)
+		return r.inner.Run(ctx, command)
 	}
 
 	rename(r.t, r.endpoint, r.kept)
@@ -199,7 +200,7 @@ func (r *substitutingRunner) Run(ctx context.Context, argv []string) (CommandRes
 		rename(r.t, r.kept, r.endpoint)
 	}()
 
-	return r.inner.Run(ctx, argv)
+	return r.inner.Run(ctx, command)
 }
 
 // A source that another ordinary directory stands in for while every preflight

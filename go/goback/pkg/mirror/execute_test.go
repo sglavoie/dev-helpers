@@ -111,7 +111,7 @@ func TestMirrorRunsTheRealCommandOnce(t *testing.T) {
 			t.Fatalf("argv = %v, want it to contain %q", argv, want)
 		}
 	}
-	if argv[len(argv)-2] != testSource+"/" || argv[len(argv)-1] != testDestination {
+	if argv[len(argv)-2] != testSource+"/" || argv[len(argv)-1] != "." || result.Dir != testDestination {
 		t.Fatalf("endpoints = %v, want the source contents copied into the destination", argv[len(argv)-2:])
 	}
 	if result.Status != StatusSucceeded || result.ExitCode != 0 {
@@ -223,14 +223,15 @@ type cancellingRunner struct {
 	dryRuns int
 }
 
-func (r *cancellingRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
+func (r *cancellingRunner) Run(ctx context.Context, command Command) (CommandResult, error) {
+	argv := command.Argv
 	if len(argv) > 1 && argv[1] != "--version" {
 		r.dryRuns++
 		if r.dryRuns == 2 {
 			r.cancel()
 		}
 	}
-	return r.inner.Run(ctx, argv)
+	return r.inner.Run(ctx, command)
 }
 
 func TestMirrorInterruptedDuringRevalidationNeverStarts(t *testing.T) {
@@ -285,9 +286,9 @@ func TestResultSummaryDescribesEveryOutcome(t *testing.T) {
 		{name: "up to date", result: Result{Status: StatusUpToDate}, want: "already matches"},
 		{name: "declined", result: Result{Status: StatusDeclined}, want: "Cancelled"},
 		{name: "interrupted before starting", result: Result{Status: StatusInterrupted}, want: "nothing was created"},
-		{name: "interrupted mid transfer", result: Result{Status: StatusInterrupted, Argv: []string{"rsync"}}, want: PartialDir},
-		{name: "failed", result: Result{Status: StatusFailed, Argv: []string{"rsync"}}, want: "only partially updated"},
-		{name: "succeeded", result: Result{Status: StatusSucceeded, Argv: []string{"rsync"}}, want: "finished in"},
+		{name: "interrupted mid transfer", result: Result{Status: StatusInterrupted, Command: Command{Argv: []string{"rsync"}}}, want: PartialDir},
+		{name: "failed", result: Result{Status: StatusFailed, Command: Command{Argv: []string{"rsync"}}}, want: "only partially updated"},
+		{name: "succeeded", result: Result{Status: StatusSucceeded, Command: Command{Argv: []string{"rsync"}}}, want: "finished in"},
 	}
 
 	for _, tc := range cases {

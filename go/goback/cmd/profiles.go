@@ -16,7 +16,11 @@ import (
 // continues to the next profile. After all profiles complete, it exits with
 // code 1 if any profile failed or any volume could not be ejected.
 func forEachProfile(action func() error) {
-	profiles := profilesToRun()
+	profiles, err := config.SelectProfiles()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 	ejectOnExit := viper.GetBool("ejectOnExit")
 
 	var destinations []string
@@ -52,15 +56,4 @@ func forEachProfile(action func() error) {
 	if anyFailed {
 		os.Exit(1)
 	}
-}
-
-// profilesToRun returns the list of profile names to process based on flags.
-func profilesToRun() []string {
-	if config.ProfileFlag != "" {
-		return []string{config.ProfileFlag}
-	}
-	if config.AllProfiles {
-		return config.ProfileNames()
-	}
-	return config.MatchingProfiles()
 }

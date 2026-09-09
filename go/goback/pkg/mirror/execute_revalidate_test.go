@@ -75,8 +75,9 @@ type mutatingRunner struct {
 	dryRuns int
 }
 
-func (r *mutatingRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
-	result, err := r.inner.Run(ctx, argv)
+func (r *mutatingRunner) Run(ctx context.Context, command Command) (CommandResult, error) {
+	argv := command.Argv
+	result, err := r.inner.Run(ctx, command)
 	if len(argv) > 1 && argv[1] != "--version" {
 		r.dryRuns++
 		if r.dryRuns == 2 {
@@ -235,7 +236,7 @@ func TestMirrorRunsOnResolvedEndpointsThatNoSymlinkSwapCanRedirectAfterRevalidat
 	}
 
 	argv := result.Argv
-	if argv[len(argv)-2] != "/Volumes/SanDisk/Real/" || argv[len(argv)-1] != "/Volumes/Elements/Other" {
+	if argv[len(argv)-2] != "/Volumes/SanDisk/Real/" || argv[len(argv)-1] != "." || result.Dir != "/Volumes/Elements/Other" {
 		t.Fatalf("endpoints = %v, want the resolved directories rather than the configured paths", argv[len(argv)-2:])
 	}
 }

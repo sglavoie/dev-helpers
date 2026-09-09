@@ -22,6 +22,9 @@ var RootCmd = &cobra.Command{
 		if err := config.MustInitConfig(true, true); err != nil {
 			return err
 		}
+		if err := config.ValidateCompanionPlacement(); err != nil {
+			return err
+		}
 		if !needsProfileResolution(cmd) {
 			return nil
 		}

@@ -32,8 +32,15 @@ func TestMirrorBindsBothEndpointsBeforeTheTransfer(t *testing.T) {
 	}
 
 	argv := result.Argv
-	if argv[len(argv)-2] != "/bound/Volumes/SanDisk/Real/" || argv[len(argv)-1] != "/bound"+testDestination {
+	if argv[len(argv)-2] != "/bound/Volumes/SanDisk/Real/" || argv[len(argv)-1] != "." || result.Dir != "/bound"+testDestination {
 		t.Fatalf("endpoints = %v, want the bound directories rather than their paths", argv[len(argv)-2:])
+	}
+	preflight := setup.runner.commands[len(setup.runner.commands)-1]
+	if preflight.Dir != result.Dir || !slices.Equal(preflight.Argv[len(preflight.Argv)-2:], argv[len(argv)-2:]) {
+		t.Fatalf("preflight = %v, transfer = %v, want the same bound endpoints", preflight, result.Command)
+	}
+	if setup.streamer.commands[0].Dir != result.Dir {
+		t.Fatalf("streamed command = %v, want the recorded working directory %q", setup.streamer.commands[0], result.Dir)
 	}
 	if setup.binder.released != 2 {
 		t.Fatalf("released %d endpoints, want both given back once the mirror is over", setup.binder.released)

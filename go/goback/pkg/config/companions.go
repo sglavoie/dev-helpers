@@ -29,6 +29,15 @@ func (c Companion) Argv(dryRun bool) []string {
 
 const companionsKey = "dailyCompanions"
 
+// ValidateCompanionPlacement prevents a misplaced companion list from being
+// silently ignored. Configuration repair commands deliberately skip this check.
+func ValidateCompanionPlacement() error {
+	if viper.InConfig(companionsKey) || viper.IsSet(companionsKey) {
+		return fmt.Errorf("top-level %s in %s is not supported; move it under profiles.<name>.%s (for example profiles.default.%s) using 'goback config edit'", companionsKey, viper.ConfigFileUsed(), companionsKey, companionsKey)
+	}
+	return nil
+}
+
 // The id becomes the "companion/<id>" backup type in history, so it may not
 // contain a slash or whitespace.
 var companionIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)

@@ -115,6 +115,18 @@ func TestResolveProfilesFailsWhenAmbiguous(t *testing.T) {
 	}
 }
 
+func TestResolveProfilesClearsStaleSelectionOnFailure(t *testing.T) {
+	loadConfig(t, `{"profiles":{}}`)
+	resetProfileState(t)
+	ActiveProfileName = "previous"
+	if err := ResolveProfiles(); err == nil {
+		t.Fatal("empty profiles accepted")
+	}
+	if ActiveProfileName != "" {
+		t.Fatalf("active profile = %q after failed selection", ActiveProfileName)
+	}
+}
+
 func TestDetectLegacyConfig(t *testing.T) {
 	loadConfig(t, `{"source":"/Users/me","destination":"/Volumes/Backup"}`)
 

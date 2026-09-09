@@ -25,7 +25,7 @@ func TestOSStreamerTerminatesACancelledCommand(t *testing.T) {
 	}()
 
 	start := time.Now()
-	code, err := streamer.Stream(ctx, []string{"sleep", "30"})
+	code, err := streamer.Stream(ctx, Command{Argv: []string{"sleep", "30"}})
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -45,7 +45,7 @@ func TestOSStreamerWritesToTheGivenWriters(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	streamer := osStreamer{stdout: &stdout, stderr: &stderr}
 
-	if _, err := streamer.Stream(context.Background(), []string{"sh", "-c", "echo progress; echo trouble >&2"}); err != nil {
+	if _, err := streamer.Stream(context.Background(), Command{Argv: []string{"sh", "-c", "echo progress; echo trouble >&2"}}); err != nil {
 		t.Fatal(err)
 	}
 	if got := stdout.String(); got != "progress\n" {
@@ -60,7 +60,7 @@ func TestOSStreamerReportsTheExitCode(t *testing.T) {
 	var out bytes.Buffer
 	streamer := osStreamer{stdout: &out, stderr: &out}
 
-	code, err := streamer.Stream(context.Background(), []string{"sh", "-c", "exit 23"})
+	code, err := streamer.Stream(context.Background(), Command{Argv: []string{"sh", "-c", "exit 23"}})
 	if err != nil {
 		t.Fatalf("Stream() = %v, want an exit code rather than an error", err)
 	}

@@ -147,7 +147,7 @@ func readHistory(t *testing.T) []historyRow {
 func attemptedResult(status mirror.Status, exitCode int) mirror.Result {
 	return mirror.Result{
 		Status:    status,
-		Argv:      []string{"rsync", "--archive", "/Volumes/SanDisk/Media/", "/Volumes/Elements/Media"},
+		Command:   mirror.Command{Argv: []string{"rsync", "--archive", "/Volumes/SanDisk/Media/", "."}, Dir: "/.vol/1/2"},
 		ExitCode:  exitCode,
 		StartedAt: time.Date(2026, 8, 11, 9, 30, 0, 0, time.UTC),
 		Duration:  90 * time.Second,

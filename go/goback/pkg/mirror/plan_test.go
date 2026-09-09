@@ -111,6 +111,18 @@ func TestDryRunReportsAFailedRsync(t *testing.T) {
 	requireErrorContains(t, err, "some files could not be transferred")
 }
 
+func TestDryRunKeepsTheSpecificErrorBeforeRsyncSummary(t *testing.T) {
+	cfg, deps, runner := mountedSetup()
+	stderr := "rsync: [Receiver] change_dir#1 \"/.vol/1/2\" failed: No such file or directory (2)\nrsync error: errors selecting input/output files, dirs (code 3)"
+	runner.dryRun = CommandResult{ExitCode: 3, Stderr: "\n" + stderr + "\n"}
+	_, err := DryRun(context.Background(), cfg, deps)
+	requireErrorContains(t, err, stderr)
+
+	runner.dryRun.Stderr = " \n\t"
+	_, err = DryRun(context.Background(), cfg, deps)
+	requireErrorContains(t, err, "no error output")
+}
+
 func TestDryRunReportsCancellation(t *testing.T) {
 	cfg, deps, _ := mountedSetup()
 	ctx, cancel := context.WithCancel(context.Background())

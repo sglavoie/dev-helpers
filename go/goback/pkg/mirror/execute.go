@@ -65,8 +65,8 @@ type Result struct {
 	// when the transfer was reached, the approved one otherwise.
 	Plan Plan
 
-	// Argv is the executed command, empty when nothing was executed.
-	Argv []string
+	// Command is the executed command, empty when nothing was executed.
+	Command
 
 	ExitCode  int
 	StartedAt time.Time
@@ -86,7 +86,7 @@ func (r Result) Attempted() bool {
 
 // CommandString renders the executed command for display and history.
 func (r Result) CommandString() string {
-	return FormatArgv(r.Argv)
+	return r.Command.String()
 }
 
 // Summary is the one-line outcome shown to the user.
@@ -243,17 +243,17 @@ func Mirror(ctx context.Context, cfg Config, deps Deps, exec ExecDeps, out io.Wr
 func transfer(ctx context.Context, cfg Config, deps Deps, exec ExecDeps, plan Plan, source, destination Bound, rules string) (Result, error) {
 	bound := Config{
 		Source:      source.Path,
-		Destination: destination.Path,
+		Destination: ".",
 		RsyncBinary: cfg.RsyncBinary,
 	}
 
 	result := Result{
 		Plan:      plan,
-		Argv:      TransferArgv(bound, rules),
+		Command:   Command{Argv: TransferArgv(bound, rules), Dir: destination.Path},
 		StartedAt: deps.Clock.Now(),
 	}
 
-	code, err := exec.Streamer.Stream(ctx, result.Argv)
+	code, err := exec.Streamer.Stream(ctx, result.Command)
 	result.Duration = deps.Clock.Now().Sub(result.StartedAt)
 
 	switch {

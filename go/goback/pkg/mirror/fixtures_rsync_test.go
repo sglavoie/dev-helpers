@@ -205,7 +205,7 @@ func TestPartialDirectoryOnlySourceIsEffectivelyEmpty(t *testing.T) {
 
 	// What rsync itself would do with such a source, established before the
 	// guard is exercised: nothing to send, and the destination emptied.
-	preflight, err := deps.Runner.Run(context.Background(), DryRunArgv(cfg))
+	preflight, err := deps.Runner.Run(context.Background(), Command{Argv: DryRunArgv(cfg)})
 	if err != nil {
 		t.Fatal(err)
 	}

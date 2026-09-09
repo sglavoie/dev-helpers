@@ -23,7 +23,7 @@ var requiredCapabilities = []struct {
 // ProbeRsync checks that the configured rsync exists and was built with every
 // capability the mirror needs.
 func ProbeRsync(ctx context.Context, cfg Config, deps Deps) error {
-	result, err := deps.Runner.Run(ctx, []string{cfg.RsyncBinary, "--version"})
+	result, err := deps.Runner.Run(ctx, Command{Argv: []string{cfg.RsyncBinary, "--version"}})
 	if err != nil {
 		return err
 	}

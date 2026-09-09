@@ -112,9 +112,9 @@ type hookedStreamer struct {
 	inner  Streamer
 }
 
-func (s hookedStreamer) Stream(ctx context.Context, argv []string) (int, error) {
+func (s hookedStreamer) Stream(ctx context.Context, command Command) (int, error) {
 	s.before()
-	return s.inner.Stream(ctx, argv)
+	return s.inner.Stream(ctx, command)
 }
 
 // rsync refuses to delete when it could not read everything it was asked to

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -16,8 +17,8 @@ var ErrInsufficientSpace = errors.New("not enough free space on the destination 
 // nothing it did.
 type Plan struct {
 	Endpoints Endpoints
-	Argv      []string
-	Changes   Changes
+	Command
+	Changes Changes
 
 	// AvailableBytes is the free space of the destination volume as it is
 	// now, before any deletion.
@@ -69,19 +70,27 @@ func dryRun(ctx context.Context, cfg Config, deps Deps, at inspected) (Plan, err
 	}
 
 	source, destination := at.or(endpoints)
+	command := Command{Argv: DryRunArgv(Config{Source: source, Destination: destination, RsyncBinary: cfg.RsyncBinary})}
+	if at.destination != "" {
+		// rsync 3.5 walks absolute destination paths component by component,
+		// but /.vol/<device> is not independently traversable on macOS. The
+		// OS can enter the complete bound name; rsync then operates on ".".
+		command.Dir = destination
+		command.Argv[len(command.Argv)-1] = "."
+	}
 	plan := Plan{
 		Endpoints: endpoints,
-		Argv:      DryRunArgv(Config{Source: source, Destination: destination, RsyncBinary: cfg.RsyncBinary}),
+		Command:   command,
 		StartedAt: deps.Clock.Now(),
 	}
 
-	result, err := deps.Runner.Run(ctx, plan.Argv)
+	result, err := deps.Runner.Run(ctx, plan.Command)
 	plan.Duration = deps.Clock.Now().Sub(plan.StartedAt)
 	if err != nil {
 		return Plan{}, fmt.Errorf("could not run the mirror preflight: %w", err)
 	}
 	if result.ExitCode != 0 {
-		return Plan{}, fmt.Errorf("the mirror preflight failed with exit code %d: %s", result.ExitCode, lastLine(result.Stderr))
+		return Plan{}, fmt.Errorf("the mirror preflight failed with exit code %d: %s", result.ExitCode, errorOutput(result.Stderr))
 	}
 
 	plan.Changes, err = ParseChanges(result.Stdout)
@@ -109,7 +118,7 @@ func (p Plan) Render(w io.Writer) {
 	fmt.Fprintf(w, "Mirror preflight (dry run, nothing was written)\n")
 	fmt.Fprintf(w, "  source:      %s\n", p.Endpoints.Source)
 	fmt.Fprintf(w, "  destination: %s\n", p.Endpoints.Destination)
-	fmt.Fprintf(w, "  command:     %s\n\n", FormatArgv(p.Argv))
+	fmt.Fprintf(w, "  command:     %s\n\n", p.Command.String())
 
 	if p.Changes.Empty() {
 		fmt.Fprintf(w, "The destination is already up to date.\n")
@@ -130,10 +139,10 @@ func (p Plan) Render(w io.Writer) {
 	}
 }
 
-func lastLine(output string) string {
-	lines := nonEmptyLines(output)
-	if len(lines) == 0 {
+func errorOutput(output string) string {
+	output = strings.TrimSpace(output)
+	if output == "" {
 		return "no error output"
 	}
-	return lines[len(lines)-1]
+	return output
 }

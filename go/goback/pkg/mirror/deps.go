@@ -81,7 +81,7 @@ type CommandResult struct {
 
 // Runner executes a command without a shell.
 type Runner interface {
-	Run(ctx context.Context, argv []string) (CommandResult, error)
+	Run(ctx context.Context, command Command) (CommandResult, error)
 }
 
 // Deps holds every effect a preflight performs. None of them writes.
@@ -160,7 +160,7 @@ type Binder interface {
 // terminates the command. A returned error means the command did not run to
 // completion; an exit code alone is not an error.
 type Streamer interface {
-	Stream(ctx context.Context, argv []string) (int, error)
+	Stream(ctx context.Context, command Command) (int, error)
 }
 
 // ExecDeps holds the effects only a real mirror performs. They are separate
@@ -349,14 +349,17 @@ type osStreamer struct {
 	stderr io.Writer
 }
 
-func (s osStreamer) Stream(ctx context.Context, argv []string) (int, error) {
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+func (s osStreamer) Stream(ctx context.Context, command Command) (int, error) {
+	cmd, err := command.process(ctx)
+	if err != nil {
+		return 1, err
+	}
 	cmd.Stdout = s.stdout
 	cmd.Stderr = s.stderr
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
 	cmd.WaitDelay = killGrace
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err == nil {
 		return 0, nil
 	}
@@ -448,19 +451,17 @@ func (osClock) Now() time.Time {
 
 type osRunner struct{}
 
-func (osRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
-	if !filepath.IsAbs(argv[0]) && !isPathish(argv[0]) {
-		if _, err := exec.LookPath(argv[0]); err != nil {
-			return CommandResult{}, fmt.Errorf("%s not found in PATH: %w", argv[0], err)
-		}
+func (osRunner) Run(ctx context.Context, command Command) (CommandResult, error) {
+	cmd, err := command.process(ctx)
+	if err != nil {
+		return CommandResult{}, err
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	result := CommandResult{Stdout: stdout.String(), Stderr: stderr.String()}
 
 	var exitErr *exec.ExitError
@@ -474,8 +475,4 @@ func (osRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
 		return result, err
 	}
 	return result, nil
-}
-
-func isPathish(name string) bool {
-	return filepath.Base(name) != name
 }

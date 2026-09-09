@@ -169,10 +169,13 @@ type fakeRunner struct {
 	dryRuns    []CommandResult
 	dryRunErr  error
 	calls      [][]string
+	commands   []Command
 }
 
-func (r *fakeRunner) Run(ctx context.Context, argv []string) (CommandResult, error) {
+func (r *fakeRunner) Run(ctx context.Context, command Command) (CommandResult, error) {
+	argv := command.Argv
 	r.calls = append(r.calls, argv)
+	r.commands = append(r.commands, command)
 	if err := ctx.Err(); err != nil {
 		return CommandResult{}, err
 	}
@@ -367,6 +370,7 @@ func (b *fakeBinder) Bind(path, identity string) (Bound, error) {
 type fakeStreamer struct {
 	journal  *journal
 	calls    [][]string
+	commands []Command
 	exitCode int
 	err      error
 
@@ -379,12 +383,14 @@ type fakeStreamer struct {
 	beforeStreaming func()
 }
 
-func (s *fakeStreamer) Stream(ctx context.Context, argv []string) (int, error) {
+func (s *fakeStreamer) Stream(ctx context.Context, command Command) (int, error) {
+	argv := command.Argv
 	s.journal.record("stream")
 	if s.beforeStreaming != nil {
 		s.beforeStreaming()
 	}
 	s.calls = append(s.calls, argv)
+	s.commands = append(s.commands, command)
 	if s.cancel != nil {
 		s.cancel()
 	}

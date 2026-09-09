@@ -30,6 +30,22 @@ func profileConfig(companions string) string {
 	return `{"profiles":{"macbook":{"source":"/tmp","dailyCompanions":` + companions + `}}}`
 }
 
+func TestValidateCompanionPlacement(t *testing.T) {
+	for _, value := range []string{`[]`, `[{"id":"a","command":["true"]}]`, `{}`} {
+		t.Run(value, func(t *testing.T) {
+			loadConfig(t, `{"dailyCompanions":`+value+`,"profiles":{"default":{}}}`)
+			err := ValidateCompanionPlacement()
+			if err == nil || !strings.Contains(err.Error(), "profiles.<name>.dailyCompanions") {
+				t.Fatalf("misplaced companions: %v", err)
+			}
+		})
+	}
+	loadConfig(t, profileConfig(`[{"id":"a","command":["true"]}]`))
+	if err := ValidateCompanionPlacement(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProfileCompanionsParsesFullEntry(t *testing.T) {
 	loadConfig(t, profileConfig(`[
 		{

@@ -127,38 +127,49 @@ func detectLegacyConfig() error {
 // ResolveProfiles determines which profiles to use based on flags.
 // Called from PersistentPreRunE after config is loaded.
 func ResolveProfiles() error {
+	ActiveProfileName = ""
+	profiles, err := SelectProfiles()
+	if err != nil {
+		return err
+	}
+	if !AllProfiles {
+		ActiveProfileName = profiles[0]
+	}
+	return nil
+}
+
+// SelectProfiles is the common selection policy for initialization and execution.
+// A successful selection always contains at least one profile.
+func SelectProfiles() ([]string, error) {
 	if ProfileFlag != "" && AllProfiles {
-		return fmt.Errorf("--profile and --all are mutually exclusive")
+		return nil, fmt.Errorf("--profile and --all are mutually exclusive")
 	}
 
 	if ProfileFlag != "" {
 		// Validate the profile exists
 		profiles := viper.GetStringMap("profiles")
 		if _, ok := profiles[ProfileFlag]; !ok {
-			return fmt.Errorf("profile %q not found. Available profiles: %v", ProfileFlag, ProfileNames())
+			return nil, fmt.Errorf("profile %q not found. Available profiles: %v", ProfileFlag, ProfileNames())
 		}
-		ActiveProfileName = ProfileFlag
-		return nil
+		return []string{ProfileFlag}, nil
 	}
 
+	names := ProfileNames()
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no backup profiles configured in %s; add a profile under 'profiles' with 'goback config edit'", viper.ConfigFileUsed())
+	}
 	if AllProfiles {
-		// ActiveProfileName will be set per-iteration in forEachProfile
-		return nil
+		return names, nil
 	}
 
-	// Auto-detect: set ActiveProfileName to the first matching profile
 	matching := MatchingProfiles()
 	if len(matching) > 0 {
-		ActiveProfileName = matching[0]
-	} else if names := ProfileNames(); len(names) > 0 {
-		// If no hostname match but only one profile, use it
-		if len(names) == 1 {
-			ActiveProfileName = names[0]
-		} else {
-			return fmt.Errorf("could not auto-detect profile for this machine.\nNo profile hostname matches %q.\nAvailable profiles: %v\nUse --profile to specify one, or add a 'hostname' field to your profile.", mustHostname(), names)
-		}
+		return matching, nil
 	}
-	return nil
+	if len(names) == 1 {
+		return names, nil
+	}
+	return nil, fmt.Errorf("could not auto-detect profile for this machine.\nNo profile hostname matches %q.\nAvailable profiles: %v\nUse --profile to specify one, or add a 'hostname' field to your profile.", mustHostname(), names)
 }
 
 func mustHostname() string {

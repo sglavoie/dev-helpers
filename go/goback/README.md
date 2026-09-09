@@ -30,7 +30,25 @@ read as-is and never rewritten when it already exists.
 Configuration lives at `~/.goback.json` and is read with Viper. Backups are
 organized under `profiles`; each profile has its own `source`, `destination`,
 `hostname`, `rsync` settings, and optional `dailyCompanions`. The profile is
-selected by matching `hostname`, or explicitly with `--profile`.
+selected by matching `hostname`, or explicitly with `--profile`. If exactly one
+profile is configured, it is used even when its hostname does not match. `--all`
+selects every profile. A command that needs profiles fails with a clear error
+when none are configured.
+
+`dailyCompanions` belongs inside the profile it accompanies. A top-level
+`dailyCompanions` key is rejected with instructions to move it; configuration
+editing and printing remain available. For example, this entry belongs under
+`profiles.default` alongside its `source`, `destination`, and `rsync` settings:
+
+```json
+"dailyCompanions": [
+  {
+    "id": "apple-photos",
+    "command": ["photos-backup", "daily"],
+    "dryRunArgs": ["--dry-run"]
+  }
+]
+```
 
 The mirror is configured separately, as a single top-level block:
 
@@ -116,7 +134,12 @@ The mirror is bound to the directories, not to their paths. Both endpoints are
 opened right after the confirmation, and everything that follows — the second
 preflight, the two listings of the destination, and rsync itself — is given the
 identity of each opened directory (`/.vol/<volume>/<inode>`) instead of the path
-it was found at. rsync opens its own arguments when it starts, which is later
+it was found at. For the second preflight and transfer, the rsync child starts
+inside the destination's bound directory and receives `.` as its destination;
+the source argument remains its bound identity path. This supports rsync 3.5's
+destination checks, which cannot walk the intermediate `/.vol/<volume>` path.
+Command history includes this working-directory context. rsync opens its own
+arguments when it starts, which is later
 than the last thing the mirror can check, so this is what makes a replacement in
 that window harmless: renaming the source or destination away and putting a
 symlink in its place afterwards changes what the path means and nothing else,
