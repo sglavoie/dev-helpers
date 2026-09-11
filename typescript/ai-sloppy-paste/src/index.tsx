@@ -109,6 +109,12 @@ export default function Command() {
       searchText={searchQuery}
       onSearchTextChange={setSearchQuery}
       searchBarPlaceholder={searchBarPlaceholder}
+      actions={
+        <ActionPanel>
+          <CreateSnippetAction onCreated={loadData} tags={allTags} />
+          <ImportDataAction onImported={loadData} />
+        </ActionPanel>
+      }
       searchBarAccessory={
         <>
           <List.Dropdown
@@ -148,7 +154,7 @@ export default function Command() {
               ? "Bookmark snippets with ⌘+Shift+V or press ⌘+Shift+F to view all bookmarks"
               : showNeedsAttention
                 ? "All snippets are in good shape. Press ⌘+Shift+N to return to the full list"
-                : "Press ⌘+N to create your first snippet"
+                : "Press ⌘+N to create a snippet or ⌘+Shift+I to import"
           }
           actions={
             <ActionPanel>

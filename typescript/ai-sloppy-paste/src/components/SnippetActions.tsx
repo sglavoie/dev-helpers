@@ -233,6 +233,7 @@ export function ImportDataAction(props: { onImported: () => void }) {
     <Action
       title="Import Snippets"
       icon={Icon.Upload}
+      shortcut={{ modifiers: ["cmd", "shift"], key: "i" }}
       onAction={() => {
         push(<ImportForm onImported={props.onImported} />);
       }}

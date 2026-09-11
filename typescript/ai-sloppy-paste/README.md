@@ -152,6 +152,16 @@ View these statistics in the detail view (⌘+D) to understand which snippets ar
 
 ## Setup
 
+### Moving your snippets from Raycast to Tinycast
+
+1. In Raycast, open AI Sloppy Paste's **Manage Snippets** command and press `⌘ + Shift + E` to export. The `ai-sloppy-paste-<timestamp>.json` file is saved in your Downloads folder.
+2. In Tinycast, open this extension's **Manage Snippets** command and press `⌘ + Shift + I`, or open Actions and choose **Import Snippets**. Import is available even when the list is empty.
+3. Select the exported JSON file, leave **Merge with existing data** checked to retain any snippets already in Tinycast, and submit the form with `⌘ + Enter`.
+
+The export includes snippets, tags, usage metadata, and placeholder history. Tinycast's **Import from Raycast** installs the extension's code; use the steps above to transfer this extension's data.
+
+### Local development
+
 1. Install dependencies: `npm ci`
 2. Run development mode: `npm run dev`
 3. Build for production: `npm run build`
