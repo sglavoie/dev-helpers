@@ -5,8 +5,7 @@ from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
-from photos_backup.config import load_apple_photos_config
+from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import (
     print_export_result,
@@ -26,7 +25,7 @@ from photos_backup.summary import (
 )
 @click.pass_context
 def daily(ctx: click.Context, dry_run: bool) -> None:
-    config = load_apple_photos_config(config_path_from(ctx))
+    config = apple_photos_config_from(ctx)
     with open_archive(config, dry_run=dry_run) as archive:
         if not archive.state_store.load().initialized:
             raise ActionRequired(

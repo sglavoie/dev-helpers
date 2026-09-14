@@ -2,8 +2,7 @@ import click
 
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
-from photos_backup.config import load_apple_photos_config
+from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.summary import print_export_result
 
 
@@ -19,7 +18,7 @@ from photos_backup.summary import print_export_result
 )
 @click.pass_context
 def apple_photos(ctx: click.Context, testing: bool) -> None:
-    config = load_apple_photos_config(config_path_from(ctx))
+    config = apple_photos_config_from(ctx)
     extra_arguments = _parse_extra_args(ctx.args)
     with open_archive(config, dry_run=testing) as archive:
         result = ApplePhotosExport(

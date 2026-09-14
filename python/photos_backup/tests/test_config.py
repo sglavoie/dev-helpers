@@ -13,6 +13,7 @@ from photos_backup.config import (
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
+    normalize_volume_override,
     resolve_config_path,
 )
 
@@ -189,6 +190,49 @@ class ApplePhotosConfigTests(ConfigTestCase):
         )
         self.assert_usage_error(content, "legacy_export", "must not be inside archive")
 
+    def test_volume_override_reroots_the_archive_sub_path(self) -> None:
+        config = load_apple_photos_config(
+            self.write_config(MINIMAL_APPLE_PHOTOS),
+            volume=Path("/Users/tester/some/path"),
+        )
+
+        self.assertEqual(config.volume, Path("/Users/tester/some/path"))
+        self.assertEqual(
+            config.archive, Path("/Users/tester/some/path/Media/Apple Photos")
+        )
+        self.assertFalse(config.require_mounted_volume)
+
+    def test_without_an_override_the_volume_must_be_mounted(self) -> None:
+        config = load_apple_photos_config(self.write_config(MINIMAL_APPLE_PHOTOS))
+
+        self.assertEqual(config.volume, Path("/Volumes/Test"))
+        self.assertTrue(config.require_mounted_volume)
+
+    def test_volume_override_still_validates_the_configuration_file(self) -> None:
+        content = """
+        [apple_photos]
+        volume = "/Volumes/Test"
+        archive = "/Volumes/Other/Media/Apple Photos"
+        library = "/Users/tester/Pictures/Photos Library.photoslibrary"
+        """
+        config_path = self.write_config(content)
+        with self.assertRaises(click.UsageError) as raised:
+            load_apple_photos_config(
+                config_path, volume=Path("/Users/tester/elsewhere")
+            )
+        self.assertIn("must be inside volume", str(raised.exception))
+
+    def test_legacy_export_inside_the_overridden_archive_is_rejected(self) -> None:
+        content = MINIMAL_APPLE_PHOTOS + (
+            'legacy_export = "/Users/tester/elsewhere/Media/Apple Photos/export"\n'
+        )
+        config_path = self.write_config(content)
+        with self.assertRaises(click.UsageError) as raised:
+            load_apple_photos_config(
+                config_path, volume=Path("/Users/tester/elsewhere")
+            )
+        self.assertIn("must not be inside archive", str(raised.exception))
+
     def test_overlap_days_out_of_range_is_rejected(self) -> None:
         self.assert_usage_error(
             MINIMAL_APPLE_PHOTOS + "incremental_overlap_days = 400\n",
@@ -250,6 +294,26 @@ class ApplePhotosConfigTests(ConfigTestCase):
             "mirror",
             "true or false",
         )
+
+
+class VolumeOverrideTests(unittest.TestCase):
+    def test_absolute_path_is_kept(self) -> None:
+        self.assertEqual(
+            normalize_volume_override("/Users/tester/some/path"),
+            Path("/Users/tester/some/path"),
+        )
+
+    def test_home_and_environment_variables_are_expanded(self) -> None:
+        with mock.patch.dict("os.environ", {"PHOTOS_TEST_VOLUME": "some"}):
+            self.assertEqual(
+                normalize_volume_override("~/$PHOTOS_TEST_VOLUME/path"),
+                Path.home() / "some/path",
+            )
+
+    def test_relative_path_is_rejected(self) -> None:
+        with self.assertRaises(click.BadParameter) as raised:
+            normalize_volume_override("some/path")
+        self.assertIn("absolute path", str(raised.exception))
 
 
 class OtherSectionTests(ConfigTestCase):

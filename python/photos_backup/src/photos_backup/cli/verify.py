@@ -2,8 +2,7 @@ import click
 
 from photos_backup.apple_photos.verify import verify_archive
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
-from photos_backup.config import load_apple_photos_config
+from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.summary import print_verification_report
 
 
@@ -13,7 +12,7 @@ from photos_backup.summary import print_verification_report
 )
 @click.pass_context
 def verify(ctx: click.Context) -> None:
-    config = load_apple_photos_config(config_path_from(ctx))
+    config = apple_photos_config_from(ctx)
     with open_archive(config, dry_run=True) as archive:
         report = verify_archive(archive)
 

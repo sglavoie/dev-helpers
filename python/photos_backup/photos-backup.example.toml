@@ -5,6 +5,8 @@
 
 [apple_photos]
 # Removable volume holding the shared archive, and the archive beneath it.
+# Pass `--volume PATH` before a command to re-point a single run elsewhere,
+# including at an ordinary local directory.
 volume = "/Volumes/SanDisk"
 archive = "/Volumes/SanDisk/Media/Apple Photos"
 library = "~/Pictures/Photos Library.photoslibrary"

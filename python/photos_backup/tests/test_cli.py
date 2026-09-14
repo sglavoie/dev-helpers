@@ -85,6 +85,12 @@ class HelpTests(unittest.TestCase):
         self.assertIn("--config", result.output)
         self.assertIn("photos-backup.toml", result.output)
 
+    def test_root_help_documents_volume_option(self) -> None:
+        result = self.runner.invoke(cli, ["--help"])
+
+        self.assertIn("--volume", result.output)
+        self.assertIn("apple_photos", result.output)
+
     def test_each_command_help_succeeds(self) -> None:
         for command in COMMANDS:
             with self.subTest(command=command):
@@ -237,6 +243,45 @@ class ArchiveCommandTestCase(unittest.TestCase):
             )
         )
         return paths
+
+
+class VolumeOverrideCommandTests(ArchiveCommandTestCase):
+    """`--volume` re-points a run at a plain directory, without a mount point."""
+
+    def run_verify(self, *arguments: str):
+        return self.runner.invoke(
+            cli, ["--config", str(self.config_path), *arguments, "verify"]
+        )
+
+    def test_an_unmounted_configured_volume_still_fails_closed(self) -> None:
+        result = self.run_verify()
+
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("is not a mount point", result.output)
+
+    def test_override_accepts_a_local_directory(self) -> None:
+        local = self.root / "some" / "path"
+        (local / "Media" / "Apple Photos" / ".photos-backup").mkdir(parents=True)
+
+        result = self.run_verify("--volume", str(local))
+
+        # The archive opened, so verification reached its per-check report
+        # instead of stopping at the volume.
+        self.assertNotIn("[apple_photos] volume", result.output)
+        self.assertIn("Archive verification", result.output)
+        self.assertIn(str(local / "Media" / "Apple Photos"), result.output)
+
+    def test_override_reports_a_missing_directory(self) -> None:
+        result = self.run_verify("--volume", str(self.root / "absent"))
+
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("create it and retry", result.output)
+
+    def test_override_rejects_a_relative_path(self) -> None:
+        result = self.run_verify("--volume", "some/path")
+
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("absolute path", result.output)
 
 
 if __name__ == "__main__":

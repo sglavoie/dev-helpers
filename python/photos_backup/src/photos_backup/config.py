@@ -57,6 +57,9 @@ class ApplePhotosConfig:
     mirror: bool
     cleanup_max_assets: int
     cleanup_max_fraction: float
+    # False only when --volume re-pointed the run at a directory the user named
+    # explicitly, which need not be a mount point.
+    require_mounted_volume: bool = True
 
 
 @dataclass(frozen=True)
@@ -83,14 +86,34 @@ def resolve_config_path(config_path: Path | None = None) -> Path:
     return Path(config_path or DEFAULT_CONFIG_PATH).expanduser()
 
 
-def load_apple_photos_config(config_path: Path | None = None) -> ApplePhotosConfig:
+def load_apple_photos_config(
+    config_path: Path | None = None, *, volume: Path | None = None
+) -> ApplePhotosConfig:
+    """Load the section, optionally re-rooting the archive under `volume`.
+
+    The configured pair is validated either way, so `--volume` relaxes where the
+    archive lives but never what the configuration file is allowed to say.
+    """
     section = _read_section(config_path, "apple_photos", APPLE_PHOTOS_KEYS)
-    volume = section.required_path("volume")
-    archive = section.required_path("archive")
+    configured_volume = section.required_path("volume")
+    configured_archive = section.required_path("archive")
+    library = section.required_path("library")
     legacy_export = section.optional_path("legacy_export")
 
-    if archive == volume or not archive.is_relative_to(volume):
-        section.fail("archive", f"must be inside volume '{volume}' (got '{archive}')")
+    if configured_archive == configured_volume or not configured_archive.is_relative_to(
+        configured_volume
+    ):
+        section.fail(
+            "archive",
+            f"must be inside volume '{configured_volume}' (got '{configured_archive}')",
+        )
+
+    effective_volume = configured_volume
+    archive = configured_archive
+    if volume is not None:
+        effective_volume = volume
+        archive = volume / configured_archive.relative_to(configured_volume)
+
     if legacy_export is not None and legacy_export.is_relative_to(archive):
         section.fail(
             "legacy_export",
@@ -98,9 +121,9 @@ def load_apple_photos_config(config_path: Path | None = None) -> ApplePhotosConf
         )
 
     return ApplePhotosConfig(
-        volume=volume,
+        volume=effective_volume,
         archive=archive,
-        library=section.required_path("library"),
+        library=library,
         legacy_export=legacy_export,
         limit_export=section.integer("limit_export", default=0, minimum=0),
         spouse_device_models=section.string_list("spouse_device_models"),
@@ -114,7 +137,16 @@ def load_apple_photos_config(config_path: Path | None = None) -> ApplePhotosConf
         mirror=section.boolean("mirror", default=True),
         cleanup_max_assets=section.integer("cleanup_max_assets", default=10, minimum=0),
         cleanup_max_fraction=section.fraction("cleanup_max_fraction", default=0.001),
+        require_mounted_volume=volume is None,
     )
+
+
+def normalize_volume_override(raw: str) -> Path:
+    """Expand and validate a `--volume` value the way config paths are handled."""
+    expanded = Path(os.path.expandvars(raw)).expanduser()
+    if not expanded.is_absolute():
+        raise click.BadParameter(f"must be an absolute path (got '{expanded}')")
+    return expanded
 
 
 def load_sd_card_config(config_path: Path | None = None) -> SdCardConfig:

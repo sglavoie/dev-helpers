@@ -13,7 +13,13 @@ from photos_backup.cli.sd_card import sd_card
 from photos_backup.cli.context import CliContext
 from photos_backup.cli.ssd import ssd
 from photos_backup.cli.verify import verify
-from photos_backup.config import DEFAULT_CONFIG_PATH
+from photos_backup.config import DEFAULT_CONFIG_PATH, normalize_volume_override
+
+
+def _volume_override(
+    ctx: click.Context, param: click.Parameter, value: str | None
+) -> Path | None:
+    return normalize_volume_override(value) if value else None
 
 
 @click.group()
@@ -24,10 +30,19 @@ from photos_backup.config import DEFAULT_CONFIG_PATH
     default=None,
     help=f"TOML configuration file (default: {DEFAULT_CONFIG_PATH}).",
 )
+@click.option(
+    "--volume",
+    "volume",
+    default=None,
+    callback=_volume_override,
+    help="Override [apple_photos] volume for this run; the archive sub-path is "
+    "re-rooted under it. Accepts any existing absolute directory, not just a "
+    "mount point.",
+)
 @click.pass_context
-def cli(ctx: click.Context, config_path: Path | None) -> None:
+def cli(ctx: click.Context, config_path: Path | None, volume: Path | None) -> None:
     """Pass `--help` to any command to see its usage."""
-    ctx.obj = CliContext(config_path=config_path)
+    ctx.obj = CliContext(config_path=config_path, volume=volume)
 
 
 cli.add_command(apple_photos)

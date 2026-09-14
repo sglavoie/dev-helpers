@@ -25,10 +25,13 @@ HOST = "Sebastiens MacBook.local"
 FIXED_NOW = datetime.datetime(2026, 8, 11, 9, 30, tzinfo=datetime.UTC)
 
 
-def make_config(volume: Path, archive: Path) -> ApplePhotosConfig:
+def make_config(
+    volume: Path, archive: Path, *, require_mounted_volume: bool = True
+) -> ApplePhotosConfig:
     return ApplePhotosConfig(
         volume=volume,
         archive=archive,
+        require_mounted_volume=require_mounted_volume,
         library=Path("/Users/tester/Pictures/Photos Library.photoslibrary"),
         legacy_export=None,
         limit_export=0,
@@ -75,6 +78,41 @@ class ArchiveSafetyTests(ArchiveTestCase):
             resolve_archive(self.config, probes)
         self.assertIn("is not a mount point", str(caught.exception))
         self.assert_untouched()
+
+    def test_overridden_volume_need_not_be_a_mount_point(self) -> None:
+        local = self.root / "some" / "path"
+        local.mkdir(parents=True)
+        config = make_config(
+            local, local / "Media" / "Apple Photos", require_mounted_volume=False
+        )
+
+        paths = resolve_archive(config, self.make_probes(mounted=False))
+
+        self.assertEqual(paths.volume, local)
+        self.assertEqual(paths.archive, local / "Media" / "Apple Photos")
+
+    def test_missing_overridden_volume_is_never_created(self) -> None:
+        missing = self.root / "some" / "path"
+        config = make_config(
+            missing, missing / "Media" / "Apple Photos", require_mounted_volume=False
+        )
+        with self.assertRaises(ArchiveUnavailable) as caught:
+            with open_archive(config, probes=self.make_probes(mounted=False)):
+                self.fail("archive must not open on a missing directory")
+        self.assertIn("create it and retry", str(caught.exception))
+        self.assertFalse(missing.exists())
+
+    def test_symlinked_overridden_volume_fails_closed(self) -> None:
+        target = self.root / "elsewhere"
+        target.mkdir()
+        linked = self.root / "linked"
+        linked.symlink_to(target)
+        config = make_config(
+            linked, linked / "Media" / "Apple Photos", require_mounted_volume=False
+        )
+        with self.assertRaises(ArchiveUnsafe) as caught:
+            resolve_archive(config, self.make_probes(mounted=False))
+        self.assertIn("is a symlink", str(caught.exception))
 
     def test_missing_volume_is_never_created(self) -> None:
         missing = self.root / "Absent"

@@ -23,7 +23,7 @@ def resolve_archive(config: ApplePhotosConfig, probes: SystemProbes) -> ArchiveP
             f"[apple_photos] archive: '{archive}' must be a directory inside "
             f"volume '{volume}'"
         )
-    _check_volume(volume, probes)
+    _check_volume(volume, probes, require_mount=config.require_mounted_volume)
     _check_descent(volume, archive)
     return ArchivePaths(volume=volume, archive=archive)
 
@@ -48,27 +48,31 @@ def _reject_ambiguous(path: Path, key: str) -> None:
         )
 
 
-def _check_volume(volume: Path, probes: SystemProbes) -> None:
+def _check_volume(volume: Path, probes: SystemProbes, *, require_mount: bool) -> None:
+    """Validate the volume; `--volume` waives only the mount-point requirement."""
     if volume.is_symlink():
         raise ArchiveUnsafe(
             f"[apple_photos] volume: '{volume}' is a symlink; "
             "point it at the real mount point"
         )
     if not volume.is_dir():
-        raise ArchiveUnavailable(
-            f"[apple_photos] volume: '{volume}' does not exist; "
-            "connect the drive and retry"
+        remedy = (
+            "connect the drive and retry" if require_mount else "create it and retry"
         )
-    if not probes.is_mount(volume):
+        raise ArchiveUnavailable(
+            f"[apple_photos] volume: '{volume}' does not exist; {remedy}"
+        )
+    if require_mount and not probes.is_mount(volume):
         raise ArchiveUnavailable(
             f"[apple_photos] volume: '{volume}' is not a mount point; "
             "connect the drive and retry"
         )
     resolved = Path(os.path.realpath(volume))
     if resolved != volume:
+        remedy = "configure" if require_mount else "pass"
         raise ArchiveUnsafe(
             f"[apple_photos] volume: '{volume}' resolves to '{resolved}'; "
-            "configure the resolved path instead"
+            f"{remedy} the resolved path instead"
         )
 
 

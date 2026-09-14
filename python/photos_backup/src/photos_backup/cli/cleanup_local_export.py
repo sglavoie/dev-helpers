@@ -9,8 +9,7 @@ from photos_backup.apple_photos.local_export import (
 )
 from photos_backup.apple_photos.verify import verify_archive
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
-from photos_backup.config import load_apple_photos_config
+from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import (
     print_local_export_cleanup,
@@ -40,7 +39,7 @@ CANCELLED = "Cancelled; nothing was deleted."
 )
 @click.pass_context
 def cleanup_local_export(ctx: click.Context, dry_run: bool) -> None:
-    config = load_apple_photos_config(config_path_from(ctx))
+    config = apple_photos_config_from(ctx)
     if not dry_run and not sys.stdin.isatty():
         raise ActionRequired(NOT_A_TERMINAL)
 

@@ -2,8 +2,7 @@ import click
 
 from photos_backup.apple_photos.bootstrap import bootstrap_archive
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
-from photos_backup.config import load_apple_photos_config
+from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.summary import print_bootstrap_result
 
 
@@ -18,7 +17,7 @@ from photos_backup.summary import print_bootstrap_result
 )
 @click.pass_context
 def bootstrap(ctx: click.Context, dry_run: bool) -> None:
-    config = load_apple_photos_config(config_path_from(ctx))
+    config = apple_photos_config_from(ctx)
     with open_archive(config, dry_run=dry_run) as archive:
         result = bootstrap_archive(config, archive)
 

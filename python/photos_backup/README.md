@@ -75,6 +75,21 @@ Settings live in `~/.config/osxphotos-backup/photos-backup.toml`. Pass
 `photos-backup.example.toml` as a starting point; it holds no secrets and none
 should be added to it.
 
+Pass `--volume PATH` before a command to send one run somewhere else without
+editing the file, for instance when the usual drive is not connected:
+
+```bash
+photos-backup --volume /Volumes/T7 apple-photos --use-photokit
+photos-backup --volume ~/Pictures/archive daily
+```
+
+The archive's sub-path under the configured volume is preserved, so a
+`volume` of `/Volumes/SanDisk` and an `archive` of
+`/Volumes/SanDisk/Media/Apple Photos` become `/Volumes/T7/Media/Apple Photos`.
+The configuration file is still validated as usual. Only the Apple Photos
+workflow is re-pointed: under `backup-all`, the `[ssd]` and `[rclone]` steps
+keep reading their own configured sources.
+
 Each section maps to one workflow and is loaded only by the commands that need
 it: `[apple_photos]`, `[sd_card]`, `[ssd]`, and `[rclone]`. Paths accept `~` and
 environment variables and must be absolute once expanded. Invalid values (wrong
@@ -104,6 +119,11 @@ a symlink, and resolve to itself; the archive must descend from it through real
 directories only. A missing volume is never created, and only the archive subtree
 is. Paths containing `..`, symlinked components, or a component that is not a
 directory fail closed with an error naming the offending path.
+
+A volume named with `--volume` waives the mount-point requirement only, so an
+ordinary directory such as `~/Pictures/archive` is accepted. Every other check
+still applies, including having to exist already: a mistyped `--volume` fails
+instead of quietly exporting into a new tree.
 
 One run at a time holds an exclusive `flock` on `archive.lock`, released when the
 run ends or the process dies, so runs cannot overlap. State is replaced

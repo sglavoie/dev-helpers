@@ -7,11 +7,10 @@ import click
 
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import config_path_from
+from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.cli.ssd import load_optional_sd_card_config
 from photos_backup.config import (
     MissingSection,
-    load_apple_photos_config,
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
@@ -46,6 +45,8 @@ def backup_all(
     skip_ssd: bool,
     skip_remote: bool,
 ) -> None:
+    # A --volume override re-points the Apple Photos step only; the SSD and
+    # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
     summaries: list[BackupSummary] = []
 
@@ -53,7 +54,7 @@ def backup_all(
         summaries.append(BackupSummary(step_name="Apple Photos", skipped=True))
     else:
         try:
-            config = load_apple_photos_config(config_path)
+            config = apple_photos_config_from(ctx)
             with open_archive(config, dry_run=dry_run) as archive:
                 summaries.append(
                     ApplePhotosExport(
