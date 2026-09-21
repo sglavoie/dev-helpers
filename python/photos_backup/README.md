@@ -306,8 +306,13 @@ prompts for nothing, and deletes nothing.
 ### Cross-Mac takeover
 
 The archive records the hostname that last wrote it in `state.writer_hostname`.
+On macOS this is the configured `LocalHostName` (read with
+`scutil --get LocalHostName`) plus `.local`, not the network-dependent hostname.
+Tailscale, DNS, and DHCP changes therefore do not trigger a takeover. If the
+local name cannot be read, the command stops instead of using a network name.
 When that name still matches, `daily` costs one state read and never opens the
-Photos library. When it differs — a second Mac, or a Mac whose hostname changed —
+Photos library for a takeover check. When it differs — a second Mac, or a Mac
+whose configured local name changed —
 the run first proves that this Mac holds the same photos.
 
 Every export-database record is matched to a library asset on

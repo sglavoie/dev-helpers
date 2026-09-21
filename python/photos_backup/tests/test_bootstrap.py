@@ -4,7 +4,9 @@ import contextlib
 import datetime
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.bootstrap import (
@@ -19,6 +21,7 @@ from photos_backup.apple_photos.identity import (
 )
 from photos_backup.apple_photos.plan import ExportMode
 from photos_backup.archive import ArchiveState, SystemProbes, open_archive
+from photos_backup.archive.probes import real_hostname
 from photos_backup.errors import ActionRequired
 from tests.test_export import HOSTNAME, THURSDAY, FakeRunner, make_config, row
 
@@ -170,6 +173,36 @@ class FreshBootstrapTests(BootstrapTestCase):
 
 
 class ResumeBootstrapTests(BootstrapTestCase):
+    @patch("photos_backup.archive.probes.sys.platform", "darwin")
+    def test_network_hostname_change_does_not_trigger_takeover_on_resume(self) -> None:
+        self.system_probes = replace(self.system_probes, hostname=real_hostname)
+        runner = FakeRunner([row("a.jpg", new=1)])
+        # The existing writer may resume even with more absent assets than
+        # a different Mac would be allowed to take over with.
+        recorded = (asset("a"), *(asset(f"gone-{i}") for i in range(76)))
+        with (
+            patch("photos_backup.archive.probes.subprocess.run") as run,
+            patch(
+                "photos_backup.archive.probes.socket.gethostname",
+                return_value="sbastiens-mac-studio.tailb5cfdf.ts.net",
+            ) as network_name,
+        ):
+            run.return_value.stdout = "Sebastiens-Mac-Studio\n"
+            result = self.bootstrap(
+                runner,
+                library=(asset("a"),),
+                before=recorded,
+                after=recorded,
+                state=ArchiveState(writer_hostname="Sebastiens-Mac-Studio.local"),
+            )
+
+        self.assertIs(result.takeover.status, WriterStatus.UNCHANGED)
+        self.assertIsNone(result.takeover.verdict)
+        self.assertTrue(result.resumed)
+        self.assertTrue(result.initialized)
+        self.assertEqual(self.state.writer_hostname, "Sebastiens-Mac-Studio.local")
+        network_name.assert_not_called()
+
     def test_an_interrupted_bootstrap_resumes_with_a_full_export(self) -> None:
         self.archive_root.mkdir(parents=True)
         (self.archive_root / ".photos-backup").mkdir()
