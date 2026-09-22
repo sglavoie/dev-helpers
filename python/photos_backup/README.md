@@ -218,6 +218,43 @@ they do not invoke osxphotos, write reports, or touch `export.db` or `state.json
 The manual `apple-photos --testing` command is the deliberate exception: it runs
 a limited osxphotos simulation for exporter development without writing assets.
 
+### Back up recent photos without waiting for bootstrap
+
+```sh
+photos-backup recent                         # photos/videos taken in the last 30 days
+photos-backup recent --days 30 --dry-run      # show the plan without exporting
+photos-backup recent --download-timeout 300  # allow 5 minutes per missing asset
+```
+
+`recent` uses the existing archive and export database, including an interrupted
+bootstrap, and applies the normal writer check. It processes fully local assets
+first and then attempts missing originals and other requested components through
+PhotoKit. Unchanged exported files are skipped by osxphotos's update checks.
+The date filter uses capture dates, not import dates; newly imported older photos
+are outside the selected window.
+
+There is **no total run time limit**. Missing-file retrieval has a 120-second
+budget per asset, shared across its original/edited versions and any retries
+within a run. Local copies and metadata writes do not consume that budget.
+The retrieval runs in a separate process so a stalled native PhotoKit call can
+be terminated without interrupting an archive write. This is an elapsed-time
+limit, so a large download taking longer than the budget is also deferred; use
+`--download-timeout` to allow it more time. The same default protection applies
+to bootstrap and daily exports.
+
+Failed or timed-out downloads are printed immediately and recorded beside the
+CSV export report in a `.downloads.json` file, with asset UUIDs, filenames, and
+reasons. Other unavailable components appear in the CSV's `missing` rows.
+The recent command exits nonzero when files remain missing or errors occur.
+Rerun it to retry; completed exports are retained, and each run gets a fresh
+per-asset budget. Items that age out of the date window require a larger `--days`
+value or a full export.
+
+A recent export never initializes the archive, advances its full/daily export
+timestamps, or mirrors deletions. Finish bootstrap separately when a complete
+library backup is wanted. Stop an existing bootstrap with Ctrl+C and wait for
+it to exit before starting `recent`; both use the same archive lock.
+
 ### Mirroring deletions
 
 Once an export is done, `daily` reconciles the archive against the library so a

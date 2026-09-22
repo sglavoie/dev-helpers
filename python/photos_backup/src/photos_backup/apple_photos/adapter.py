@@ -16,6 +16,10 @@ from osxphotos.export_db import OSXPHOTOS_EXPORTDB_VERSION
 from osxphotos.export_db_utils import export_db_migrate_photos_library
 
 from photos_backup.apple_photos.identity import AssetIdentity
+from photos_backup.apple_photos.downloads import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    bounded_downloads,
+)
 from photos_backup.archive.errors import ArchiveUnsafe
 
 ExportRunner = Callable[[dict[str, Any]], int]
@@ -56,9 +60,45 @@ class MigrationRunner(Protocol):
     ) -> tuple[int, int]: ...
 
 
-def run_osxphotos_export(arguments: dict[str, Any]) -> int:
-    """Run one osxphotos export; returns 0 when osxphotos saw no error."""
-    return export_cli(**arguments)
+def run_osxphotos_export(
+    arguments: dict[str, Any],
+    *,
+    download_timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    local_first: bool = False,
+) -> int:
+    """Run an export with a per-asset download budget and no overall time limit."""
+    arguments = dict(arguments)
+    if local_first:
+        database = PhotosDB(dbfile=arguments["db"])
+        query = database.query
+
+        def ordered_query(options):
+            return sorted(query(options), key=_needs_download)
+
+        database.query = ordered_query
+        arguments["db"] = database
+    with bounded_downloads(download_timeout) as downloads:
+        try:
+            status = export_cli(**arguments)
+        finally:
+            if not arguments.get("dry_run"):
+                downloads.write_failures(Path(arguments["report"]))
+        return status or int(bool(downloads.failures))
+
+
+def _needs_download(photo) -> bool:
+    """Process fully local assets before ones with missing export components."""
+    return bool(
+        not photo.path
+        or (photo.hasadjustments and not photo.path_edited)
+        or (photo.live_photo and not photo.path_live_photo)
+        or (
+            photo.live_photo
+            and photo.hasadjustments
+            and not photo.path_edited_live_photo
+        )
+        or (photo.has_raw and not photo.path_raw)
+    )
 
 
 def read_photos_library(library: Path) -> tuple[AssetIdentity, ...]:

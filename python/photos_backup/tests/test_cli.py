@@ -33,6 +33,7 @@ COMMANDS = (
     "cleanup-local-export",
     "daily",
     "remote",
+    "recent",
     "sd-card",
     "ssd",
     "verify",

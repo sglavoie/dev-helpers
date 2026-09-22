@@ -23,6 +23,7 @@ ERROR_COUNT_FIELDS = ("error", "exiftool_error", "sidecar_user_error", "user_err
 class ExportMode(Enum):
     FULL = "full"
     INCREMENTAL = "incremental"
+    RECENT = "recent"
 
 
 @dataclass(frozen=True)

@@ -14,6 +14,7 @@ from photos_backup.apple_photos.late_additions import (
     read_spotlight_metadata,
 )
 from photos_backup.apple_photos.plan import (
+    ExportMode,
     ExportPlan,
     ExportResult,
     export_arguments,
@@ -119,7 +120,11 @@ class ApplePhotosExport:
             elapsed_seconds=elapsed,
             report_problem=report.problem,
         )
-        if result.clean and not self.archive.dry_run:
+        if (
+            result.clean
+            and not self.archive.dry_run
+            and plan.mode is not ExportMode.RECENT
+        ):
             self._advance_state(plan, now, report_path)
             result = dataclasses.replace(result, state_advanced=True)
         return result

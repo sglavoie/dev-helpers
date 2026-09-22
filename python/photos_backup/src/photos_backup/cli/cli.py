@@ -9,6 +9,7 @@ from photos_backup.cli.bootstrap import bootstrap
 from photos_backup.cli.cleanup_local_export import cleanup_local_export
 from photos_backup.cli.daily import daily
 from photos_backup.cli.remote import remote
+from photos_backup.cli.recent import recent
 from photos_backup.cli.sd_card import sd_card
 from photos_backup.cli.context import CliContext
 from photos_backup.cli.ssd import ssd
@@ -52,6 +53,7 @@ cli.add_command(bootstrap)
 cli.add_command(cleanup_local_export)
 cli.add_command(daily)
 cli.add_command(remote)
+cli.add_command(recent)
 cli.add_command(sd_card)
 cli.add_command(ssd)
 cli.add_command(verify)
