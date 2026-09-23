@@ -21,9 +21,9 @@ goback is a CLI backup tool that wraps `rsync` for incremental daily, weekly, an
 
 All commands are Cobra subcommands registered under `RootCmd`. The `PersistentPreRun` hook on the root command calls `config.MustInitConfig` before every subcommand, but skips config validation for `config` subcommands to avoid a chicken-and-egg problem.
 
-The main commands are `run daily|weekly|monthly|all` (execute backups), `preview daily|weekly|monthly` (print the rsync command without running it), `mirror` (mirror one configured directory onto another), `config edit|print|reset`, `clean db|logs|backup`, `usage last|view|reset`, and `eject [--all]`. Preview supports `--test-pattern`, `--excluded`, `--subdir`, and `--depth` to try exclude patterns against the source.
+The main commands are `run daily|weekly|monthly|all` (execute backups), `preview daily|weekly|monthly` (print the rsync command without running it), `mirror` (mirror one configured directory onto another), `config edit|print|reset`, `clean db|logs|backup`, `usage last|view|reset`, and `eject [--all|--list]`. Preview supports `--test-pattern`, `--excluded`, `--subdir`, and `--depth` to try exclude patterns against the source.
 
-Commands declare whether they need an active profile through the `profileResolution` cobra annotation in `profileresolution.go`. The default is `profileRequired`; `mirror` is `profileNotRequired` because it reads a global configuration block, and `eject` is `profileUnlessAll` because `--all` acts on everything the configuration knows about. This is what keeps those two usable on a machine whose hostname matches no profile.
+Commands declare whether they need an active profile through the `profileResolution` cobra annotation in `profileresolution.go`. The default is `profileRequired`; `mirror` is `profileNotRequired` because it reads a global configuration block, and `eject` is `profileUnlessAll` because `--all` acts on everything the configuration knows about and `--list` only describes it. This is what keeps those two usable on a machine whose hostname matches no profile.
 
 ### Backup flow
 
@@ -62,6 +62,8 @@ Dependencies split by capability: `Deps` (`FS`, `Capacity`, `Devices`, `Clock`, 
 ### Ejection (`pkg/eject`)
 
 `Eject` unmounts the volume holding the active profile's destination, `EjectPaths` unmounts the destinations a snapshot run collected, and `All` unmounts every path it is given, which is what `eject --all` hands `config.ConfiguredEndpoints` to. All three funnel through `ejectVolume`, which resolves a path to its `/Volumes/<name>` mount point (`volumes.go`), skips anything outside `/Volumes`, and unmounts each volume once in mount-point order. A volume that is not mounted is an absent outcome rather than a failure, one refusal never stops the others, and only a mounted volume that could not be ejected makes the command exit nonzero.
+
+`eject --list` never reaches `ejectVolume`: `MountedVolumes` (`list.go`) groups `config.ConfiguredEndpointRefs`, which keeps each path's owning profile or mirror and its source/destination role, by mount point and keeps the mounted ones; `cmd/eject.go` renders them and suggests `--profile NAME` only for profile destinations. `osMounts` (`deps.go`) is shared by listing and ejecting and treats a volume as mounted only when its root is a non-symlink directory on a different device than its parent, which excludes stale `/Volumes/<name>` directories.
 
 ### Backup type system (`pkg/models`)
 

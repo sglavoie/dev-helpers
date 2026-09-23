@@ -1,8 +1,11 @@
 package eject
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"syscall"
 )
 
 // Runner executes diskutil without a shell. It returns the combined output
@@ -26,7 +29,7 @@ type Deps struct {
 
 // OSDeps returns the dependencies backed by the real machine.
 func OSDeps() Deps {
-	return Deps{Runner: osRunner{}, Mounts: osMounts{}}
+	return Deps{Runner: osRunner{}, Mounts: osMounts{lstat: os.Lstat, device: statDevice}}
 }
 
 type osRunner struct{}
@@ -36,9 +39,39 @@ func (osRunner) Run(argv []string) (string, error) {
 	return string(output), err
 }
 
-type osMounts struct{}
+// osMounts detects a mount point by its filesystem: a volume is mounted only
+// when its root is a real directory, not a symlink, on a different device than
+// the directory holding it. That rules out the empty directory a drive can
+// leave behind under /Volumes after an unclean unmount.
+type osMounts struct {
+	lstat  func(string) (fs.FileInfo, error)
+	device func(fs.FileInfo) (uint64, bool)
+}
 
-func (osMounts) Mounted(volume string) bool {
-	info, err := os.Stat(volume)
-	return err == nil && info.IsDir()
+func (m osMounts) Mounted(volume string) bool {
+	info, err := m.lstat(volume)
+	if err != nil || !info.IsDir() || info.Mode()&fs.ModeSymlink != 0 {
+		return false
+	}
+	parent, err := m.lstat(filepath.Dir(volume))
+	if err != nil {
+		return false
+	}
+
+	volumeDevice, ok := m.device(info)
+	if !ok {
+		return false
+	}
+	parentDevice, ok := m.device(parent)
+	return ok && volumeDevice != parentDevice
+}
+
+// statDevice returns the device a file lives on, and false when the platform
+// provides no such metadata.
+func statDevice(info fs.FileInfo) (uint64, bool) {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat == nil {
+		return 0, false
+	}
+	return uint64(stat.Dev), true
 }
