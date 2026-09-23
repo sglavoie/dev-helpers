@@ -17,7 +17,7 @@ make
 | `run daily\|weekly\|monthly\|all` | Run the profile's incremental snapshot backups. |
 | `preview daily\|weekly\|monthly` | Print the rsync command a run would execute, without running it. |
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
-| `eject [--all\|--list]` | Unmount the active profile's volume or every configured volume, or list the mounted ones. |
+| `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
 | `config edit\|print\|reset` | Manage `~/.goback.json`. |
 | `clean db\|logs\|backup` | Remove old databases, logs, and snapshots. |
@@ -232,17 +232,22 @@ is not mounted is skipped rather than failed, one volume refusing never stops th
 others, and the command exits nonzero only when a mounted volume could not be
 ejected.
 
+`goback eject --volume NAME` unmounts exactly one configured volume, named
+either `Elements` or `/Volumes/Elements`, whichever profile or mirror references
+it. It needs no profile, so it is how a drive only the mirror uses is ejected on
+its own. A volume the configuration does not reference is refused with the list
+of configured ones, a volume that is not mounted is skipped without failing, and
+`--volume` cannot be combined with `--profile`, `--all`, or `--list`.
+
 `goback eject --list` ejects nothing. It prints every configured volume that is
 currently mounted, each once and in mount-point order, with every profile or
 mirror path that references it and the commands that would eject it:
 
 ```text
 $ goback eject --list
-MOUNT POINT        REFERENCED BY                                           EJECT WITH
-/Volumes/Elements  profile media destination (/Volumes/Elements/media)     goback eject --profile media
-                   mirror destination (/Volumes/Elements/Media)
-/Volumes/SanDisk   profile macbook destination (/Volumes/SanDisk/macbook)  goback eject --profile macbook
-                   profile media source (/Volumes/SanDisk/Media)
+MOUNT POINT        REFERENCED BY                                   EJECT WITH
+/Volumes/Elements  mirror destination (/Volumes/Elements/Media)    goback eject --volume Elements
+/Volumes/SanDisk   profile default destination (/Volumes/SanDisk)  goback eject --profile default
                    mirror source (/Volumes/SanDisk/Media)
 
 goback eject --all ejects every configured volume that is mounted, whichever profile or mirror references it.
@@ -250,8 +255,8 @@ goback eject --all ejects every configured volume that is mounted, whichever pro
 
 `goback eject --profile NAME` only ever unmounts the volume holding that
 profile's destination, so it is suggested only for destinations; a volume
-referenced solely as a source or by the mirror shows `-` and is covered by
-`goback eject --all`. The listing always covers every profile, needs no hostname
+referenced solely as a source or by the mirror gets `goback eject --volume NAME`
+instead. The listing always covers every profile, needs no hostname
 match, rejects `--profile`, and treats `--all` as redundant. An explicit
 `--config` is carried into the suggested commands, shell-quoted. When nothing
 qualifies it prints `No configured volumes are currently mounted.` and succeeds.

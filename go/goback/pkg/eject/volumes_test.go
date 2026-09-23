@@ -2,6 +2,7 @@ package eject
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -77,5 +78,47 @@ func TestVolumesDropsEverythingOutsideVolumes(t *testing.T) {
 	got := Volumes([]string{"/Users/me", "/tmp/backups", "/Volumes", "", "relative/path"})
 	if len(got) != 0 {
 		t.Fatalf("Volumes() = %#v, want none", got)
+	}
+}
+
+func TestConfiguredVolumeAcceptsANameOrAMountPoint(t *testing.T) {
+	paths := []string{"/Users/me", "/Volumes/SanDisk/macbook", "/Volumes/Elements/Media", "/Volumes/My Drive/x"}
+
+	for arg, want := range map[string]string{
+		"Elements":           "/Volumes/Elements",
+		" Elements ":         "/Volumes/Elements",
+		"/Volumes/Elements":  "/Volumes/Elements",
+		"/Volumes/Elements/": "/Volumes/Elements",
+		"My Drive":           "/Volumes/My Drive",
+	} {
+		got, err := ConfiguredVolume(arg, paths)
+		if err != nil || got != want {
+			t.Fatalf("ConfiguredVolume(%q) = %q, %v, want %q", arg, got, err, want)
+		}
+	}
+}
+
+// Only a volume the configuration references may be named, and only by its
+// name or its mount point, never by a path inside it or outside /Volumes.
+func TestConfiguredVolumeRefusesAnythingElse(t *testing.T) {
+	paths := []string{"/Users/me", "/Volumes/SanDisk/macbook", "/Volumes/Elements/Media"}
+
+	for _, arg := range []string{
+		"Backup", "/Volumes/Backup", "elements", "", " ", ".", "..", "/Volumes", "/Volumes/",
+		"Elements/Media", "/Volumes/Elements/Media", "../Elements", "/Volumes/SanDisk/../Elements/x",
+		"/Users/me", "/", "Macintosh HD",
+	} {
+		got, err := ConfiguredVolume(arg, paths)
+		if err == nil {
+			t.Fatalf("ConfiguredVolume(%q) = %q, want it refused", arg, got)
+		}
+	}
+
+	_, err := ConfiguredVolume("Backup", paths)
+	if err == nil || !strings.Contains(err.Error(), "/Volumes/Elements, /Volumes/SanDisk") {
+		t.Fatalf("error = %v, want it to list the configured volumes", err)
+	}
+	if _, err := ConfiguredVolume("Elements", []string{"/Users/me"}); err == nil || !strings.Contains(err.Error(), "no volume") {
+		t.Fatalf("error = %v, want it to say nothing is configured", err)
 	}
 }

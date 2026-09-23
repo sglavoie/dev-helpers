@@ -1,6 +1,7 @@
 package eject
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -43,4 +44,26 @@ func Volumes(paths []string) []string {
 	}
 	slices.Sort(volumes)
 	return volumes
+}
+
+// ConfiguredVolume resolves a volume named on the command line, either as a
+// bare name such as "Elements" or as its mount point "/Volumes/Elements", to
+// the mount point of a volume the given paths live on. Anything that is not
+// exactly one of those volumes is refused, so a typo or an unrelated drive can
+// never reach diskutil.
+func ConfiguredVolume(arg string, paths []string) (string, error) {
+	configured := Volumes(paths)
+	name := strings.TrimSpace(arg)
+	volume := VolumesRoot + "/" + name
+	if strings.HasPrefix(name, "/") {
+		volume = filepath.Clean(name)
+	}
+
+	if resolved, ok := VolumeOf(volume); ok && resolved == volume && slices.Contains(configured, volume) {
+		return volume, nil
+	}
+	if len(configured) == 0 {
+		return "", fmt.Errorf("volume %q is not configured: the configuration points at no volume under %s", arg, VolumesRoot)
+	}
+	return "", fmt.Errorf("volume %q is not configured; configured volumes: %s", arg, strings.Join(configured, ", "))
 }

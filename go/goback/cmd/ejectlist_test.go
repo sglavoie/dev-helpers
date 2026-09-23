@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -135,8 +136,8 @@ func TestEjectListIgnoresInternalPaths(t *testing.T) {
 }
 
 // A volume referenced only as a source or by the mirror cannot be ejected on
-// its own through a profile, so no profile command is suggested for it.
-func TestEjectListSuggestsNoProfileCommandForSourcesOrTheMirror(t *testing.T) {
+// its own through a profile, so --volume is suggested for it instead.
+func TestEjectListSuggestsVolumeForSourcesAndTheMirror(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	viper.Set("profiles.media.source", "/Volumes/Photos/Library")
@@ -150,9 +151,9 @@ func TestEjectListSuggestsNoProfileCommandForSourcesOrTheMirror(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `MOUNT POINT       REFERENCED BY                                   EJECT WITH
-/Volumes/Archive  mirror source (/Volumes/Archive/In)             -
+/Volumes/Archive  mirror source (/Volumes/Archive/In)             goback eject --volume Archive
                   mirror destination (/Volumes/Archive/Out)
-/Volumes/Photos   profile media source (/Volumes/Photos/Library)  -
+/Volumes/Photos   profile media source (/Volumes/Photos/Library)  goback eject --volume Photos
 
 goback eject --all ejects every configured volume that is mounted, whichever profile or mirror references it.
 `
@@ -264,12 +265,97 @@ func TestEjectWithoutListStillEjects(t *testing.T) {
 }
 
 func TestEjectHelpDescribesList(t *testing.T) {
-	for _, want := range []string{"With --list, eject nothing", "rejects --profile", "that profile's destination only"} {
+	for _, want := range []string{"With --list, eject nothing", "rejects --profile", "that profile's destination only", "With --volume NAME"} {
 		if !strings.Contains(ejectCmd.Long, want) {
 			t.Fatalf("eject help = %q, want it to mention %q", ejectCmd.Long, want)
 		}
 	}
-	if ejectCmd.Flags().Lookup("list") == nil {
-		t.Fatal("goback eject declares no --list flag")
+	for _, name := range []string{"list", "volume"} {
+		if ejectCmd.Flags().Lookup(name) == nil {
+			t.Fatalf("goback eject declares no --%s flag", name)
+		}
+	}
+}
+
+// --volume ejects exactly the named drive, even one only the mirror uses, and
+// needs no profile to do it.
+func TestEjectVolumeEjectsOnlyThatVolume(t *testing.T) {
+	configuredDrives(t)
+	withActiveProfile(t, "")
+
+	for _, arg := range []string{"Elements", "/Volumes/Elements"} {
+		t.Run(arg, func(t *testing.T) {
+			runner := &recordingRunner{}
+			out, err := listEject(t, runner, []string{"/Volumes/Elements", "/Volumes/SanDisk"}, "--volume", arg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(runner.volumes) != 1 || runner.volumes[0] != "/Volumes/Elements" {
+				t.Fatalf("--volume %s ejected %#v, want only /Volumes/Elements", arg, runner.volumes)
+			}
+			if !strings.Contains(out, "/Volumes/Elements: ejected") {
+				t.Fatalf("output = %q, want the ejection reported", out)
+			}
+		})
+	}
+}
+
+func TestEjectVolumeSkipsAnUnmountedVolume(t *testing.T) {
+	configuredDrives(t)
+	runner := &recordingRunner{}
+
+	out, err := listEject(t, runner, []string{"/Volumes/SanDisk"}, "--volume", "Elements")
+	if err != nil {
+		t.Fatalf("error = %v, want an unplugged drive to be no failure", err)
+	}
+	assertNoDiskutil(t, runner)
+	if !strings.Contains(out, "/Volumes/Elements: not mounted, skipped") {
+		t.Fatalf("output = %q, want the skip reported", out)
+	}
+}
+
+func TestEjectVolumeRefusesAnUnconfiguredVolume(t *testing.T) {
+	configuredDrives(t)
+	runner := &recordingRunner{}
+
+	_, err := listEject(t, runner, []string{"/Volumes/Backup"}, "--volume", "Backup")
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("error = %v, want an unconfigured volume refused", err)
+	}
+	assertNoDiskutil(t, runner)
+}
+
+func TestEjectVolumeReportsARefusal(t *testing.T) {
+	configuredDrives(t)
+	runner := &recordingRunner{errs: map[string]error{"/Volumes/Elements": errors.New("exit status 1")}}
+
+	_, err := listEject(t, runner, []string{"/Volumes/Elements"}, "--volume", "Elements")
+	if err == nil || !strings.Contains(err.Error(), "/Volumes/Elements") {
+		t.Fatalf("error = %v, want the refused volume to fail the command", err)
+	}
+}
+
+func TestEjectVolumeRejectsOtherSelections(t *testing.T) {
+	for _, extra := range [][]string{{"--profile", "macbook"}, {"--all"}, {"--list"}} {
+		t.Run(extra[0], func(t *testing.T) {
+			configuredDrives(t)
+			runner := &recordingRunner{}
+
+			args := append([]string{"--volume", "Elements"}, extra...)
+			_, err := listEject(t, runner, []string{"/Volumes/Elements"}, args...)
+			if err == nil || !strings.Contains(err.Error(), extra[0]) {
+				t.Fatalf("%v: error = %v, want %s rejected with --volume", args, err, extra[0])
+			}
+			assertNoDiskutil(t, runner)
+		})
+	}
+}
+
+func TestEjectVolumeSkipsProfileResolution(t *testing.T) {
+	withAllProfiles(t, false)
+	parseFlags(t, ejectCmd, "--volume", "Elements")
+
+	if needsProfileResolution(ejectCmd) {
+		t.Fatal("eject --volume requires profile resolution, want it usable without a matching profile")
 	}
 }

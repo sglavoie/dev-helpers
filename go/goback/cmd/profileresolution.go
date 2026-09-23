@@ -21,7 +21,8 @@ const (
 
 	// profileUnlessAll resolves a profile except when --all asks the command
 	// to act on everything the configuration knows about, or when the
-	// command's own --list flag asks it to only describe the configuration.
+	// command's own --list or --volume flag names what to act on without a
+	// profile.
 	profileUnlessAll profileResolution = "not-required-with-all"
 )
 
@@ -41,7 +42,7 @@ func needsProfileResolution(cmd *cobra.Command) bool {
 		case profileNotRequired:
 			return false
 		case profileUnlessAll:
-			return !config.AllProfiles && !listRequested(cmd)
+			return !config.AllProfiles && !profileFreeRequested(cmd)
 		case profileRequired:
 			return true
 		}
@@ -49,9 +50,12 @@ func needsProfileResolution(cmd *cobra.Command) bool {
 	return true
 }
 
-// listRequested reports whether the command declares a --list flag and it was
-// set.
-func listRequested(cmd *cobra.Command) bool {
-	flag := cmd.Flags().Lookup("list")
-	return flag != nil && flag.Changed && flag.Value.String() == "true"
+// profileFreeRequested reports whether the command declares a --list or
+// --volume flag and it was set.
+func profileFreeRequested(cmd *cobra.Command) bool {
+	if flag := cmd.Flags().Lookup("list"); flag != nil && flag.Changed && flag.Value.String() == "true" {
+		return true
+	}
+	flag := cmd.Flags().Lookup("volume")
+	return flag != nil && flag.Changed
 }
