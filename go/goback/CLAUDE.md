@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Run
 
 ```bash
-make build        # compile the binary
-make install      # build and copy to ~/.local/bin/goback
-make clean        # remove the compiled binary
-make uninstall    # remove from ~/.local/bin
+just build        # compile the binary
+just install      # build and copy to ~/.local/bin/goback
+just clean        # remove the compiled binary
+just uninstall    # remove from ~/.local/bin
 ```
 
 Tests live beside the code they cover and run with `go test ./...`.

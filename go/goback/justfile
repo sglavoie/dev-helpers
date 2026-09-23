@@ -1,0 +1,25 @@
+# Display available commands
+[private]
+default:
+    @just --list
+
+app_name := "goback"
+
+# Build the binary
+build:
+    go build
+
+# Remove built binary
+clean:
+    rm -f {{app_name}}
+
+# Build and install to ~/.local/bin (backs up the previous binary)
+install: clean
+    go build
+    cp ~/.local/bin/{{app_name}} ~/.local/bin/{{app_name}}.bak || true
+    rm -f ~/.local/bin/{{app_name}}
+    cp {{app_name}} ~/.local/bin/{{app_name}}
+
+# Remove the installed binary from ~/.local/bin
+uninstall:
+    rm -f ~/.local/bin/{{app_name}}
