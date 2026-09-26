@@ -22,35 +22,35 @@ final class Paster {
     }
 
     /// Copies `text`, then pastes it into `target` unless Accessibility is
-    /// missing or Secure Input is on. The picker panel must already be hidden.
+    /// missing, Secure Input is on, or `target` is no longer live and
+    /// frontmost when ⌘V would be posted. The picker panel must already be hidden.
     func paste(_ text: String, into target: NSRunningApplication?) async throws -> PasteOutcome {
-        try Pasteboard.copy(text)
-        accessibility.refresh()
-        let decision = PasteOutcome.decide(
-            accessibilityTrusted: accessibility.isTrusted, secureInputEnabled: IsSecureEventInputEnabled())
-        guard decision == .pasted else { return decision }
-
-        if let target, !target.isTerminated, !target.isActive {
-            target.activate()
-        }
-        try? await Task.sleep(for: .milliseconds(delayMilliseconds))
-        // The target's focused field may have turned Secure Input on once it was active again.
-        if IsSecureEventInputEnabled() {
-            return .copiedOnly(.secureInput)
-        }
-        Self.postCommandV()
-        return .pasted
+        let delay = delayMilliseconds
+        let sequence = PasteSequence<NSRunningApplication>(
+            copy: { try Pasteboard.copy($0) },
+            permission: { [accessibility] in
+                accessibility.refresh()
+                return PasteOutcome.decide(
+                    accessibilityTrusted: accessibility.isTrusted, secureInputEnabled: IsSecureEventInputEnabled())
+            },
+            isSecureInputEnabled: { IsSecureEventInputEnabled() },
+            isLive: { !$0.isTerminated },
+            isFrontmost: { target in
+                NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier
+            },
+            activate: { $0.activate() },
+            wait: { try? await Task.sleep(for: .milliseconds(delay)) },
+            postPasteKey: Self.postCommandV(keyDown:)
+        )
+        return try await sequence.run(text, into: target)
     }
 
-    private static func postCommandV() {
+    private static func postCommandV(keyDown: Bool) {
         let source = CGEventSource(stateID: .combinedSessionState)
         let keyCode = keyCode(producing: "v") ?? CGKeyCode(kVK_ANSI_V)
-        let down = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
-        let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
-        down?.flags = .maskCommand
-        up?.flags = .maskCommand
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: keyDown)
+        event?.flags = .maskCommand
+        event?.post(tap: .cghidEventTap)
     }
 
     /// The virtual key that types `character` in the current keyboard layout

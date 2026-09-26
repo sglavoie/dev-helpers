@@ -27,6 +27,7 @@ just
 | --- | --- |
 | `build` | Debug build of every target. |
 | `test` | Run the SloppyCore test suite (`swift test`). |
+| `test-paste-target-safety` | Run only the paste-back target safety tests. |
 | `bundle` | Assemble an unsigned `SloppyPaste.app` in `.build/bundle`. |
 | `sign` | Bundle, then sign it with the local signing identity. |
 | `install` | Sign, replace `~/Applications/SloppyPaste.app` and launch it. |
@@ -174,7 +175,9 @@ Every command takes `--data <path>` to work on a file other than the live one.
 
 - **Paste lands nowhere, or only copies.** Check Accessibility in Settings →
   Pasting. If the target app is slow to take focus, raise the paste delay (60 ms
-  by default) in the same section.
+  by default) in the same section. The app also only copies when the app you
+  opened the picker from quit or lost focus before ⌘V, so it never pastes into
+  a different app.
 - **Accessibility is granted but ignored after a rebuild.** Compare
   `just show-dr` with an earlier build. Then run the `tccutil reset` command
   above and grant the permission again.

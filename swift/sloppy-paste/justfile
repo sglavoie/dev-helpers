@@ -24,6 +24,10 @@ build:
 test:
     swift test
 
+# Run the paste-back target safety regressions
+test-paste-target-safety:
+    swift test --filter PasteTargetSafetyTests
+
 # Remove build artifacts
 clean:
     swift package clean

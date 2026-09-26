@@ -6,6 +6,9 @@ public enum CopyOnlyReason: Sendable, Hashable {
     case accessibilityMissing
     /// Secure Event Input is on (a password field), so a synthetic ⌘V would be dropped.
     case secureInput
+    /// The app that was frontmost when the picker opened is gone or no longer
+    /// in front, so ⌘V would land somewhere else.
+    case targetUnavailable
 }
 
 /// What happened to a paste or copy action, and the HUD text that reports it.
@@ -33,6 +36,8 @@ public enum PasteOutcome: Sendable, Hashable {
             ("Copied to Clipboard", "Grant Accessibility access to paste directly. Press ⌘V to paste.")
         case .copiedOnly(.secureInput):
             ("Copied to Clipboard", "Secure input is on, so Sloppy Paste cannot paste. Press ⌘V to paste.")
+        case .copiedOnly(.targetUnavailable):
+            ("Copied to Clipboard", "The previous app is no longer in front, so Sloppy Paste did not paste. Press ⌘V to paste.")
         }
     }
 }
