@@ -188,3 +188,22 @@ Every command takes `--data <path>` to work on a file other than the live one.
 - **`swift test` can't find `TestingMacros`.** `Package.swift` already passes
   the Command Line Tools plugin path. Make sure
   `xcode-select -p` points at `/Library/Developer/CommandLineTools`.
+
+## Live verification (pending)
+
+The live verification matrix hasn't been run on the signed, installed app yet.
+It's waived for now as a manual follow-up. After running it, record the results
+in `Docs/live-verification.json` with `tested_build`, `tested_at`, `tester`,
+`overall: "pass"`, and one `cases.<key>` entry per check, each with
+`status: "pass"` and a concrete `observed` result. Keys:
+
+- Paste targets: `textedit`, `notes`, `vscode`, `terminal-iterm`,
+  `browser-field`, `slack`, `full-screen`, `second-display`, `another-space`.
+- Permissions and input: `secure-input-copy-only`,
+  `accessibility-revoked-copy-only-banner`, `dvorak`,
+  `rebuild-reinstall-keeps-accessibility`.
+- Focus and panel: `target-stays-frontmost`, `click-outside-hides`,
+  `escape-every-depth`, `form-menus-stay-open`, `filter-menus-stay-open`,
+  `placeholder-tab-order`, `display-disconnect-repositions`,
+  `import-export-focus-return`.
+- Settings: `settings-hotkey-recorder`, `launch-at-login`.
