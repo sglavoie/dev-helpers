@@ -74,6 +74,23 @@ import Testing
         #expect(result.config.agent("com.sglavoie.pi-backup-fetch").receipt?.okValues == ["up"])
     }
 
+    @Test func exampleTextParsesToTheDefaults() throws {
+        let (config, warnings) = try ConfigLoader.parse(Data(HeartbeatConfig.exampleText.utf8))
+        #expect(warnings.isEmpty)
+        #expect(config == HeartbeatConfig.defaults)
+    }
+
+    @Test func commentsAndTrailingCommasAreAccepted() throws {
+        let json = """
+            // header
+            { "pollSeconds": 90, /* inline */ "agents": { "a": { "hidden": true, }, }, }
+            """
+        let (config, warnings) = try ConfigLoader.parse(Data(json.utf8))
+        #expect(warnings.isEmpty)
+        #expect(config.pollSeconds == 90)
+        #expect(config.agent("a").hidden)
+    }
+
     @Test mutating func emptyObjectUsesDefaultsIncludingSeeds() throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         try write("{}")

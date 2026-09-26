@@ -7,8 +7,8 @@ amber when something cannot be verified, red when an agent failed or is overdue.
 It also shows a read-only summary row for the Raspberry Pi. Phone alerts stay
 with Uptime Kuma and ntfy on the Pi.
 
-The app lives in the menu bar and has no Dock icon. This is an early scaffold:
-the menu only has the version and Quit so far.
+The app lives in the menu bar and has no Dock icon. The menu is read-only for
+now: it shows each agent's verdict, but actions such as Run Now come later.
 
 ## Requirements
 
@@ -144,9 +144,34 @@ a slot, and on the fall-back day a repeated time counts once, at its first
 occurrence. The evaluator is pure: the clock, time zone and power timeline are
 passed in, so the tests pin them, with `America/Montreal` for the DST cases.
 
+## Menu
+
+The icon changes shape as well as color: an outlined `heart` when everything is
+ok, an orange filled heart for a warning (or when Heartbeat can't check at all),
+and a red `heart.slash.fill` followed by the number of failing agents.
+
+The menu starts with a header such as "3 failing · 1 warning — checked 17:08",
+then sections Failing, Warning, OK and Paused. Each row is a colored dot, the
+agent's name (`displayName`, or the label without the prefix) and a short
+detail like "Exited with status 1 · log 2 h ago". Its submenu lists the reasons,
+the label, schedule, last evidence and where it came from, the next expected run,
+the launchd state (pid, runs, last exit) and the plist, stow target and log
+paths. Config errors and warnings, plist problems and state.json problems appear
+under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a
+commented example first if there is no config file), Launch at Login and Quit.
+
+The app polls every `pollSeconds`, 90 s after the Mac wakes (launchd runs
+calendar jobs missed during sleep on wake), when the menu opens on a snapshot
+older than 15 s, and 0.5 s after a change in `~/Library/LaunchAgents`, in a
+stowed plist's target file or its directory, or in the config. One poll runs at
+a time. After each poll the app saves state.json, so `heartbeatctl status` sees
+the same ledger and shows the same verdicts.
+
 ## Config
 
-`~/.config/heartbeat/config.json` is optional. Every key has a default:
+`~/.config/heartbeat/config.json` is optional. Every key has a default. The
+file is read as JSON5, so `//` comments and trailing commas are allowed; the
+example that Open Config… writes parses to exactly the defaults.
 
 ```json
 { "version": 1, "labelPrefix": "com.sglavoie.", "pollSeconds": 60, "notifications": true,

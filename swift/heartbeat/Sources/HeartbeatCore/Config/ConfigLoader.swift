@@ -87,11 +87,11 @@ public struct ConfigLoader: Sendable {
     }
 
     /// Decodes and validates a config file. Throws for invalid JSON or wrongly typed values; unknown keys and
-    /// out-of-range numbers only produce warnings.
+    /// out-of-range numbers only produce warnings. JSON5 is accepted so the file can carry `//` comments.
     public static func parse(_ data: Data) throws -> (HeartbeatConfig, [String]) {
         let object: Any
         do {
-            object = try JSONSerialization.jsonObject(with: data)
+            object = try JSONSerialization.jsonObject(with: data, options: .json5Allowed)
         } catch {
             throw ConfigError.invalidJSON(jsonErrorText(error))
         }
@@ -99,7 +99,9 @@ public struct ConfigLoader: Sendable {
 
         var config: HeartbeatConfig
         do {
-            config = try JSONDecoder().decode(HeartbeatConfig.self, from: data)
+            let decoder = JSONDecoder()
+            decoder.allowsJSON5 = true
+            config = try decoder.decode(HeartbeatConfig.self, from: data)
         } catch let error as DecodingError {
             throw ConfigError.invalidValue(decodingErrorText(error))
         }

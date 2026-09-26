@@ -139,6 +139,31 @@ import Testing
         #expect(formatter.detail(snapshot.agent("com.sglavoie.forgejo-sync")!, now: F.now) == "every 15 min · log 4 min ago")
     }
 
+    @Test func menuSectionsSkipHiddenAndEmpty() {
+        let sections = formatter.menuSections(mixed())
+        #expect(sections.map(\.title) == ["Failing", "Warning", "OK"])
+        #expect(sections.map { $0.agents.map(\.label) } == [
+            ["com.sglavoie.sync-legacy"], ["com.sglavoie.pi-backup-fetch"], ["com.sglavoie.forgejo-sync"],
+        ])
+    }
+
+    @Test func menuInfoGroups() throws {
+        let snapshot = mixed()
+        let sync = formatter.menuInfo(try #require(snapshot.agent("com.sglavoie.sync-legacy")), snapshot: snapshot)
+        #expect(sync[0] == ["✗ Exited with status 1"])
+        #expect(sync[1] == [
+            "Label: com.sglavoie.sync-legacy",
+            "Schedule: on change: a (throttle 30 s)",
+            "Last evidence: 2026-09-26 09:41:00 (3 h ago) (log)",
+            "State: not running · runs 4 · last exit 1",
+        ])
+        #expect(sync[2] == ["Plist: /LA/com.sglavoie.sync-legacy.plist", "Log: ~/Library/Logs/sync.log"])
+
+        let forgejo = formatter.menuInfo(try #require(snapshot.agent("com.sglavoie.forgejo-sync")), snapshot: snapshot)
+        #expect(forgejo[0] == ["No problems"])
+        #expect(forgejo[1].contains("Next expected: 2026-09-26 12:52:00 (in 11 min)"))
+    }
+
     @Test func listTextColumns() {
         let lines = formatter.listText(mixed()).split(separator: "\n").map(String.init)
         #expect(lines[0].hasPrefix("LABEL"))

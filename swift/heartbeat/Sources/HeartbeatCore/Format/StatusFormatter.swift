@@ -211,6 +211,49 @@ public struct StatusFormatter: Sendable {
         }
     }
 
+    // MARK: - menu
+
+    /// Menu sections in display order (Failing, Warning, OK, Paused); empty ones and hidden agents are left out.
+    public func menuSections(_ snapshot: Snapshot) -> [(title: String, agents: [AgentSnapshot])] {
+        [(Severity.failing, "Failing"), (.warning, "Warning"), (.ok, "OK"), (.paused, "Paused")].compactMap { severity, title in
+            let members = snapshot.agents.filter { $0.severity == severity }
+            return members.isEmpty ? nil : (title, members)
+        }
+    }
+
+    /// The per-agent info submenu: reasons, then facts, then paths. Each inner array is one group.
+    public func menuInfo(_ agent: AgentSnapshot, snapshot: Snapshot) -> [[String]] {
+        let now = snapshot.takenAt
+        let reasons = agent.verdict.reasons.isEmpty
+            ? ["No problems"]
+            : agent.verdict.reasons.map { reason in
+                let mark = Self.sections.first { $0.0 == reason.severity }?.2 ?? "-"
+                return "\(mark) \(reason.message)"
+            }
+
+        var facts = ["Label: \(agent.label)", "Schedule: \(ScheduleDescription.describe(agent.agent))"]
+        let origin = agent.evidenceSources.first { $0.date != nil && $0.date == agent.evidence.latest }
+        let evidence = agent.evidence.hasSource ? date(agent.evidence.latest, now: now, missing: "none yet") : "no source"
+        facts.append("Last evidence: \(evidence)\(origin.map { " (\($0.kind.menuName))" } ?? "")")
+        if let next = agent.verdict.overdue?.nextExpected {
+            facts.append("Next expected: \(date(next, now: now))")
+        }
+        let columns = runtimeColumns(agent.status)
+        var state = "State: \(columns[0])"
+        if columns[1] != "-" { state += " · pid \(columns[1])" }
+        if columns[3] != "-" { state += " · runs \(columns[3])" }
+        if columns[2] != "-" { state += " · last exit \(columns[2])" }
+        facts.append(state)
+        if case .unknown(let reason) = agent.status { facts.append("launchctl: \(reason)") }
+
+        var paths = ["Plist: \(tilde(agent.agent.plistPath))"]
+        if agent.agent.resolvedPlistPath != agent.agent.plistPath {
+            paths.append("Target: \(tilde(agent.agent.resolvedPlistPath))")
+        }
+        paths += agent.agent.logPaths.map { "Log: \(tilde($0))" }
+        return [reasons, facts, paths]
+    }
+
     // MARK: - explain
 
     /// Everything that went into one agent's verdict, rule by rule.
@@ -462,6 +505,18 @@ extension ConfigLoadResult.Source {
         case .defaults: "defaults"
         case .file: "file"
         case .lastGood: "lastGood"
+        }
+    }
+}
+
+extension EvidenceSource.Kind {
+    /// "log", "runs ledger", ... for the menu.
+    var menuName: String {
+        switch self {
+        case .log: "log"
+        case .evidencePath: "evidence path"
+        case .runsLedger: "runs ledger"
+        case .receipt: "receipt"
         }
     }
 }
