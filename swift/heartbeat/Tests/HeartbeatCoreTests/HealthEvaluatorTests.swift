@@ -233,6 +233,87 @@ import Testing
              now: utc("2026-03-08T14:10:00Z"), power: PowerTimeline(bootTime: local(2026, 3, 1, 8, 0)), severity: .ok, codes: []),
     ]
 
+    // MARK: Rule 7: health command
+
+    static let vaultCheck = HealthCommandConfig(command: ["/bin/check"], warningExitCodes: [2])
+    static let healthOptions = AgentHealthOptions(health: vaultCheck)
+
+    static func healthInput(_ outcome: HealthCheckResult.Outcome, finished: Date = ago(2 * minute), detail: String? = nil,
+                            status: ServiceStatus = loaded(pid: 7), keepAlive: KeepAlivePolicy = daemon,
+                            options: AgentHealthOptions = healthOptions) -> HealthInput {
+        HealthInput(agent: agent(keepAlive: keepAlive), status: status, options: options,
+                    healthCheck: HealthCheckResult(finishedAt: finished, outcome: outcome, detail: detail))
+    }
+
+    static let healthCases: [Case] = [
+        Case(name: "7: exit 0 is ok", input: healthInput(.ok), severity: .ok, codes: []),
+        Case(name: "7: exit 1 is red with the first output line", input: healthInput(.failed(exitCode: 1), detail: "dirty and late"),
+             severity: .failing, codes: [.healthCheckFailed], summary: "Health check failed (exit 1): dirty and late"),
+        Case(name: "7: warningExitCodes exit 2 is amber", input: healthInput(.warning(exitCode: 2)),
+             severity: .warning, codes: [.healthCheckWarning], summary: "Health check could not check (exit 2)"),
+        Case(name: "7: killed by a signal is red", input: healthInput(.killed(signal: 9)),
+             severity: .failing, codes: [.healthCheckFailed], summary: "Health check killed by signal 9"),
+        Case(name: "7: timeout is amber", input: healthInput(.timedOut),
+             severity: .warning, codes: [.healthCheckWarning], summary: "Health check timed out after 30 s"),
+        Case(name: "7: could not start is amber", input: healthInput(.couldNotStart(message: "not found")),
+             severity: .warning, codes: [.healthCheckWarning], summary: "Health check could not start: not found"),
+        Case(name: "7: no result yet is nothing", input: input(agent(keepAlive: daemon), loaded(pid: 7), options: healthOptions),
+             severity: .ok, codes: []),
+        Case(name: "7: result without a configured command is ignored",
+             input: healthInput(.failed(exitCode: 1), options: AgentHealthOptions()), severity: .ok, codes: []),
+        Case(name: "7: result exactly 3 intervals old is not stale", input: healthInput(.ok, finished: ago(15 * minute)),
+             severity: .ok, codes: []),
+        Case(name: "7: result older than 3 intervals is stale amber", input: healthInput(.ok, finished: ago(16 * minute)),
+             severity: .warning, codes: [.healthCheckStale], summary: "Health check result is stale (last ran 16 min ago)"),
+        Case(name: "7: stale replaces an old failure (it no longer describes now)",
+             input: healthInput(.failed(exitCode: 1), finished: ago(2 * hour)),
+             severity: .warning, codes: [.healthCheckStale]),
+        Case(name: "7: old result right after wake is not stale yet", input: healthInput(.ok, finished: ago(8 * hour)),
+             power: PowerTimeline(bootTime: boot, lastWake: ago(minute)), severity: .ok, codes: []),
+        Case(name: "7: custom interval moves the stale point",
+             input: healthInput(.ok, finished: ago(16 * minute),
+                                options: AgentHealthOptions(health: HealthCommandConfig(command: ["/bin/check"], intervalSeconds: 600))),
+             severity: .ok, codes: []),
+        Case(name: "7: failure outranks a KeepAlive first miss",
+             input: healthInput(.failed(exitCode: 1), status: loaded(pid: nil)),
+             severity: .failing, codes: [.healthCheckFailed, .notRunning]),
+        Case(name: "7: applies when not loaded too", input: healthInput(.failed(exitCode: 1), status: .notLoaded),
+             severity: .failing, codes: [.healthCheckFailed, .notLoaded]),
+        Case(name: "7: ignored while paused", input: healthInput(.failed(exitCode: 1), status: .notLoaded,
+             options: AgentHealthOptions(pausedByHeartbeat: true, health: vaultCheck)),
+             severity: .paused, codes: [.paused]),
+        Case(name: "7: ignored when hidden", input: healthInput(.failed(exitCode: 1),
+             options: AgentHealthOptions(hidden: true, health: vaultCheck)), severity: .hidden, codes: [.hidden]),
+    ]
+
+    // MARK: Rule 8: receipt
+
+    static func receiptInput(_ receipt: ReceiptStatus, status: ServiceStatus = loaded(), evidence: Evidence = evidence(ago(hour)))
+        -> HealthInput {
+        HealthInput(agent: agent(daily10), status: status, evidence: evidence, receipt: receipt)
+    }
+
+    static let receiptCases: [Case] = [
+        Case(name: "8: reported and up is ok", input: receiptInput(.ok(finished: ago(hour))), severity: .ok, codes: []),
+        Case(name: "8: reported false is amber", input: receiptInput(.notReported(finished: ago(hour))),
+             severity: .warning, codes: [.receiptNotReported], summary: "Ran locally but not reported to Kuma"),
+        Case(name: "8: status down is red", input: receiptInput(.badStatus("down", finished: ago(hour))),
+             severity: .failing, codes: [.receiptStatus], summary: "Receipt status is down"),
+        Case(name: "8: missing receipt is amber", input: receiptInput(.missing(path: NSHomeDirectory() + "/r/last-run.json")),
+             severity: .warning, codes: [.receiptUnavailable], summary: "No receipt at ~/r/last-run.json"),
+        Case(name: "8: unreadable receipt is amber", input: receiptInput(.unreadable(reason: "not a JSON object")),
+             severity: .warning, codes: [.receiptUnavailable], summary: "Unreadable receipt: not a JSON object"),
+        Case(name: "8: no receipt configured is nothing", input: input(agent(daily10), evidence: evidence(ago(hour))),
+             severity: .ok, codes: []),
+        Case(name: "8: exit 1 and not reported: red first", input: receiptInput(.notReported(finished: nil),
+             status: loaded(lastExit: .exited(code: 1))), severity: .failing, codes: [.exitCode, .receiptNotReported]),
+        Case(name: "8: status down alongside a missed slot keeps rule order", input: receiptInput(.badStatus("down", finished: nil),
+             evidence: evidence(ago(26 * hour))), severity: .failing, codes: [.overdue, .receiptStatus]),
+        Case(name: "8: applies when launchctl output is unreadable",
+             input: receiptInput(.notReported(finished: nil), status: .unknown(reason: "timed out")),
+             severity: .warning, codes: [.unreadableState, .receiptNotReported]),
+    ]
+
     static func run(_ c: Case) -> HealthVerdict {
         HealthEvaluator.evaluate(c.input, context: HealthContext(now: c.now, power: c.power, calendar: TimeFixtures.montreal))
     }
@@ -249,6 +330,8 @@ import Testing
     @Test(arguments: keepAliveCases) func keepAliveRule(_ c: Case) { Self.check(c) }
     @Test(arguments: intervalCases) func intervalRule(_ c: Case) { Self.check(c) }
     @Test(arguments: calendarCases) func calendarRule(_ c: Case) { Self.check(c) }
+    @Test(arguments: healthCases) func healthCommandRule(_ c: Case) { Self.check(c) }
+    @Test(arguments: receiptCases) func receiptRule(_ c: Case) { Self.check(c) }
 
     @Test func keepAliveMissingIsReportedForTheStreak() {
         let down = Self.run(Case(name: "", input: Self.input(Self.agent(keepAlive: Self.daemon), Self.loaded()), severity: .warning, codes: []))

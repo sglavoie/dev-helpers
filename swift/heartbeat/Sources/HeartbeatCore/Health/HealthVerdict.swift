@@ -39,11 +39,17 @@ public enum HealthReasonCode: String, Codable, Sendable {
     case notRunning
     case overdue
     case cannotVerify
+    case healthCheckFailed
+    case healthCheckWarning
+    case healthCheckStale
+    case receiptStatus
+    case receiptNotReported
+    case receiptUnavailable
 }
 
 /// One finding from one rule.
 public struct HealthReason: Equatable, Codable, Sendable {
-    /// The numbered rule from the plan (1-6 here; 7-8 come with health commands and receipts).
+    /// The numbered rule from the plan (1-8).
     public var rule: Int
     public var code: HealthReasonCode
     public var severity: Severity

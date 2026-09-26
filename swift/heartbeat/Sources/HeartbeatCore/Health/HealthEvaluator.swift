@@ -13,16 +13,19 @@ public struct AgentHealthOptions: Equatable, Sendable {
     public var expectsRunning: Bool?
     /// How long after a calendar slot (or the wake that follows it) a run may still be missing.
     public var graceSeconds: Int
+    /// Rule 7: the configured health command, if any (its interval decides when a result is stale).
+    public var health: HealthCommandConfig?
 
     public init(hidden: Bool = false, pausedByHeartbeat: Bool = false, ignoreExitCodes: Set<Int32> = [],
                 maxAgeSeconds: Int? = nil, expectsRunning: Bool? = nil,
-                graceSeconds: Int = HealthEvaluator.defaultGraceSeconds) {
+                graceSeconds: Int = HealthEvaluator.defaultGraceSeconds, health: HealthCommandConfig? = nil) {
         self.hidden = hidden
         self.pausedByHeartbeat = pausedByHeartbeat
         self.ignoreExitCodes = ignoreExitCodes
         self.maxAgeSeconds = maxAgeSeconds
         self.expectsRunning = expectsRunning
         self.graceSeconds = graceSeconds
+        self.health = health
     }
 }
 
@@ -49,14 +52,21 @@ public struct HealthInput: Equatable, Sendable {
     public var evidence: Evidence
     public var options: AgentHealthOptions
     public var history: AgentHistory
+    /// Rule 7: the newest health command result; `nil` until the first run finishes.
+    public var healthCheck: HealthCheckResult?
+    /// Rule 8: the receipt as read this poll; `nil` when no receipt is configured.
+    public var receipt: ReceiptStatus?
 
     public init(agent: AgentDefinition, status: ServiceStatus, evidence: Evidence = .none,
-                options: AgentHealthOptions = AgentHealthOptions(), history: AgentHistory = AgentHistory()) {
+                options: AgentHealthOptions = AgentHealthOptions(), history: AgentHistory = AgentHistory(),
+                healthCheck: HealthCheckResult? = nil, receipt: ReceiptStatus? = nil) {
         self.agent = agent
         self.status = status
         self.evidence = evidence
         self.options = options
         self.history = history
+        self.healthCheck = healthCheck
+        self.receipt = receipt
     }
 }
 
@@ -73,7 +83,7 @@ public struct HealthContext: Sendable {
     }
 }
 
-/// Health rules 1-6 from the plan. Pure: same input and context, same verdict.
+/// Health rules 1-8 from the plan. Pure: same input and context, same verdict.
 public enum HealthEvaluator {
     public static let defaultGraceSeconds = 900
     /// A running KeepAlive daemon that restarted within this window is amber, not red.
@@ -90,6 +100,9 @@ public enum HealthEvaluator {
                                  reasons: [HealthReason(rule: 1, code: .hidden, severity: .hidden, message: "Hidden in config")])
         }
 
+        // Rules 7-8 judge the job's output, not launchd, so they apply whenever the agent isn't paused.
+        let outputReasons = [healthCheckReason(input, context: context), receiptReason(input.receipt)].compactMap { $0 }
+
         let runtime: ServiceRuntime
         switch input.status {
         case .notLoaded:
@@ -99,10 +112,11 @@ public enum HealthEvaluator {
                 return verdict(label, [HealthReason(rule: 2, code: .paused, severity: .paused, message: message)])
             }
             // Rule 3: unloaded otherwise.
-            return verdict(label, [HealthReason(rule: 3, code: .notLoaded, severity: .warning, message: "Not loaded")])
+            return verdict(label, [HealthReason(rule: 3, code: .notLoaded, severity: .warning, message: "Not loaded")]
+                + outputReasons)
         case .unknown(let reason):
             return verdict(label, [HealthReason(rule: 3, code: .unreadableState, severity: .warning,
-                                                message: "Cannot read launchctl state: \(reason)")])
+                                                message: "Cannot read launchctl state: \(reason)")] + outputReasons)
         case .loaded(let loaded):
             runtime = loaded
         }
@@ -133,6 +147,8 @@ public enum HealthEvaluator {
         // Rule 6: overdue.
         let overdue = overdueCheck(input, isRunning: isRunning, context: context)
         if let reason = overdue.reason { reasons.append(reason) }
+
+        reasons += outputReasons
 
         var result = verdict(label, reasons)
         result.keepAliveMissing = keepAliveMissing
@@ -239,6 +255,55 @@ public enum HealthEvaluator {
             if let latest = evidence.latest, latest >= slot.addingTimeInterval(-slotSlack) { return (nil, trace) }
             guard now > deadline else { return (nil, trace) }
             return (overdue("Overdue: missed the \(slotText(slot, calendar: context.calendar)) run"), trace)
+        }
+    }
+
+    /// Rule 7: exit ≠ 0 → red; a `warningExitCodes` exit, a timeout or a failed start → amber. A result older
+    /// than 3 intervals is stale (amber) once the Mac has been awake that long, i.e. the checks stopped running.
+    static func healthCheckReason(_ input: HealthInput, context: HealthContext) -> HealthReason? {
+        guard let config = input.options.health, let result = input.healthCheck else { return nil }
+        let age = context.now.timeIntervalSince(result.finishedAt)
+        if age > config.staleAfter && context.now.timeIntervalSince(context.power.awakeSince) > config.staleAfter {
+            return HealthReason(rule: 7, code: .healthCheckStale, severity: .warning,
+                                message: "Health check result is stale (last ran \(ScheduleDescription.age(Int(age))) ago)")
+        }
+        let suffix = result.detail.map { ": \($0)" } ?? ""
+        switch result.outcome {
+        case .ok:
+            return nil
+        case .failed(let code):
+            return HealthReason(rule: 7, code: .healthCheckFailed, severity: .failing,
+                                message: "Health check failed (exit \(code))\(suffix)")
+        case .killed(let signal):
+            return HealthReason(rule: 7, code: .healthCheckFailed, severity: .failing,
+                                message: "Health check killed by signal \(signal)\(suffix)")
+        case .warning(let code):
+            return HealthReason(rule: 7, code: .healthCheckWarning, severity: .warning,
+                                message: "Health check could not check (exit \(code))\(suffix)")
+        case .timedOut:
+            return HealthReason(rule: 7, code: .healthCheckWarning, severity: .warning,
+                                message: "Health check timed out after \(ScheduleDescription.duration(config.timeoutSeconds))")
+        case .couldNotStart(let message):
+            return HealthReason(rule: 7, code: .healthCheckWarning, severity: .warning,
+                                message: "Health check could not start: \(message)")
+        }
+    }
+
+    /// Rule 8: status outside `okValues` → red; ran but not reported to Kuma, or no usable receipt → amber.
+    static func receiptReason(_ receipt: ReceiptStatus?) -> HealthReason? {
+        switch receipt {
+        case nil, .ok:
+            return nil
+        case .badStatus(let status, _):
+            return HealthReason(rule: 8, code: .receiptStatus, severity: .failing, message: "Receipt status is \(status)")
+        case .notReported:
+            return HealthReason(rule: 8, code: .receiptNotReported, severity: .warning,
+                                message: "Ran locally but not reported to Kuma")
+        case .missing(let path):
+            return HealthReason(rule: 8, code: .receiptUnavailable, severity: .warning,
+                                message: "No receipt at \((path as NSString).abbreviatingWithTildeInPath)")
+        case .unreadable(let reason):
+            return HealthReason(rule: 8, code: .receiptUnavailable, severity: .warning, message: "Unreadable receipt: \(reason)")
         }
     }
 
