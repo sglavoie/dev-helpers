@@ -16,14 +16,42 @@ struct CommandError: Error, CustomStringConvertible {
 /// Exit status for command-line usage errors (sysexits EX_USAGE).
 let usageExitCode: Int32 = 64
 
-/// Prints each discovered agent with its schedule, then any discovery problems.
+/// Short runtime columns for one agent: state, pid, last exit, runs.
+func runtimeColumns(_ status: ServiceStatus) -> [String] {
+    switch status {
+    case .loaded(let runtime):
+        let lastExit = switch runtime.lastExit {
+        case .exited(let code): "\(code)"
+        case .signaled(let signal, let name): "sig \(signal) (\(name))"
+        case .neverExited, nil: "-"
+        }
+        return [runtime.state.description, runtime.pid.map(String.init) ?? "-", lastExit, runtime.runs.map(String.init) ?? "-"]
+    case .notLoaded:
+        return ["not loaded", "-", "-", "-"]
+    case .unknown:
+        return ["unknown", "-", "-", "-"]
+    }
+}
+
+/// Prints each discovered agent with its launchd runtime and schedule, then any problems.
 func list() throws {
     let result = try AgentDiscovery().discover()
-    let width = result.agents.map(\.label.count).max() ?? 0
-    for agent in result.agents {
-        let padded = agent.label.padding(toLength: width, withPad: " ", startingAt: 0)
+    let statuses = LaunchctlClient().print(result.agents.map(\.label))
+    let header = ["LABEL", "STATE", "PID", "LAST EXIT", "RUNS", "SCHEDULE"]
+    var rows = [header]
+    for (agent, status) in zip(result.agents, statuses) {
         let flags = agent.disabled ? "  [Disabled]" : ""
-        print("\(padded)  \(ScheduleDescription.describe(agent))\(flags)")
+        rows.append([agent.label] + runtimeColumns(status) + [ScheduleDescription.describe(agent) + flags])
+    }
+    let widths = header.indices.map { column in rows.map { $0[column].count }.max() ?? 0 }
+    for row in rows {
+        let padded = row.enumerated().map { column, cell in
+            column == row.count - 1 ? cell : cell.padding(toLength: widths[column], withPad: " ", startingAt: 0)
+        }
+        print(padded.joined(separator: "  "))
+    }
+    for (agent, status) in zip(result.agents, statuses) {
+        if case .unknown(let reason) = status { print("! \(agent.label): \(reason)") }
     }
     for problem in result.problems {
         print("! \(problem)")

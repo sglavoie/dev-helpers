@@ -63,6 +63,31 @@ files are picked up the same way. Plists are read with
 In `StartCalendarInterval`, a missing key means "every", not zero: an entry with
 only `Minute = 10` runs hourly at :10. Weekday 0 and 7 both mean Sunday.
 
+## Runtime state
+
+For each agent, Heartbeat runs `launchctl print gui/$UID/<label>` (at most four at
+a time, 5 s timeout each). It doesn't use `launchctl list`, which reports a raw
+wait status (256 for exit 1) and doesn't give runs or state. Only top-level
+fields are read, meaning lines indented by exactly one tab, because nested
+blocks repeat keys such as `state = active`. From those fields it takes `state`,
+`pid`, `runs` and `last exit code`, or `last terminating signal` if the job was
+killed. A running daemon that hasn't exited yet prints `last exit code = (never
+exited)`. Exit status 113 means the label isn't loaded.
+
+`heartbeatctl list` shows these columns next to the schedule:
+
+```
+LABEL                          STATE        PID   LAST EXIT  RUNS  SCHEDULE
+com.sglavoie.ddc-brightnessd   running      1076  -          1     always running (KeepAlive)
+com.sglavoie.forgejo-sync      not running  -     0          18    every 15 min
+com.sglavoie.sync-legacy       not running  -     1          4     on change: PARA_MARIANA.md +3 (throttle 30 s)
+```
+
+External commands never go through a shell; they run as argv. Each one runs in
+its own process group, stdin is `/dev/null`, and output is capped at 64 KB per
+stream. On timeout, the whole group gets SIGKILL, so a script's `sleep` can't
+outlive it.
+
 ## Signing
 
 Notification permission and the login item are tied to the app's designated
