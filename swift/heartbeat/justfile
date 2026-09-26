@@ -24,6 +24,18 @@ build:
 test:
     swift test
 
+# Show agent health (e.g. `just status --all`, `just status --json`)
+[no-exit-message]
+status *args:
+    @swift build -q --product heartbeatctl
+    @"$(swift build --show-bin-path)/heartbeatctl" status {{args}}
+
+# Explain one agent's verdict rule by rule (full label or the part after the prefix)
+[no-exit-message]
+explain label *args:
+    @swift build -q --product heartbeatctl
+    @"$(swift build --show-bin-path)/heartbeatctl" explain {{label}} {{args}}
+
 # Remove build artifacts
 clean:
     swift package clean

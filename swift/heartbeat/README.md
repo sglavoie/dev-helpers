@@ -29,6 +29,8 @@ just
 | --- | --- |
 | `build` | Debug build of every target. |
 | `test` | Run the HeartbeatCore test suite (`swift test`). |
+| `status` | `heartbeatctl status` with any flags, e.g. `just status --all`. |
+| `explain` | `heartbeatctl explain <label>`, e.g. `just explain sync-legacy`. |
 | `icon` | Build `AppIcon.icns` from `Resources/icon.png`. |
 | `bundle` | Assemble an unsigned `Heartbeat.app` in `.build/bundle`. |
 | `sign` | Bundle, then sign it with the local signing identity. |
@@ -44,9 +46,8 @@ The package has three targets plus tests:
 - `HeartbeatCore`: Foundation-only logic shared by the app and the CLI. All the
   rules live here and are covered by the tests.
 - `Heartbeat`: the AppKit menu-bar app.
-- `heartbeatctl`: a command-line tool on top of HeartbeatCore. For now it
-  answers `heartbeatctl --version` and `heartbeatctl list`, which prints every
-  discovered agent with its schedule.
+- `heartbeatctl`: a command-line tool on top of HeartbeatCore that shows the
+  same verdicts as the app (see [heartbeatctl](#heartbeatctl)).
 
 The `.app` bundle is put together by hand from `Resources/Info.plist.in` and
 `Resources/icon.png`, since there is no Xcode project. The app target uses no
@@ -196,6 +197,59 @@ three banners in one poll become one summary. The last notified severity is
 saved in state.json, so relaunching the app doesn't repeat banners. Agents with
 `notify: false` are still tracked, so turning banners on later doesn't replay
 old failures.
+
+## heartbeatctl
+
+```
+heartbeatctl status [--json] [--all] [--health]
+heartbeatctl list [--json]
+heartbeatctl explain <label>
+heartbeatctl check-config
+heartbeatctl --version
+```
+
+Every command builds a snapshot the same way the app does: discover the
+agents, run `launchctl print` for them (four at a time), gather evidence and
+evaluate the rules. Evidence is the newest of the stdout/stderr log mtimes, the
+config `evidencePaths` mtimes, the ledger's last runs increment and the
+receipt's `finished` time. A declared log path counts as a source even before
+the file exists, because launchd creates the log when it starts the job.
+
+The CLI reads `state.json` but never writes it, and it doesn't update the
+ledger either: a runs increment noticed by a one-off command would date the run
+at the moment someone looked. It still resets the saved history after a
+reboot. Without the app running, there is no ledger history, so the evidence
+comes from logs, evidence paths and receipts only.
+
+- `status` shows a headline ("2 failing · 1 warning — checked 12:41") and the
+  failing, warning and paused agents. `--all` adds ok and hidden agents.
+  `--health` runs the configured health commands now; without it, the app's
+  last results from `state.json` are used. `--json` prints `version`,
+  `checkedAt`, `overall` (`ok`, `warning`, `failing` or `unknown`), `headline`,
+  `counts`, `agents`, `problems`, `config` and `power`. Each agent has `label`,
+  `name`, `severity`, `summary`, `detail`, `reasons` (`rule`, `code`,
+  `severity`, `message`), `schedule`, `state`, `pid`, `runs`, `lastExitCode`,
+  `lastSignal`, `lastEvidence`, `evidenceOrigin`, `nextExpected`, `plistPath`,
+  `logPaths`, `disabled` and `notify`. Missing values are `null`, and dates are
+  ISO 8601 in local time. The tests pin these keys.
+- `list` prints every discovered agent with its launchd state and schedule.
+  `--json` gives the same agent objects as `status --json`.
+- `explain <label>` shows how one verdict was reached: the plist, launchd's
+  view, config, saved history, each evidence source, the power timeline, the
+  overdue working (T0, S, E + grace, next expected), the health check and one
+  line per rule. The label can be written without the `com.sglavoie.` prefix.
+- `check-config` shows where the config came from, its warnings and errors,
+  and `agents` entries that match no discovered agent.
+
+The overall status is failing if any agent is red. It is warning if any agent
+is amber, the config is broken, a plist can't be read (broken symlink or
+invalid file) or no agents are found. Otherwise it is ok. Paused and hidden
+agents don't count. It is unknown when the LaunchAgents directory or the boot
+time can't be read.
+
+Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error. `explain`
+exits with its agent's severity. `check-config` exits 0 when clean, 1 on
+warnings and 2 when the file can't be used.
 
 ## Signing
 
