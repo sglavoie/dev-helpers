@@ -26,6 +26,8 @@ public enum Ledger {
             // Nothing trustworthy to compare; keep the old values for the next readable poll.
             break
         case .loaded(let runtime):
+            // Loaded again (from the menu or the shell): a later unload is no longer Heartbeat's pause.
+            agent.paused = false
             if agent.loadedObservedAt == nil { agent.loadedObservedAt = now }
             guard let runs = runtime.runs else { return }
             defer { agent.runs = runs }

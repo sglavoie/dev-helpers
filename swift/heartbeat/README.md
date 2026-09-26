@@ -39,6 +39,11 @@ just
 | `uninstall` | Quit the app and remove it from `~/Applications`. |
 | `show-dr` | Print the designated requirement of the built app. |
 | `setup-signing` | One-off: create the local code-signing identity. |
+| `canary-install` | Load a throwaway agent that runs every 120 s and exits with the code in its `exit-code` file (default 1). |
+| `canary-exit` | Set the code the canary's next run exits with, e.g. `just canary-exit 0`. |
+| `canary-daemon-install` | Load a KeepAlive (`SuccessfulExit: false`) canary that exits 0 and stays down. |
+| `canary-daemon-uninstall` | Unload and delete the KeepAlive canary. |
+| `canary-uninstall` | Unload and delete both canaries and their files. |
 | `clean` | Remove build artifacts. |
 
 The package has three targets plus tests:
@@ -156,7 +161,23 @@ agent's name (`displayName`, or the label without the prefix) and a short
 detail like "Exited with status 1 · log 2 h ago". Its submenu lists the reasons,
 the label, schedule, last evidence and where it came from, the next expected run,
 the launchd state (pid, runs, last exit) and the plist, stow target and log
-paths. Config errors and warnings, plist problems and state.json problems appear
+paths. Below that come the agent's actions:
+
+- **View Log…** opens a window with the last 200 lines of the log (a
+  stdout/stderr picker when they differ), re-read every 2 s while it is open,
+  with Copy, Reveal in Finder and Open buttons.
+- **Open Log** (and **Open Error Log** when stderr is a separate file) runs
+  `openLogCommand`, or opens the file with its default app when that isn't set.
+- **Run Now** (`launchctl kickstart`) for a loaded job that isn't running, or
+  **Restart…** (`kickstart -k`, confirmed) for a running one.
+- **Unload…** (`bootout`, confirmed) marks the agent paused, so it shows gray
+  instead of amber. **Load** (`bootstrap gui/$UID <plist>`) loads it again.
+  Seeing an agent loaded, from the menu or the shell, ends the pause.
+- **Reveal Plist** shows the plist (the stow target for stowed agents) in
+  Finder.
+
+When launchctl fails, an alert shows its stderr and the command. After every
+action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
 under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a
 commented example first if there is no config file), Launch at Login and Quit.
 
@@ -200,6 +221,10 @@ Per-agent keys are `displayName`, `hidden`, `notify`, `ignoreExitCodes`,
   config still applies. `pollSeconds` has a minimum of 15.
 - If the file isn't valid JSON or a value has the wrong type, Heartbeat keeps
   the last config that loaded (or the defaults) and turns amber.
+- `openLogCommand` is an argv: each `{path}` is replaced with the log path, or
+  the path is appended when there is no `{path}`. Bare command names are looked
+  up on the GUI PATH (`/opt/homebrew/bin` first). A non-zero exit shows the
+  command's stderr.
 - Banners need both `notifications` and the agent's `notify` to be on.
 
 ## State and notifications

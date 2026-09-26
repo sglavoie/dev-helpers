@@ -36,6 +36,96 @@ explain label *args:
     @swift build -q --product heartbeatctl
     @"$(swift build --show-bin-path)/heartbeatctl" explain {{label}} {{args}}
 
+# Throwaway agents for checking Heartbeat live (verification steps 3, 4 and 11). They are regular plists in
+# ~/Library/LaunchAgents (not stowed), with their scripts under ~/Library/Application Support/Heartbeat/canary.
+canary_label := "com.sglavoie.heartbeat-canary"
+canary_daemon_label := "com.sglavoie.heartbeat-canary-daemon"
+canary_dir := home_directory() / "Library/Application Support/Heartbeat/canary"
+launch_agents_dir := home_directory() / "Library/LaunchAgents"
+
+# Load a canary that runs every 120 s and exits with the code in its exit-code file (starts at `code`)
+canary-install code="1":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="{{canary_dir}}"
+    plist="{{launch_agents_dir}}/{{canary_label}}.plist"
+    mkdir -p "$dir"
+    echo "{{code}}" > "$dir/exit-code"
+    cat > "$dir/canary.sh" <<'SH'
+    #!/bin/sh
+    # Exits with the number in exit-code next to this script (0 when missing).
+    code=$(cat "$(dirname "$0")/exit-code" 2>/dev/null || echo 0)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') heartbeat canary run, exiting $code"
+    exit "$code"
+    SH
+    chmod +x "$dir/canary.sh"
+    cat > "$plist" <<PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key><string>{{canary_label}}</string>
+        <key>ProgramArguments</key><array><string>$dir/canary.sh</string></array>
+        <key>StartInterval</key><integer>120</integer>
+        <key>RunAtLoad</key><true/>
+        <key>StandardOutPath</key><string>$dir/canary.log</string>
+        <key>StandardErrorPath</key><string>$dir/canary.log</string>
+    </dict>
+    </plist>
+    PLIST
+    plutil -lint -s "$plist"
+    launchctl bootout "gui/$(id -u)/{{canary_label}}" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$plist"
+    echo "Loaded {{canary_label}} (every 120 s, exit {{code}}). Change the exit code with 'just canary-exit 0'."
+
+# Set the exit code the canary's next run returns (then use Run Now in the menu)
+canary-exit code:
+    @echo "{{code}}" > "{{canary_dir}}/exit-code"
+    @echo "The canary's next run exits {{code}}."
+
+# Load a KeepAlive (SuccessfulExit:false) canary that exits 0 right away, so it stays down
+canary-daemon-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="{{canary_dir}}"
+    plist="{{launch_agents_dir}}/{{canary_daemon_label}}.plist"
+    mkdir -p "$dir"
+    cat > "$dir/daemon.sh" <<'SH'
+    #!/bin/sh
+    echo "$(date '+%Y-%m-%d %H:%M:%S') heartbeat daemon canary started; exiting 0 so launchd leaves it down"
+    exit 0
+    SH
+    chmod +x "$dir/daemon.sh"
+    cat > "$plist" <<PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key><string>{{canary_daemon_label}}</string>
+        <key>ProgramArguments</key><array><string>$dir/daemon.sh</string></array>
+        <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+        <key>RunAtLoad</key><true/>
+        <key>StandardOutPath</key><string>$dir/daemon.log</string>
+        <key>StandardErrorPath</key><string>$dir/daemon.log</string>
+    </dict>
+    </plist>
+    PLIST
+    plutil -lint -s "$plist"
+    launchctl bootout "gui/$(id -u)/{{canary_daemon_label}}" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$plist"
+    echo "Loaded {{canary_daemon_label}}; Heartbeat should show it amber, then red on the next poll."
+
+# Unload and delete the KeepAlive canary
+canary-daemon-uninstall:
+    -@launchctl bootout "gui/$(id -u)/{{canary_daemon_label}}" 2>/dev/null
+    rm -f "{{launch_agents_dir}}/{{canary_daemon_label}}.plist" "{{canary_dir}}/daemon.sh" "{{canary_dir}}/daemon.log"
+
+# Unload and delete both canaries and their files
+canary-uninstall: canary-daemon-uninstall
+    -@launchctl bootout "gui/$(id -u)/{{canary_label}}" 2>/dev/null
+    rm -f "{{launch_agents_dir}}/{{canary_label}}.plist"
+    rm -rf "{{canary_dir}}"
+
 # Remove build artifacts
 clean:
     swift package clean

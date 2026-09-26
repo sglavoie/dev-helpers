@@ -131,6 +131,16 @@ import Testing
         #expect(agent.runsChangedAt == Self.at(6))
     }
 
+    @Test func seeingTheAgentLoadedEndsAPause() {
+        var agent = AgentState(paused: true)
+        Ledger.record(.notLoaded, keepAlive: false, now: Self.at(0), in: &agent)
+        #expect(agent.paused)
+        Ledger.record(.unknown(reason: "timeout"), keepAlive: false, now: Self.at(1), in: &agent)
+        #expect(agent.paused)
+        Ledger.record(Self.loaded(runs: 0), keepAlive: false, now: Self.at(2), in: &agent)
+        #expect(!agent.paused)
+    }
+
     @Test func unloadForgetsTheSessionAndReloadStartsOver() {
         var agent = AgentState()
         Ledger.record(Self.loaded(runs: 5), keepAlive: false, now: Self.at(0), in: &agent)

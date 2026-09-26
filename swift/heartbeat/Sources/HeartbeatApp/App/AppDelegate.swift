@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let monitor = Monitor()
     private let launchAtLogin = LaunchAtLogin()
     private let menuBuilder = StatusMenuBuilder()
+    private lazy var agentActions = AgentActions(monitor: monitor)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
@@ -34,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu, snapshot: snapshot, stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
             actions: StatusMenuBuilder.Actions(
                 target: self, refresh: #selector(refreshNow(_:)), openConfig: #selector(openConfig(_:)),
-                toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:))))
+                toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)), agent: agentActions))
     }
 
     @objc private func refreshNow(_ sender: Any?) {

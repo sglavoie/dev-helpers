@@ -2,7 +2,7 @@ import AppKit
 import HeartbeatCore
 
 /// Fills the status menu from a snapshot: a header line, one section per severity (Failing, Warning, OK, Paused)
-/// with a read-only info submenu per agent, problems, then the footer.
+/// with a submenu per agent (read-only info, then log and launchctl actions), problems, then the footer.
 @MainActor
 struct StatusMenuBuilder {
     /// Footer commands; `target` implements them.
@@ -11,6 +11,8 @@ struct StatusMenuBuilder {
         var refresh: Selector
         var openConfig: Selector
         var toggleLaunchAtLogin: Selector
+        /// Implements the per-agent items.
+        var agent: AgentActions
     }
 
     var formatter = StatusFormatter()
@@ -26,7 +28,8 @@ struct StatusMenuBuilder {
                 menu.addItem(.separator())
                 menu.addItem(.sectionHeader(title: "\(section.title) (\(section.agents.count))"))
                 for agent in section.agents {
-                    menu.addItem(row(agent, name: agent.name(labelPrefix: prefix), snapshot: snapshot))
+                    menu.addItem(row(agent, name: agent.name(labelPrefix: prefix), snapshot: snapshot,
+                                     actions: actions.agent))
                 }
             }
         }
@@ -54,8 +57,8 @@ struct StatusMenuBuilder {
         menu.addItem(NSMenuItem(title: "Quit Heartbeat", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
-    /// Dot + name + short detail; the submenu holds reasons, schedule, evidence, runs and paths.
-    private func row(_ agent: AgentSnapshot, name: String, snapshot: Snapshot) -> NSMenuItem {
+    /// Dot + name + short detail; the submenu holds reasons, schedule, evidence, runs and paths, then actions.
+    private func row(_ agent: AgentSnapshot, name: String, snapshot: Snapshot, actions: AgentActions) -> NSMenuItem {
         let item = NSMenuItem(title: name, action: nil, keyEquivalent: "")
         let title = NSMutableAttributedString(string: name, attributes: [.font: NSFont.menuFont(ofSize: 0)])
         title.append(NSAttributedString(
@@ -71,7 +74,46 @@ struct StatusMenuBuilder {
             if index > 0 { submenu.addItem(.separator()) }
             group.forEach { submenu.addItem(disabled($0)) }
         }
+        addActions(for: agent, to: submenu, actions: actions)
         item.submenu = submenu
+        return item
+    }
+
+    /// View Log… and Open Log per log file, the launchctl actions that fit the agent's state, and Reveal Plist.
+    private func addActions(for agent: AgentSnapshot, to submenu: NSMenu, actions: AgentActions) {
+        let label = agent.label
+        let logs = agent.agent.logPaths
+        if !logs.isEmpty {
+            submenu.addItem(.separator())
+            submenu.addItem(agentCommand("View Log…", #selector(AgentActions.viewLog(_:)), actions,
+                                         AgentActions.Request(label: label)))
+            for path in logs {
+                let title = logs.count > 1 && path == agent.agent.standardErrorPath ? "Open Error Log" : "Open Log"
+                let item = agentCommand(title, #selector(AgentActions.openLogItem(_:)), actions,
+                                        AgentActions.Request(label: label, path: path))
+                item.toolTip = path
+                submenu.addItem(item)
+            }
+        }
+        let launchctlActions = AgentAction.available(for: agent.status)
+        if !launchctlActions.isEmpty {
+            submenu.addItem(.separator())
+            for action in launchctlActions {
+                submenu.addItem(agentCommand(action.title, #selector(AgentActions.performAction(_:)), actions,
+                                             AgentActions.Request(label: label, action: action)))
+            }
+        }
+        submenu.addItem(.separator())
+        let reveal = agentCommand("Reveal Plist", #selector(AgentActions.revealPlist(_:)), actions,
+                                  AgentActions.Request(label: label, path: agent.agent.resolvedPlistPath))
+        reveal.toolTip = agent.agent.resolvedPlistPath
+        submenu.addItem(reveal)
+    }
+
+    private func agentCommand(_ title: String, _ action: Selector, _ target: AgentActions,
+                              _ request: AgentActions.Request) -> NSMenuItem {
+        let item = command(title, action, target: target)
+        item.representedObject = request
         return item
     }
 

@@ -9,6 +9,8 @@ import HeartbeatCore
 final class Monitor {
     static let wakeDelay: TimeInterval = 90
     static let staleMenuAge: TimeInterval = 15
+    /// launchd needs a moment to start or unload a job, so actions poll twice.
+    static let actionFollowUps: [TimeInterval] = [1, 5]
 
     /// Called on the main actor after every poll.
     var onUpdate: ((Snapshot) -> Void)?
@@ -20,6 +22,8 @@ final class Monitor {
     private let store = StateStore()
     private var loader = ConfigLoader()
     private var state = HeartbeatState.empty
+    /// Pause changes made while a poll was running; they win over the state that poll started from.
+    private var pausedDuringPoll: [String: Bool] = [:]
     private var isPolling = false
     private var pollQueued = false
     private var nextPoll: DispatchWorkItem?
@@ -62,6 +66,26 @@ final class Monitor {
         }
     }
 
+    /// After a launchctl action: poll 1 s and 5 s later.
+    func refreshAfterAction() {
+        for delay in Self.actionFollowUps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                MainActor.assumeIsolated { self?.refresh() }
+            }
+        }
+    }
+
+    /// Marks an agent unloaded from the menu (gray instead of amber) and saves state.json right away.
+    func setPaused(_ label: String, _ paused: Bool) {
+        state[label].paused = paused
+        if isPolling { pausedDuringPoll[label] = paused }
+        saveState()
+    }
+
+    func isPaused(_ label: String) -> Bool {
+        state[label].paused
+    }
+
     /// The menu is opening: poll if the snapshot is older than 15 s.
     func refreshIfStale() {
         guard let snapshot else { return refresh() }
@@ -72,12 +96,9 @@ final class Monitor {
 
     private func finish(_ snapshot: Snapshot) {
         state = snapshot.state
-        do {
-            try store.save(state)
-            if stateProblem?.hasPrefix("cannot write") == true { stateProblem = nil }
-        } catch {
-            stateProblem = "cannot write state.json: \(error.localizedDescription)"
-        }
+        for (label, paused) in pausedDuringPoll { state[label].paused = paused }
+        pausedDuringPoll = [:]
+        saveState()
         self.snapshot = snapshot
         watcher.watch(watchedPaths(for: snapshot))
         isPolling = false
@@ -88,6 +109,15 @@ final class Monitor {
             refresh()
         } else {
             schedulePoll(after: TimeInterval(max(snapshot.config.pollSeconds, HeartbeatConfig.minimumPollSeconds)))
+        }
+    }
+
+    private func saveState() {
+        do {
+            try store.save(state)
+            if stateProblem?.hasPrefix("cannot write") == true { stateProblem = nil }
+        } catch {
+            stateProblem = "cannot write state.json: \(error.localizedDescription)"
         }
     }
 
