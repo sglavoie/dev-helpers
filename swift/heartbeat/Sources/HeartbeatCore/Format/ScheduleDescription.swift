@@ -75,4 +75,14 @@ public enum ScheduleDescription {
         let hours = minutes / 60, rest = minutes % 60
         return rest == 0 ? "\(hours) h" : "\(hours) h \(rest) min"
     }
+
+    /// Coarse elapsed time for "log 3 h ago": the largest whole unit, rounded down.
+    public static func age(_ seconds: Int) -> String {
+        switch seconds {
+        case ..<60: "\(max(0, seconds)) s"
+        case ..<3600: "\(seconds / 60) min"
+        case ..<86400: "\(seconds / 3600) h"
+        default: "\(seconds / 86400) d"
+        }
+    }
 }
