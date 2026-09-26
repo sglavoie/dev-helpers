@@ -10,6 +10,22 @@ import Testing
         return try ImportExport.decodeImport(Data(json.utf8))
     }
 
+    @Test func outOfRangeNumericFieldsDecodeWithoutTrapping() throws {
+        for field in ["createdAt", "updatedAt", "lastUsedAt", "useCount"] {
+            for value in ["1e30", "-1e30", "9223372036854775808.0"] {
+                let snippet = try payload(#"[{"id": "a", "title": "A", "content": "x", "\#(field)": \#(value)}]"#).snippets[0]
+                #expect(snippet.createdAt == 0 && snippet.updatedAt == 0)
+                #expect(snippet.lastUsedAt == nil && snippet.useCount == nil)
+            }
+        }
+    }
+
+    @Test func fractionalNumericFieldsTruncate() throws {
+        let snippet = try payload(#"[{"id": "a", "title": "A", "content": "x", "createdAt": 1234.5, "updatedAt": 5678.9, "lastUsedAt": -3.7, "useCount": 2.5}]"#).snippets[0]
+        #expect(snippet.createdAt == 1234 && snippet.updatedAt == 5678)
+        #expect(snippet.lastUsedAt == -3 && snippet.useCount == 2)
+    }
+
     @Test func replaceBackfillsLegacySnippetFields() throws {
         let imported = try payload(#"[{"id": "legacy-1", "title": "Legacy", "content": "Content", "category": " Work ", "createdAt": 1000, "updatedAt": 1000}]"#)
 

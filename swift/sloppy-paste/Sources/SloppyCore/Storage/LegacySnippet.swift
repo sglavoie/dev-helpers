@@ -83,7 +83,7 @@ public struct LegacySnippet: Decodable, Sendable, Hashable {
         updatedAt = Self.timestamp(c, .updatedAt) ?? 0
         lastUsedAt = Self.timestamp(c, .lastUsedAt)
         useCount = (try? c.decodeIfPresent(Int.self, forKey: .useCount))
-            ?? (try? c.decodeIfPresent(Double.self, forKey: .useCount)).flatMap { $0.map { Int($0) } }
+            ?? (try? c.decodeIfPresent(Double.self, forKey: .useCount)).flatMap { $0.flatMap(Self.truncated) }
         isFavorite = try? c.decodeIfPresent(Bool.self, forKey: .isFavorite)
         isArchived = try? c.decodeIfPresent(Bool.self, forKey: .isArchived)
         isPinned = try? c.decodeIfPresent(Bool.self, forKey: .isPinned)
@@ -92,8 +92,15 @@ public struct LegacySnippet: Decodable, Sendable, Hashable {
     /// JS numbers may have been written as floats; accept both.
     private static func timestamp(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int64? {
         if let value = try? c.decodeIfPresent(Int64.self, forKey: key) { return value }
-        if let value = try? c.decodeIfPresent(Double.self, forKey: key), value.isFinite { return Int64(value) }
+        if let value = try? c.decodeIfPresent(Double.self, forKey: key) { return truncated(value) }
         return nil
+    }
+
+    /// Truncates toward zero; `nil` for non-finite values or values the
+    /// integer type cannot represent (plain conversion would trap).
+    private static func truncated<T: BinaryInteger>(_ value: Double) -> T? {
+        guard value.isFinite else { return nil }
+        return T(exactly: value.rounded(.towardZero))
     }
 
     /// Tags from `tags` when it is an array, otherwise from a legacy string `category`.
