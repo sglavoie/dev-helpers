@@ -52,6 +52,7 @@ struct SnippetRowView: View {
             ContextBadge(context: context)
         } else {
             Image(systemName: snippet.isPinned ? "pin" : snippet.isFavorite ? "star" : "doc.text")
+                .sharpWhenZoomed()
                 .foregroundStyle(.secondary)
         }
     }
@@ -80,10 +81,10 @@ struct SnippetRowView: View {
                         : "\(requiredInputs) required placeholder\(requiredInputs > 1 ? "s" : "")")
             }
             if snippet.isPinned {
-                Image(systemName: "pin.fill").font(.caption).help("Pinned")
+                Image(systemName: "pin.fill").font(.caption).sharpWhenZoomed().help("Pinned")
             }
             if snippet.isFavorite {
-                Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow).help("Bookmarked")
+                Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow).sharpWhenZoomed().help("Bookmarked")
             }
             if snippet.tags.isEmpty {
                 Chip(text: "untagged", color: .secondary)

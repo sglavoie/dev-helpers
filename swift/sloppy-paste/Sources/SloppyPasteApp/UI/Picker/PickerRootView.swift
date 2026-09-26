@@ -82,6 +82,7 @@ struct PickerRootView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
+                    .sharpWhenZoomed()
                     .foregroundStyle(.secondary)
                 TextField("", text: $query, prompt: Text(state.searchPlaceholder))
                     .textFieldStyle(.plain)
@@ -95,7 +96,7 @@ struct PickerRootView: View {
                         Button { chip.clear() } label: {
                             HStack(spacing: 3) {
                                 Text(chip.title)
-                                Image(systemName: "xmark").font(.caption2)
+                                Image(systemName: "xmark").font(.caption2).sharpWhenZoomed()
                             }
                             .font(.caption)
                             .padding(.horizontal, 8)
@@ -240,6 +241,7 @@ struct PickerRootView: View {
     private func suggestionRow(_ suggestion: SearchSuggestion, isSelected: Bool) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "text.magnifyingglass")
+                .sharpWhenZoomed()
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             Text(suggestion.title)
@@ -264,6 +266,7 @@ struct PickerRootView: View {
                     accessibility.openSystemSettings()
                 } label: {
                     Label("Copy only: grant Accessibility to paste", systemImage: "exclamationmark.triangle.fill")
+                        .sharpWhenZoomed()
                         .foregroundStyle(.orange)
                 }
                 .buttonStyle(.plain)

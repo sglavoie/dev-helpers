@@ -103,6 +103,7 @@ struct ManagePlaceholderHistoryView: View {
     private func row(_ stat: PlaceholderKeyStats, isSelected: Bool, now: Int64) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "text.cursor")
+                .sharpWhenZoomed()
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             Text(stat.key).lineLimit(1)
@@ -279,6 +280,7 @@ struct PlaceholderHistoryDetailView: View {
     private func row(_ value: PlaceholderHistoryValue, isSelected: Bool, now: Int64) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "text.alignleft")
+                .sharpWhenZoomed()
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             Text(value.value).lineLimit(1)

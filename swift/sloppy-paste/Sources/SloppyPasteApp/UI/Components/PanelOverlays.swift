@@ -45,6 +45,7 @@ struct ToastOverlay: View {
             if let toast = toasts.current {
                 HStack(spacing: 8) {
                     Image(systemName: toast.style == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .sharpWhenZoomed()
                         .foregroundStyle(toast.style == .success ? .green : .red)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(toast.title).fontWeight(.semibold)

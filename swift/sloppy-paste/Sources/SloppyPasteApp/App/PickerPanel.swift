@@ -30,6 +30,25 @@ final class PickerPanel: NSPanel {
         }
     }
 
+    /// Scales the backing scale the panel reports, so views render at the
+    /// zoomed resolution: bounds scaling alone makes AppKit stretch SwiftUI
+    /// text drawn at the screen's scale, which blurs it.
+    var contentZoom: CGFloat = 1 {
+        didSet {
+            guard contentZoom != oldValue, let contentView else { return }
+            Self.backingPropertiesChanged(contentView)
+        }
+    }
+
+    override var backingScaleFactor: CGFloat { super.backingScaleFactor * contentZoom }
+
+    /// AppKit only tells views about a real screen change; SwiftUI re-renders
+    /// at the new scale when told this way.
+    private static func backingPropertiesChanged(_ view: NSView) {
+        view.viewDidChangeBackingProperties()
+        view.subviews.forEach(backingPropertiesChanged)
+    }
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
@@ -40,6 +59,34 @@ final class PickerPanel: NSPanel {
 
     // Esc is routed by KeyRouter; stop NSPanel from closing on its own.
     override func cancelOperation(_ sender: Any?) {}
+}
+
+/// Hosts the picker's SwiftUI content at a zoom factor by scaling its bounds:
+/// AppKit then draws text, symbols and controls at the larger size (crisply,
+/// not as a stretched bitmap) and maps clicks back, while the content lays
+/// out in the unzoomed size.
+final class ZoomingContainerView: NSView {
+    var content: NSView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let content { addSubview(content) }
+            updateBounds()
+        }
+    }
+
+    var zoom: CGFloat = 1 {
+        didSet { updateBounds() }
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateBounds()
+    }
+
+    private func updateBounds() {
+        setBoundsSize(NSSize(width: frame.width / zoom, height: frame.height / zoom))
+        content?.frame = bounds
+    }
 }
 
 /// App-level commands the picker can run; they leave the panel (modal
@@ -56,6 +103,7 @@ struct PickerCommands {
 @MainActor
 final class PickerPanelController {
     static let panelSize = NSSize(width: 760, height: 480)
+    static let zoomDefaultsKey = "picker.zoom"
 
     let navigator = Navigator()
     private(set) lazy var keyRouter = KeyRouter(navigator: navigator) { [weak self] in
@@ -63,9 +111,11 @@ final class PickerPanelController {
     }
     let accessibility: AccessibilityPermission
     let toasts = ToastCenter()
+    let zoomLevel = PickerZoom()
     var commands = PickerCommands()
     private let store: SnippetStore
     private let panel: PickerPanel
+    private let container = ZoomingContainerView()
     private let paster: Paster
     private let hud = HUD()
     private lazy var snippetUse = SnippetUse(
@@ -93,11 +143,14 @@ final class PickerPanelController {
             .environment(accessibility)
             .environment(toasts)
             .environment(keyRouter.actionMenu)
+            .environment(zoomLevel)
             .environment(\.keyRouter, keyRouter)
             .environment(\.pickerPanel, self)
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        panel.contentView = hostingView
+        container.content = hostingView
+        panel.contentView = container
+        applyZoom(PanelZoom.sanitized(UserDefaults.standard.object(forKey: Self.zoomDefaultsKey) as? Double))
 
         panel.onResignKey = { [weak self] in
             MainActor.assumeIsolated {
@@ -108,6 +161,9 @@ final class PickerPanelController {
         navigator.willChange = { [weak self, weak panel] in
             self?.keyRouter.closeActionMenu(restoringFocus: false)
             panel?.makeFirstResponder(nil)
+        }
+        keyRouter.onZoom = { [weak self] command in
+            self?.zoom(command)
         }
         keyRouter.start(for: panel)
         observeMenuTracking()
@@ -266,10 +322,39 @@ final class PickerPanelController {
     func beginSuppressingHide() { hideSuppressionCount += 1 }
     func endSuppressingHide() { hideSuppressionCount = max(0, hideSuppressionCount - 1) }
 
+    /// Applies ⌘+ / ⌘- / ⌘0, remembers the level and resizes a visible
+    /// panel around its centre.
+    func zoom(_ command: ZoomCommand) {
+        let current = container.zoom
+        let next = switch command {
+        case .zoomIn: PanelZoom.zoomedIn(from: current)
+        case .zoomOut: PanelZoom.zoomedOut(from: current)
+        case .reset: PanelZoom.defaultLevel
+        }
+        guard next != current else { return }
+        UserDefaults.standard.set(Double(next), forKey: Self.zoomDefaultsKey)
+        applyZoom(next)
+        guard panel.isVisible, let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        panel.setFrame(PanelZoom.resized(panel.frame, to: preferredFrameSize, in: visible), display: true)
+    }
+
+    private func applyZoom(_ zoom: CGFloat) {
+        container.zoom = zoom
+        panel.contentZoom = zoom
+        zoomLevel.level = zoom
+    }
+
+    /// The panel's frame size at the current zoom, before fitting it to a screen.
+    private var preferredFrameSize: NSSize {
+        let zoom = container.zoom
+        let content = NSSize(width: Self.panelSize.width * zoom, height: Self.panelSize.height * zoom)
+        return panel.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
+    }
+
     /// Centres the panel horizontally, a little above the middle, on the
     /// screen with the mouse pointer, shrinking it on a screen too small for it.
     private func position() {
-        let preferred = panel.frameRect(forContentRect: NSRect(origin: .zero, size: Self.panelSize)).size
+        let preferred = preferredFrameSize
         guard let frame = PanelPlacement.frame(
             preferred: preferred, mouse: NSEvent.mouseLocation,
             screens: NSScreen.placementScreens, verticalFraction: 0.6)

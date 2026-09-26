@@ -57,6 +57,7 @@ struct PlaceholderFormView: View {
                     .lineLimit(1)
                 if let summary = model.summary(mode: mode) {
                     Label(summary, systemImage: "clock.arrow.circlepath")
+                        .sharpWhenZoomed()
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -90,13 +90,35 @@ struct KeyBinding: Identifiable {
     var perform: @MainActor () -> Void
 }
 
+enum ZoomCommand {
+    case zoomIn, zoomOut, reset
+
+    /// ⌘= and ⌘+ (typed with or without Shift, or on the keypad) zoom in,
+    /// ⌘- zooms out and ⌘0 resets, as in browsers.
+    static let chords: [(KeyChord, ZoomCommand)] = [
+        (KeyChord(.character("="), .command), .zoomIn),
+        (KeyChord(.character("+"), .command), .zoomIn),
+        (KeyChord(.character("+"), [.command, .shift]), .zoomIn),
+        (KeyChord(.character("-"), .command), .zoomOut),
+        (KeyChord(.character("0"), .command), .reset),
+    ]
+
+    init?(_ event: NSEvent) {
+        guard let command = Self.chords.first(where: { $0.0.matches(event) })?.1 else { return nil }
+        self = command
+    }
+}
+
 /// Routes keyDown events in the picker panel through a local NSEvent monitor:
-/// the ⌘K action menu while it is open, then ⌘K itself, the current screen's
-/// bindings, and finally Esc, which pops the navigation stack or hides the
-/// panel at the root.
+/// the zoom chords on every screen, the ⌘K action menu while it is open, then
+/// ⌘K itself, the current screen's bindings, and finally Esc, which pops the
+/// navigation stack or hides the panel at the root.
 @MainActor
 final class KeyRouter {
     static let actionMenuChord = KeyChord(.character("k"), .command)
+
+    /// Runs ⌘+ / ⌘- / ⌘0; the panel controller resizes the panel.
+    var onZoom: (@MainActor (ZoomCommand) -> Void)?
 
     let actionMenu = ActionMenu()
     private let navigator: Navigator
@@ -147,6 +169,10 @@ final class KeyRouter {
 
     /// Returns true when the event was consumed.
     func handle(_ event: NSEvent) -> Bool {
+        if let onZoom, let command = ZoomCommand(event) {
+            onZoom(command)
+            return true
+        }
         if actionMenu.isOpen {
             return handleActionMenu(event)
         }

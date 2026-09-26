@@ -8,6 +8,9 @@ A global hotkey (⌃⌥⌘V by default) opens a Spotlight-style picker. Choosing
 snippet pastes it into the app that was frontmost. The app lives in the menu bar
 and has no Dock icon.
 
+⌘+ (or ⌘=) and ⌘- zoom the picker in and out, and ⌘0 resets it. The whole panel
+grows or shrinks with its contents, and the zoom level is remembered.
+
 ## Requirements
 
 - macOS 15 or later.
@@ -205,5 +208,5 @@ in `Docs/live-verification.json` with `tested_build`, `tested_at`, `tester`,
 - Focus and panel: `target-stays-frontmost`, `click-outside-hides`,
   `escape-every-depth`, `form-menus-stay-open`, `filter-menus-stay-open`,
   `placeholder-tab-order`, `display-disconnect-repositions`,
-  `import-export-focus-return`.
+  `import-export-focus-return`, `zoom-resizes-panel`.
 - Settings: `settings-hotkey-recorder`, `launch-at-login`.
