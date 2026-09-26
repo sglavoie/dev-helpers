@@ -31,8 +31,8 @@ final class PickerPanel: NSPanel {
     }
 
     /// Scales the backing scale the panel reports, so views render at the
-    /// zoomed resolution: bounds scaling alone makes AppKit stretch SwiftUI
-    /// text drawn at the screen's scale, which blurs it.
+    /// zoomed resolution: the content's scale effect alone would stretch text
+    /// drawn at the screen's scale, which blurs it.
     var contentZoom: CGFloat = 1 {
         didSet {
             guard contentZoom != oldValue, let contentView else { return }
@@ -61,34 +61,6 @@ final class PickerPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {}
 }
 
-/// Hosts the picker's SwiftUI content at a zoom factor by scaling its bounds:
-/// AppKit then draws text, symbols and controls at the larger size (crisply,
-/// not as a stretched bitmap) and maps clicks back, while the content lays
-/// out in the unzoomed size.
-final class ZoomingContainerView: NSView {
-    var content: NSView? {
-        didSet {
-            oldValue?.removeFromSuperview()
-            if let content { addSubview(content) }
-            updateBounds()
-        }
-    }
-
-    var zoom: CGFloat = 1 {
-        didSet { updateBounds() }
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        updateBounds()
-    }
-
-    private func updateBounds() {
-        setBoundsSize(NSSize(width: frame.width / zoom, height: frame.height / zoom))
-        content?.frame = bounds
-    }
-}
-
 /// App-level commands the picker can run; they leave the panel (modal
 /// panels, the Settings window), so the app delegate provides them.
 @MainActor
@@ -115,7 +87,6 @@ final class PickerPanelController {
     var commands = PickerCommands()
     private let store: SnippetStore
     private let panel: PickerPanel
-    private let container = ZoomingContainerView()
     private let paster: Paster
     private let hud = HUD()
     private lazy var snippetUse = SnippetUse(
@@ -148,8 +119,7 @@ final class PickerPanelController {
             .environment(\.pickerPanel, self)
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        container.content = hostingView
-        panel.contentView = container
+        panel.contentView = hostingView
         applyZoom(PanelZoom.sanitized(UserDefaults.standard.object(forKey: Self.zoomDefaultsKey) as? Double))
 
         panel.onResignKey = { [weak self] in
@@ -328,7 +298,7 @@ final class PickerPanelController {
     /// Applies ⌘+ / ⌘- / ⌘0, remembers the level and resizes a visible
     /// panel around its centre.
     func zoom(_ command: ZoomCommand) {
-        let current = container.zoom
+        let current = zoomLevel.level
         let next = switch command {
         case .zoomIn: PanelZoom.zoomedIn(from: current)
         case .zoomOut: PanelZoom.zoomedOut(from: current)
@@ -342,14 +312,13 @@ final class PickerPanelController {
     }
 
     private func applyZoom(_ zoom: CGFloat) {
-        container.zoom = zoom
         panel.contentZoom = zoom
         zoomLevel.level = zoom
     }
 
     /// The panel's frame size at the current zoom, before fitting it to a screen.
     private var preferredFrameSize: NSSize {
-        let zoom = container.zoom
+        let zoom = zoomLevel.level
         let content = NSSize(width: Self.panelSize.width * zoom, height: Self.panelSize.height * zoom)
         return panel.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
     }

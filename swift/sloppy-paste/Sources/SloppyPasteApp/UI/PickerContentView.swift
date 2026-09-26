@@ -41,6 +41,7 @@ struct PickerContentView: View {
             }
         }
         .overlay { ToastOverlay() }
+        .pickerZoom()
         .background(.regularMaterial)
     }
 }

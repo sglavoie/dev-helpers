@@ -212,5 +212,5 @@ in `Docs/live-verification.json` with `tested_build`, `tested_at`, `tester`,
 - Focus and panel: `target-stays-frontmost`, `click-outside-hides`,
   `escape-every-depth`, `form-menus-stay-open`, `filter-menus-stay-open`,
   `placeholder-tab-order`, `display-disconnect-repositions`,
-  `import-export-focus-return`, `zoom-resizes-panel`.
+  `import-export-focus-return`, `zoom-resizes-panel`, `zoomed-clicks-hit-controls`.
 - Settings: `settings-hotkey-recorder`, `launch-at-login`.
