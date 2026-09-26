@@ -123,11 +123,15 @@ Settings → Data shows the path, with a Reveal button, and the storage size.
 
 1. In Raycast, open **Manage Snippets** and run **Export All Snippets** (⇧⌘E).
    This writes a JSON file.
-2. Optionally, check the export before importing it:
+2. Optionally, check the export before importing it. `jq` only reads the file:
 
    ```bash
-   swift run sloppyctl stats --data ~/Downloads/<export>.json
+   jq '{version, snippets: (.snippets | length), titles: [.snippets[].title]}' ~/Downloads/<export>.json
    ```
+
+   Don't point `sloppyctl stats` or `search` at the export with `--data`.
+   Those commands load the file as a store, migrate it, and write the result
+   back to the same path, which overwrites your original export.
 
 3. Import it, with either:
    - the app: menu bar item → **Import…**, or ⇧⌘I in the picker. Merge adds
