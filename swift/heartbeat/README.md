@@ -44,12 +44,24 @@ The package has three targets plus tests:
 - `HeartbeatCore`: Foundation-only logic shared by the app and the CLI. All the
   rules live here and are covered by the tests.
 - `Heartbeat`: the AppKit menu-bar app.
-- `heartbeatctl`: a command-line tool on top of HeartbeatCore. For now it only
-  answers `heartbeatctl --version`.
+- `heartbeatctl`: a command-line tool on top of HeartbeatCore. For now it
+  answers `heartbeatctl --version` and `heartbeatctl list`, which prints every
+  discovered agent with its schedule.
 
 The `.app` bundle is put together by hand from `Resources/Info.plist.in` and
 `Resources/icon.png`, since there is no Xcode project. The app target uses no
 SwiftPM resources for the same reason.
+
+## Agent discovery
+
+Heartbeat looks for `com.sglavoie.*.plist` files in `~/Library/LaunchAgents`.
+Stow symlinks are followed to their targets, and broken links are reported
+instead of skipped. Installer-managed agents that were copied in as regular
+files are picked up the same way. Plists are read with
+`PropertyListSerialization`, so XML and binary plists both work.
+
+In `StartCalendarInterval`, a missing key means "every", not zero: an entry with
+only `Minute = 10` runs hourly at :10. Weekday 0 and 7 both mean Sunday.
 
 ## Signing
 
