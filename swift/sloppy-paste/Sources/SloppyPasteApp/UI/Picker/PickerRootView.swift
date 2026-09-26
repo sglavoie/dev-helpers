@@ -4,9 +4,11 @@ import SloppyCore
 /// The picker's root screen: search field with filter chips, the sectioned
 /// snippet list and the ⌘D detail pane.
 ///
-/// The list is a `LazyVStack` with manual selection rather than a `List`, so
-/// the search field keeps keyboard focus while ↑/↓ (routed by KeyRouter)
-/// move the selection.
+/// The list is a `LazyVStack` with manual selection rather than a `List`;
+/// KeyRouter moves the selection with ↑/↓ whether or not the search field
+/// has focus. The search field starts unfocused so j/k move the selection
+/// too; ⌘F, or k on the first row, focuses it and Esc hands keys back to
+/// the list.
 struct PickerRootView: View {
     @Environment(SnippetStore.self) private var store
     @Environment(Navigator.self) private var navigator
@@ -70,7 +72,7 @@ struct PickerRootView: View {
                     cancel: { pendingDelete = nil })
             }
         }
-        .onAppear { searchFocused = true }
+        .onAppear { searchFocused = false }
         .onChange(of: query) { selectedID = nil }
         .onChange(of: options) { selectedID = nil }
         .keyBindings(bindings(selection: selection), for: .root)
@@ -291,7 +293,12 @@ struct PickerRootView: View {
             Text("⌘D Details")
             Text("⌘P Filters")
             Text("⌘K Actions")
-            Text("⎋ Close")
+            if searchFocused {
+                Text("⎋ Back to List")
+            } else {
+                Text("j/k Navigate")
+                Text("⌘F Search")
+            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -314,7 +321,7 @@ struct PickerRootView: View {
 
     private func select(_ id: String) {
         selectedID = id
-        searchFocused = true
+        searchFocused = false
     }
 
     /// Moves the selection by `offset` rows without wrapping.
@@ -324,6 +331,16 @@ struct PickerRootView: View {
         let current = items.firstIndex { $0.id == selectedID } ?? 0
         let next = min(max(current + offset, 0), items.count - 1)
         selectedID = items[next].id
+    }
+
+    /// k: moves up, or focuses the search field from the first row.
+    private func moveUpOrFocusSearch() {
+        let items = PickerItem.items(listState(now: store.now()))
+        if let first = items.first, effectiveSelection(in: items)?.id != first.id {
+            moveSelection(by: -1)
+        } else {
+            searchFocused = true
+        }
     }
 
     /// Reads the live selection; binding closures outlive the render that made them.
@@ -420,6 +437,29 @@ struct PickerRootView: View {
             },
             KeyBinding(id: "down", title: "Next", chord: KeyChord(.downArrow), showsInMenu: false) {
                 moveSelection(by: 1)
+            },
+            // j/k only while the search field is unfocused, so they still type.
+            KeyBinding(
+                id: "vimUp", title: "Previous", chord: searchFocused ? nil : KeyChord(.character("k")),
+                showsInMenu: false
+            ) {
+                moveUpOrFocusSearch()
+            },
+            KeyBinding(
+                id: "vimDown", title: "Next", chord: searchFocused ? nil : KeyChord(.character("j")),
+                showsInMenu: false
+            ) {
+                moveSelection(by: 1)
+            },
+            KeyBinding(id: "focusSearch", title: "Search", chord: KeyChord(.character("f"), .command)) {
+                searchFocused = true
+            },
+            // Esc leaves the search field first; a second Esc closes the panel.
+            KeyBinding(
+                id: "leaveSearch", title: "Leave Search", chord: searchFocused ? KeyChord(.escape) : nil,
+                showsInMenu: false
+            ) {
+                searchFocused = false
             },
             KeyBinding(
                 id: "applySuggestion", title: "Use Suggestion", chord: KeyChord(.return), showsInMenu: false,

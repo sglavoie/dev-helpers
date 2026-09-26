@@ -223,6 +223,9 @@ final class PickerPanelController {
         position()
         panel.orderFrontRegardless()
         panel.makeKey()
+        // Clear focus after makeKey, which can pick the search field as the
+        // first key view: the list, not the search field, takes keys on open.
+        panel.makeFirstResponder(nil)
     }
 
     /// Shows the panel on `route` (above the root), e.g. New Snippet from the menu bar.
