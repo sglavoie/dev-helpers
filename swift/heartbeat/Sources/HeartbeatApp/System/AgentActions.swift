@@ -1,8 +1,8 @@
 import AppKit
 import HeartbeatCore
 
-/// Per-agent menu commands: launchctl actions (Restart… and Unload… confirmed first, launchctl's stderr shown in
-/// an alert on failure, then polls at 1 s and 5 s), the log window, Open Log and Reveal Plist. Menu items carry
+/// Per-agent menu and banner commands: launchctl actions (Restart… and Unload… confirmed first, launchctl's stderr shown in
+/// an alert on failure, then polls at 1 s and 5 s), the log window, Open Log, Run Health Check Now and Reveal Plist. Menu items carry
 /// a `Request` as `representedObject`; the agent is looked up again in the current snapshot when clicked.
 @MainActor
 final class AgentActions: NSObject {
@@ -36,10 +36,13 @@ final class AgentActions: NSObject {
     }
 
     @objc func viewLog(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? Request, let agent = monitor.snapshot?.agent(request.label),
-              let snapshot = monitor.snapshot else { return }
-        logWindows.show(label: agent.label, name: agent.name(labelPrefix: snapshot.config.labelPrefix),
-                        paths: agent.agent.logPaths)
+        guard let request = sender.representedObject as? Request else { return }
+        showLog(label: request.label)
+    }
+
+    @objc func runHealthCheck(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? Request else { return }
+        monitor.healthChecks.runNow(request.label)
     }
 
     @objc func openLogItem(_ sender: NSMenuItem) {
@@ -50,6 +53,27 @@ final class AgentActions: NSObject {
     @objc func revealPlist(_ sender: NSMenuItem) {
         guard let path = (sender.representedObject as? Request)?.path else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    // MARK: Banner actions
+
+    func showLog(label: String) {
+        guard let snapshot = monitor.snapshot, let agent = snapshot.agent(label) else { return }
+        let name = agent.name(labelPrefix: snapshot.config.labelPrefix)
+        guard !agent.agent.logPaths.isEmpty else {
+            showAlert("No log for \(name)", "Its plist sends neither stdout nor stderr to a file.")
+            return
+        }
+        logWindows.show(label: agent.label, name: name, paths: agent.agent.logPaths)
+    }
+
+    func isHealthCheckRunning(_ label: String) -> Bool {
+        monitor.healthChecks.isRunning(label)
+    }
+
+    func runNow(label: String) {
+        guard let agent = monitor.snapshot?.agent(label) else { return }
+        perform(.runNow, on: agent)
     }
 
     // MARK: launchctl

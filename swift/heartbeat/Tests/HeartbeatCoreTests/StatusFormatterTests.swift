@@ -164,6 +164,36 @@ import Testing
         #expect(forgejo[1].contains("Next expected: 2026-09-26 12:52:00 (in 11 min)"))
     }
 
+    @Test func menuInfoShowsReceiptAndHealthRows() throws {
+        let snapshot = mixed()
+        let pi = formatter.menuInfo(try #require(snapshot.agent("com.sglavoie.pi-backup-fetch")), snapshot: snapshot)
+        #expect(pi[1].contains("Receipt: not reported to Kuma · finished 6 h ago"))
+        #expect(!pi[1].contains { $0.hasPrefix("Health check") })
+
+        let vault = F.agent("brainnotes-vault-guard", log: "/logs/v.log")
+        let config = F.config([vault.label: AgentConfig(health: HealthCommandConfig(command: ["/bin/check"]))])
+        let builder = F.builder([vault], prints: Dictionary(uniqueKeysWithValues: [F.loaded(vault.label)]),
+                                files: ["/logs/v.log": F.now])
+        let never = builder.buildSync(config: config, state: .empty, ledger: .readOnly)
+        #expect(formatter.menuInfo(never.agents[0], snapshot: never)[1].contains("Health check: not run yet"))
+
+        var state = HeartbeatState()
+        state[vault.label].lastHealthCheck = HealthCheckResult(
+            finishedAt: F.now.addingTimeInterval(-180), outcome: .failed(exitCode: 1), detail: "vault out of sync")
+        let failed = builder.buildSync(config: config, state: state, ledger: .readOnly)
+        let info = formatter.menuInfo(failed.agents[0], snapshot: failed)
+        #expect(info[0] == ["✗ Health check failed (exit 1): vault out of sync"])
+        #expect(info[1].contains("Health check: failed (exit 1) · 3 min ago"))
+        #expect(info[1].contains("Health output: vault out of sync"))
+    }
+
+    @Test func receiptTexts() {
+        #expect(formatter.receiptText(.ok(finished: nil)) == "reported to Kuma")
+        #expect(formatter.receiptText(.badStatus("down", finished: nil)) == "status down")
+        #expect(formatter.receiptText(.missing(path: "/Users/me/r.json")) == "missing (~/r.json)")
+        #expect(formatter.receiptText(.unreadable(reason: "not a JSON object")) == "unreadable: not a JSON object")
+    }
+
     @Test func listTextColumns() {
         let lines = formatter.listText(mixed()).split(separator: "\n").map(String.init)
         #expect(lines[0].hasPrefix("LABEL"))

@@ -87,3 +87,51 @@ public enum TransitionTracker {
         return TransitionResult(notifications: notifications, notified: notified)
     }
 }
+
+extension TransitionTracker {
+    /// One input per evaluated agent. `bannersEnabled` is the app's Notifications toggle; the config's global
+    /// `notifications` and per-agent `notify` are already in `AgentSnapshot.notify`.
+    public static func inputs(_ snapshot: Snapshot, bannersEnabled: Bool = true) -> [TransitionInput] {
+        snapshot.agents.map { agent in
+            TransitionInput(verdict: agent.verdict, name: agent.name(labelPrefix: snapshot.config.labelPrefix),
+                            notify: bannersEnabled && agent.notify)
+        }
+    }
+
+    /// Runs the tracker over a poll and stores the new markers in `state` (what the app persists), so the same
+    /// red never banners twice, not even across a relaunch.
+    public static func apply(_ snapshot: Snapshot, to state: inout HeartbeatState, bannersEnabled: Bool = true)
+        -> [TransitionNotification] {
+        let inputs = inputs(snapshot, bannersEnabled: bannersEnabled)
+        let result = update(inputs, previous: state.notifiedSeverities)
+        state.applyNotified(result.notified, evaluated: inputs.map(\.verdict.label))
+        return result.notifications
+    }
+}
+
+/// What a banner says.
+public struct NotificationText: Equatable, Sendable {
+    public var title: String
+    public var body: String
+}
+
+extension TransitionNotification {
+    /// - Parameter name: display name for a label (the summary only carries labels).
+    public func text(name: (String) -> String) -> NotificationText {
+        switch self {
+        case .failing(_, let name, let message):
+            return NotificationText(title: "\(name) is failing", body: message)
+        case .recovered(_, let name):
+            return NotificationText(title: "\(name) recovered", body: "Back to OK.")
+        case .summary(let failing, let recovered):
+            var counts: [String] = []
+            if !failing.isEmpty { counts.append("\(failing.count) failing") }
+            if !recovered.isEmpty { counts.append("\(recovered.count) recovered") }
+            var lines: [String] = []
+            if !failing.isEmpty { lines.append("Failing: " + failing.map(name).joined(separator: ", ")) }
+            if !recovered.isEmpty { lines.append("Recovered: " + recovered.map(name).joined(separator: ", ")) }
+            return NotificationText(title: "Heartbeat: " + counts.joined(separator: ", "),
+                                    body: lines.joined(separator: "\n"))
+        }
+    }
+}

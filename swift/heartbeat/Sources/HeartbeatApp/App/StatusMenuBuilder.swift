@@ -11,14 +11,22 @@ struct StatusMenuBuilder {
         var refresh: Selector
         var openConfig: Selector
         var toggleLaunchAtLogin: Selector
+        var toggleNotifications: Selector
         /// Implements the per-agent items.
         var agent: AgentActions
+    }
+
+    /// The footer's Notifications item.
+    struct NotificationsItem {
+        var title: String
+        var isOn: Bool
+        var isEnabled: Bool
     }
 
     var formatter = StatusFormatter()
 
     func populate(_ menu: NSMenu, snapshot: Snapshot?, stateProblem: String?, launchAtLogin: LaunchAtLogin,
-                  actions: Actions) {
+                  notifications: NotificationsItem, actions: Actions) {
         menu.removeAllItems()
         menu.addItem(disabled(snapshot.map(formatter.headline) ?? "Checking agents…"))
 
@@ -51,6 +59,10 @@ struct StatusMenuBuilder {
         let login = command(launchAtLogin.needsApproval ? "Launch at Login (needs approval)…" : "Launch at Login",
                             actions.toggleLaunchAtLogin, target: actions.target)
         login.state = launchAtLogin.isEnabled ? .on : .off
+        let banners = command(notifications.title, actions.toggleNotifications, target: actions.target)
+        banners.state = notifications.isOn ? .on : .off
+        banners.isEnabled = notifications.isEnabled
+        menu.addItem(banners)
         menu.addItem(login)
         menu.addItem(.separator())
         menu.addItem(disabled("Heartbeat \(HeartbeatCore.version)"))
@@ -79,7 +91,8 @@ struct StatusMenuBuilder {
         return item
     }
 
-    /// View Log… and Open Log per log file, the launchctl actions that fit the agent's state, and Reveal Plist.
+    /// View Log… and Open Log per log file, the launchctl actions that fit the agent's state, Run Health Check Now
+    /// for agents with a health command, and Reveal Plist.
     private func addActions(for agent: AgentSnapshot, to submenu: NSMenu, actions: AgentActions) {
         let label = agent.label
         let logs = agent.agent.logPaths
@@ -102,6 +115,15 @@ struct StatusMenuBuilder {
                 submenu.addItem(agentCommand(action.title, #selector(AgentActions.performAction(_:)), actions,
                                              AgentActions.Request(label: label, action: action)))
             }
+        }
+        if agent.config.health != nil, agent.severity != .hidden, agent.severity != .paused {
+            submenu.addItem(.separator())
+            let running = actions.isHealthCheckRunning(label)
+            let item = agentCommand(running ? "Health Check Running…" : "Run Health Check Now",
+                                    #selector(AgentActions.runHealthCheck(_:)), actions, AgentActions.Request(label: label))
+            item.isEnabled = !running
+            item.toolTip = agent.config.health?.command.joined(separator: " ")
+            submenu.addItem(item)
         }
         submenu.addItem(.separator())
         let reveal = agentCommand("Reveal Plist", #selector(AgentActions.revealPlist(_:)), actions,

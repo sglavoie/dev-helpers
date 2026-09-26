@@ -160,8 +160,11 @@ then sections Failing, Warning, OK and Paused. Each row is a colored dot, the
 agent's name (`displayName`, or the label without the prefix) and a short
 detail like "Exited with status 1 · log 2 h ago". Its submenu lists the reasons,
 the label, schedule, last evidence and where it came from, the next expected run,
-the launchd state (pid, runs, last exit) and the plist, stow target and log
-paths. Below that come the agent's actions:
+the launchd state (pid, runs, last exit), the last health check (outcome, age
+and first output line) and the receipt ("reported to Kuma", "not reported to
+Kuma", "status down", missing or unreadable, with its finish time) for agents
+that have them, and the plist, stow target and log paths. Below that come the
+agent's actions:
 
 - **View Log…** opens a window with the last 200 lines of the log (a
   stdout/stderr picker when they differ), re-read every 2 s while it is open,
@@ -173,13 +176,18 @@ paths. Below that come the agent's actions:
 - **Unload…** (`bootout`, confirmed) marks the agent paused, so it shows gray
   instead of amber. **Load** (`bootstrap gui/$UID <plist>`) loads it again.
   Seeing an agent loaded, from the menu or the shell, ends the pause.
+- **Run Health Check Now** runs the agent's health command at once (shown as
+  "Health Check Running…" until it finishes).
 - **Reveal Plist** shows the plist (the stow target for stowed agents) in
   Finder.
 
 When launchctl fails, an alert shows its stderr and the command. After every
 action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
 under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a
-commented example first if there is no config file), Launch at Login and Quit.
+commented example first if there is no config file), Notifications, Launch at
+Login and Quit. Notifications turns banners off without touching the config; it
+reads "(off in config)" when `notifications` is false and "(allow in System
+Settings)…" when macOS denied the permission.
 
 The app polls every `pollSeconds`, 90 s after the Mac wakes (launchd runs
 calendar jobs missed during sleep on wake), when the menu opens on a snapshot
@@ -187,6 +195,12 @@ older than 15 s, and 0.5 s after a change in `~/Library/LaunchAgents`, in a
 stowed plist's target file or its directory, or in the config. One poll runs at
 a time. After each poll the app saves state.json, so `heartbeatctl status` sees
 the same ledger and shows the same verdicts.
+
+Health commands run on their own schedule, not per poll: each one when its
+`intervalSeconds` has passed since its last result, at most two at a time, with
+the fixed GUI PATH. A finished check is saved in state.json and triggers a
+poll, so its verdict (and a banner) follows within a second. Results survive a
+relaunch, so restarting the app doesn't rerun every command.
 
 ## Config
 
@@ -247,6 +261,14 @@ three banners in one poll become one summary. The last notified severity is
 saved in state.json, so relaunching the app doesn't repeat banners. Agents with
 `notify: false` are still tracked, so turning banners on later doesn't replay
 old failures.
+
+Banners use `UNUserNotificationCenter`, so they only work from the installed
+app bundle. The first launch asks for permission; banners from polls that
+finish while that prompt is open wait for the answer. Each agent's banner has
+the id `heartbeat.<label>`, so "recovered" replaces the "failing" banner it
+answers. Agent banners have **View Log** and **Run Now** actions, and clicking
+the banner opens the log. Every banner requested is logged:
+`log show --last 1h --predicate 'subsystem == "dev.sglavoie.Heartbeat"'`.
 
 ## heartbeatctl
 

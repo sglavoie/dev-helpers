@@ -245,6 +245,19 @@ public struct StatusFormatter: Sendable {
         if columns[2] != "-" { state += " · last exit \(columns[2])" }
         facts.append(state)
         if case .unknown(let reason) = agent.status { facts.append("launchctl: \(reason)") }
+        if agent.config.health != nil {
+            facts.append("Health check: " + (agent.healthCheck.map { result in
+                "\(outcomeText(result.outcome)) · \(ago(result.finishedAt, now: now))"
+            } ?? "not run yet"))
+            if let result = agent.healthCheck, result.outcome != .ok, let detail = result.detail {
+                facts.append("Health output: \(detail)")
+            }
+        }
+        if agent.config.receipt != nil {
+            var receipt = "Receipt: " + (agent.receipt.map(receiptText) ?? "not read while paused")
+            if let finished = agent.receipt?.finished { receipt += " · finished \(ago(finished, now: now))" }
+            facts.append(receipt)
+        }
 
         var paths = ["Plist: \(tilde(agent.agent.plistPath))"]
         if agent.agent.resolvedPlistPath != agent.agent.plistPath {
@@ -413,6 +426,22 @@ public struct StatusFormatter: Sendable {
         }
     }
 
+    func receiptText(_ status: ReceiptStatus) -> String {
+        switch status {
+        case .ok: "reported to Kuma"
+        case .notReported: "not reported to Kuma"
+        case .badStatus(let status, _): "status \(status)"
+        case .missing(let path): "missing (\(tilde(path)))"
+        case .unreadable(let reason): "unreadable: \(reason)"
+        }
+    }
+
+    /// "3 min ago", or "in 3 min" for a time after `now`.
+    func ago(_ date: Date, now: Date) -> String {
+        let delta = Int(now.timeIntervalSince(date))
+        return delta >= 0 ? "\(ScheduleDescription.age(delta)) ago" : "in \(ScheduleDescription.age(-delta))"
+    }
+
     func keepAliveText(_ policy: KeepAlivePolicy) -> String {
         switch policy {
         case .none: "no"
@@ -476,9 +505,7 @@ public struct StatusFormatter: Sendable {
     func date(_ date: Date?, now: Date, missing: String = "-") -> String {
         guard let date else { return missing }
         if date == .distantPast { return "unknown" }
-        let delta = Int(now.timeIntervalSince(date))
-        let relative = delta >= 0 ? "\(ScheduleDescription.age(delta)) ago" : "in \(ScheduleDescription.age(-delta))"
-        return "\(stamp(date)) (\(relative))"
+        return "\(stamp(date)) (\(ago(date, now: now)))"
     }
 
     func tilde(_ path: String) -> String {

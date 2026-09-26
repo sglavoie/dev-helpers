@@ -99,3 +99,61 @@ import Testing
         #expect(result.notifications.isEmpty)
     }
 }
+
+@Suite struct TransitionSnapshotTests {
+    typealias F = SnapshotFixtures
+
+    /// sync-legacy red (exit `exit`), forgejo-sync red with notify:false.
+    static func snapshot(exit: String, notifications: Bool = true) -> Snapshot {
+        let sync = F.agent("sync-legacy", schedule: .watchPaths(["/a"], throttleSeconds: 30), log: "/logs/sync.log")
+        let forgejo = F.agent("forgejo-sync", log: "/logs/forgejo.log")
+        let config = ConfigLoadResult(config: HeartbeatConfig(notifications: notifications, agents: [
+            forgejo.label: AgentConfig(displayName: "Forgejo sync", notify: false),
+        ]), source: .file)
+        return F.builder([forgejo, sync], prints: Dictionary(uniqueKeysWithValues: [
+            F.loaded(sync.label, lastExit: exit), F.loaded(forgejo.label, lastExit: exit),
+        ]), files: ["/logs/sync.log": F.now, "/logs/forgejo.log": F.now])
+            .buildSync(config: config, state: .empty, ledger: .readOnly)
+    }
+
+    @Test func oneBannerThenQuietAcrossARelaunch() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "HeartbeatCoreTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = StateStore(url: directory.appending(path: "state.json"))
+
+        var state = HeartbeatState()
+        let red = Self.snapshot(exit: "1")
+        #expect(TransitionTracker.apply(red, to: &state)
+                == [.failing(label: "com.sglavoie.sync-legacy", name: "sync-legacy", message: "Exited with status 1")])
+        // notify:false agents are still marked, so enabling banners later doesn't replay them.
+        #expect(state.notifiedSeverities == ["com.sglavoie.sync-legacy": .failing, "com.sglavoie.forgejo-sync": .failing])
+        #expect(TransitionTracker.apply(red, to: &state).isEmpty)
+        try store.save(state)
+
+        var relaunched = try store.load().state
+        #expect(TransitionTracker.apply(red, to: &relaunched).isEmpty)
+        #expect(TransitionTracker.apply(Self.snapshot(exit: "0"), to: &relaunched)
+                == [.recovered(label: "com.sglavoie.sync-legacy", name: "sync-legacy")])
+        #expect(relaunched.notifiedSeverities.isEmpty)
+    }
+
+    @Test func togglesSilenceBannersButKeepTheMarkers() {
+        for (config, toggle) in [(false, true), (true, false)] {
+            var state = HeartbeatState()
+            #expect(TransitionTracker.apply(Self.snapshot(exit: "1", notifications: config), to: &state, bannersEnabled: toggle).isEmpty)
+            #expect(state.notifiedSeverities.count == 2)
+            #expect(TransitionTracker.apply(Self.snapshot(exit: "1"), to: &state).isEmpty)
+        }
+    }
+
+    @Test func bannerText() {
+        let failing = TransitionNotification.failing(label: "l", name: "sync-legacy", message: "Exited with status 1")
+        #expect(failing.text { $0 } == NotificationText(title: "sync-legacy is failing", body: "Exited with status 1"))
+        #expect(TransitionNotification.recovered(label: "l", name: "Forgejo sync").text { $0 }
+                == NotificationText(title: "Forgejo sync recovered", body: "Back to OK."))
+        let summary = TransitionNotification.summary(failing: ["a", "b", "c"], recovered: ["d"]).text { $0.uppercased() }
+        #expect(summary == NotificationText(title: "Heartbeat: 3 failing, 1 recovered", body: "Failing: A, B, C\nRecovered: D"))
+        #expect(TransitionNotification.summary(failing: [], recovered: ["a", "b", "c", "d"]).text { $0 }.title
+                == "Heartbeat: 4 recovered")
+    }
+}

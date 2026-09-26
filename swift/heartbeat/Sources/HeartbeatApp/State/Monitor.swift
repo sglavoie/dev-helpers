@@ -4,7 +4,9 @@ import HeartbeatCore
 /// Owns the poll loop: loads the config, builds a snapshot with `ledger: .record`, saves state.json and hands the
 /// snapshot to the UI. Polls every `pollSeconds`, 90 s after wake (launchd runs missed calendar jobs on wake),
 /// when the menu opens on a stale snapshot, and 0.5 s after the LaunchAgents directory, a stowed plist target or
-/// the config changes. Only one poll runs at a time; a trigger during a poll queues exactly one more.
+/// the config changes. Only one poll runs at a time; a trigger during a poll queues exactly one more. After each
+/// poll it runs TransitionTracker (banners go to `onNotifications`, the markers into state.json so a relaunch is
+/// quiet) and hands the health-command jobs to HealthCheckScheduler, whose results trigger another poll.
 @MainActor
 final class Monitor {
     static let wakeDelay: TimeInterval = 90
@@ -14,6 +16,11 @@ final class Monitor {
 
     /// Called on the main actor after every poll.
     var onUpdate: ((Snapshot) -> Void)?
+    /// Banners from a poll, with the snapshot for display names.
+    var onNotifications: (([TransitionNotification], Snapshot) -> Void)?
+    /// The menu's Notifications toggle.
+    var bannersEnabled: () -> Bool = { true }
+    let healthChecks = HealthCheckScheduler()
     private(set) var snapshot: Snapshot?
     /// Why state.json couldn't be read or written, shown in the menu.
     private(set) var stateProblem: String?
@@ -24,6 +31,8 @@ final class Monitor {
     private var state = HeartbeatState.empty
     /// Pause changes made while a poll was running; they win over the state that poll started from.
     private var pausedDuringPoll: [String: Bool] = [:]
+    /// Health results that arrived while a poll was running; same idea.
+    private var healthDuringPoll: [String: HealthCheckResult] = [:]
     private var isPolling = false
     private var pollQueued = false
     private var nextPoll: DispatchWorkItem?
@@ -32,6 +41,7 @@ final class Monitor {
     private lazy var watcher = DirectoryWatcher { [weak self] in self?.refresh() }
 
     func start() {
+        healthChecks.onResult = { [weak self] label, result in self?.recordHealthCheck(label, result) }
         do {
             let loaded = try store.load()
             state = loaded.state
@@ -82,6 +92,14 @@ final class Monitor {
         saveState()
     }
 
+    /// Stores a health command's result and polls, so the verdict (and any banner) follows at once.
+    func recordHealthCheck(_ label: String, _ result: HealthCheckResult) {
+        state[label].lastHealthCheck = result
+        if isPolling { healthDuringPoll[label] = result }
+        saveState()
+        refresh()
+    }
+
     func isPaused(_ label: String) -> Bool {
         state[label].paused
     }
@@ -98,11 +116,18 @@ final class Monitor {
         state = snapshot.state
         for (label, paused) in pausedDuringPoll { state[label].paused = paused }
         pausedDuringPoll = [:]
+        for (label, result) in healthDuringPoll { state[label].lastHealthCheck = result }
+        healthDuringPoll = [:]
+        // A poll that couldn't list the agents says nothing about them: keep the markers as they are.
+        let notifications = snapshot.fatalError == nil
+            ? TransitionTracker.apply(snapshot, to: &state, bannersEnabled: bannersEnabled()) : []
         saveState()
         self.snapshot = snapshot
         watcher.watch(watchedPaths(for: snapshot))
         isPolling = false
         onUpdate?(snapshot)
+        if !notifications.isEmpty { onNotifications?(notifications, snapshot) }
+        healthChecks.update(jobs: HealthCheckPlan.jobs(snapshot), results: state.agents.compactMapValues(\.lastHealthCheck))
 
         if pollQueued {
             pollQueued = false
