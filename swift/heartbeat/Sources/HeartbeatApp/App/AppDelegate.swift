@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let menu = NSMenu()
     private let monitor = Monitor()
+    private let piMonitor = PiMonitor()
     private let launchAtLogin = LaunchAtLogin()
     private let menuBuilder = StatusMenuBuilder()
     private lazy var agentActions = AgentActions(monitor: monitor)
@@ -14,7 +15,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
         statusItem = makeStatusItem()
-        monitor.onUpdate = { [weak self] _ in self?.render() }
+        monitor.onUpdate = { [weak self] snapshot in
+            self?.piMonitor.configure(snapshot.config)
+            self?.render()
+        }
+        piMonitor.onUpdate = { [weak self] _ in self?.render() }
         monitor.bannersEnabled = { [notifier] in notifier.isEnabled }
         monitor.onNotifications = { [notifier] notifications, snapshot in
             notifier.post(notifications) { label in
@@ -36,18 +41,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Redraws the icon and the menu (also while the menu is open).
     private func render() {
-        let snapshot = monitor.snapshot
+        let snapshot = monitor.snapshot, pi = piMonitor.check
         if let button = statusItem?.button {
-            StatusIcon.apply(StatusIcon.appearance(snapshot?.overall, failing: snapshot?.count(.failing) ?? 0), to: button)
-            button.toolTip = snapshot.map { "Heartbeat — " + menuBuilder.formatter.headline($0) } ?? "Heartbeat"
+            let overall = snapshot?.overall.including(pi)
+            StatusIcon.apply(StatusIcon.appearance(overall, failing: snapshot?.count(.failing) ?? 0), to: button)
+            let formatter = menuBuilder.formatter
+            button.toolTip = snapshot.map { "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) } ?? "Heartbeat"
         }
         menuBuilder.populate(
-            menu, snapshot: snapshot, stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
+            menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking),
+            stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
             notifications: notificationsItem(snapshot),
             actions: StatusMenuBuilder.Actions(
                 target: self, refresh: #selector(refreshNow(_:)), openConfig: #selector(openConfig(_:)),
                 toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)),
-                toggleNotifications: #selector(toggleNotifications(_:)), agent: agentActions))
+                toggleNotifications: #selector(toggleNotifications(_:)), checkPi: #selector(checkPiNow(_:)),
+                openKuma: #selector(openUptimeKuma(_:)), agent: agentActions))
     }
 
     /// Off in the config wins; a denied permission turns the item into a link to System Settings.
@@ -75,6 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func refreshNow(_ sender: Any?) {
         monitor.refresh()
+        piMonitor.refresh()
+    }
+
+    @objc private func checkPiNow(_ sender: Any?) {
+        piMonitor.refresh()
+        render()
+    }
+
+    @objc private func openUptimeKuma(_ sender: Any?) {
+        NSWorkspace.shared.open(PiStatusClient.kumaURL)
     }
 
     /// Opens `~/.config/heartbeat/config.json`, writing the commented example first if there is none.
@@ -121,5 +140,6 @@ extension AppDelegate: NSMenuDelegate {
         notifier.refreshAuthorization()
         render()
         monitor.refreshIfStale()
+        piMonitor.refreshIfStale()
     }
 }

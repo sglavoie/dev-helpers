@@ -5,7 +5,7 @@ let usage = """
     heartbeatctl \(HeartbeatCore.version)
 
     Usage:
-      heartbeatctl status [--json] [--all] [--health]
+      heartbeatctl status [--json] [--all] [--health] [--pi]
       heartbeatctl list [--json]
       heartbeatctl explain <label>
       heartbeatctl check-config
@@ -13,8 +13,9 @@ let usage = """
 
     status lists failing, warning and paused agents (--all adds ok and hidden
     ones). --health runs the configured health commands now instead of using
-    the app's last results from state.json. explain accepts a full label or the
-    part after the label prefix.
+    the app's last results from state.json. --pi adds the Pi summary row (ssh to
+    piHost; an unreachable or unhappy Pi is a warning at most). explain accepts
+    a full label or the part after the label prefix.
 
     Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error.
     check-config exits 0 when the config is clean, 1 on warnings, 2 on errors.
@@ -34,6 +35,7 @@ struct Options {
     var json = false
     var all = false
     var health = false
+    var pi = false
 
     init(_ arguments: ArraySlice<String>, allowed: Set<String>, positional maxPositional: Int = 0) throws {
         for argument in arguments {
@@ -43,6 +45,7 @@ struct Options {
                 case "--json": json = true
                 case "--all": all = true
                 case "--health": health = true
+                case "--pi": pi = true
                 default: break
                 }
             } else {
@@ -68,10 +71,25 @@ func snapshot(health: Bool = false) -> Snapshot {
     return SnapshotBuilder().buildSync(config: loadConfig(), state: state, ledger: .readOnly, runHealthChecks: health)
 }
 
+/// Filled on a background queue and read after `DispatchGroup.wait()`.
+final class PiResult: @unchecked Sendable {
+    var check: PiCheck?
+}
+
+/// The Pi check runs alongside the agent snapshot, so a slow Pi only adds its own time.
 func status(_ options: Options) -> Int32 {
+    let result = PiResult()
+    let group = DispatchGroup()
+    if options.pi {
+        let host = loadConfig().config.piHost
+        DispatchQueue.global().async(group: group) { result.check = PiStatusClient().check(host: host) }
+    }
     let snapshot = snapshot(health: options.health)
-    print(options.json ? formatter.statusJSON(snapshot, all: options.all) : formatter.statusText(snapshot, all: options.all))
-    return snapshot.overall.exitCode
+    group.wait()
+    let pi = result.check
+    print(options.json ? formatter.statusJSON(snapshot, all: options.all, pi: pi)
+        : formatter.statusText(snapshot, all: options.all, pi: pi))
+    return snapshot.overall.including(pi).exitCode
 }
 
 func list(_ options: Options) -> Int32 {
@@ -113,7 +131,7 @@ func run(_ arguments: [String]) throws -> Int32 {
     case "--version", "version":
         print("heartbeatctl \(HeartbeatCore.version)")
     case "status":
-        return status(try Options(rest, allowed: ["--json", "--all", "--health"]))
+        return status(try Options(rest, allowed: ["--json", "--all", "--health", "--pi"]))
     case "list":
         return list(try Options(rest, allowed: ["--json"]))
     case "explain":

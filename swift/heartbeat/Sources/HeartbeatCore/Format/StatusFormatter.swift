@@ -56,8 +56,8 @@ public struct StatusFormatter: Sendable {
         (.hidden, "Hidden", "-"),
     ]
 
-    /// Header, then one section per severity. Without `all`, OK and hidden agents are left out.
-    public func statusText(_ snapshot: Snapshot, all: Bool = false) -> String {
+    /// Header, then one section per severity. Without `all`, OK and hidden agents are left out. `pi` adds the Pi row.
+    public func statusText(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil) -> String {
         var lines = ["Heartbeat — " + headline(snapshot)]
         let shown = snapshot.agents.filter { all || ($0.severity != .ok && $0.severity != .hidden) }
         let width = shown.map(\.label.count).max() ?? 0
@@ -81,6 +81,11 @@ public struct StatusFormatter: Sendable {
                 lines.append("(\(more.joined(separator: ", ")) not shown; use --all)")
             }
         }
+        if let pi {
+            lines.append("")
+            lines.append(piRow(pi))
+            lines += piProblems(pi).map { "  \($0)" }
+        }
         let notes = problemLines(snapshot)
         if !notes.isEmpty {
             lines.append("")
@@ -97,13 +102,14 @@ public struct StatusFormatter: Sendable {
         return lines
     }
 
-    public func statusJSON(_ snapshot: Snapshot, all: Bool = false) -> String {
+    /// `pi` adds a `pi` object and folds the Pi row into `overall`.
+    public func statusJSON(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil) -> String {
         let agents = snapshot.agents.filter { all || $0.severity != .hidden }
         let counts = Dictionary(uniqueKeysWithValues: Severity.allCases.map { ($0.rawValue, snapshot.count($0)) })
-        let object: [String: Any] = [
+        var object: [String: Any] = [
             "version": HeartbeatCore.version,
             "checkedAt": iso(snapshot.takenAt),
-            "overall": snapshot.overall.rawValue,
+            "overall": snapshot.overall.including(pi).rawValue,
             "headline": headline(snapshot),
             "counts": counts,
             "agents": agents.map { agentJSON($0, snapshot: snapshot) },
@@ -118,6 +124,7 @@ public struct StatusFormatter: Sendable {
                 "lastWake": snapshot.power.lastWake.map(iso) ?? NSNull(),
             ] as [String: Any],
         ]
+        if let pi { object["pi"] = piJSON(pi) }
         return Self.serialize(object)
     }
 
@@ -265,6 +272,72 @@ public struct StatusFormatter: Sendable {
         }
         paths += agent.agent.logPaths.map { "Log: \(tilde($0))" }
         return [reasons, facts, paths]
+    }
+
+    // MARK: - Pi
+
+    /// "Pi — ok · 48/48 up", "Pi — warn: Kuma: Forgejo down", "Pi — unreachable over Tailscale".
+    public func piRow(_ check: PiCheck?) -> String {
+        guard let check else { return "Pi — checking…" }
+        switch check.status {
+        case .summary(let summary):
+            guard summary.status == .ok else {
+                return "Pi — \(summary.status.rawValue): " + (summary.problems.first ?? "no details")
+            }
+            if let up = summary.kumaUp, let total = summary.kumaTotal { return "Pi — ok · \(up)/\(total) up" }
+            return "Pi — ok"
+        case .unreachable: return "Pi — unreachable over Tailscale"
+        case .unreadable: return "Pi — cannot read pi-status"
+        }
+    }
+
+    /// Every problem line, or what went wrong reaching the Pi.
+    public func piProblems(_ check: PiCheck) -> [String] {
+        switch check.status {
+        case .summary(let summary): summary.problems
+        case .unreachable(let detail), .unreadable(let detail): [detail]
+        }
+    }
+
+    /// The Pi row's submenu: problems (or "No problems"), then Kuma counts, host and times.
+    public func piMenuInfo(_ check: PiCheck?, now: Date) -> [[String]] {
+        guard let check else { return [["Not checked yet"]] }
+        var problems = piProblems(check)
+        if case .summary(let summary) = check.status, problems.isEmpty {
+            problems = [summary.status == .ok ? "No problems" : "Status \(summary.status.rawValue)"]
+        }
+        var facts: [String] = []
+        if case .summary(let summary) = check.status {
+            if let up = summary.kumaUp, let total = summary.kumaTotal { facts.append("Kuma: \(up)/\(total) monitors up") }
+            if let generated = summary.generated { facts.append("pi-status report: \(ago(generated, now: now))") }
+        }
+        facts.append("Host: \(check.host)")
+        facts.append("Checked: \(ago(check.checkedAt, now: now))")
+        return [problems, facts]
+    }
+
+    /// The `pi` object in `status --pi --json`.
+    public func piJSON(_ check: PiCheck) -> [String: Any] {
+        var object: [String: Any] = [
+            "host": check.host,
+            "checkedAt": iso(check.checkedAt),
+            "severity": check.severity.rawValue,
+            "row": piRow(check),
+            "problems": piProblems(check),
+            "kumaUp": NSNull(),
+            "kumaTotal": NSNull(),
+            "generated": NSNull(),
+        ]
+        switch check.status {
+        case .summary(let summary):
+            object["status"] = summary.status.rawValue
+            object["kumaUp"] = summary.kumaUp ?? NSNull()
+            object["kumaTotal"] = summary.kumaTotal ?? NSNull()
+            object["generated"] = summary.generated.map(iso) ?? NSNull()
+        case .unreachable: object["status"] = "unreachable"
+        case .unreadable: object["status"] = "unreadable"
+        }
+        return object
     }
 
     // MARK: - explain

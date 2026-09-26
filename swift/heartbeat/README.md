@@ -181,6 +181,16 @@ agent's actions:
 - **Reveal Plist** shows the plist (the stow target for stowed agents) in
   Finder.
 
+After the agent sections comes the **Pi row**, which is read-only: "Pi — ok ·
+48/48 up", "Pi — warn: Kuma: Forgejo pending — timeout…" (the first problem),
+or "Pi — unreachable over Tailscale", which is the one thing Kuma can't tell
+the Mac. Its submenu lists every problem pi-status reports (Kuma monitors that
+aren't up, containers that aren't ok, failed systemd units and timers, the
+backup, host limits, journal errors) or ssh's error. Then come the Kuma
+counts, the host and the check age, followed by **Check Pi Now** and **Open
+Uptime Kuma** (`https://uptime.sglavoie.com`). Any Pi state other than ok makes
+the icon amber at most, and the Pi row never shows banners.
+
 When launchctl fails, an alert shows its stderr and the command. After every
 action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
 under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a
@@ -201,6 +211,17 @@ Health commands run on their own schedule, not per poll: each one when its
 the fixed GUI PATH. A finished check is saved in state.json and triggers a
 poll, so its verdict (and a banner) follows within a second. Results survive a
 relaunch, so restarting the app doesn't rerun every command.
+
+The Pi check has its own timer and never shares one with the agent poll: every
+`piStatusSeconds` (default 300), when the menu opens on a result at least
+that old, on Refresh Now and right after `piHost` changes, the app runs
+`ssh -o BatchMode=yes -o ConnectTimeout=5 -- <piHost> ~/.local/bin/pi-status
+--json` on a background task, capped at 30 s. The full path is needed because
+`~/.local/bin` isn't on the Pi's non-interactive PATH. pi-status exits 1 when
+a section is failing, but its report is still read. ssh's exit 255, a timeout
+or a failed launch counts as unreachable. Any other output that isn't a
+report shows "cannot read pi-status". A slow or unreachable Pi never delays
+an agent poll.
 
 ## Config
 
@@ -273,7 +294,7 @@ the banner opens the log. Every banner requested is logged:
 ## heartbeatctl
 
 ```
-heartbeatctl status [--json] [--all] [--health]
+heartbeatctl status [--json] [--all] [--health] [--pi]
 heartbeatctl list [--json]
 heartbeatctl explain <label>
 heartbeatctl check-config
@@ -303,7 +324,12 @@ comes from logs, evidence paths and receipts only.
   `severity`, `message`), `schedule`, `state`, `pid`, `runs`, `lastExitCode`,
   `lastSignal`, `lastEvidence`, `evidenceOrigin`, `nextExpected`, `plistPath`,
   `logPaths`, `disabled` and `notify`. Missing values are `null`, and dates are
-  ISO 8601 in local time. The tests pin these keys.
+  ISO 8601 in local time. The tests pin these keys. `--pi` also asks the Pi
+  (the same ssh command as the app, run while the snapshot is being built) and
+  prints the Pi row with its problems. The JSON gets a `pi` object with `host`,
+  `checkedAt`, `status` (pi-status's `ok`, `warn`, `fail` or `unknown`, or
+  else `unreachable` or `unreadable`), `severity`, `row`, `problems`, `kumaUp`,
+  `kumaTotal` and `generated`, and `overall` includes the Pi.
 - `list` prints every discovered agent with its launchd state and schedule.
   `--json` gives the same agent objects as `status --json`.
 - `explain <label>` shows how one verdict was reached: the plist, launchd's
@@ -316,7 +342,8 @@ comes from logs, evidence paths and receipts only.
 The overall status is failing if any agent is red. It is warning if any agent
 is amber, the config is broken, a plist can't be read (broken symlink or
 invalid file) or no agents are found. Otherwise it is ok. Paused and hidden
-agents don't count. It is unknown when the LaunchAgents directory or the boot
+agents don't count. With `--pi`, a Pi that isn't ok turns ok into warning,
+but never makes it worse than that. It is unknown when the LaunchAgents directory or the boot
 time can't be read.
 
 Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error. `explain`

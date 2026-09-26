@@ -2,7 +2,7 @@ import AppKit
 import HeartbeatCore
 
 /// Fills the status menu from a snapshot: a header line, one section per severity (Failing, Warning, OK, Paused)
-/// with a submenu per agent (read-only info, then log and launchctl actions), problems, then the footer.
+/// with a submenu per agent (read-only info, then log and launchctl actions), the Pi row, problems, then the footer.
 @MainActor
 struct StatusMenuBuilder {
     /// Footer commands; `target` implements them.
@@ -12,6 +12,8 @@ struct StatusMenuBuilder {
         var openConfig: Selector
         var toggleLaunchAtLogin: Selector
         var toggleNotifications: Selector
+        var checkPi: Selector
+        var openKuma: Selector
         /// Implements the per-agent items.
         var agent: AgentActions
     }
@@ -23,9 +25,15 @@ struct StatusMenuBuilder {
         var isEnabled: Bool
     }
 
+    /// The Pi row's last check and whether one is running.
+    struct PiItem {
+        var check: PiCheck?
+        var isChecking: Bool
+    }
+
     var formatter = StatusFormatter()
 
-    func populate(_ menu: NSMenu, snapshot: Snapshot?, stateProblem: String?, launchAtLogin: LaunchAtLogin,
+    func populate(_ menu: NSMenu, snapshot: Snapshot?, pi: PiItem, stateProblem: String?, launchAtLogin: LaunchAtLogin,
                   notifications: NotificationsItem, actions: Actions) {
         menu.removeAllItems()
         menu.addItem(disabled(snapshot.map(formatter.headline) ?? "Checking agents…"))
@@ -41,6 +49,9 @@ struct StatusMenuBuilder {
                 }
             }
         }
+
+        menu.addItem(.separator())
+        menu.addItem(piRow(pi, now: Date(), actions: actions))
 
         let problems = problemLines(snapshot, stateProblem: stateProblem)
         if !problems.isEmpty {
@@ -87,6 +98,27 @@ struct StatusMenuBuilder {
             group.forEach { submenu.addItem(disabled($0)) }
         }
         addActions(for: agent, to: submenu, actions: actions)
+        item.submenu = submenu
+        return item
+    }
+
+    /// Dot + "Pi — ok · 48/48 up"; the submenu lists problems and check details, then Check Now and Open Uptime Kuma.
+    private func piRow(_ pi: PiItem, now: Date, actions: Actions) -> NSMenuItem {
+        let item = NSMenuItem(title: formatter.piRow(pi.check), action: nil, keyEquivalent: "")
+        item.image = dot(pi.check.map { Self.color($0.severity) } ?? .systemGray)
+        item.toolTip = pi.check.map { "ssh \($0.host) \(PiStatusClient.remoteCommand)" }
+        let submenu = NSMenu(title: "Pi")
+        for (index, group) in formatter.piMenuInfo(pi.check, now: now).enumerated() {
+            if index > 0 { submenu.addItem(.separator()) }
+            group.forEach { submenu.addItem(disabled($0)) }
+        }
+        submenu.addItem(.separator())
+        let check = command(pi.isChecking ? "Checking Pi…" : "Check Pi Now", actions.checkPi, target: actions.target)
+        check.isEnabled = !pi.isChecking
+        submenu.addItem(check)
+        let kuma = command("Open Uptime Kuma", actions.openKuma, target: actions.target)
+        kuma.toolTip = PiStatusClient.kumaURL.absoluteString
+        submenu.addItem(kuma)
         item.submenu = submenu
         return item
     }
