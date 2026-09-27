@@ -7,8 +7,16 @@ amber when something cannot be verified, red when an agent failed or is overdue.
 It also shows a read-only summary row for the Raspberry Pi. Phone alerts stay
 with Uptime Kuma and ntfy on the Pi.
 
-The app lives in the menu bar and has no Dock icon. The menu is read-only for
-now: it shows each agent's verdict, but actions such as Run Now come later.
+The app lives in the menu bar and has no Dock icon. The menu shows each agent's
+verdict and why, and has per-agent actions: View Log, Run Now, Unload, Load,
+Run Health Check Now and Reveal Plist. macOS banners appear when an agent
+turns red and when it recovers.
+
+Heartbeat is the Mac-local half of the monitoring. The Pi runs Uptime Kuma,
+which pushes phone alerts through ntfy and already watches two Mac jobs
+(forgejo-sync and pi-backup-fetch) and the Pi itself. Heartbeat doesn't send
+phone alerts. It watches every agent Kuma can't see, keeps banners off for the
+two jobs Kuma already covers, and shows the Pi as one read-only row.
 
 ## Requirements
 
@@ -181,6 +189,21 @@ agent's actions:
 - **Reveal Plist** shows the plist (the stow target for stowed agents) in
   Finder.
 
+The actions run these commands, with no shell in between. `$UID` is your user
+id and `<plist>` is the path in `~/Library/LaunchAgents`:
+
+| Action | Command |
+| --- | --- |
+| Run Now | `launchctl kickstart gui/$UID/<label>` |
+| Restart… | `launchctl kickstart -k gui/$UID/<label>` |
+| Unload… | `launchctl bootout gui/$UID/<label>` |
+| Load | `launchctl bootstrap gui/$UID <plist>` |
+| (every poll) | `launchctl print gui/$UID/<label>` |
+
+The same commands work from a terminal, and Heartbeat notices within one poll.
+An agent unloaded from the shell shows amber "Not loaded", because only an
+Unload from the menu marks it paused.
+
 After the agent sections comes the **Pi row**, which is read-only: "Pi — ok ·
 48/48 up", "Pi — warn: Kuma: Forgejo pending — timeout…" (the first problem),
 or "Pi — unreachable over Tailscale", which is the one thing Kuma can't tell
@@ -222,6 +245,18 @@ a section is failing, but its report is still read. ssh's exit 255, a timeout
 or a failed launch counts as unreachable. Any other output that isn't a
 report shows "cannot read pi-status". A slow or unreachable Pi never delays
 an agent poll.
+
+The report pi-status prints has a top-level `status` (`ok`, `unknown`, `warn`
+or `fail`), `generated` (Unix time) and `sections`: `kuma` (`counts` and
+`problems`), `containers` (an object whose own `containers` list holds each
+container's `level`), `systemd` (`failed` units and `timers`), `backup`,
+`host` (load, memory, disk, temperature, throttling) and `errors` (journal
+lines). A section pi-status couldn't collect is `{status, reason}`, and
+Heartbeat shows the reason.
+
+Why the Pi row never sends banners: Kuma already pushes Pi problems to the
+phone, so a Mac banner would only repeat it. The row is there for the one
+thing Kuma can't report, which is the Mac losing its route to the Pi.
 
 ## Config
 
@@ -371,3 +406,83 @@ its own, including after a reboot.
 To check that a rebuild kept the same identity, compare `just show-dr` before and
 after. The output should be identical, naming `dev.sglavoie.Heartbeat` and the
 same certificate leaf hash.
+
+## Data files
+
+| Path | What it is |
+| --- | --- |
+| `~/.config/heartbeat/config.json` | Optional config (see [Config](#config)). Heartbeat never writes it, except Open Config… creating the commented example when it is missing. |
+| `~/Library/Application Support/Heartbeat/state.json` | Ledger and notification memory (see [State and notifications](#state-and-notifications)). Written by the app only. |
+| `~/Library/Application Support/Heartbeat/state.corrupt-<time>.json` | A state file that couldn't be decoded, moved aside. Safe to delete. |
+| `~/Library/Application Support/Heartbeat/canary/` | Scripts and log of the test canaries. `just canary-uninstall` removes it. |
+| `~/Library/LaunchAgents/com.sglavoie.*.plist` | The agents being watched. Heartbeat only reads them. |
+| `~/Library/Keychains/heartbeat-signing.keychain-db` | The local signing identity (see [Signing](#signing)). |
+
+Deleting `state.json` while the app is quit is harmless: the next poll starts a
+new ledger, so agents that only have ledger evidence show "Cannot verify last
+run" until they run again, and banners already shown for red agents may be
+shown once more.
+
+## Troubleshooting
+
+- **An agent is red and you want to know why.** Run
+  `heartbeatctl explain <label>` (or `just explain <label>`). It prints every
+  evidence source, the power timeline, the overdue working and one line per
+  rule.
+- **The menu and `heartbeatctl status` disagree.** The CLI builds its own
+  snapshot right now, and the menu shows the app's last poll. Use Refresh Now
+  (⌘R), then compare again. Without the app running, the CLI has no ledger, so
+  agents whose only evidence is the ledger can differ.
+- **An agent shows "Not loaded" (amber) after you stopped it on purpose.**
+  `launchctl bootout` from a shell doesn't mark it paused. Load it again, then
+  use Unload… in the menu, or set `hidden: true` for it in the config.
+- **"Cannot verify last run".** The agent has a schedule but no log paths,
+  `evidencePaths` or ledger history. Add an `evidencePaths` entry for a file
+  the job writes on every run.
+- **A false "Overdue" after sleep or reboot.** Check the power timeline in
+  `heartbeatctl explain <label>`: `sysctl kern.boottime` and `kern.waketime`
+  should match reality. Raise `graceSeconds` for a calendar job that takes a
+  while to start after wake.
+- **No banners.** Check the Notifications item in the footer: "(off in
+  config)" means `notifications` is false, and "(allow in System Settings)…"
+  means macOS denied the permission (System Settings → Notifications →
+  Heartbeat). Banners only come from the installed, signed app, and only for
+  agents with `notify` on. See whether Heartbeat asked for them with
+  `log show --last 1h --predicate 'subsystem == "dev.sglavoie.Heartbeat"'`.
+- **Permissions or the login item forgotten after a rebuild.** Compare
+  `just show-dr` with an earlier build. A different certificate leaf means the
+  signing keychain was recreated.
+- **The Pi row says "unreachable over Tailscale".** Try the same command in a
+  terminal: `ssh -o BatchMode=yes -o ConnectTimeout=5 pi.tailb5cfdf.ts.net
+  ~/.local/bin/pi-status --json`. BatchMode means the ssh key must work without
+  a prompt. "Cannot read pi-status" means ssh worked but the output wasn't a
+  report; the submenu shows what came back.
+- **A config edit seems ignored.** `heartbeatctl check-config` shows the
+  file's warnings and errors. Invalid JSON keeps the last good config and shows
+  "config error" in the menu header.
+- **`swift test` can't find `TestingMacros`.** `Package.swift` already passes
+  the Command Line Tools plugin path. Make sure `xcode-select -p` points at
+  `/Library/Developer/CommandLineTools`.
+
+## Live verification
+
+Run on 2026-09-26 against the installed, signed app (Heartbeat 0.1.0, macOS
+27.0) on this Mac. The menu was read and clicked through System Events, and
+banners were confirmed in the `dev.sglavoie.Heartbeat` log and usernoted's
+"Presenting" log. Every temporary file (canaries, config, symlink) was removed
+afterwards.
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | `just test`, `just install`, no Dock icon, `just show-dr` stable | Pass: 214 tests in 25 suites. `show-dr` was identical before and after the install. The process is background-only (UIElement). |
+| 2 | Live failures: backup-legacy-repo and sync-legacy red | Pass: both, plus check-legacy-health, show "Exited with status 1" in the menu and in `heartbeatctl status`, which exits 2. `status --json \| jq .overall` prints `"failing"`. |
+| 3 | Canary red with one banner; exit 0 and Run Now recovers it; Unload, Load, shell bootout | Pass: red and exactly one banner across two runs. `canary-exit 0` then Run Now turned it ok and posted "recovered" with the same id. Unload… (confirmed) gave "Paused (unloaded by Heartbeat)", Load reloaded it, and `launchctl bootout` from the shell gave amber "Not loaded" on the next poll. |
+| 4 | KeepAlive canary, `SuccessfulExit: false`, exits 0 | Pass: "Not running (KeepAlive)" right after loading, then red under Failing 16 s later, after the second poll, with one banner. (Session 8 also saw amber on the first poll in the menu.) |
+| 5 | `maxAgeSeconds: 60` | Pass: red "Overdue: last run 1 min ago (allowed 1 min)" in the menu and CLI. Removing the config reverted it and posted "recovered". |
+| 6 | Health command `exit 1`, then `sleep 60` with a 5 s timeout | Pass: red "Health check failed (exit 1): canary unhealthy", then amber "Health check timed out after 5 s" with no banner and no leftover `sleep` (`pgrep`). |
+| 7 | Receipt with `"reported": false` | Pass: amber "Ran locally but not reported to Kuma", no banner. |
+| 8 | Pi row ok; bogus `piHost` | Pass: "Pi — ok · 48/48 up". With `piHost: bogus.invalid` it showed "Pi — unreachable over Tailscale", and back to ok after. No Pi banner. |
+| 9 | Sleep across a calendar slot, no false red on wake | **Pending**: putting the Mac to sleep would interrupt whoever is using it, so it needs someone at the Mac. The rule is covered by the HealthEvaluator sleep and boot tests, and the app polls 90 s after wake. To check: note a calendar agent's next slot, sleep the Mac across it, wake it, and confirm the agent stays ok (launchd runs the missed slot on wake, within the 15 min grace). |
+| 10 | Stowed plist edit refreshes in under 1 s; broken config | Pass: editing the target of a symlinked plist (in `/tmp`) refreshed state 0.65 s later, with the new schedule in the submenu. Invalid JSON showed "config error" in the header and the error under Problems, and kept the last good config. |
+| 11 | View Log, Open Log, Reveal Plist, Launch at Login, `just canary-uninstall` | Pass: the log window showed a line appended while it was open. Open Log ran a temporary `openLogCommand` with the log path, and Reveal Plist selected the plist in Finder. Launch at Login toggled on and back off with no error. `canary-uninstall` left both labels at exit 113, and the canaries were pruned from `state.json`. |
+| 12 | forgejo-sync failure after the `~/scripts` follow-up | **Pending**: this belongs to the `~/scripts` follow-up, which hasn't been done yet. |
