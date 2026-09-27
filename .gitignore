@@ -5,7 +5,7 @@
 TODO
 __pycache__/
 prep.py
-tags
+/tags
 .coverage
 .venv/
 
