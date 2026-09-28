@@ -28,6 +28,10 @@ final class Navigator {
     /// screen removed while its field is editing otherwise leaves an orphaned
     /// field editor as first responder, and the next screen cannot take focus.
     @ObservationIgnored var willChange: @MainActor () -> Void = {}
+    /// Bumped each time the panel opens. The root screen takes it as its
+    /// identity, so its search, filters and selection start clean on every
+    /// open instead of surviving in the long-lived hosting view.
+    private(set) var session = 0
 
     var current: Route { stack[stack.count - 1] }
     var canPop: Bool { stack.count > 1 }
@@ -46,9 +50,10 @@ final class Navigator {
         return true
     }
 
-    func popToRoot() {
-        guard canPop else { return }
+    /// Returns to a fresh root screen, as when the panel opens.
+    func reset() {
         willChange()
         stack = [.root]
+        session += 1
     }
 }

@@ -8,9 +8,10 @@ A global hotkey (⌃⌥⌘V by default) opens a Spotlight-style picker. Choosing
 snippet pastes it into the app that was frontmost. The app lives in the menu bar
 and has no Dock icon.
 
-The search field starts unfocused: j/k (or ↓/↑) move through the list. ⌘F, or k
-on the first row, focuses the search field, and Esc hands the keys back to the
-list.
+Each open starts clean, with an empty search, no filters and the first row
+selected. The search field starts unfocused: j/k (or ↓/↑) move through the list.
+⌘F, or k on the first row, focuses the search field, and Esc hands the keys back
+to the list.
 
 ⌘+ (or ⌘=) and ⌘- zoom the picker in and out, and ⌘0 resets it. The whole panel
 grows or shrinks with its contents, and the zoom level is remembered.

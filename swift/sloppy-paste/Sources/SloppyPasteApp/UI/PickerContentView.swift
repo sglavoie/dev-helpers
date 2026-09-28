@@ -10,6 +10,7 @@ struct PickerContentView: View {
             switch navigator.current {
             case .root:
                 PickerRootView()
+                    .id(navigator.session)
             case .placeholderForm(let snippetID, let mode):
                 PlaceholderFormView(snippetID: snippetID, mode: mode)
                     .id(navigator.current)

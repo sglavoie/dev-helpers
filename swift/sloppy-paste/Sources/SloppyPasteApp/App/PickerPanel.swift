@@ -189,7 +189,7 @@ final class PickerPanelController {
         store.reloadIfChanged()
         accessibility.refresh()
         keyRouter.closeActionMenu(restoringFocus: false)
-        navigator.popToRoot()
+        navigator.reset()
         position()
         panel.orderFrontRegardless()
         panel.makeKey()
