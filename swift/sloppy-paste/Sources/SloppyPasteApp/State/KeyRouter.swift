@@ -122,7 +122,7 @@ final class KeyRouter {
 
     let actionMenu = ActionMenu()
     private let navigator: Navigator
-    private var bindingsByRoute: [Route: [KeyBinding]] = [:]
+    private var bindingsByRoute: [Route: (owner: UUID, bindings: [KeyBinding])] = [:]
     private var monitor: Any?
     private weak var window: NSWindow?
     private let onEscapeAtRoot: @MainActor () -> Void
@@ -154,17 +154,22 @@ final class KeyRouter {
         monitor = nil
     }
 
-    /// Screens publish their catalog here whenever it changes.
-    func setBindings(_ bindings: [KeyBinding], for route: Route) {
-        bindingsByRoute[route] = bindings
+    /// Screens publish their catalog here whenever it changes. `owner`
+    /// identifies the screen instance that published it.
+    func setBindings(_ bindings: [KeyBinding], for route: Route, owner: UUID) {
+        bindingsByRoute[route] = (owner, bindings)
     }
 
-    func removeBindings(for route: Route) {
+    /// Removes the catalog only if `owner` still owns it: when a screen is
+    /// replaced by a fresh copy on the same route (the root on each open),
+    /// the new copy can appear before the old one disappears.
+    func removeBindings(for route: Route, owner: UUID) {
+        guard bindingsByRoute[route]?.owner == owner else { return }
         bindingsByRoute[route] = nil
     }
 
     func bindings(for route: Route) -> [KeyBinding] {
-        bindingsByRoute[route] ?? []
+        bindingsByRoute[route]?.bindings ?? []
     }
 
     /// Returns true when the event was consumed.

@@ -57,6 +57,7 @@ extension View {
 
 private struct KeyBindingsModifier: ViewModifier {
     @Environment(\.keyRouter) private var keyRouter
+    @State private var owner = UUID()
     var bindings: [KeyBinding]
     var route: Route
 
@@ -69,8 +70,8 @@ private struct KeyBindingsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onAppear { keyRouter?.setBindings(bindings, for: route) }
-            .onChange(of: signature) { keyRouter?.setBindings(bindings, for: route) }
-            .onDisappear { keyRouter?.removeBindings(for: route) }
+            .onAppear { keyRouter?.setBindings(bindings, for: route, owner: owner) }
+            .onChange(of: signature) { keyRouter?.setBindings(bindings, for: route, owner: owner) }
+            .onDisappear { keyRouter?.removeBindings(for: route, owner: owner) }
     }
 }
