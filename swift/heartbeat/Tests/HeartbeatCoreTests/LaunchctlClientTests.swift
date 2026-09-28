@@ -121,3 +121,39 @@ func result(_ code: Int32, stdout: String = "", stderr: String = "", timedOut: B
         }
     }
 }
+
+@Suite struct LaunchctlReloadTests {
+    /// Fails bootstrap `failures` times, then succeeds; bootout always succeeds.
+    final class FlakyRunner: CommandRunning, @unchecked Sendable {
+        private let lock = NSLock()
+        private var failures: Int
+        private(set) var calls: [[String]] = []
+
+        init(failures: Int) { self.failures = failures }
+
+        func run(_ argv: [String], timeout: TimeInterval) throws -> CommandResult {
+            lock.withLock {
+                calls.append(argv)
+                if argv[1] == "bootstrap", failures > 0 {
+                    failures -= 1
+                    return result(5, stderr: "Bootstrap failed: 5: Input/output error")
+                }
+                return result(0)
+            }
+        }
+    }
+
+    @Test func retriesBootstrapAfterBootout() throws {
+        let runner = FlakyRunner(failures: 2)
+        try LaunchctlClient(runner: runner, uid: 501).reload("com.x", plistPath: "/p.plist", delay: 0)
+        #expect(runner.calls.map { $0[1] } == ["bootout", "bootstrap", "bootstrap", "bootstrap"])
+    }
+
+    @Test func givesUpAfterTheLastAttempt() {
+        let runner = FlakyRunner(failures: 10)
+        #expect(throws: LaunchctlError.self) {
+            try LaunchctlClient(runner: runner, uid: 501).reload("com.x", plistPath: "/p.plist", attempts: 3, delay: 0)
+        }
+        #expect(runner.calls.count == 4)
+    }
+}

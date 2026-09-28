@@ -8,6 +8,8 @@ public struct AgentDefinition: Equatable, Sendable {
     public var program: String?
     public var programArguments: [String]
     public var schedule: Schedule
+    /// The `QueueDirectories` part of a `.watchPaths` schedule, kept apart so the schedule editor leaves them alone.
+    public var queueDirectories: [String]
     public var runAtLoad: Bool
     public var keepAlive: KeepAlivePolicy
     public var throttleInterval: Int?
@@ -24,6 +26,7 @@ public struct AgentDefinition: Equatable, Sendable {
         program: String? = nil,
         programArguments: [String] = [],
         schedule: Schedule = .none,
+        queueDirectories: [String] = [],
         runAtLoad: Bool = false,
         keepAlive: KeepAlivePolicy = .none,
         throttleInterval: Int? = nil,
@@ -39,6 +42,7 @@ public struct AgentDefinition: Equatable, Sendable {
         self.program = program
         self.programArguments = programArguments
         self.schedule = schedule
+        self.queueDirectories = queueDirectories
         self.runAtLoad = runAtLoad
         self.keepAlive = keepAlive
         self.throttleInterval = throttleInterval

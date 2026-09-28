@@ -1,8 +1,8 @@
 /// Short human descriptions of launchd triggers, e.g. "daily 10:00, 13:00" or "Wed 12:00".
 /// Missing calendar keys are wildcards, so "hourly at :10" is not "00:10".
 public enum ScheduleDescription {
-    static let weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    static let monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    public static let weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    public static let monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     /// Describes the agent's trigger, falling back to KeepAlive / RunAtLoad when it has no schedule.
     public static func describe(_ agent: AgentDefinition) -> String {

@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         notifier.onViewLog = { [weak self] label in self?.agentActions.showLog(label: label) }
         notifier.onRunNow = { [weak self] label in self?.agentActions.runNow(label: label) }
+        agentActions.openConfig = { [weak self] in self?.openConfig(nil) }
         notifier.start()
         render()
         monitor.start()

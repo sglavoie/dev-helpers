@@ -2,7 +2,8 @@ import AppKit
 import HeartbeatCore
 
 /// Per-agent menu and banner commands: launchctl actions (Restart… and Unload… confirmed first, launchctl's stderr shown in
-/// an alert on failure, then polls at 1 s and 5 s), the log window, Open Log, Run Health Check Now and Reveal Plist. Menu items carry
+/// an alert on failure, then polls at 1 s and 5 s), the log window, Open Log, Run Health Check Now, Edit Schedule… and
+/// Reveal Plist. Menu items carry
 /// a `Request` as `representedObject`; the agent is looked up again in the current snapshot when clicked.
 @MainActor
 final class AgentActions: NSObject {
@@ -22,6 +23,11 @@ final class AgentActions: NSObject {
     private let monitor: Monitor
     private let launchctl = LaunchctlClient()
     private lazy var logWindows = LogWindowController(openLog: { [weak self] path in self?.openLog(path) })
+    private lazy var scheduleEditors = ScheduleEditorWindowController(
+        save: { [weak self] model in await self?.saveSchedule(model) ?? .notSaved("Heartbeat is shutting down") },
+        openConfig: { [weak self] in self?.openConfig() })
+    /// Opens config.json (the footer's Open Config…); set by the app delegate.
+    var openConfig: () -> Void = {}
 
     init(monitor: Monitor) {
         self.monitor = monitor
@@ -48,6 +54,24 @@ final class AgentActions: NSObject {
     @objc func openLogItem(_ sender: NSMenuItem) {
         guard let path = (sender.representedObject as? Request)?.path else { return }
         openLog(path)
+    }
+
+    @objc func editSchedule(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? Request, let snapshot = monitor.snapshot,
+              let agent = snapshot.agent(request.label) else { return }
+        let name = agent.name(labelPrefix: snapshot.config.labelPrefix)
+        let path = agent.agent.resolvedPlistPath
+        guard let head = FileManager.default.contents(atPath: path)?.prefix(8) else {
+            showAlert("Cannot read \(name)'s plist", path)
+            return
+        }
+        guard !head.starts(with: Data("bplist".utf8)) else {
+            showAlert("Cannot edit \(name)'s schedule", "\(path) is a binary plist; only XML plists can be edited.")
+            return
+        }
+        scheduleEditors.show(ScheduleEditorModel.Context(
+            label: agent.label, name: name, agent: agent.agent, isLoaded: agent.status.runtime != nil,
+            isRunning: agent.status.runtime?.pid != nil, maxAge: Self.maxAgeContext(agent, snapshot: snapshot)))
     }
 
     @objc func revealPlist(_ sender: NSMenuItem) {
@@ -113,6 +137,73 @@ final class AgentActions: NSObject {
             }
             monitor.refreshAfterAction()
         }
+    }
+
+    // MARK: Schedule
+
+    static func maxAgeContext(_ agent: AgentSnapshot, snapshot: Snapshot) -> ScheduleEditorModel.Context.MaxAge {
+        guard let maxAge = agent.config.maxAgeSeconds else { return .none }
+        switch snapshot.configSource {
+        case .file: return .inFile(maxAge)
+        case .defaults: return .notEditable(maxAge, reason: "It comes from the built-in defaults; set it in config.json.")
+        case .lastGood: return .notEditable(maxAge, reason: "config.json failed to load, so it can't be updated.")
+        }
+    }
+
+    /// Writes the plist (and maxAgeSeconds), reloads the agent if it was loaded, then runs it if asked. The agent
+    /// is marked paused across the reload so no poll shows the bootout as an amber "Not loaded".
+    func saveSchedule(_ model: ScheduleEditorModel) async -> ScheduleEditorModel.SaveOutcome {
+        guard let change = model.change else { return .notSaved("The schedule is not valid yet.") }
+        let context = model.context, runNow = model.runNow && !context.agent.runAtLoad
+        let label = context.label, agent = context.agent, launchctl = launchctl
+        let wasPaused = monitor.isPaused(label)
+        if context.isLoaded { monitor.setPaused(label, true) }
+
+        enum Step: Sendable { case done, notWritten(String), notReloaded(String, stillLoaded: Bool), notRun(String) }
+        let step: Step = await Task.detached {
+            do {
+                try ScheduleApplier().apply(change, to: agent)
+            } catch {
+                return .notWritten("\(error)")
+            }
+            guard context.isLoaded else { return .done }
+            do {
+                try launchctl.reload(label, plistPath: agent.plistPath)
+            } catch {
+                let text = (error as? LaunchctlError).map(Self.alertText) ?? "\(error)"
+                return .notReloaded(text, stillLoaded: launchctl.print(label).runtime != nil)
+            }
+            guard runNow else { return .done }
+            do {
+                try launchctl.kickstart(label)
+            } catch {
+                return .notRun((error as? LaunchctlError).map(Self.alertText) ?? "\(error)")
+            }
+            return .done
+        }.value
+
+        let outcome: ScheduleEditorModel.SaveOutcome
+        switch step {
+        case .done:
+            if context.isLoaded { monitor.setPaused(label, wasPaused) }
+            outcome = .saved
+        case .notWritten(let reason):
+            if context.isLoaded { monitor.setPaused(label, wasPaused) }
+            outcome = .notSaved(reason)
+        case .notReloaded(let reason, let stillLoaded):
+            // Left unloaded: keep it paused, so the menu offers Load instead of an amber "Not loaded".
+            if stillLoaded { monitor.setPaused(label, wasPaused) }
+            outcome = .savedWithProblem("The new schedule is saved in \(agent.resolvedPlistPath), but launchd did not "
+                + "reload it\(stillLoaded ? " and still runs the old one" : "; choose Load to apply it").\n\n\(reason)")
+        case .notRun(let reason):
+            monitor.setPaused(label, wasPaused)
+            outcome = .savedWithProblem("The new schedule is saved and loaded, but Run Now failed.\n\n\(reason)")
+        }
+        if case .savedWithProblem(let text) = outcome {
+            showAlert("\(context.name): schedule saved with a problem", text)
+        }
+        if case .notSaved = outcome {} else { monitor.refreshAfterAction() }
+        return outcome
     }
 
     private func confirm(_ action: AgentAction, name: String, agent: AgentSnapshot) -> Bool {

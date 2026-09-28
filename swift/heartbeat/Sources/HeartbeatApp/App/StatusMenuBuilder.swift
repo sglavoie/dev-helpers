@@ -149,7 +149,7 @@ struct StatusMenuBuilder {
     }
 
     /// View Log… and Open Log per log file, the launchctl actions that fit the agent's state, Run Health Check Now
-    /// for agents with a health command, and Reveal Plist.
+    /// for agents with a health command, then Edit Schedule… and Reveal Plist.
     private func addActions(for agent: AgentSnapshot, to submenu: NSMenu, actions: AgentActions) {
         let label = agent.label
         let logs = agent.agent.logPaths
@@ -183,6 +183,10 @@ struct StatusMenuBuilder {
             submenu.addItem(item)
         }
         submenu.addItem(.separator())
+        let edit = agentCommand("Edit Schedule…", #selector(AgentActions.editSchedule(_:)), actions,
+                                AgentActions.Request(label: label))
+        edit.toolTip = "Change the schedule in \(agent.agent.resolvedPlistPath) and reload the agent"
+        submenu.addItem(edit)
         let reveal = agentCommand("Reveal Plist", #selector(AgentActions.revealPlist(_:)), actions,
                                   AgentActions.Request(label: label, path: agent.agent.resolvedPlistPath))
         reveal.toolTip = agent.agent.resolvedPlistPath

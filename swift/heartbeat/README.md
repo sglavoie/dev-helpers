@@ -9,8 +9,8 @@ with Uptime Kuma and ntfy on the Pi.
 
 The app lives in the menu bar and has no Dock icon. The menu shows each agent's
 verdict and why, and has per-agent actions: View Log, Run Now, Unload, Load,
-Run Health Check Now and Reveal Plist. macOS banners appear when an agent
-turns red and when it recovers.
+Run Health Check Now, Edit Schedule… and Reveal Plist. macOS banners appear
+when an agent turns red and when it recovers.
 
 Heartbeat is the Mac-local half of the monitoring. The Pi runs Uptime Kuma,
 which pushes phone alerts through ntfy and already watches two Mac jobs
@@ -186,6 +186,25 @@ agent's actions:
   Seeing an agent loaded, from the menu or the shell, ends the pause.
 - **Run Health Check Now** runs the agent's health command at once (shown as
   "Health Check Running…" until it finishes).
+- **Edit Schedule…** opens a window to change what starts the agent: an
+  interval, one or more calendar times (each field can be Any), watch paths
+  with a throttle, or none. It previews the result ("daily 10:00 · next: …") and
+  checks it before Save is enabled. Saving does four things:
+  - It rewrites only the `StartInterval`, `StartCalendarInterval`, `WatchPaths`
+    and (for watch paths) `ThrottleInterval` entries of the plist. For stowed
+    agents it writes the stow target, keeping the file's indentation and key
+    order, so `git diff` shows only the schedule lines. The result is parsed back
+    and must match before the file is replaced.
+  - When config.json sets a `maxAgeSeconds` for the agent that the new schedule
+    makes too tight or far too loose, a checkbox offers a new value and replaces
+    just that number, comments intact.
+  - A loaded agent is reloaded (`bootout`, then `bootstrap`). An unloaded one
+    picks up the change at its next Load.
+  - With "Run now after saving" it is kicked off right away (not offered with
+    RunAtLoad, which already runs it on reload).
+
+  Plists an installer wrote (not stow symlinks) can be edited too, with a
+  warning that reinstalling may revert the change.
 - **Reveal Plist** shows the plist (the stow target for stowed agents) in
   Finder.
 
@@ -198,6 +217,7 @@ id and `<plist>` is the path in `~/Library/LaunchAgents`:
 | Restart… | `launchctl kickstart -k gui/$UID/<label>` |
 | Unload… | `launchctl bootout gui/$UID/<label>` |
 | Load | `launchctl bootstrap gui/$UID <plist>` |
+| Edit Schedule… (save) | `launchctl bootout gui/$UID/<label>`, then `launchctl bootstrap gui/$UID <plist>` (retried briefly) |
 | (every poll) | `launchctl print gui/$UID/<label>` |
 
 The same commands work from a terminal, and Heartbeat notices within one poll.
@@ -435,11 +455,11 @@ same certificate leaf hash.
 
 | Path | What it is |
 | --- | --- |
-| `~/.config/heartbeat/config.json` | Optional config (see [Config](#config)). Heartbeat never writes it, except Open Config… creating the commented example when it is missing. |
+| `~/.config/heartbeat/config.json` | Optional config (see [Config](#config)). Heartbeat never writes it, except Open Config… creating the commented example when it is missing, and Edit Schedule… replacing an agent's existing `maxAgeSeconds` number when you tick that box. |
 | `~/Library/Application Support/Heartbeat/state.json` | Ledger and notification memory (see [State and notifications](#state-and-notifications)). Written by the app only. |
 | `~/Library/Application Support/Heartbeat/state.corrupt-<time>.json` | A state file that couldn't be decoded, moved aside. Safe to delete. |
 | `~/Library/Application Support/Heartbeat/canary/` | Scripts and log of the test canaries. `just canary-uninstall` removes it. |
-| `~/Library/LaunchAgents/com.sglavoie.*.plist` | The agents being watched. Heartbeat only reads them. |
+| `~/Library/LaunchAgents/com.sglavoie.*.plist` | The agents being watched. Heartbeat only reads them, except Edit Schedule… rewriting the schedule entries (in the stow target for stowed agents) when you save. |
 | `~/Library/Keychains/heartbeat-signing.keychain-db` | The local signing identity (see [Signing](#signing)). |
 
 Deleting `state.json` while the app is quit is harmless: the next poll starts a

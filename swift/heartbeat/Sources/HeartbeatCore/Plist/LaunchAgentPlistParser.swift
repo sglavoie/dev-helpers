@@ -54,6 +54,7 @@ public enum LaunchAgentPlistParser {
             program: try reader.string("Program"),
             programArguments: try reader.strings("ProgramArguments") ?? [],
             schedule: try reader.schedule(throttle: throttle),
+            queueDirectories: try reader.strings("QueueDirectories") ?? [],
             runAtLoad: try reader.bool("RunAtLoad") ?? false,
             keepAlive: keepAlive,
             throttleInterval: throttle,

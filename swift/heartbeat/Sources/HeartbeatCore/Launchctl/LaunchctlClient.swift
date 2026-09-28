@@ -91,6 +91,21 @@ public struct LaunchctlClient: Sendable {
         try perform(["bootout", serviceTarget(label)])
     }
 
+    /// Bootout then bootstrap, so launchd picks up an edited plist. launchd often refuses a bootstrap right after a
+    /// bootout (EIO while the old job is torn down), so it is retried with a growing delay.
+    public func reload(_ label: String, plistPath: String, attempts: Int = 5, delay: TimeInterval = 0.2) throws {
+        try bootout(label)
+        var attempt = 1
+        while true {
+            do {
+                return try bootstrap(plistPath: plistPath)
+            } catch is LaunchctlError where attempt < attempts {
+                Thread.sleep(forTimeInterval: delay * Double(attempt))
+                attempt += 1
+            }
+        }
+    }
+
     func perform(_ arguments: [String]) throws {
         let argv = [Self.launchctlPath] + arguments
         let result = try runner.run(argv, timeout: timeout)

@@ -195,7 +195,7 @@ public enum HealthEvaluator {
             trace = OverdueTrace(kind: .calendar, evidence: evidence.latest,
                                  nextExpected: ScheduleMath.nextSlot(entries, after: now, calendar: context.calendar))
         case (.interval(let seconds), _):
-            let allowed = maxAge ?? max(2 * seconds, seconds + 300)
+            let allowed = maxAge ?? MaxAgeSuggestion.defaultAllowedAge(interval: seconds)
             trace = OverdueTrace(kind: .maxAge, evidence: evidence.latest, allowedAge: TimeInterval(allowed),
                                  nextExpected: evidence.latest?.addingTimeInterval(TimeInterval(seconds)))
         case (let schedule, let maxAge?):
