@@ -421,4 +421,29 @@ enum PiStatusFixtures {
       }
     }
     """#
+
+    /// Every section ok but the journal, as captured on 2026-09-27 from a pi-status that still folded the journal into
+    /// its top-level status (lines and the other sections trimmed). No `limit` or `truncated` keys.
+    static let journalOnly = #"""
+    {
+      "status": "warn",
+      "generated": 1790553060.0,
+      "sections": {
+        "kuma": {"status": "ok", "counts": {"down": 0, "up": 48, "pending": 0, "maintenance": 0}, "problems": []},
+        "containers": {"status": "ok", "containers": []},
+        "systemd": {"status": "ok", "failed": [], "timers": []},
+        "backup": {"status": "ok", "id": "20260927T033000Z", "verified": true, "age": 51000.0},
+        "host": {"status": "ok", "load": [0.3, 0.4, 0.4], "cores": 4},
+        "errors": {
+          "status": "warn",
+          "lines": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+          "distinct": [
+            {"last": "2026-09-27T17:41:00-06:00", "message": "pi systemd[1]: Failed to start pi-music-probe@music.service - Pi privileged music share reporter music.", "count": 10},
+            {"last": "2026-09-27T17:32:07-06:00", "message": "pi navidrome[1602581]: time=\"2026-09-27T17:32:07-06:00\" level=error msg=\"Error getting fs for library\" error=\"stat /mnt/music: host is down\" library=\"Music Library\" path=/mnt/music", "count": 1},
+            {"last": "2026-09-27T17:40:05-06:00", "message": "pi systemd[1]: Failed to start pi-music-probe@mac-storage.service - Probe.", "count": 2}
+          ]
+        }
+      }
+    }
+    """#
 }

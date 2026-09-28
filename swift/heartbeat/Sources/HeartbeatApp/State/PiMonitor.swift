@@ -12,7 +12,7 @@ final class PiMonitor {
     private(set) var isChecking = false
 
     private let client = PiStatusClient()
-    private var host: String?
+    private(set) var host: String?
     private var interval: TimeInterval = TimeInterval(HeartbeatConfig.defaults.piStatusSeconds)
     private var checkQueued = false
     private var nextCheck: DispatchWorkItem?

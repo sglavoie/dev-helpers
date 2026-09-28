@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let launchAtLogin = LaunchAtLogin()
     private let menuBuilder = StatusMenuBuilder()
     private lazy var agentActions = AgentActions(monitor: monitor)
+    private lazy var piJournalWindow = PiJournalWindowController()
     private let notifier = Notifier()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -46,17 +47,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let overall = snapshot?.overall.including(pi)
             StatusIcon.apply(StatusIcon.appearance(overall, failing: snapshot?.count(.failing) ?? 0), to: button)
             let formatter = menuBuilder.formatter
-            button.toolTip = snapshot.map { "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) } ?? "Heartbeat"
+            button.toolTip = snapshot.map { "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) + "\n" + formatter.piJournalRow(pi) } ?? "Heartbeat"
         }
         menuBuilder.populate(
-            menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking),
+            menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking,
+                                                                 host: piMonitor.host),
             stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
             notifications: notificationsItem(snapshot),
             actions: StatusMenuBuilder.Actions(
                 target: self, refresh: #selector(refreshNow(_:)), openConfig: #selector(openConfig(_:)),
                 toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)),
                 toggleNotifications: #selector(toggleNotifications(_:)), checkPi: #selector(checkPiNow(_:)),
-                openKuma: #selector(openUptimeKuma(_:)), agent: agentActions))
+                openKuma: #selector(openUptimeKuma(_:)), viewPiJournal: #selector(viewPiJournal(_:)),
+                agent: agentActions))
     }
 
     /// Off in the config wins; a denied permission turns the item into a link to System Settings.
@@ -90,6 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func checkPiNow(_ sender: Any?) {
         piMonitor.refresh()
         render()
+    }
+
+    @objc private func viewPiJournal(_ sender: Any?) {
+        guard let host = piMonitor.host else { return }
+        piJournalWindow.show(host: host)
     }
 
     @objc private func openUptimeKuma(_ sender: Any?) {

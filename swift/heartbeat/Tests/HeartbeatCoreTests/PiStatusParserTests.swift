@@ -30,8 +30,43 @@ import Testing
             "systemd: vault-sync.service exit-code (exit 2)",
             "Backup: last verified 1 d ago",
             "Host: load 4.60 on 4 cores, disk 88% used",
-            "Journal: 3 errors in the last hour — kernel: usb 1-1.3: device descriptor read/64, error -71",
         ])
+        #expect(summary.journal == PiJournal(status: .warn, count: 3, entries: [
+            .init(message: "kernel: usb 1-1.3: device descriptor read/64, error -71", count: 3),
+        ]))
+    }
+
+    @Test func journalDoesNotCountTowardHealth() throws {
+        let summary = try Self.parse(PiStatusFixtures.journalOnly)
+        #expect(summary.status == .ok)
+        #expect(summary.problems.isEmpty)
+        let journal = try #require(summary.journal)
+        #expect(journal.status == .warn)
+        #expect(journal.count == 15)
+        #expect(journal.truncated)
+        #expect(journal.entries.map(\.message) == [
+            "systemd: Failed to start pi-music-probe@music.service - Pi privileged music sha…",
+            "systemd: Failed to start pi-music-probe@mac-storage.service - Probe.",
+            "navidrome: Error getting fs for library — stat /mnt/music: host is down",
+        ])
+        #expect(journal.entries.map(\.count) == [10, 2, 1])
+        #expect(journal.last == TimeFixtures.utc("2026-09-27T23:41:00Z"))
+    }
+
+    @Test func journalLimitAndReason() throws {
+        let sent = try Self.parse(#"{"status": "ok", "sections": {"errors": {"status": "warn", "lines": ["a"], "distinct": [], "limit": 1, "truncated": false}}}"#)
+        #expect(sent.journal?.truncated == false)
+        #expect(sent.status == .ok)
+        let denied = try Self.parse(#"{"status": "ok", "sections": {"errors": {"status": "unknown", "reason": "Not in the adm group"}}}"#)
+        #expect(denied.journal == PiJournal(status: .unknown, reason: "Not in the adm group"))
+        #expect(try Self.parse(#"{"status": "ok", "sections": {}}"#).journal == nil)
+    }
+
+    @Test func journalMessages() {
+        #expect(PiStatusParser.journalMessage("pi kernel: usb 1-1: error -71") == "kernel: usb 1-1: error -71")
+        #expect(PiStatusParser.journalMessage("kernel: usb 1-1: error -71") == "kernel: usb 1-1: error -71")
+        #expect(PiStatusParser.journalMessage("pi sshd[42]: msg=\"x\" error=\"y\"") == "sshd: x — y")
+        #expect(PiStatusParser.journalMessage("no colon here") == "no colon here")
     }
 
     @Test func warnReportOnlyKuma() throws {
@@ -134,6 +169,35 @@ import Testing
             == .unreadable("pi-status exited with status 127: bash: /home/me/.local/bin/pi-status: No such file or directory"))
     }
 
+    @Test func journalRunsTheErrQueryNewestFirstAndReturnsOldestFirst() {
+        let runner = FakeRunner(fallback: result(0, stdout: "c newest\nb\n\na oldest\n"))
+        let log = PiStatusClient(runner: runner).journal(host: Self.host)
+        #expect(runner.recorded == [[
+            "/usr/bin/ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "--", Self.host,
+            "journalctl -p err --since -1h -n 300 -r --no-pager -o short-iso -q",
+        ]])
+        #expect(log == .success(PiJournalLog(lines: ["a oldest", "b", "c newest"])))
+    }
+
+    @Test func journalTruncatedDropsThePartialOldestLine() {
+        var cut = result(0, stdout: "c\nb\na par")
+        cut.stdoutTruncated = true
+        #expect(PiStatusClient(runner: FakeRunner(fallback: cut)).journal(host: Self.host)
+            == .success(PiJournalLog(lines: ["b", "c"], truncated: true)))
+    }
+
+    @Test func journalFailures() {
+        func journal(_ response: CommandResult?) -> Result<PiJournalLog, PiJournalFetchError> {
+            PiStatusClient(runner: FakeRunner(fallback: response), timeout: 30).journal(host: Self.host)
+        }
+        #expect(journal(result(255, stderr: "ssh: connect timed out\n")) == .failure(.init(description: "ssh: connect timed out")))
+        #expect(journal(result(1, stderr: "No journal files were opened")) == .failure(
+            .init(description: "journalctl exited with status 1: No journal files were opened")))
+        #expect(journal(CommandResult(argv: [], termination: .signaled(9), timedOut: true))
+            == .failure(.init(description: "ssh timed out after 30 s")))
+        #expect(journal(result(0)) == .success(PiJournalLog(lines: [])))
+    }
+
     @Test func checkStampsHostAndTime() {
         let runner = FakeRunner(fallback: result(0, stdout: PiStatusFixtures.ok))
         let now = TimeFixtures.utc("2026-09-26T23:41:00Z")
@@ -195,14 +259,54 @@ import Testing
         let down = formatter.piMenuInfo(check(.unreachable("ssh: connect to host pi port 22: Operation timed out")), now: Self.now)
         #expect(down == [["ssh: connect to host pi port 22: Operation timed out"], ["Host: pi.tailb5cfdf.ts.net", "Checked: 2 min ago"]])
         let warn = formatter.piMenuInfo(check(try summary(PiStatusFixtures.warn)), now: Self.now)
-        #expect(warn[0].count == 9)
+        #expect(warn[0].count == 8)
+    }
+
+    @Test func journalRows() throws {
+        #expect(formatter.piJournalRow(nil) == "Pi journal — checking…")
+        #expect(formatter.piJournalRow(check(try summary(PiStatusFixtures.ok))) == "Pi journal — no errors in the last hour")
+        #expect(formatter.piJournalRow(check(try summary(PiStatusFixtures.journalOnly))) == "Pi journal — 15+ errors, last 19:41")
+        #expect(formatter.piJournalRow(check(try summary(PiStatusFixtures.warn))) == "Pi journal — 3 errors")
+        let one = PiSummary(status: .ok, journal: PiJournal(status: .warn, count: 1))
+        #expect(formatter.piJournalRow(check(.summary(one))) == "Pi journal — 1 error")
+        #expect(formatter.piJournalRow(check(.summary(PiSummary(status: .ok)))) == "Pi journal — not reported")
+        let denied = PiSummary(status: .ok, journal: PiJournal(status: .unknown, reason: "no group"))
+        #expect(formatter.piJournalRow(check(.summary(denied))) == "Pi journal — unknown")
+        #expect(formatter.piJournalRow(check(.unreachable("x"))) == "Pi journal — unknown")
+    }
+
+    @Test func journalSeverityNeverTouchesOverall() throws {
+        let journal = check(try summary(PiStatusFixtures.journalOnly))
+        #expect(journal.severity == .ok)
+        #expect(journal.journalSeverity == .warning)
+        #expect(OverallStatus.ok.including(journal) == .ok)
+        #expect(check(try summary(PiStatusFixtures.ok)).journalSeverity == .ok)
+        #expect(check(.summary(PiSummary(status: .ok, journal: PiJournal(status: .unknown, reason: "x")))).journalSeverity == nil)
+        #expect(check(.unreachable("x")).journalSeverity == nil)
+    }
+
+    @Test func journalMenuInfo() throws {
+        #expect(formatter.piJournalMenuInfo(nil, now: Self.now) == [["Not checked yet"]])
+        let full = formatter.piJournalMenuInfo(check(try summary(PiStatusFixtures.journalOnly)), now: Self.now)
+        #expect(full[0] == [
+            "systemd: Failed to start pi-music-probe@music.service - Pi privileged music sha… ×10 · 19:41",
+            "systemd: Failed to start pi-music-probe@mac-storage.service - Probe. ×2 · 19:40",
+            "navidrome: Error getting fs for library — stat /mnt/music: host is down · 19:32",
+        ])
+        #expect(full[1] == ["Window: last hour, journal priority err and above", "Only the newest 15 lines were read",
+                            "Checked: 2 min ago"])
+        let quiet = formatter.piJournalMenuInfo(check(try summary(PiStatusFixtures.ok)), now: Self.now)
+        #expect(quiet[0] == ["No errors in the last hour"])
+        #expect(formatter.piJournalMenuInfo(check(.unreachable("x")), now: Self.now)[0] == ["The Pi couldn't be checked"])
     }
 
     @Test func statusTextAddsPiRowAndProblems() throws {
         let snapshot = SnapshotFixtures.builder([], prints: [:]).buildSync(config: SnapshotFixtures.config([:]), state: .empty, ledger: .readOnly)
         #expect(!formatter.statusText(snapshot).contains("Pi —"))
         let text = formatter.statusText(snapshot, pi: check(.unreachable("ssh: Could not resolve hostname bogus")))
-        #expect(text.contains("\nPi — unreachable over Tailscale\n  ssh: Could not resolve hostname bogus"))
+        #expect(text.contains("\nPi — unreachable over Tailscale\n  ssh: Could not resolve hostname bogus\nPi journal — unknown"))
+        let journal = formatter.statusText(snapshot, pi: check(try summary(PiStatusFixtures.journalOnly)))
+        #expect(journal.contains("\nPi — ok · 48/48 up\nPi journal — 15+ errors, last 19:41\n  systemd: Failed to start"))
     }
 
     @Test func statusJSONPiKeys() throws {
@@ -213,9 +317,25 @@ import Testing
         let json = formatter.statusJSON(snapshot, pi: check(try summary(PiStatusFixtures.ok)))
         let object = try #require(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
         let pi = try #require(object["pi"] as? [String: Any])
-        #expect(Set(pi.keys) == ["host", "checkedAt", "status", "severity", "row", "problems", "kumaUp", "kumaTotal", "generated"])
+        #expect(Set(pi.keys) == ["host", "checkedAt", "status", "severity", "row", "problems", "kumaUp", "kumaTotal", "generated",
+                                 "journal"])
         #expect(pi["status"] as? String == "ok")
         #expect(pi["kumaUp"] as? Int == 48)
+        let quiet = try #require(pi["journal"] as? [String: Any])
+        #expect(Set(quiet.keys) == ["status", "severity", "row", "count", "truncated", "reason", "entries"])
+        #expect(quiet["severity"] as? String == "ok")
+
+        let noisy = formatter.statusJSON(snapshot, pi: check(try summary(PiStatusFixtures.journalOnly)))
+        let noisyObject = try #require(try JSONSerialization.jsonObject(with: Data(noisy.utf8)) as? [String: Any])
+        let noisyPi = try #require(noisyObject["pi"] as? [String: Any])
+        #expect(noisyPi["severity"] as? String == "ok")
+        let journal = try #require(noisyPi["journal"] as? [String: Any])
+        #expect(journal["severity"] as? String == "warning")
+        #expect(journal["count"] as? Int == 15)
+        #expect(journal["truncated"] as? Bool == true)
+        let first = try #require((journal["entries"] as? [[String: Any]])?.first)
+        #expect(first["count"] as? Int == 10)
+        #expect(first["last"] as? String == "2026-09-27T19:41:00-04:00")
 
         let down = formatter.statusJSON(snapshot, pi: check(.unreachable("x")))
         let downObject = try #require(try JSONSerialization.jsonObject(with: Data(down.utf8)) as? [String: Any])
@@ -223,5 +343,6 @@ import Testing
         #expect(downPi["status"] as? String == "unreachable")
         #expect(downPi["kumaUp"] is NSNull)
         #expect(downPi["problems"] as? [String] == ["x"])
+        #expect(downPi["journal"] is NSNull)
     }
 }

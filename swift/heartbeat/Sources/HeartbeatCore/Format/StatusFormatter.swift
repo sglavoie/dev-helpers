@@ -85,6 +85,8 @@ public struct StatusFormatter: Sendable {
             lines.append("")
             lines.append(piRow(pi))
             lines += piProblems(pi).map { "  \($0)" }
+            lines.append(piJournalRow(pi))
+            lines += piJournalEntries(pi).map { "  \($0)" }
         }
         let notes = problemLines(snapshot)
         if !notes.isEmpty {
@@ -316,6 +318,61 @@ public struct StatusFormatter: Sendable {
         return [problems, facts]
     }
 
+    /// "Pi journal — no errors in the last hour", "Pi journal — 15+ errors, last 17:41", "Pi journal — unknown".
+    public func piJournalRow(_ check: PiCheck?) -> String {
+        guard let check else { return "Pi journal — checking…" }
+        guard case .summary(let summary) = check.status else { return "Pi journal — unknown" }
+        guard let journal = summary.journal else { return "Pi journal — not reported" }
+        guard journal.reason == nil, journal.count > 0 || journal.status == .ok else { return "Pi journal — unknown" }
+        guard journal.count > 0 else { return "Pi journal — no errors in the last hour" }
+        let count = "\(journal.count)\(journal.truncated ? "+" : "") \(journal.count == 1 && !journal.truncated ? "error" : "errors")"
+        return "Pi journal — \(count)" + (journal.last.map { ", last \(clock($0))" } ?? "")
+    }
+
+    /// "systemd: Failed to start x.service ×10 · 17:41", newest first; the reason when the journal couldn't be read.
+    public func piJournalEntries(_ check: PiCheck) -> [String] {
+        guard case .summary(let summary) = check.status, let journal = summary.journal else { return [] }
+        if let reason = journal.reason { return [reason] }
+        return journal.entries.map { entry in
+            entry.message + (entry.count > 1 ? " ×\(entry.count)" : "") + (entry.last.map { " · \(clock($0))" } ?? "")
+        }
+    }
+
+    /// The journal row's submenu: the entries (or why there are none), then the window and check time.
+    public func piJournalMenuInfo(_ check: PiCheck?, now: Date) -> [[String]] {
+        guard let check else { return [["Not checked yet"]] }
+        var entries = piJournalEntries(check)
+        if entries.isEmpty {
+            entries = switch check.status {
+            case .summary(let summary) where summary.journal == nil: ["pi-status sent no journal section"]
+            case .summary: ["No errors in the last hour"]
+            case .unreachable, .unreadable: ["The Pi couldn't be checked"]
+            }
+        }
+        var facts = ["Window: last hour, journal priority err and above"]
+        if case .summary(let summary) = check.status, let journal = summary.journal, journal.truncated {
+            facts.append("Only the newest \(journal.count) lines were read")
+        }
+        facts.append("Checked: \(ago(check.checkedAt, now: now))")
+        return [entries, facts]
+    }
+
+    /// The `journal` object inside `pi` in `status --pi --json`; `null` when pi-status sent no journal section.
+    public func piJournalJSON(_ check: PiCheck) -> Any {
+        guard case .summary(let summary) = check.status, let journal = summary.journal else { return NSNull() }
+        return [
+            "status": journal.status.rawValue,
+            "severity": check.journalSeverity?.rawValue ?? "unknown",
+            "row": piJournalRow(check),
+            "count": journal.count,
+            "truncated": journal.truncated,
+            "reason": journal.reason ?? NSNull(),
+            "entries": journal.entries.map { entry -> [String: Any] in
+                ["message": entry.message, "count": entry.count, "last": entry.last.map(iso) ?? NSNull()]
+            },
+        ] as [String: Any]
+    }
+
     /// The `pi` object in `status --pi --json`.
     public func piJSON(_ check: PiCheck) -> [String: Any] {
         var object: [String: Any] = [
@@ -327,6 +384,7 @@ public struct StatusFormatter: Sendable {
             "kumaUp": NSNull(),
             "kumaTotal": NSNull(),
             "generated": NSNull(),
+            "journal": piJournalJSON(check),
         ]
         switch check.status {
         case .summary(let summary):

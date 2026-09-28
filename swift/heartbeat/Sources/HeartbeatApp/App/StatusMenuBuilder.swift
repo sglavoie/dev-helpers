@@ -14,6 +14,7 @@ struct StatusMenuBuilder {
         var toggleNotifications: Selector
         var checkPi: Selector
         var openKuma: Selector
+        var viewPiJournal: Selector
         /// Implements the per-agent items.
         var agent: AgentActions
     }
@@ -29,6 +30,8 @@ struct StatusMenuBuilder {
     struct PiItem {
         var check: PiCheck?
         var isChecking: Bool
+        /// The configured `piHost`, which View Journal… asks.
+        var host: String?
     }
 
     var formatter = StatusFormatter()
@@ -52,6 +55,7 @@ struct StatusMenuBuilder {
 
         menu.addItem(.separator())
         menu.addItem(piRow(pi, now: Date(), actions: actions))
+        menu.addItem(piJournalRow(pi, now: Date(), actions: actions))
 
         let problems = problemLines(snapshot, stateProblem: stateProblem)
         if !problems.isEmpty {
@@ -119,6 +123,27 @@ struct StatusMenuBuilder {
         let kuma = command("Open Uptime Kuma", actions.openKuma, target: actions.target)
         kuma.toolTip = PiStatusClient.kumaURL.absoluteString
         submenu.addItem(kuma)
+        item.submenu = submenu
+        return item
+    }
+
+    /// Dot + "Pi journal — 15+ errors, last 17:41"; amber while the last hour has errors, but it never colors the icon.
+    private func piJournalRow(_ pi: PiItem, now: Date, actions: Actions) -> NSMenuItem {
+        let item = NSMenuItem(title: formatter.piJournalRow(pi.check), action: nil, keyEquivalent: "")
+        item.image = dot(pi.check?.journalSeverity.map(Self.color) ?? .systemGray)
+        let submenu = NSMenu(title: "Pi journal")
+        for (index, group) in formatter.piJournalMenuInfo(pi.check, now: now).enumerated() {
+            if index > 0 { submenu.addItem(.separator()) }
+            group.forEach { submenu.addItem(disabled($0)) }
+        }
+        submenu.addItem(.separator())
+        let check = command(pi.isChecking ? "Checking Pi…" : "Check Pi Now", actions.checkPi, target: actions.target)
+        check.isEnabled = !pi.isChecking
+        submenu.addItem(check)
+        let view = command("View Journal…", actions.viewPiJournal, target: actions.target)
+        view.isEnabled = pi.host != nil
+        view.toolTip = pi.host.map { "ssh \($0) \(PiStatusClient.journalCommand)" }
+        submenu.addItem(view)
         item.submenu = submenu
         return item
     }

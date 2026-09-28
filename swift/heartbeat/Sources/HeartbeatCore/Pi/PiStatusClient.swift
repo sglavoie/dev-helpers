@@ -26,10 +26,17 @@ public struct PiCheck: Equatable, Sendable {
         if case .summary(let summary) = status, summary.status == .ok { return .ok }
         return .warning
     }
+
+    /// The journal row's dot: amber while the last hour has errors, green when it has none, gray (`nil`) when the
+    /// journal couldn't be read. Never folded into the overall status.
+    public var journalSeverity: Severity? {
+        guard case .summary(let summary) = status, let journal = summary.journal, journal.reason == nil else { return nil }
+        return journal.count > 0 ? .warning : journal.status == .ok ? .ok : nil
+    }
 }
 
 extension OverallStatus {
-    /// The agents' overall with the Pi row folded in; the Pi can only turn ok into warning.
+    /// The agents' overall with the Pi row folded in; the Pi can only turn ok into warning. The journal row doesn't count.
     public func including(_ pi: PiCheck?) -> OverallStatus {
         self == .ok && pi?.severity == .warning ? .warning : self
     }
@@ -88,7 +95,65 @@ public struct PiStatusClient: Sendable {
         }
     }
 
+    /// The query behind pi-status's journal section, without its 15-line limit. `-r` puts the newest first, so
+    /// when the output hits `CommandRunner.outputLimit` it's the oldest lines that are cut.
+    public static let journalCommand = "journalctl -p err --since -1h -n 300 -r --no-pager -o short-iso -q"
+
+    public static func journalArgv(host: String) -> [String] {
+        [sshPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "--", host, journalCommand]
+    }
+
+    /// The last hour of journal errors on the Pi, oldest first. Blocks for up to `timeout`; call it off the main
+    /// thread.
+    public func journal(host: String) -> Result<PiJournalLog, PiJournalFetchError> {
+        let result: CommandResult
+        do {
+            result = try runner.run(Self.journalArgv(host: host), timeout: timeout)
+        } catch {
+            return .failure(PiJournalFetchError(description: "\(error)"))
+        }
+        if result.timedOut { return .failure(PiJournalFetchError(description: "ssh timed out after \(Int(timeout)) s")) }
+        let stderr = Self.firstLine(result.stderrText)
+        switch result.termination {
+        case .exited(0):
+            var lines = result.stdoutText.split(whereSeparator: \.isNewline).map(String.init).filter {
+                !$0.trimmingCharacters(in: .whitespaces).isEmpty
+            }
+            // A cut-off output ends mid-line, and that line is the oldest one.
+            if result.stdoutTruncated, !lines.isEmpty { lines.removeLast() }
+            return .success(PiJournalLog(lines: lines.reversed(), truncated: result.stdoutTruncated))
+        case .exited(Self.sshFailureExitCode):
+            return .failure(PiJournalFetchError(description: stderr.isEmpty ? "ssh exited with status 255" : stderr))
+        case .exited(let code):
+            return .failure(PiJournalFetchError(
+                description: "journalctl exited with status \(code)" + (stderr.isEmpty ? "" : ": \(stderr)")))
+        case .signaled(let signal):
+            return .failure(PiJournalFetchError(description: "ssh killed by signal \(signal)"))
+        }
+    }
+
     static func firstLine(_ text: String) -> String {
         text.split(whereSeparator: \.isNewline).first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+    }
+}
+
+/// The Pi's journal errors as the View Journal window shows them.
+public struct PiJournalLog: Equatable, Sendable {
+    /// Oldest first.
+    public var lines: [String]
+    /// The output hit the size limit, so older lines are missing.
+    public var truncated: Bool
+
+    public init(lines: [String], truncated: Bool = false) {
+        self.lines = lines
+        self.truncated = truncated
+    }
+}
+
+public struct PiJournalFetchError: Error, Equatable, Sendable, CustomStringConvertible {
+    public var description: String
+
+    public init(description: String) {
+        self.description = description
     }
 }

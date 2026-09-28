@@ -209,10 +209,26 @@ After the agent sections comes the **Pi row**, which is read-only: "Pi — ok ·
 or "Pi — unreachable over Tailscale", which is the one thing Kuma can't tell
 the Mac. Its submenu lists every problem pi-status reports (Kuma monitors that
 aren't up, containers that aren't ok, failed systemd units and timers, the
-backup, host limits, journal errors) or ssh's error. Then come the Kuma
-counts, the host and the check age, followed by **Check Pi Now** and **Open
-Uptime Kuma** (`https://uptime.sglavoie.com`). Any Pi state other than ok makes
-the icon amber at most, and the Pi row never shows banners.
+backup and host limits) or ssh's error. Then come the Kuma counts, the host and
+the check age, followed by **Check Pi Now** and **Open Uptime Kuma**
+(`https://uptime.sglavoie.com`). Any Pi state other than ok makes the icon
+amber at most, and the Pi row never shows banners.
+
+Below it, the **Pi journal row** shows the last hour of journal errors from the
+same report: "Pi journal — no errors in the last hour", "Pi journal — 15+
+errors, last 17:41" ("+" when pi-status hit its 15-line limit), or "Pi journal
+— unknown" when the journal or the Pi couldn't be read. Its submenu lists each
+distinct message, newest first, as `ident: message ×count · time`, with the
+hostname and PID dropped and logfmt lines cut down to their `msg` and `error`.
+The dot is amber while there are errors, but the journal is a look-back rather
+than the Pi's health now. It never colors the icon, never changes the Pi row
+and never counts toward `overall`, so a fixed problem doesn't leave the icon
+amber for the rest of the hour. After **Check Pi Now**, **View Journal…** opens a
+window with the full lines from `ssh <piHost> journalctl -p err --since -1h -n
+300 -r --no-pager -o short-iso -q`, which is pi-status's query without its
+15-line limit, shown oldest first. The window asks the Pi when it opens, every
+30 s while it stays open, and on Refresh (⌘R). It also has Follow and Copy.
+If the output reaches the 64 KB limit, the oldest lines are the ones dropped.
 
 When launchctl fails, an alert shows its stderr and the command. After every
 action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
@@ -251,8 +267,12 @@ or `fail`), `generated` (Unix time) and `sections`: `kuma` (`counts` and
 `problems`), `containers` (an object whose own `containers` list holds each
 container's `level`), `systemd` (`failed` units and `timers`), `backup`,
 `host` (load, memory, disk, temperature, throttling) and `errors` (journal
-lines). A section pi-status couldn't collect is `{status, reason}`, and
-Heartbeat shows the reason.
+`lines`, `distinct` messages with `count` and `last`, and from newer pi-status
+`limit` and `truncated`). A section pi-status couldn't collect is `{status,
+reason}`, and Heartbeat shows the reason. The Pi row's status is the worst
+section level other than `errors`, and newer pi-status reports its top-level
+`status` the same way. Heartbeat computes it from the sections so that an older
+pi-status, which folds the journal in, reads the same.
 
 Why the Pi row never sends banners: Kuma already pushes Pi problems to the
 phone, so a Mac banner would only repeat it. The row is there for the one
@@ -361,10 +381,14 @@ comes from logs, evidence paths and receipts only.
   `logPaths`, `disabled` and `notify`. Missing values are `null`, and dates are
   ISO 8601 in local time. The tests pin these keys. `--pi` also asks the Pi
   (the same ssh command as the app, run while the snapshot is being built) and
-  prints the Pi row with its problems. The JSON gets a `pi` object with `host`,
-  `checkedAt`, `status` (pi-status's `ok`, `warn`, `fail` or `unknown`, or
-  else `unreachable` or `unreadable`), `severity`, `row`, `problems`, `kumaUp`,
-  `kumaTotal` and `generated`, and `overall` includes the Pi.
+  prints the Pi row with its problems, then the Pi journal row with its
+  entries. The JSON gets a `pi` object with `host`, `checkedAt`, `status`
+  (the Pi's health: `ok`, `warn`, `fail` or `unknown`, or else `unreachable` or
+  `unreadable`), `severity`, `row`, `problems`, `kumaUp`, `kumaTotal`,
+  `generated` and `journal`. `journal` is `null` when there's no report, or
+  else an object with `status`, `severity` (`ok`, `warning` or `unknown`),
+  `row`, `count`, `truncated`, `reason` and `entries` (`message`, `count`,
+  `last`). `overall` includes the Pi but not its journal.
 - `list` prints every discovered agent with its launchd state and schedule.
   `--json` gives the same agent objects as `status --json`.
 - `explain <label>` shows how one verdict was reached: the plist, launchd's
@@ -378,7 +402,7 @@ The overall status is failing if any agent is red. It is warning if any agent
 is amber, the config is broken, a plist can't be read (broken symlink or
 invalid file) or no agents are found. Otherwise it is ok. Paused and hidden
 agents don't count. With `--pi`, a Pi that isn't ok turns ok into warning,
-but never makes it worse than that. It is unknown when the LaunchAgents directory or the boot
+but never makes it worse than that. Journal errors alone don't. It is unknown when the LaunchAgents directory or the boot
 time can't be read.
 
 Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error. `explain`
