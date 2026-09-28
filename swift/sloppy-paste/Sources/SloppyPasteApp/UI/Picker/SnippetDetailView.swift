@@ -10,7 +10,7 @@ struct SnippetDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text(snippet.content)
+                Text(highlighted(snippet.content))
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -41,6 +41,34 @@ struct SnippetDetailView: View {
             }
             .font(.callout)
             .padding(14)
+        }
+    }
+
+    /// The content with its `{{…}}` placeholder syntax colored by role.
+    private func highlighted(_ content: String) -> AttributedString {
+        var attributed = AttributedString(content)
+        for span in PlaceholderHighlighter.spans(content) {
+            let lower = String.Index(utf16Offset: span.range.start, in: content)
+            let upper = String.Index(utf16Offset: span.range.end, in: content)
+            guard let start = AttributedString.Index(lower, within: attributed),
+                  let end = AttributedString.Index(upper, within: attributed)
+            else { continue }
+            attributed[start..<end].foregroundColor = color(span.kind)
+            if span.kind == .control || span.kind == .key {
+                attributed[start..<end].font = .system(.body, design: .monospaced).weight(.semibold)
+            }
+        }
+        return attributed
+    }
+
+    private func color(_ kind: PlaceholderSyntaxKind) -> Color {
+        switch kind {
+        case .brace: .secondary
+        case .control: .pink
+        case .key: .blue
+        case .system: .teal
+        case .punctuation: .orange
+        case .literal: .green
         }
     }
 
