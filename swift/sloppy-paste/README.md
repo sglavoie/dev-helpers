@@ -13,6 +13,9 @@ selected. The search field starts unfocused: j/k (or ↓/↑) move through the l
 ⌘F, or k on the first row, focuses the search field, and Esc hands the keys back
 to the list.
 
+⌘G opens a list of tags with their snippet counts. Type to narrow it, then ↵
+applies the selected tag as the filter chip, or "All Tags" clears it.
+
 ⌘+ (or ⌘=) and ⌘- zoom the picker in and out, and ⌘0 resets it. The whole panel
 grows or shrinks with its contents, and the zoom level is remembered.
 

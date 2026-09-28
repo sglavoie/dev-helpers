@@ -26,6 +26,9 @@ struct PickerRootView: View {
     @ViewState private var selectedID: String?
     /// The snippet awaiting ⌃X delete confirmation.
     @ViewState private var pendingDelete: Snippet?
+    /// The ⌘G tag filter chooser, while open.
+    @ViewState private var tagChooser: TagFilterChooserModel?
+    @ViewState private var tagChooserSearchHandle = FocusHandle()
     @FocusState private var searchFocused: Bool
 
     private var sort: SortOption { SortOption(rawValue: sortRaw) ?? .updatedDesc }
@@ -61,6 +64,12 @@ struct PickerRootView: View {
             .frame(maxHeight: .infinity)
             Divider()
             footer(state, selection: selection)
+        }
+        .overlay {
+            if let tagChooser {
+                TagFilterChooserView(model: tagChooser, searchHandle: tagChooserSearchHandle)
+                    .background(Color(nsColor: .windowBackgroundColor))
+            }
         }
         .overlay {
             if let snippet = pendingDelete {
@@ -291,6 +300,7 @@ struct PickerRootView: View {
                 EmptyView()
             }
             Text("⌘D Details")
+            Text("⌘G Tag")
             Text("⌘P Filters")
             Text("⌘K Actions")
             if searchFocused {
@@ -317,6 +327,25 @@ struct PickerRootView: View {
     /// is unset or was filtered away.
     private func effectiveSelection(in items: [PickerItem]) -> PickerItem? {
         items.first { $0.id == selectedID } ?? items.first
+    }
+
+    /// ⌘G: choose the tag filter from a filterable list.
+    private func openTagChooser() {
+        searchFocused = false
+        tagChooser = TagFilterChooserModel(
+            snippets: store.snippets, showArchived: options.showArchivedSnippets, currentTag: options.selectedTag
+        ) { tag in
+            options.selectedTag = tag
+            closeTagChooser()
+        }
+    }
+
+    /// Ends editing first: removing the chooser's field while it edits would
+    /// leave an orphaned field editor as first responder.
+    private func closeTagChooser() {
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        tagChooser = nil
+        searchFocused = false
     }
 
     private func select(_ id: String) {
@@ -418,6 +447,13 @@ struct PickerRootView: View {
         case .suggestion: isSuggestion = true
         case .snippet: isSnippet = true
         case nil: break
+        }
+        if let tagChooser {
+            return tagChooser.bindings + [
+                KeyBinding(id: "closeTagFilter", title: "Back", chord: KeyChord(.escape), showsInMenu: false) {
+                    closeTagChooser()
+                }
+            ]
         }
         if pendingDelete != nil {
             return [
@@ -566,6 +602,9 @@ struct PickerRootView: View {
             },
             KeyBinding(id: "filters", title: "Sort and Tag Filters", chord: KeyChord(.character("p"), .command)) {
                 showingFilters.toggle()
+            },
+            KeyBinding(id: "filterByTag", title: "Filter by Tag…", chord: KeyChord(.character("g"), .command)) {
+                openTagChooser()
             },
             KeyBinding(
                 id: "favorites", title: options.showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked",
