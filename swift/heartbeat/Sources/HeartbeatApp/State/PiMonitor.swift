@@ -8,6 +8,7 @@ import HeartbeatCore
 final class PiMonitor {
     /// Called on the main actor after every check.
     var onUpdate: ((PiCheck) -> Void)?
+    var onActivityChange: () -> Void = {}
     private(set) var check: PiCheck?
     private(set) var isChecking = false
 
@@ -39,6 +40,7 @@ final class PiMonitor {
             return
         }
         isChecking = true
+        onActivityChange()
         nextCheck?.cancel()
         let client = client
         Task { [weak self] in
@@ -69,6 +71,7 @@ final class PiMonitor {
         } else {
             schedule(after: interval)
         }
+        onActivityChange()
     }
 
     private func schedule(after seconds: TimeInterval) {

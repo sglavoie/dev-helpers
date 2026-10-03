@@ -21,6 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.render()
         }
         piMonitor.onUpdate = { [weak self] _ in self?.render() }
+        monitor.onActivityChange = { [weak self] in self?.render() }
+        piMonitor.onActivityChange = { [weak self] in self?.render() }
+        monitor.healthChecks.onActivityChange = { [weak self] in self?.render() }
+        agentActions.onActivityChange = { [weak self] in self?.render() }
         monitor.bannersEnabled = { [notifier] in notifier.isEnabled }
         monitor.onNotifications = { [notifier] notifications, snapshot in
             notifier.post(notifications) { label in
@@ -54,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking,
                                                                  host: piMonitor.host),
             stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
-            notifications: notificationsItem(snapshot),
+            notifications: notificationsItem(snapshot), isRefreshing: monitor.isPolling || piMonitor.isChecking,
             actions: StatusMenuBuilder.Actions(
                 target: self, refresh: #selector(refreshNow(_:)), openConfig: #selector(openConfig(_:)),
                 toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)),

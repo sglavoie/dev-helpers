@@ -23,8 +23,9 @@ final class ScheduleEditorWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        guard let model = windows.values.first(where: { $0.window === sender })?.model,
-              model.draft.hasChanges else { return true }
+        guard let model = windows.values.first(where: { $0.window === sender })?.model else { return true }
+        guard !model.isSaving else { return false }
+        guard model.draft.hasChanges else { return true }
         let alert = NSAlert()
         alert.messageText = "Discard changes to \(model.context.name)'s schedule?"
         alert.informativeText = "The plist has not been changed."

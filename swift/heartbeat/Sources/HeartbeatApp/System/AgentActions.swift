@@ -28,6 +28,22 @@ final class AgentActions: NSObject {
         openConfig: { [weak self] in self?.openConfig() })
     /// Opens config.json (the footer's Open Config…); set by the app delegate.
     var openConfig: () -> Void = {}
+    var onActivityChange: () -> Void = {}
+    private var activity: [String: String] = [:]
+
+    func activityTitle(_ label: String) -> String? { activity[label] }
+
+    private func beginActivity(_ label: String, title: String) -> Bool {
+        guard activity[label] == nil else { return false }
+        activity[label] = title
+        onActivityChange()
+        return true
+    }
+
+    private func endActivity(_ label: String) {
+        activity[label] = nil
+        onActivityChange()
+    }
 
     init(monitor: Monitor) {
         self.monitor = monitor
@@ -47,8 +63,16 @@ final class AgentActions: NSObject {
     }
 
     @objc func runHealthCheck(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? Request else { return }
+        guard let request = sender.representedObject as? Request, activity[request.label] == nil else { return }
         monitor.healthChecks.runNow(request.label)
+    }
+
+    @objc func copyDiagnostics(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? Request, let snapshot = monitor.snapshot,
+              let agent = snapshot.agent(request.label) else { return }
+        let text = StatusFormatter().explain(agent, snapshot: snapshot)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     @objc func openLogItem(_ sender: NSMenuItem) {
@@ -58,7 +82,7 @@ final class AgentActions: NSObject {
 
     @objc func editSchedule(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? Request, let snapshot = monitor.snapshot,
-              let agent = snapshot.agent(request.label) else { return }
+              let agent = snapshot.agent(request.label), activity[request.label] == nil else { return }
         let name = agent.name(labelPrefix: snapshot.config.labelPrefix)
         let path = agent.agent.resolvedPlistPath
         guard let head = FileManager.default.contents(atPath: path)?.prefix(8) else {
@@ -103,14 +127,24 @@ final class AgentActions: NSObject {
     // MARK: launchctl
 
     func perform(_ action: AgentAction, on agent: AgentSnapshot) {
+        guard activity[agent.label] == nil, AgentAction.available(for: agent.status).contains(action) else { return }
         let name = agent.name(labelPrefix: monitor.snapshot?.config.labelPrefix ?? "")
         if action.needsConfirmation, !confirm(action, name: name, agent: agent) { return }
+
+        let title: String = switch action {
+        case .runNow: "Requesting start…"
+        case .restart: "Requesting restart…"
+        case .unload: "Unloading…"
+        case .load: "Loading…"
+        }
+        guard beginActivity(agent.label, title: title) else { return }
 
         let label = agent.label, plistPath = agent.agent.plistPath, launchctl = launchctl
         let wasPaused = monitor.isPaused(label)
         // Pause before bootout so no poll in between shows the unload as an amber "Not loaded".
         if action == .unload { monitor.setPaused(label, true) }
         Task {
+            defer { endActivity(label) }
             let failure: String? = await Task.detached {
                 do {
                     switch action {
@@ -154,6 +188,10 @@ final class AgentActions: NSObject {
     /// is marked paused across the reload so no poll shows the bootout as an amber "Not loaded".
     func saveSchedule(_ model: ScheduleEditorModel) async -> ScheduleEditorModel.SaveOutcome {
         guard let change = model.change else { return .notSaved("The schedule is not valid yet.") }
+        guard beginActivity(model.context.label, title: "Saving schedule…") else {
+            return .notSaved("Another action is in progress for this agent. Try saving again when it finishes.")
+        }
+        defer { endActivity(model.context.label) }
         let context = model.context, runNow = model.runNow && !context.agent.runAtLoad
         let label = context.label, agent = context.agent, launchctl = launchctl
         let wasPaused = monitor.isPaused(label)
@@ -256,36 +294,27 @@ final class AgentActions: NSObject {
 
     /// Starts `argv` without waiting for it (it may be an editor); a non-zero exit shows its stderr.
     private func launch(_ argv: [String]) {
-        let process = Process()
-        // Bare names resolve against the GUI PATH, not launchd's minimal one.
-        if argv[0].contains("/") {
-            process.executableURL = URL(fileURLWithPath: argv[0])
-            process.arguments = Array(argv.dropFirst())
-        } else {
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = argv
-        }
-        var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = CommandRunner.guiPath
-        process.environment = environment
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = FileHandle.nullDevice
-        let stderr = Pipe()
-        process.standardError = stderr
         let command = argv.joined(separator: " ")
-        process.terminationHandler = { [weak self] process in
-            let status = process.terminationStatus
-            guard status != 0 else { return }
-            let data = (try? stderr.fileHandleForReading.readToEnd()) ?? Data()
-            let message = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            Task { @MainActor in
-                self?.showAlert("Open Log failed (exit \(status))", message.isEmpty ? command : "\(message)\n\n\(command)")
+        Task { [weak self] in
+            // An editor may live for hours; don't occupy a Swift cooperative executor thread.
+            let outcome: Result<CommandResult, Error> = await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async {
+                    continuation.resume(returning: Result { try LogOpener.run(argv) })
+                }
             }
-        }
-        do {
-            try process.run()
-        } catch {
-            showAlert("Cannot run openLogCommand", "\(command)\n\n\(error.localizedDescription)")
+            switch outcome {
+            case .success(let result):
+                guard !result.succeeded else { return }
+                var message = result.stderrText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if result.stderrTruncated { message += "\n[stderr truncated]" }
+                let reason: String = switch result.termination {
+                case .exited(let code): "exit \(code)"
+                case .signaled(let signal): "signal \(signal)"
+                }
+                self?.showAlert("Open Log failed (\(reason))", message.isEmpty ? command : "\(message)\n\n\(command)")
+            case .failure(let error):
+                self?.showAlert("Cannot run openLogCommand", "\(command)\n\n\(error)")
+            }
         }
     }
 

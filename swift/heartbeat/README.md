@@ -12,6 +12,17 @@ verdict and why, and has per-agent actions: View Log, Run Now, Unload, Load,
 Run Health Check Now, Edit Schedule… and Reveal Plist. macOS banners appear
 when an agent turns red and when it recovers.
 
+Copy Diagnostics in an agent's submenu copies the same explanation as
+`heartbeatctl explain`, using the app's current snapshot without running another
+check. Refresh Now shows “Refreshing…” while checks run. Agent rows show progress
+while a start, restart, load, unload or schedule save is in flight, and conflicting
+menu actions are disabled until it finishes. “Requesting start…” means the start
+request is being sent; the next polls determine the job's health.
+
+While a schedule is being saved, its fields, Cancel button and window close action
+are disabled. Custom log editors can remain open indefinitely; their stderr is
+drained continuously with at most 64 KB retained for an error report.
+
 Heartbeat is the Mac-local half of the monitoring. The Pi runs Uptime Kuma,
 which pushes phone alerts through ntfy and already watches two Mac jobs
 (forgejo-sync and pi-backup-fetch) and the Pi itself. Heartbeat doesn't send

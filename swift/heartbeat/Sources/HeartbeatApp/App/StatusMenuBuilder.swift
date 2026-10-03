@@ -37,7 +37,8 @@ struct StatusMenuBuilder {
     var formatter = StatusFormatter()
 
     func populate(_ menu: NSMenu, snapshot: Snapshot?, pi: PiItem, stateProblem: String?, launchAtLogin: LaunchAtLogin,
-                  notifications: NotificationsItem, actions: Actions) {
+                  notifications: NotificationsItem, isRefreshing: Bool, actions: Actions) {
+        menu.autoenablesItems = false
         menu.removeAllItems()
         menu.addItem(disabled(snapshot.map(formatter.headline) ?? "Checking agents…"))
 
@@ -69,7 +70,9 @@ struct StatusMenuBuilder {
         }
 
         menu.addItem(.separator())
-        menu.addItem(command("Refresh Now", actions.refresh, key: "r", target: actions.target))
+        let refresh = command(isRefreshing ? "Refreshing…" : "Refresh Now", actions.refresh, key: "r", target: actions.target)
+        refresh.isEnabled = !isRefreshing
+        menu.addItem(refresh)
         menu.addItem(command("Open Config…", actions.openConfig, target: actions.target))
         let login = command(launchAtLogin.needsApproval ? "Launch at Login (needs approval)…" : "Launch at Login",
                             actions.toggleLaunchAtLogin, target: actions.target)
@@ -89,7 +92,7 @@ struct StatusMenuBuilder {
         let item = NSMenuItem(title: name, action: nil, keyEquivalent: "")
         let title = NSMutableAttributedString(string: name, attributes: [.font: NSFont.menuFont(ofSize: 0)])
         title.append(NSAttributedString(
-            string: "  " + formatter.detail(agent, now: snapshot.takenAt),
+            string: "  " + (actions.activityTitle(agent.label) ?? formatter.detail(agent, now: snapshot.takenAt)),
             attributes: [.font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
                          .foregroundColor: NSColor.secondaryLabelColor]))
         item.attributedTitle = title
@@ -97,6 +100,7 @@ struct StatusMenuBuilder {
         item.toolTip = agent.label
 
         let submenu = NSMenu(title: name)
+        submenu.autoenablesItems = false
         for (index, group) in formatter.menuInfo(agent, snapshot: snapshot).enumerated() {
             if index > 0 { submenu.addItem(.separator()) }
             group.forEach { submenu.addItem(disabled($0)) }
@@ -112,6 +116,7 @@ struct StatusMenuBuilder {
         item.image = dot(pi.check.map { Self.color($0.severity) } ?? .systemGray)
         item.toolTip = pi.check.map { "ssh \($0.host) \(PiStatusClient.remoteCommand)" }
         let submenu = NSMenu(title: "Pi")
+        submenu.autoenablesItems = false
         for (index, group) in formatter.piMenuInfo(pi.check, now: now).enumerated() {
             if index > 0 { submenu.addItem(.separator()) }
             group.forEach { submenu.addItem(disabled($0)) }
@@ -132,6 +137,7 @@ struct StatusMenuBuilder {
         let item = NSMenuItem(title: formatter.piJournalRow(pi.check), action: nil, keyEquivalent: "")
         item.image = dot(pi.check?.journalSeverity.map(Self.color) ?? .systemGray)
         let submenu = NSMenu(title: "Pi journal")
+        submenu.autoenablesItems = false
         for (index, group) in formatter.piJournalMenuInfo(pi.check, now: now).enumerated() {
             if index > 0 { submenu.addItem(.separator()) }
             group.forEach { submenu.addItem(disabled($0)) }
@@ -152,6 +158,11 @@ struct StatusMenuBuilder {
     /// for agents with a health command, then Edit Schedule… and Reveal Plist.
     private func addActions(for agent: AgentSnapshot, to submenu: NSMenu, actions: AgentActions) {
         let label = agent.label
+        let activity = actions.activityTitle(label)
+        submenu.addItem(.separator())
+        submenu.addItem(agentCommand("Copy Diagnostics", #selector(AgentActions.copyDiagnostics(_:)), actions,
+                                     AgentActions.Request(label: label)))
+        if let activity { submenu.addItem(disabled(activity)) }
         let logs = agent.agent.logPaths
         if !logs.isEmpty {
             submenu.addItem(.separator())
@@ -169,8 +180,10 @@ struct StatusMenuBuilder {
         if !launchctlActions.isEmpty {
             submenu.addItem(.separator())
             for action in launchctlActions {
-                submenu.addItem(agentCommand(action.title, #selector(AgentActions.performAction(_:)), actions,
-                                             AgentActions.Request(label: label, action: action)))
+                let item = agentCommand(action.title, #selector(AgentActions.performAction(_:)), actions,
+                                        AgentActions.Request(label: label, action: action))
+                item.isEnabled = activity == nil
+                submenu.addItem(item)
             }
         }
         if agent.config.health != nil, agent.severity != .hidden, agent.severity != .paused {
@@ -178,7 +191,7 @@ struct StatusMenuBuilder {
             let running = actions.isHealthCheckRunning(label)
             let item = agentCommand(running ? "Health Check Running…" : "Run Health Check Now",
                                     #selector(AgentActions.runHealthCheck(_:)), actions, AgentActions.Request(label: label))
-            item.isEnabled = !running
+            item.isEnabled = !running && activity == nil
             item.toolTip = agent.config.health?.command.joined(separator: " ")
             submenu.addItem(item)
         }
@@ -186,6 +199,7 @@ struct StatusMenuBuilder {
         let edit = agentCommand("Edit Schedule…", #selector(AgentActions.editSchedule(_:)), actions,
                                 AgentActions.Request(label: label))
         edit.toolTip = "Change the schedule in \(agent.agent.resolvedPlistPath) and reload the agent"
+        edit.isEnabled = activity == nil
         submenu.addItem(edit)
         let reveal = agentCommand("Reveal Plist", #selector(AgentActions.revealPlist(_:)), actions,
                                   AgentActions.Request(label: label, path: agent.agent.resolvedPlistPath))

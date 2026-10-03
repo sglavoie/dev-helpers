@@ -10,6 +10,7 @@ final class HealthCheckScheduler {
 
     /// Called on the main actor with each finished check.
     var onResult: ((String, HealthCheckResult) -> Void)?
+    var onActivityChange: () -> Void = {}
 
     private var jobs: [HealthCheckJob] = []
     private var results: [String: HealthCheckResult] = [:]
@@ -50,6 +51,7 @@ final class HealthCheckScheduler {
     }
 
     private func startNext() {
+        defer { onActivityChange() }
         while running.count < Self.maxConcurrent, !queue.isEmpty {
             let job = queue.removeFirst()
             running.insert(job.label)

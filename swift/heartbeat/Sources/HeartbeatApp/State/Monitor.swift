@@ -16,6 +16,7 @@ final class Monitor {
 
     /// Called on the main actor after every poll.
     var onUpdate: ((Snapshot) -> Void)?
+    var onActivityChange: () -> Void = {}
     /// Banners from a poll, with the snapshot for display names.
     var onNotifications: (([TransitionNotification], Snapshot) -> Void)?
     /// The menu's Notifications toggle.
@@ -33,7 +34,7 @@ final class Monitor {
     private var pausedDuringPoll: [String: Bool] = [:]
     /// Health results that arrived while a poll was running; same idea.
     private var healthDuringPoll: [String: HealthCheckResult] = [:]
-    private var isPolling = false
+    private(set) var isPolling = false
     private var pollQueued = false
     private var nextPoll: DispatchWorkItem?
     private var wakePoll: DispatchWorkItem?
@@ -67,6 +68,7 @@ final class Monitor {
             return
         }
         isPolling = true
+        onActivityChange()
         nextPoll?.cancel()
         let config = loader.load()
         let builder = builder, state = state

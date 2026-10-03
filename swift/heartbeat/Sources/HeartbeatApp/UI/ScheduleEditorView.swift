@@ -105,6 +105,7 @@ struct ScheduleEditorView: View {
                 notes
             }
             .formStyle(.grouped)
+            .disabled(model.isSaving)
             Divider()
             footer
         }
@@ -298,6 +299,7 @@ struct ScheduleEditorView: View {
             if model.isSaving { ProgressView().controlSize(.small) }
             Button("Cancel", action: model.close)
                 .keyboardShortcut(.cancelAction)
+                .disabled(model.isSaving)
             Button(model.context.isLoaded ? "Save & Reload" : "Save", action: model.submit)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!model.canSave)
