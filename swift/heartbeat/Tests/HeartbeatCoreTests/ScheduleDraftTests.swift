@@ -65,6 +65,42 @@ import Testing
         #expect(draft.throttleUpdate == .keep)
     }
 
+    @Test(arguments: [CalendarEntry(day: 30, month: 2), CalendarEntry(day: 31, month: 4),
+                      CalendarEntry(day: 31, month: 6), CalendarEntry(day: 31, month: 9),
+                      CalendarEntry(day: 31, month: 11)])
+    func impossibleCalendarDatesCannotBeSaved(entry: CalendarEntry) {
+        let draft = ScheduleDraft(agent: Self.agent(.calendar([CalendarEntry(hour: 9), entry])))
+        #expect(!draft.isValid)
+        #expect(draft.schedule == nil)
+        #expect(draft.errors.count == 1)
+        #expect(draft.errors.first?.hasPrefix("Time 2:") == true)
+        #expect(draft.preview(now: TimeFixtures.local(2026, 9, 26, 12, 0), calendar: TimeFixtures.montreal) == nil)
+    }
+
+    @Test(arguments: [CalendarEntry(day: 29, month: 2), CalendarEntry(day: 31),
+                      CalendarEntry(day: 30, weekday: 1, month: 2), CalendarEntry(day: 31, weekday: 7, month: 4)])
+    func possibleCalendarDatesRemainValid(entry: CalendarEntry) {
+        let draft = ScheduleDraft(agent: Self.agent(.calendar([entry])))
+        #expect(draft.isValid)
+        #expect(draft.schedule != nil)
+        #expect(ScheduleMath.nextSlot(entry, after: TimeFixtures.local(2026, 9, 26, 12, 0),
+                                     calendar: TimeFixtures.montreal) != nil)
+    }
+
+    @Test(arguments: ScheduleDraft.IntervalUnit.allCases)
+    func oversizedIntervalsAreRejected(unit: ScheduleDraft.IntervalUnit) {
+        var draft = ScheduleDraft(agent: Self.agent(.interval(seconds: 60)))
+        draft.intervalUnit = unit
+        draft.intervalValue = Int.max
+        #expect(draft.errors == ["The interval is too large; enter a smaller value."])
+        #expect(draft.schedule == nil)
+        draft.intervalValue = (Int.max / 8) / unit.seconds
+        #expect(draft.isValid)
+        #expect(draft.schedule != nil)
+        let suggested = MaxAgeSuggestion.defaultAllowedAge(interval: draft.intervalValue * unit.seconds)
+        #expect(!MaxAgeSuggestion.needsUpdate(current: suggested, suggested: suggested))
+    }
+
     @Test func queueDirectoriesAreNotEditablePaths() {
         let draft = ScheduleDraft(agent: Self.agent(.watchPaths(["/tmp/a", "/tmp/q"], throttleSeconds: nil), queue: ["/tmp/q"]))
         #expect(draft.watchPaths == ["/tmp/a"])

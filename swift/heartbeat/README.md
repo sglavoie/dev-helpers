@@ -32,6 +32,16 @@ to the newest line in both the log and Pi journal windows. If a refresh fails,
 these windows retain the last successful output with a warning and its fetch
 time; switching files or hosts clears the saved output.
 
+Pause updates freezes the local log text while you read or copy it; Follow only
+controls scrolling. Resuming fetches the latest tail immediately. Switching log
+streams resumes updates. The Pi journal also has a case-insensitive filter over
+its fetched lines, a matching-line count, and Copy copies only the filtered lines.
+
+The schedule editor rejects impossible dates such as February 30 when Weekday is
+Any, and intervals too large to calculate safely. February 29 remains valid, as do
+entries with a weekday alternative: launchd matches either Day or Weekday when
+both are specified.
+
 While a schedule is being saved, its fields, Cancel button and window close action
 are disabled. Custom log editors can remain open indefinitely; their stderr is
 drained continuously with at most 64 KB retained for an error report.

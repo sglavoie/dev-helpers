@@ -34,6 +34,66 @@ private func waitUntil(_ predicate: () -> Bool) async throws {
 }
 
 @Suite @MainActor struct RefreshTests {
+    @Test func pausedLogKeepsTextAndResumesImmediately() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("out.log")
+        let other = directory.appendingPathComponent("err.log")
+        try Data("original\n".utf8).write(to: file)
+        try Data("other stream\n".utf8).write(to: other)
+        let model = LogTailModel(paths: [file.path, other.path])
+        model.reload()
+        try await waitUntil { !model.isLoading }
+        let fetchedAt = try #require(model.fetchedAt)
+        model.isPaused = true
+        try Data("new output\n".utf8).write(to: file)
+        model.reload()
+        #expect(!model.isLoading)
+        #expect(model.displayedText == "original")
+        #expect(model.fetchedAt == fetchedAt)
+        model.filter = "absent"
+        #expect(model.displayedLines.isEmpty)
+        model.filter = ""
+        model.follow = false
+        model.isPaused = false
+        try await waitUntil { !model.isLoading }
+        #expect(model.displayedText == "new output")
+        #expect(!model.follow)
+
+        model.isPaused = true
+        model.selectedPath = other.path
+        #expect(!model.isPaused)
+        #expect(model.tail == nil)
+        try await waitUntil { !model.isLoading }
+        #expect(model.displayedText == "other stream")
+    }
+
+    @Test func journalFilterAppliesToFetchedAndRetainedOutput() async throws {
+        // SSH returns newest first; the journal view displays oldest first.
+        let runner = ScriptedRunner([.init(text: "error network\nnoise\nERROR disk\n"), .init(exit: 255),
+                                     .init(text: "Error recovered\nnoise\n")])
+        let model = PiJournalModel(host: "pi", client: PiStatusClient(runner: runner))
+        model.reload()
+        try await waitUntil { !model.isLoading }
+        model.filter = "error"
+        #expect(model.displayedLines == ["ERROR disk", "error network"])
+        #expect(model.displayedText == "ERROR disk\nerror network")
+        model.reload()
+        try await waitUntil { !model.isLoading }
+        #expect(model.error != nil)
+        #expect(model.displayedLines.count == 2)
+        model.filter = "absent"
+        #expect(model.displayedText.isEmpty)
+        model.filter = ""
+        #expect(model.displayedLines == model.log?.lines)
+        model.filter = "error"
+        model.update(host: "new-pi")
+        #expect(model.displayedLines.isEmpty)
+        try await waitUntil { !model.isLoading }
+        #expect(model.displayedText == "Error recovered")
+    }
+
     @Test(arguments: [false, true]) func changingPiHostClearsOldStatus(duringRequest: Bool) async throws {
         let gate = DispatchSemaphore(value: 0)
         defer { gate.signal() }

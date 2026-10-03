@@ -17,7 +17,7 @@ final class LogTailModel {
                 tail = nil
                 error = nil
                 fetchedAt = nil
-                reload()
+                if isPaused { isPaused = false } else { reload() }
             }
         }
     }
@@ -28,6 +28,18 @@ final class LogTailModel {
     /// Keep scrolled to the newest line. Lives here, not in `@State`: the Command Line Tools SDK lacks the
     /// SwiftUI macro plugin `@State` needs.
     var follow = true
+    var isPaused = false {
+        didSet {
+            guard isPaused != oldValue else { return }
+            if isPaused {
+                // An already-started read must not replace the frozen output.
+                requestID = UUID()
+                isLoading = false
+            } else {
+                reload()
+            }
+        }
+    }
     private(set) var error: String?
     private var loop: Task<Void, Never>?
     private var requestID = UUID()
@@ -68,9 +80,12 @@ final class LogTailModel {
     func stop() {
         loop?.cancel()
         loop = nil
+        requestID = UUID()
+        isLoading = false
     }
 
     func reload() {
+        guard !isPaused else { return }
         let requestID = UUID()
         self.requestID = requestID
         let path = selectedPath
@@ -151,6 +166,10 @@ struct LogTailView: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
             Spacer()
+            Toggle("Pause updates", isOn: $model.isPaused)
+                .toggleStyle(.checkbox)
+                .disabled(model.tail == nil && !model.isPaused)
+                .help("Freeze the displayed log. Resume to read the latest lines; changing logs resumes updates.")
             Toggle("Follow", isOn: $model.follow)
                 .toggleStyle(.checkbox)
         }
@@ -225,6 +244,6 @@ struct LogTailView: View {
         if let modified = tail.modified {
             parts.append("modified " + modified.formatted(date: .abbreviated, time: .standard))
         }
-        return parts.joined(separator: " · ") + " — refreshes every 2 s"
+        return parts.joined(separator: " · ") + (model.isPaused ? " — updates paused" : " — refreshes every 2 s")
     }
 }

@@ -98,6 +98,11 @@ public struct ScheduleDraft: Equatable, Sendable {
         switch kind {
         case .interval:
             if intervalValue < 1 { errors.append("The interval must be at least 1 \(intervalUnit.title.dropLast()).") }
+            let seconds = intervalValue.multipliedReportingOverflow(by: intervalUnit.seconds)
+            // Leave room for the overdue allowance (2×) and its update threshold (4×).
+            if seconds.overflow || seconds.partialValue.multipliedReportingOverflow(by: 8).overflow {
+                errors.append("The interval is too large; enter a smaller value.")
+            }
         case .calendar:
             if calendarEntries.isEmpty { errors.append("Add at least one time.") }
             for (index, entry) in calendarEntries.enumerated() {
@@ -109,6 +114,14 @@ public struct ScheduleDraft: Equatable, Sendable {
                 }
                 if entry.isEveryMinute {
                     errors.append("\(row)every field is Any, which runs every minute; use a 1-minute interval instead.")
+                }
+                // Day and Weekday are alternatives in launchd. February 29 is valid in leap years.
+                if entry.weekday == nil, let month = entry.month, (1...12).contains(month),
+                   let day = entry.day, (1...31).contains(day) {
+                    let maximumDays = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+                    if day > maximumDays[month - 1] {
+                        errors.append("\(row)\(ScheduleDescription.monthNames[month - 1]) has no day \(day); choose another day or a weekday.")
+                    }
                 }
             }
         case .watchPaths:

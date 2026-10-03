@@ -18,6 +18,15 @@ final class PiJournalModel {
     /// Keep scrolled to the newest line. Lives here, not in `@State`: the Command Line Tools SDK lacks the
     /// SwiftUI macro plugin `@State` needs.
     var follow = true
+    var filter = ""
+
+    var displayedLines: [String] {
+        let lines = log?.lines ?? []
+        return filter.isEmpty ? lines : lines.filter { $0.localizedCaseInsensitiveContains(filter) }
+    }
+
+    var displayedText: String { displayedLines.joined(separator: "\n") }
+
     private let client: PiStatusClient
     private var loop: Task<Void, Never>?
 
@@ -77,6 +86,17 @@ struct PiJournalView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            HStack {
+                TextField("Filter fetched journal lines", text: $model.filter)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Filter fetched journal lines")
+                if !model.filter.isEmpty {
+                    Button("Clear") { model.filter = "" }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            Divider()
             if let error = model.error, model.log != nil {
                 Label("Refresh failed — showing results fetched at \(model.fetchedAt?.formatted(date: .abbreviated, time: .standard) ?? "an unknown time"). \(error)",
                       systemImage: "exclamationmark.triangle")
@@ -125,7 +145,7 @@ struct PiJournalView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(model.log?.lines.joined(separator: "\n") ?? "")
+                    Text(model.displayedLines.isEmpty ? "No matching lines in the fetched journal" : model.displayedText)
                         .font(.system(size: 11, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,6 +160,9 @@ struct PiJournalView: View {
                 .onChange(of: model.follow) {
                     if model.follow { proxy.scrollTo("end", anchor: .bottom) }
                 }
+                .onChange(of: model.filter) {
+                    if model.follow { proxy.scrollTo("end", anchor: .bottom) }
+                }
             }
         }
     }
@@ -152,9 +175,10 @@ struct PiJournalView: View {
             Spacer()
             Button("Copy") {
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(model.log?.lines.joined(separator: "\n") ?? "", forType: .string)
+                NSPasteboard.general.setString(model.displayedText, forType: .string)
             }
-            .disabled(model.log?.lines.isEmpty ?? true)
+            .disabled(model.displayedLines.isEmpty)
+            .help("Copy the displayed lines, including the current filter")
             Button("Refresh") { model.reload() }
                 .disabled(model.isLoading)
                 .keyboardShortcut("r")
@@ -166,6 +190,7 @@ struct PiJournalView: View {
     private var summary: String {
         var parts: [String] = []
         if let log = model.log {
+            if !model.filter.isEmpty { parts.append("\(model.displayedLines.count) matching") }
             let count = "\(log.lines.count) \(log.lines.count == 1 ? "line" : "lines")"
             parts.append(log.truncated ? "Newest \(count) (older ones cut)" : count)
         }
