@@ -18,11 +18,12 @@ final class PiJournalModel {
     /// Keep scrolled to the newest line. Lives here, not in `@State`: the Command Line Tools SDK lacks the
     /// SwiftUI macro plugin `@State` needs.
     var follow = true
-    private let client = PiStatusClient()
+    private let client: PiStatusClient
     private var loop: Task<Void, Never>?
 
-    init(host: String) {
+    init(host: String, client: PiStatusClient = PiStatusClient()) {
         self.host = host
+        self.client = client
     }
 
     func update(host: String) {
@@ -30,6 +31,7 @@ final class PiJournalModel {
         self.host = host
         log = nil
         error = nil
+        fetchedAt = nil
         reload()
     }
 
@@ -56,13 +58,12 @@ final class PiJournalModel {
             let result = await Task.detached(priority: .utility) { client.journal(host: host) }.value
             isLoading = false
             guard host == self.host else { return reload() }
-            fetchedAt = Date()
             switch result {
             case .success(let log):
                 self.log = log
+                fetchedAt = Date()
                 error = nil
             case .failure(let failure):
-                log = nil
                 error = failure.description
             }
         }
@@ -76,6 +77,15 @@ struct PiJournalView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let error = model.error, model.log != nil {
+                Label("Refresh failed — showing results fetched at \(model.fetchedAt?.formatted(date: .abbreviated, time: .standard) ?? "an unknown time"). \(error)",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                Divider()
+            }
             content
             Divider()
             footer
@@ -101,12 +111,13 @@ struct PiJournalView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let error = model.error {
+        if let error = model.error, model.log == nil {
             ContentUnavailableView("Cannot read the Pi's journal", systemImage: "exclamationmark.triangle",
                                    description: Text(error))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let log = model.log, log.lines.isEmpty {
-            ContentUnavailableView("No errors in the last hour", systemImage: "checkmark.circle")
+            ContentUnavailableView(model.error == nil ? "No errors in the last hour" : "No errors in the saved results",
+                                   systemImage: "checkmark.circle")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.log == nil {
             ProgressView("Asking the Pi…")
@@ -124,6 +135,9 @@ struct PiJournalView: View {
                 .defaultScrollAnchor(.top, for: .alignment)
                 .defaultScrollAnchor(.bottom, for: .initialOffset)
                 .onChange(of: model.log) {
+                    if model.follow { proxy.scrollTo("end", anchor: .bottom) }
+                }
+                .onChange(of: model.follow) {
                     if model.follow { proxy.scrollTo("end", anchor: .bottom) }
                 }
             }

@@ -25,8 +25,15 @@ public struct StatusFormatter: Sendable {
         let problems = snapshot.discoveryProblems.count
         if problems > 0 { parts.append("\(problems) plist \(problems == 1 ? "problem" : "problems")") }
         let visible = snapshot.agents.count { $0.severity != .hidden }
-        if visible == 0 {
+        let paused = snapshot.count(.paused), ok = snapshot.count(.ok)
+        if snapshot.agents.isEmpty {
             parts.append("No agents found")
+        } else if visible == 0 {
+            let hidden = snapshot.count(.hidden)
+            parts.append("\(hidden) \(hidden == 1 ? "agent" : "agents") hidden")
+        } else if paused > 0 {
+            if parts.isEmpty, ok > 0 { parts.append("\(ok) ok") }
+            parts.append("\(paused) paused")
         } else if parts.isEmpty {
             parts.append("All \(visible) \(visible == 1 ? "agent" : "agents") ok")
         }

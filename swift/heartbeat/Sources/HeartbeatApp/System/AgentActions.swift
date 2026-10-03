@@ -112,7 +112,8 @@ final class AgentActions: NSObject {
             showAlert("No log for \(name)", "Its plist sends neither stdout nor stderr to a file.")
             return
         }
-        logWindows.show(label: agent.label, name: name, paths: agent.agent.logPaths)
+        logWindows.show(label: agent.label, name: name, paths: agent.agent.logPaths,
+                        standardErrorPath: agent.agent.standardErrorPath)
     }
 
     func isHealthCheckRunning(_ label: String) -> Bool {

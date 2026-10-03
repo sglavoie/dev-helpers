@@ -19,6 +19,19 @@ while a start, restart, load, unload or schedule save is in flight, and conflict
 menu actions are disabled until it finishes. “Requesting start…” means the start
 request is being sent; the next polls determine the job's health.
 
+The headline counts paused agents separately from healthy ones (for example,
+“12 ok · 2 paused”). When every discovered agent is hidden, it says how many
+are hidden instead of “No agents found”. Changing `piHost` clears the old
+host's status immediately and shows “Checking [new host]…” until its check
+finishes.
+
+View Log labels separate streams as Standard output and Standard error. Its
+case-insensitive filter searches only the displayed tail (up to 200 lines),
+and Copy copies the filtered lines. Turning Follow back on immediately scrolls
+to the newest line in both the log and Pi journal windows. If a refresh fails,
+these windows retain the last successful output with a warning and its fetch
+time; switching files or hosts clears the saved output.
+
 While a schedule is being saved, its fields, Cancel button and window close action
 are disabled. Custom log editors can remain open indefinitely; their stderr is
 drained continuously with at most 64 KB retained for an error report.
@@ -47,7 +60,7 @@ just
 | Recipe | What it does |
 | --- | --- |
 | `build` | Debug build of every target. |
-| `test` | Run the HeartbeatCore test suite (`swift test`). |
+| `test` | Run the core and app-model test suites (`swift test`). |
 | `status` | `heartbeatctl status` with any flags, e.g. `just status --all`. |
 | `explain` | `heartbeatctl explain <label>`, e.g. `just explain sync-legacy`. |
 | `icon` | Build `AppIcon.icns` from `Resources/icon.png`. |

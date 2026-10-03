@@ -32,6 +32,16 @@ let package = Package(
                 ])
             ]
         ),
+        .testTarget(
+            name: "HeartbeatAppTests",
+            dependencies: ["HeartbeatApp", "HeartbeatCore"],
+            swiftSettings: [
+                .unsafeFlags([
+                    "-plugin-path",
+                    "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing",
+                ])
+            ]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

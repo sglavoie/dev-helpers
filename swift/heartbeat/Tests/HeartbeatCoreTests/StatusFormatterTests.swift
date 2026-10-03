@@ -119,6 +119,28 @@ import Testing
         #expect(formatter.headline(empty) == "config error · No agents found — checked 12:41")
     }
 
+    @Test func headlineDistinguishesPausedFromHealthy() {
+        let paused = F.agent("paused", disabled: true)
+        let ok = F.agent("ok", schedule: .none)
+        let prints = Dictionary(uniqueKeysWithValues: [F.loaded(ok.label)])
+        let both = F.builder([paused, ok], prints: prints)
+            .buildSync(config: F.config(), state: .empty, ledger: .readOnly)
+        #expect(formatter.headline(both) == "1 ok · 1 paused — checked 12:41")
+        let onlyPaused = F.builder([paused], prints: [:])
+            .buildSync(config: F.config(), state: .empty, ledger: .readOnly)
+        #expect(formatter.headline(onlyPaused) == "1 paused — checked 12:41")
+        let failing = F.builder([paused, ok], prints: Dictionary(uniqueKeysWithValues: [F.loaded(ok.label, lastExit: "1")]))
+            .buildSync(config: F.config(), state: .empty, ledger: .readOnly)
+        #expect(formatter.headline(failing) == "1 failing · 1 paused — checked 12:41")
+    }
+
+    @Test(arguments: [1, 3]) func headlineDistinguishesHiddenFromMissing(count: Int) {
+        let agents = (0..<count).map { F.agent("hidden-\($0)") }
+        let config = F.config(Dictionary(uniqueKeysWithValues: agents.map { ($0.label, AgentConfig(hidden: true)) }))
+        let snapshot = F.builder(agents, prints: [:]).buildSync(config: config, state: .empty, ledger: .readOnly)
+        #expect(formatter.headline(snapshot) == "\(count) \(count == 1 ? "agent" : "agents") hidden — checked 12:41")
+    }
+
     @Test func statusTextHidesOkUnlessAll() {
         let text = formatter.statusText(mixed())
         #expect(text.contains("Failing (1)"))

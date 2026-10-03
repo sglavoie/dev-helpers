@@ -12,7 +12,7 @@ final class LogWindowController: NSObject, NSWindowDelegate {
         self.openLog = openLog
     }
 
-    func show(label: String, name: String, paths: [String]) {
+    func show(label: String, name: String, paths: [String], standardErrorPath: String?) {
         let entry: (window: NSWindow, model: LogTailModel)
         if let existing = windows[label] {
             entry = existing
@@ -20,7 +20,7 @@ final class LogWindowController: NSObject, NSWindowDelegate {
             entry = makeWindow(label: label, name: name, paths: paths)
             windows[label] = entry
         }
-        entry.model.update(paths: paths)
+        entry.model.update(paths: paths, standardErrorPath: standardErrorPath)
         entry.model.start()
         NSApp.activate()
         entry.window.makeKeyAndOrderFront(nil)

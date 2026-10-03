@@ -112,9 +112,11 @@ struct StatusMenuBuilder {
 
     /// Dot + "Pi — ok · 48/48 up"; the submenu lists problems and check details, then Check Now and Open Uptime Kuma.
     private func piRow(_ pi: PiItem, now: Date, actions: Actions) -> NSMenuItem {
-        let item = NSMenuItem(title: formatter.piRow(pi.check), action: nil, keyEquivalent: "")
+        let title = pi.check == nil && pi.isChecking
+            ? "Pi — Checking \(pi.host ?? "Pi")…" : formatter.piRow(pi.check)
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.image = dot(pi.check.map { Self.color($0.severity) } ?? .systemGray)
-        item.toolTip = pi.check.map { "ssh \($0.host) \(PiStatusClient.remoteCommand)" }
+        item.toolTip = pi.host.map { "ssh \($0) \(PiStatusClient.remoteCommand)" }
         let submenu = NSMenu(title: "Pi")
         submenu.autoenablesItems = false
         for (index, group) in formatter.piMenuInfo(pi.check, now: now).enumerated() {

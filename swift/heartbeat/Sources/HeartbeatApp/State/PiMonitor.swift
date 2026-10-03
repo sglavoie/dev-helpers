@@ -12,11 +12,19 @@ final class PiMonitor {
     private(set) var check: PiCheck?
     private(set) var isChecking = false
 
-    private let client = PiStatusClient()
+    private let client: PiStatusClient
     private(set) var host: String?
     private var interval: TimeInterval = TimeInterval(HeartbeatConfig.defaults.piStatusSeconds)
     private var checkQueued = false
     private var nextCheck: DispatchWorkItem?
+
+    init(client: PiStatusClient = PiStatusClient()) {
+        self.client = client
+    }
+
+    isolated deinit {
+        nextCheck?.cancel()
+    }
 
     /// Takes piHost and piStatusSeconds from each poll's config; the first call (or a new host) starts a check.
     func configure(_ config: HeartbeatConfig) {
@@ -26,7 +34,9 @@ final class PiMonitor {
         host = config.piHost
         self.interval = interval
         if hostChanged {
+            check = nil
             refresh()
+            onActivityChange()
         } else if intervalChanged, !isChecking {
             schedule(after: max(0, interval - age))
         }
