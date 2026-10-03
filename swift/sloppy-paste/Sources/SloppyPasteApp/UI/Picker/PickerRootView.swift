@@ -204,17 +204,14 @@ struct PickerRootView: View {
                         if let title = section.title {
                             sectionHeader(title, subtitle: section.subtitle)
                         }
-                        ForEach(section.snippets) { snippet in
-                            SnippetRowView(
-                                snippet: snippet,
-                                isSelected: selection?.id == snippet.id,
-                                compact: showingDetail,
-                                showsStalenessReason: options.showNeedsAttention,
-                                historyAvailable: historyAvailable.contains(snippet.id),
-                                now: now)
-                                .id(snippet.id)
-                                .onTapGesture { select(snippet.id) }
-                        }
+                        PickerSnippetRows(
+                            snippets: section.snippets,
+                            selectedID: selection?.id,
+                            compact: showingDetail,
+                            showsStalenessReason: options.showNeedsAttention,
+                            historyAvailable: historyAvailable,
+                            now: now,
+                            select: select)
                     }
                     if let empty = state.emptyState {
                         VStack(spacing: 6) {
@@ -495,6 +492,7 @@ struct PickerRootView: View {
                 id: "leaveSearch", title: "Leave Search", chord: searchFocused ? KeyChord(.escape) : nil,
                 showsInMenu: false
             ) {
+                selectedID = currentSelection()?.id
                 searchFocused = false
             },
             KeyBinding(
@@ -646,6 +644,32 @@ struct PickerRootView: View {
                 pickerPanel?.commands.openSettings()
             },
         ]
+    }
+}
+
+/// Keep selection among the section's view inputs so a retained section
+/// refreshes its highlights even when filtering only changes other sections.
+private struct PickerSnippetRows: View {
+    var snippets: [Snippet]
+    var selectedID: String?
+    var compact: Bool
+    var showsStalenessReason: Bool
+    var historyAvailable: Set<String>
+    var now: Int64
+    var select: (String) -> Void
+
+    var body: some View {
+        ForEach(snippets) { snippet in
+            SnippetRowView(
+                snippet: snippet,
+                isSelected: selectedID == snippet.id,
+                compact: compact,
+                showsStalenessReason: showsStalenessReason,
+                historyAvailable: historyAvailable.contains(snippet.id),
+                now: now)
+                .id(snippet.id)
+                .onTapGesture { select(snippet.id) }
+        }
     }
 }
 
