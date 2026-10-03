@@ -219,7 +219,45 @@ import Testing
         #expect(Self.suggest("q not:")[3].completion == "q not:tag:work ")
     }
 
-    @Test(arguments: ["", "api", "this:", "xis:", "anot:", "tag:work"])
+    @Test(arguments: [
+        ("tag:wo", "tag:work "),
+        ("tag:WO", "tag:work "),
+        ("ctx:re", "ctx:refactor "),
+        ("not:ctx:re", "not:ctx:refactor "),
+        ("not:tag:pe", "not:tag:personal "),
+        ("is:bo", "is:bookmarked "),
+        ("not:ar", "not:archived "),
+    ])
+    func partialValues(query: String, completion: String) {
+        #expect(Self.suggest(query).map(\.completion) == [completion])
+    }
+
+    @Test func negatedTagsDescribeExclusion() {
+        let items = Self.suggest("api not:tag:wo")
+        #expect(items.map(\.title) == ["not:tag:work"])
+        #expect(items.first?.subtitle == "Exclude snippets tagged work")
+        #expect(items.first?.completion == "api not:tag:work ")
+    }
+
+    @Test func filtersBeforeLimitingAndPreservesQueryPrefix() {
+        let tags = ["a", "b", "c", "d", "work", "work/api", "work/docs", "work/tools", "work/web"]
+        let items = Self.suggest("\"exact phrase\"\tis:favorite\n tag:wo", tags: tags)
+        #expect(items.map(\.title) == ["tag:work", "tag:work/api", "tag:work/docs", "tag:work/tools"])
+        #expect(items.first?.completion == "\"exact phrase\"\tis:favorite\n tag:work ")
+    }
+
+    @Test func acceptedSuggestionDoesNotCaptureReturnAgain() {
+        for item in Self.suggest("tag:wo") {
+            #expect(Self.suggest(item.completion).isEmpty)
+        }
+        #expect(Self.suggest("tag:work", tags: ["work", "work/api"]).isEmpty)
+    }
+
+    @Test(arguments: [
+        "", "api", "this:", "xis:", "anot:", "tag:work", "is:favorite", "ctx:asl",
+        "not:tag:personal", "tag:missing", "tag:wo ", "xtag:", "xctx:",
+        "\"tag:wo", "\"literal tag:wo", "\"literal tag:wo\"",
+    ])
     func noCompletions(_ query: String) {
         #expect(Self.suggest(query).isEmpty)
     }

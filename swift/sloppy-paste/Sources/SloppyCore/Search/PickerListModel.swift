@@ -89,7 +89,8 @@ public enum PickerListModel {
             searchPlaceholder: searchPlaceholder(
                 options: options, hasStructuredOperators: list.hasStructuredOperators),
             emptyState: sections.isEmpty
-                ? emptyState(options: options, hasQuery: !QueryParser.parse(query).isEmpty) : nil)
+                ? emptyState(options: options, hasQuery: !QueryParser.parse(query).isEmpty,
+                             hasSnippets: !snippets.isEmpty) : nil)
     }
 
     public static func searchPlaceholder(options: SnippetFilterOptions, hasStructuredOperators: Bool) -> String {
@@ -117,9 +118,21 @@ public enum PickerListModel {
         return title
     }
 
-    public static func emptyState(options: SnippetFilterOptions, hasQuery: Bool = false) -> PickerEmptyState {
+    public static func emptyState(
+        options: SnippetFilterOptions, hasQuery: Bool = false, hasSnippets: Bool = false
+    ) -> PickerEmptyState {
         if hasQuery {
             return PickerEmptyState(title: "No matching snippets", message: "Try fewer words or different operators")
+        }
+        let viewFilterCount = [options.showOnlyFavorites, options.showArchivedSnippets, options.showNeedsAttention]
+            .count { $0 }
+        if options.selectedTag != nil || viewFilterCount > 1 {
+            return PickerEmptyState(
+                title: "No snippets match these filters", message: "Clear the filters to return to the full list")
+        }
+        if options.showArchivedSnippets {
+            return PickerEmptyState(
+                title: "No archived snippets", message: "Press ⌘B to return to the full list")
         }
         if options.showOnlyFavorites {
             return PickerEmptyState(
@@ -130,6 +143,10 @@ public enum PickerListModel {
             return PickerEmptyState(
                 title: "No snippets need attention",
                 message: "All snippets are in good shape. Press ⇧⌘N to return to the full list")
+        }
+        if hasSnippets {
+            return PickerEmptyState(
+                title: "No active snippets", message: "Your snippets are archived. Press ⌘B to view them")
         }
         return PickerEmptyState(title: "No snippets yet", message: "Press ⌘N to create a snippet or ⇧⌘I to import")
     }

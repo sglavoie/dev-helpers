@@ -16,6 +16,16 @@ to the list.
 ⌘G opens a list of tags with their snippet counts. Type to narrow it, then ↵
 applies the selected tag as the filter chip, or "All Tags" clears it.
 
+Search suggestions narrow as you type operator values, such as `tag:wo`,
+`ctx:re`, or `not:tag:pe`. Completed values leave ↵ ready to use a snippet.
+When a search or filter has no results, **Clear Search and Filters** returns
+to the unfiltered list without changing your sort preference. The same action
+is available from ⌘K whenever a search or filter is active.
+
+⌃⌘↵ copies the selected snippet and keeps the picker open. Snippets with
+placeholders open the usual form first; submitting it returns to the list.
+This is also available as **Copy and Keep Open** in the ⌘K action menu.
+
 ⌘+ (or ⌘=) and ⌘- zoom the picker in and out, and ⌘0 resets it. The whole panel
 grows or shrinks with its contents, and the zoom level is remembered.
 

@@ -217,6 +217,9 @@ struct PickerRootView: View {
                         VStack(spacing: 6) {
                             Text(empty.title).font(.headline)
                             Text(empty.message).foregroundStyle(.secondary)
+                            if hasSearchOrFilters {
+                                Button("Clear Search and Filters", action: clearSearchAndFilters)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 60)
@@ -314,6 +317,17 @@ struct PickerRootView: View {
     }
 
     // MARK: State
+
+    private var hasSearchOrFilters: Bool {
+        !query.isEmpty || options != SnippetFilterOptions()
+    }
+
+    private func clearSearchAndFilters() {
+        query = ""
+        options = SnippetFilterOptions()
+        selectedID = nil
+        searchFocused = false
+    }
 
     private func listState(now: Int64) -> PickerListState {
         PickerListModel.build(
@@ -519,6 +533,12 @@ struct PickerRootView: View {
                 useSelectedSnippet(.copy)
             },
             KeyBinding(
+                id: "copyAndStay", title: "Copy and Keep Open", chord: KeyChord(.return, [.command, .control]),
+                isEnabled: isSnippet
+            ) {
+                useSelectedSnippet(.copyAndStay)
+            },
+            KeyBinding(
                 id: "pasteLastValues",
                 title: lastValues == .available ? "Paste with Last Values" : "Paste with Last Values (no history yet)",
                 chord: KeyChord(.return, [.command, .shift]),
@@ -603,6 +623,9 @@ struct PickerRootView: View {
             },
             KeyBinding(id: "filterByTag", title: "Filter by Tag…", chord: KeyChord(.character("g"), .command)) {
                 openTagChooser()
+            },
+            KeyBinding(id: "clearSearchAndFilters", title: "Clear Search and Filters", isEnabled: hasSearchOrFilters) {
+                clearSearchAndFilters()
             },
             KeyBinding(
                 id: "favorites", title: options.showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked",

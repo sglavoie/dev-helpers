@@ -99,6 +99,42 @@ import Testing
         #expect(contexts.suggestions.map(\.completion) == ["ctx:asl "])
     }
 
+    @Test func filteredEmptyStatesDoNotClaimTheLibraryIsEmpty() {
+        let cases: [(SnippetFilterOptions, String)] = [
+            (SnippetFilterOptions(selectedTag: "missing"), "No snippets match these filters"),
+            (SnippetFilterOptions(showArchivedSnippets: true), "No archived snippets"),
+            (SnippetFilterOptions(showOnlyFavorites: true, showArchivedSnippets: true),
+             "No snippets match these filters"),
+            (SnippetFilterOptions(selectedTag: "home", showOnlyFavorites: true),
+             "No snippets match these filters"),
+        ]
+        for (options, title) in cases {
+            let state = PickerListModel.build(Self.library, query: "", options: options, now: Self.now)
+            #expect(state.rows.isEmpty)
+            #expect(state.emptyState?.title == title)
+        }
+    }
+
+    @Test func libraryWithOnlyArchivedSnippetsExplainsWhereTheyAre() {
+        let state = PickerListModel.build([Self.snippet("a", isArchived: true)], query: "", now: Self.now)
+        #expect(state.emptyState?.title == "No active snippets")
+        #expect(state.emptyState?.message.contains("⌘B") == true)
+    }
+
+    @Test func queryMessageTakesPrecedenceOverEmptyArchive() {
+        let state = PickerListModel.build(
+            Self.library, query: "zzz", options: SnippetFilterOptions(showArchivedSnippets: true), now: Self.now)
+        #expect(state.emptyState?.title == "No matching snippets")
+    }
+
+    @Test func narrowingSuggestionThenAcceptingShowsMatchingSnippets() throws {
+        let partial = PickerListModel.build(Self.library, query: "tag:wo", now: Self.now)
+        let completion = try #require(partial.suggestions.first?.completion)
+        let completed = PickerListModel.build(Self.library, query: completion, now: Self.now)
+        #expect(completed.suggestions.isEmpty)
+        #expect(completed.rows.map(\.id) == ["a"])
+    }
+
     @Test(arguments: [
         ("plain", 0),
         ("Hi {{name}} on {{DATE}}", 1),
