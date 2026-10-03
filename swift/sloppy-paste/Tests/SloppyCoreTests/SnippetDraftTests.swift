@@ -8,7 +8,9 @@ import Testing
         ("   padded  \nrest", "padded"),
         (String(repeating: "a", count: 50), String(repeating: "a", count: 50)),
         (String(repeating: "b", count: 51), String(repeating: "b", count: 47) + "..."),
-        ("\nstarts with newline", ""),
+        ("\nstarts with newline", "starts with newline"),
+        (" \r\n\t\r\n  First text  \r\nSecond", "First text"),
+        (" \n\t", ""),
         ("😀 émoji 漢字", "😀 émoji 漢字"),
     ])
     func suggestedTitle(input: String, expected: String) {
@@ -53,13 +55,13 @@ import Testing
         #expect(draft.errors.isEmpty)
     }
 
-    @Test func createTrimsAndNormalisesTags() throws {
+    @Test func createPreservesContentAndTrimsMetadata() throws {
         var repository = SnippetRepository()
         var draft = SnippetDraft(title: "  Greeting ", content: "\nHello {{name}}\n", description: " desc ")
         draft.tagsText = "work, work/email"
         let snippet = try draft.create(in: &repository, now: 1_000, id: "snippet-1")
         #expect(snippet.title == "Greeting")
-        #expect(snippet.content == "Hello {{name}}")
+        #expect(snippet.content == "\nHello {{name}}\n")
         #expect(snippet.description == "desc")
         #expect(snippet.tags == ["work/email"])
         #expect(snippet.createdAt == 1_000)
@@ -85,11 +87,11 @@ import Testing
         var draft = SnippetDraft(snippet: original)
         #expect(draft.tagsText == "x")
         draft.title = "New"
-        draft.content = "new "
+        draft.content = "\n\t  new \n"
         draft.tagsText = ""
         let updated = try draft.update(id: "s", in: &repository, now: 3)
         #expect(updated.title == "New")
-        #expect(updated.content == "new")
+        #expect(updated.content == "\n\t  new \n")
         #expect(updated.tags == [])
         #expect(updated.useCount == 4)
         #expect(updated.isPinned)
@@ -102,6 +104,12 @@ import Testing
         #expect(throws: StorageError.snippetNotFound) {
             try SnippetDraft(title: "T", content: "c").update(id: "gone", in: &repository, now: 1)
         }
+    }
+
+    @Test func contentStillRejectsWhitespaceOnlyAndCountsPreservedWhitespace() {
+        #expect(!Validation.validateContent(" \n\t").isValid)
+        let padded = "x" + String(repeating: " ", count: ValidationLimits.contentMaxLength)
+        #expect(!Validation.validateContent(padded).isValid)
     }
 
     @Test func syntaxHelpersSelectTheirKey() {

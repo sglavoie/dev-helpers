@@ -14,6 +14,7 @@ let usage = """
 
     --data defaults to \(StorageFile.defaultURL.path).
     import merges by default; --replace writes data.json.bak first.
+    stats, search and render read data without modifying the input file.
     render resolves system placeholders, conditionals and values; keys not
     given use their default, and guards use their `+` default.
     search takes the picker syntax (tag:, not:tag:, ctx:, not:ctx:, is:, not:,
@@ -158,7 +159,7 @@ func renderContent(_ options: Options, file: StorageFile) throws -> String {
     case (nil, "-", nil): return String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
     case (nil, let path?, nil): return try String(contentsOfFile: (path as NSString).expandingTildeInPath, encoding: .utf8)
     case (nil, nil, let id?):
-        guard let snippet = try load(file).snippets.first(where: { $0.id == id }) else {
+        guard let snippet = try file.read().snippets.first(where: { $0.id == id }) else {
             throw CommandError(description: "no snippet with id \(id)")
         }
         return snippet.content
@@ -188,7 +189,7 @@ func run(_ arguments: [String]) throws {
         try printStats(Stats(next, now: nowMs()), json: options.json)
     case "stats":
         guard options.positional.isEmpty else { throw CommandError(description: "stats takes no arguments") }
-        try printStats(Stats(try load(file), now: nowMs()), json: options.json)
+        try printStats(Stats(try file.read(), now: nowMs()), json: options.json)
     case "render":
         let content = try renderContent(options, file: file)
         let now = nowMs()
@@ -197,7 +198,7 @@ func run(_ arguments: [String]) throws {
         print(PlaceholderRenderer.render(content, values: values, now: now), terminator: "")
     case "search":
         let list = SnippetListPipeline.build(
-            try load(file).snippets, query: options.positional.joined(separator: " "),
+            try file.read().snippets, query: options.positional.joined(separator: " "),
             options: options.filterOptions, sort: options.sort, showRecentSection: false, now: nowMs())
         if options.json {
             let encoder = JSONEncoder()

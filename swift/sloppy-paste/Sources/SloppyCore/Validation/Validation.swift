@@ -54,8 +54,8 @@ public enum Validation {
         if trimmed.isEmpty {
             return .invalid("Content is required")
         }
-        if trimmed.count > ValidationLimits.contentMaxLength {
-            let sizeKB = String(format: "%.1f", Double(trimmed.count) / 1000)
+        if content.count > ValidationLimits.contentMaxLength {
+            let sizeKB = String(format: "%.1f", Double(content.count) / 1000)
             let maxKB = String(format: "%.0f", Double(ValidationLimits.contentMaxLength) / 1000)
             return .invalid("Content is too large (\(sizeKB)KB). Maximum size is \(maxKB)KB.")
         }

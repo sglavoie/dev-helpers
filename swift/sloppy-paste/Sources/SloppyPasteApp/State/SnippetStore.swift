@@ -16,6 +16,8 @@ final class SnippetStore {
     @ObservationIgnored let file: StorageFile
     @ObservationIgnored var now: () -> Int64
     @ObservationIgnored private var loadedModificationDate: Date?
+    @ObservationIgnored private var hasLoaded = false
+    @ObservationIgnored private var loadFailure: String?
     @ObservationIgnored private var watcher: FileWatcher?
     /// Called when a load (at launch or after an external edit) moved an
     /// undecodable file aside.
@@ -38,10 +40,13 @@ final class SnippetStore {
                 onQuarantine?(quarantined)
             }
             lastError = nil
+            loadFailure = nil
+            hasLoaded = true
+            loadedModificationDate = currentModificationDate()
         } catch {
+            loadFailure = error.localizedDescription
             lastError = error.localizedDescription
         }
-        loadedModificationDate = currentModificationDate()
     }
 
     /// Reloads as soon as another process (an editor, `sloppyctl`, a sync
@@ -55,13 +60,31 @@ final class SnippetStore {
 
     /// Reloads when the file changed on disk since the last load or save.
     func reloadIfChanged() {
-        guard currentModificationDate() != loadedModificationDate else { return }
+        guard !hasLoaded || loadFailure != nil || currentModificationDate() != loadedModificationDate else { return }
         load()
     }
 
-    /// Applies a repository mutation and saves the result.
+    /// Retries a failed read even if the modification date has not changed.
+    /// Call before deriving any data that will be written back to disk.
+    func requireCurrentData() throws {
+        reloadIfChanged()
+        if let loadFailure {
+            throw ReloadFailure(reason: loadFailure)
+        }
+    }
+
+    private struct ReloadFailure: LocalizedError, CustomStringConvertible {
+        var reason: String
+        var errorDescription: String? { description }
+        var description: String {
+            "Could not reload the data file. No changes were saved. Check the file and try again. \(reason)"
+        }
+    }
+
+    /// Reloads first, then applies a repository mutation and saves the result.
     @discardableResult
     func mutate<T>(_ body: (inout SnippetRepository, Int64) throws -> T) throws -> T {
+        try requireCurrentData()
         var repository = SnippetRepository(data: data)
         let result = try body(&repository, now())
         try save(repository.data)
@@ -77,7 +100,7 @@ final class SnippetStore {
     }
 
     /// Replaces the data wholesale (imports) and saves it.
-    func save(_ next: StorageData) throws {
+    private func save(_ next: StorageData) throws {
         do {
             try file.save(next)
             data = next
@@ -92,7 +115,7 @@ final class SnippetStore {
     /// Imports into the current data (reloaded first); a replace backs the
     /// file up to `data.json.bak` before writing.
     func importPayload(_ payload: ImportPayload, mode: ImportMode) throws {
-        reloadIfChanged()
+        try requireCurrentData()
         do {
             data = try file.importPayload(payload, into: data, mode: mode)
             lastError = nil

@@ -26,6 +26,18 @@ public struct StorageFile: Sendable, Hashable {
         public var quarantinedURL: URL?
     }
 
+    /// Reads and migrates in memory without writing, creating, or quarantining files.
+    /// Missing files give empty data; malformed files throw and remain untouched.
+    public func read() throws -> StorageData {
+        let contents: Data
+        do {
+            contents = try Data(contentsOf: url)
+        } catch CocoaError.fileReadNoSuchFile {
+            return .empty
+        }
+        return try StorageMigrations.migrate(json: contents).data
+    }
+
     /// Loads and migrates the file, saving it back if it migrated. A missing
     /// file gives empty data; an undecodable one is renamed to
     /// `data.corrupt-<now>.json` and also gives empty data.

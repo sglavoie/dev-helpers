@@ -19,11 +19,53 @@ enum EditorMode: Hashable {
     case fromClipboard
 }
 
+/// An editor's working copy survives panel dismissal, but never app termination.
+@MainActor
+@Observable
+final class SnippetEditorSession {
+    let mode: EditorMode
+    let original: SnippetDraft
+    var draft: SnippetDraft
+
+    init(mode: EditorMode, draft: SnippetDraft) {
+        self.mode = mode
+        self.original = draft
+        self.draft = draft
+    }
+
+    var hasUnsavedChanges: Bool {
+        // Clipboard text has not been saved even before the first keystroke.
+        mode == .fromClipboard || draft != original
+    }
+}
+
 /// The picker's route stack. The root screen is always at the bottom.
 @MainActor
 @Observable
 final class Navigator {
     private(set) var stack: [Route] = [.root]
+    private(set) var editorSessions: [SnippetEditorSession] = []
+
+    var pendingEditor: SnippetEditorSession? {
+        editorSessions.last { $0.hasUnsavedChanges }
+    }
+
+    func editorSession(for mode: EditorMode) -> SnippetEditorSession? {
+        editorSessions.first { $0.mode == mode }
+    }
+
+    func startEditor(_ mode: EditorMode, draft: SnippetDraft) -> SnippetEditorSession {
+        if let existing = editorSession(for: mode) { return existing }
+        let session = SnippetEditorSession(mode: mode, draft: draft)
+        editorSessions.append(session)
+        return session
+    }
+
+    /// Only saving or explicitly discarding removes an unfinished editor.
+    func finishEditor(_ mode: EditorMode) {
+        editorSessions.removeAll { $0.mode == mode }
+    }
+
     /// Runs before every stack change. The panel ends text editing here: a
     /// screen removed while its field is editing otherwise leaves an orphaned
     /// field editor as first responder, and the next screen cannot take focus.
@@ -53,6 +95,7 @@ final class Navigator {
     /// Returns to a fresh root screen, as when the panel opens.
     func reset() {
         willChange()
+        editorSessions.removeAll { !$0.hasUnsavedChanges }
         stack = [.root]
         session += 1
     }

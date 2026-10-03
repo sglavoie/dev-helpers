@@ -55,6 +55,38 @@ import Testing
         #expect(try !contents().contains("category"))
     }
 
+    @Test func readMigratesWithoutChangingBytesOrModificationDate() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: file.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let legacy = #"{"version":1,"snippets":[{"id":"a","title":"A","content":"x","category":"Work","createdAt":1,"updatedAt":1}]}"#
+        try Data(legacy.utf8).write(to: file.url)
+        let modified = file.modificationDate()
+
+        let data = try file.read()
+
+        #expect(data.version == StorageConstants.currentVersion)
+        #expect(data.snippets.first?.tags == ["work"])
+        #expect(try contents() == legacy)
+        #expect(file.modificationDate() == modified)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: file.url.deletingLastPathComponent().path) == ["data.json"])
+    }
+
+    @Test func readRejectsCorruptionWithoutQuarantining() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: file.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{broken".utf8).write(to: file.url)
+
+        #expect(throws: (any Error).self) { try file.read() }
+
+        #expect(try contents() == "{broken")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: file.url.deletingLastPathComponent().path) == ["data.json"])
+    }
+
+    @Test func readMissingFileDoesNotCreateItsDirectory() throws {
+        #expect(try file.read() == .empty)
+        #expect(!FileManager.default.fileExists(atPath: directory.path))
+    }
+
     @Test func corruptFileIsQuarantinedNotOverwritten() throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: file.url.deletingLastPathComponent(), withIntermediateDirectories: true)

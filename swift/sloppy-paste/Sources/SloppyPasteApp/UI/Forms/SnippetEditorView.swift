@@ -17,8 +17,7 @@ struct SnippetEditorView: View {
     @Environment(Navigator.self) private var navigator
     @Environment(ToastCenter.self) private var toasts
 
-    @ViewState private var draft = SnippetDraft()
-    @ViewState private var original: SnippetDraft?
+    @ViewState private var session: SnippetEditorSession?
     @ViewState private var missingSnippet = false
     @ViewState private var showAllErrors = false
     @ViewState private var showingSyntax = false
@@ -32,6 +31,15 @@ struct SnippetEditorView: View {
 
     private static let fieldOrder = SnippetDraft.Field.allCases
 
+    private var draft: SnippetDraft {
+        get { session?.draft ?? SnippetDraft() }
+        nonmutating set { session?.draft = newValue }
+    }
+
+    private func draftBinding(_ keyPath: WritableKeyPath<SnippetDraft, String>) -> Binding<String> {
+        Binding(get: { draft[keyPath: keyPath] }, set: { draft[keyPath: keyPath] = $0 })
+    }
+
     var body: some View {
         Group {
             if missingSnippet {
@@ -40,7 +48,7 @@ struct SnippetEditorView: View {
                     Text("It may have been deleted. Press Esc to go back.").foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if original != nil {
+            } else if session != nil {
                 editor
             } else {
                 Color.clear
@@ -58,7 +66,7 @@ struct SnippetEditorView: View {
                     title: "Discard Changes?",
                     message: "Your edits to this snippet have not been saved.",
                     confirmTitle: "Discard",
-                    confirm: { navigator.pop() },
+                    confirm: discard,
                     cancel: { confirmingDiscard = false })
             }
         }
@@ -93,12 +101,12 @@ struct SnippetEditorView: View {
         let errors = visibleErrors
         return VStack(alignment: .leading, spacing: 10) {
             fieldLabel("Title", info: Validation.characterInfo(draft.title, maxLength: ValidationLimits.titleMaxLength))
-            textField(.title, "Enter snippet title", text: $draft.title)
+            textField(.title, "Enter snippet title", text: draftBinding(\.title))
             errorLine(errors[.title])
 
             fieldLabel(
                 "Content", info: Validation.characterInfo(draft.content, maxLength: ValidationLimits.contentMaxLength))
-            SnippetTextView(text: $draft.content, handle: handle(.content)) { focusedField = .content }
+            SnippetTextView(text: draftBinding(\.content), handle: handle(.content)) { focusedField = .content }
                 .frame(minHeight: 120, maxHeight: .infinity)
                 .background(Color(nsColor: .textBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 5))
                 .overlay(
@@ -109,10 +117,10 @@ struct SnippetEditorView: View {
             errorLine(errors[.content])
 
             fieldLabel("Description", info: nil)
-            textField(.description, "Optional description", text: $draft.description, multiline: true)
+            textField(.description, "Optional description", text: draftBinding(\.description), multiline: true)
 
             fieldLabel("Tags", info: nil)
-            textField(.tags, "Comma-separated, e.g. work/projects, email", text: $draft.tagsText)
+            textField(.tags, "Comma-separated, e.g. work/projects, email", text: draftBinding(\.tagsText))
             if let error = errors[.tags] {
                 errorLine(error)
             } else {
@@ -268,30 +276,40 @@ struct SnippetEditorView: View {
         }
     }
 
-    private var isDirty: Bool { original != nil && draft != original }
+    private var isDirty: Bool { session?.hasUnsavedChanges == true }
 
     private func start() {
-        guard original == nil, !missingSnippet else { return }
+        guard session == nil, !missingSnippet else { return }
+        if let existing = navigator.editorSession(for: mode) {
+            session = existing
+            focusTitle()
+            return
+        }
+        let initialDraft: SnippetDraft
         switch mode {
         case .new:
-            draft = SnippetDraft()
+            initialDraft = SnippetDraft()
         case .edit(let id):
             guard let snippet = store.snippets.first(where: { $0.id == id }) else {
                 missingSnippet = true
                 return
             }
-            draft = SnippetDraft(snippet: snippet)
+            initialDraft = SnippetDraft(snippet: snippet)
         case .fromClipboard:
             guard let clipboard = SnippetDraft(clipboard: NSPasteboard.general.string(forType: .string)) else {
                 toasts.failure("Clipboard is empty", message: "Copy some text first, then try again")
                 Task { @MainActor in navigator.pop() }
                 return
             }
-            draft = clipboard
+            initialDraft = clipboard
         }
-        original = draft
+        session = navigator.startEditor(mode, draft: initialDraft)
+        focusTitle()
+    }
+
+    private func focusTitle() {
         focusedField = .title
-        // The fields render only once `original` is set; focus after that pass.
+        // The fields render only once the session is set; focus after that pass.
         Task { @MainActor in applyFocus() }
     }
 
@@ -336,6 +354,7 @@ struct SnippetEditorView: View {
         case .edit: toasts.success("Snippet updated")
         case .fromClipboard: toasts.success("Snippet saved", message: draft.title.trimmingCharacters(in: .whitespaces))
         }
+        navigator.finishEditor(mode)
         navigator.pop()
     }
 
@@ -361,8 +380,13 @@ struct SnippetEditorView: View {
         if isDirty {
             confirmingDiscard = true
         } else {
-            navigator.pop()
+            discard()
         }
+    }
+
+    private func discard() {
+        navigator.finishEditor(mode)
+        navigator.pop()
     }
 
     private var bindings: [KeyBinding] {
@@ -375,7 +399,7 @@ struct SnippetEditorView: View {
         }
         if confirmingDiscard {
             return [
-                KeyBinding(id: "confirmDiscard", title: "Discard", chord: KeyChord(.return)) { navigator.pop() },
+                KeyBinding(id: "confirmDiscard", title: "Discard", chord: KeyChord(.return)) { discard() },
                 KeyBinding(id: "cancelDiscard", title: "Keep Editing", chord: KeyChord(.escape)) {
                     confirmingDiscard = false
                 },

@@ -43,6 +43,18 @@ struct PickerRootView: View {
 
         VStack(alignment: .leading, spacing: 0) {
             searchHeader(state)
+            if let pending = navigator.pendingEditor {
+                HStack {
+                    Text(pending.draft.title.isEmpty ? "Unfinished snippet" : pending.draft.title)
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Resume Draft") { navigator.push(.editor(pending.mode)) }
+                }
+                .font(.caption)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
             Divider()
             HStack(spacing: 0) {
                 list(state, selection: selection, historyAvailable: historyAvailable, now: now)
@@ -556,6 +568,9 @@ struct PickerRootView: View {
             KeyBinding(id: "new", title: "New Snippet", chord: KeyChord(.character("n"), .command)) {
                 navigator.push(.editor(.new))
             },
+            KeyBinding(id: "resumeDraft", title: "Resume Draft", isEnabled: navigator.pendingEditor != nil) {
+                if let pending = navigator.pendingEditor { navigator.push(.editor(pending.mode)) }
+            },
             KeyBinding(
                 id: "newFromClipboard", title: "New Snippet from Clipboard",
                 chord: KeyChord(.character("n"), [.command, .option])
@@ -572,6 +587,7 @@ struct PickerRootView: View {
             ) {
                 if let snippet = selectedSnippet(), let copy = actions.duplicate(snippet) {
                     selectedID = copy.id
+                    navigator.push(.editor(.edit(snippetID: copy.id)))
                 }
             },
             KeyBinding(id: "delete", title: "Delete Snippet", chord: KeyChord(.character("x"), .control), isEnabled: isSnippet)

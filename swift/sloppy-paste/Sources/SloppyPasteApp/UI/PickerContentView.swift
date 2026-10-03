@@ -17,6 +17,7 @@ struct PickerContentView: View {
             case .editor(let mode):
                 SnippetEditorView(mode: mode)
                     .id(navigator.current)
+                    .id(navigator.session)
             case .tagPicker(let snippetID):
                 TagPickerScreen(snippetID: snippetID)
                     .id(navigator.current)

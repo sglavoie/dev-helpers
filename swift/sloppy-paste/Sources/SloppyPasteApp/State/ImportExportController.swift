@@ -30,8 +30,8 @@ final class ImportExportController {
             panel.nameFieldStringValue = ImportExport.exportFileName(now: store.now())
             guard panel.runModal() == .OK, let url = panel.url else { return }
 
-            store.reloadIfChanged()
             do {
+                try store.requireCurrentData()
                 let export = ImportExport.makeExport(store.data, now: store.now())
                 try ImportExport.encodeExport(export).write(to: url, options: .atomic)
                 hud.show("Export successful", message: "Saved to \(url.lastPathComponent)", symbol: "square.and.arrow.up")

@@ -13,6 +13,18 @@ selected. The search field starts unfocused: j/k (or ↓/↑) move through the l
 ⌘F, or k on the first row, focuses the search field, and Esc hands the keys back
 to the list.
 
+Unfinished snippet edits survive closing the picker. **Resume Draft** appears
+above the list and in ⌘K; saving or explicitly discarding clears the draft.
+Drafts are kept in memory until the app quits. Starting the same kind of editor
+again (New Snippet, New Snippet from Clipboard, or editing the same snippet)
+resumes its unfinished draft. Separate editors keep separate drafts; Resume
+Draft offers the most recently created unfinished draft first.
+
+⇧⌘D duplicates the selected snippet and opens the copy for editing. Snippet
+content is saved exactly as entered, including indentation and surrounding
+blank lines; titles and descriptions are trimmed. New Snippet from Clipboard
+suggests a title from the first nonempty line.
+
 ⌘G opens a list of tags with their snippet counts. Type to narrow it, then ↵
 applies the selected tag as the filter chip, or "All Tags" clears it.
 
@@ -47,7 +59,7 @@ just
 | Recipe | What it does |
 | --- | --- |
 | `build` | Debug build of every target. |
-| `test` | Run the SloppyCore test suite (`swift test`). |
+| `test` | Run the core and app-state test suites (`swift test`). |
 | `test-paste-target-safety` | Run only the paste-back target safety tests. |
 | `bundle` | Assemble an unsigned `SloppyPaste.app` in `.build/bundle`. |
 | `sign` | Bundle, then sign it with the local signing identity. |
@@ -61,7 +73,7 @@ just
 The package has three targets:
 
 - `SloppyCore`: Foundation-only models, placeholder engine, search, tags and
-  storage. All the logic lives here and is covered by the tests.
+  storage. Its logic is covered by the core tests.
 - `SloppyPaste`: the AppKit and SwiftUI app.
 - `sloppyctl`: a small command-line tool on top of SloppyCore (see
   [Migration](#migration-from-raycast)).
@@ -134,6 +146,8 @@ It uses the same `StorageData` JSON shape as the Raycast extension's export.
 - Writes are atomic and pretty-printed.
 - A replace-import first copies the current file to `data.json.bak`.
 - Editing the file by hand is fine: the app reloads it when it changes.
+- If a reload fails, changes and imports are blocked until the file can be
+  read again. Fix the file access problem and retry; editor drafts stay intact.
 - A file that fails to decode is never overwritten. It is moved aside as
   `data.corrupt-<timestamp>.json`, the app starts empty, and an alert explains
   how to restore it.
@@ -144,15 +158,15 @@ Settings → Data shows the path, with a Reveal button, and the storage size.
 
 1. In Raycast, open **Manage Snippets** and run **Export All Snippets** (⇧⌘E).
    This writes a JSON file.
-2. Optionally, check the export before importing it. `jq` only reads the file:
+2. Optionally, check the export before importing it:
 
    ```bash
    jq '{version, snippets: (.snippets | length), titles: [.snippets[].title]}' ~/Downloads/<export>.json
    ```
 
-   Don't point `sloppyctl stats` or `search` at the export with `--data`.
-   Those commands load the file as a store, migrate it, and write the result
-   back to the same path, which overwrites your original export.
+   `sloppyctl stats --data <export.json>` and `search --data <export.json>`
+   also inspect exports safely: any migrations happen in memory and the
+   original file is left untouched.
 
 3. Import it, with either:
    - the app: menu bar item → **Import…**, or ⇧⌘I in the picker. Merge adds
@@ -195,6 +209,9 @@ swift run sloppyctl --help
 - `render`: expand a snippet's placeholders with `key=value` pairs.
 
 Every command takes `--data <path>` to work on a file other than the live one.
+`stats`, `search`, and `render --id` only read that file. They never rewrite,
+create, or quarantine it; malformed input reports an error. `import` retains
+the store's migration, backup, and quarantine behavior.
 
 ## Troubleshooting
 
@@ -226,5 +243,6 @@ in `Docs/live-verification.json` with `tested_build`, `tested_at`, `tester`,
 - Focus and panel: `target-stays-frontmost`, `click-outside-hides`,
   `escape-every-depth`, `form-menus-stay-open`, `filter-menus-stay-open`,
   `placeholder-tab-order`, `display-disconnect-repositions`,
-  `import-export-focus-return`, `zoom-resizes-panel`, `zoomed-clicks-hit-controls`.
+  `import-export-focus-return`, `zoom-resizes-panel`, `zoomed-clicks-hit-controls`,
+  `resume-draft-after-dismissal`, `duplicate-opens-editor`.
 - Settings: `settings-hotkey-recorder`, `launch-at-login`.

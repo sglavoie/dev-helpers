@@ -24,17 +24,18 @@ public struct SnippetDraft: Sendable, Hashable {
         self.init(title: snippet.title, content: snippet.content, description: snippet.description, tags: snippet.tags)
     }
 
-    /// A new-snippet draft for clipboard text, titled after its first line.
+    /// A new-snippet draft for clipboard text, titled after its first nonempty line.
     /// Nil when the clipboard holds no text or only whitespace.
     public init?(clipboard text: String?) {
         guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         self.init(title: Self.suggestedTitle(for: text), content: text)
     }
 
-    /// The first line, trimmed, truncated to 50 characters with "...".
+    /// The first nonempty line, trimmed, truncated to 50 characters with "...".
     public static func suggestedTitle(for text: String, maxLength: Int = 50) -> String {
-        let firstLine = text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
-        let trimmed = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = text.components(separatedBy: .newlines)
+            .lazy.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? ""
         guard trimmed.count > maxLength else { return trimmed }
         return String(trimmed.prefix(maxLength - 3)) + "..."
     }
@@ -85,13 +86,12 @@ public struct SnippetDraft: Sendable, Hashable {
 
     // MARK: Saving
 
-    /// Adds the draft as a new snippet. Title, content and description are
-    /// trimmed, as in the TS form.
+    /// Adds the draft as a new snippet. Trim metadata, but preserve content verbatim.
     @discardableResult
     public func create(in repository: inout SnippetRepository, now: Int64, id: String? = nil) throws -> Snippet {
         try validate()
         return repository.addSnippet(
-            title: trimmed(title), content: trimmed(content), description: trimmed(description), tags: tags,
+            title: trimmed(title), content: content, description: trimmed(description), tags: tags,
             now: now, id: id)
     }
 
@@ -101,7 +101,7 @@ public struct SnippetDraft: Sendable, Hashable {
         try validate()
         return try repository.updateSnippet(id: id, now: now) { snippet in
             snippet.title = trimmed(title)
-            snippet.content = trimmed(content)
+            snippet.content = content
             snippet.description = trimmed(description)
             snippet.tags = tags
         }
