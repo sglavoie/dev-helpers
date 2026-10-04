@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import csv
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from photos_backup.apple_photos.late_additions import (
     generate_late_photo_additions_report,
+    read_spotlight_metadata,
 )
 from photos_backup.summary import read_export_report
 
@@ -179,6 +182,37 @@ class LateAdditionsReportTests(unittest.TestCase):
         self.assertEqual(rows[1]["is_late_month_addition"], "false")
         self.assertEqual(rows[2]["is_spouse_device"], "false")
         self.assertEqual(rows[2]["is_late_month_addition"], "true")
+
+    def test_duplicate_paths_reuse_metadata_and_keep_all_report_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "export.csv"
+            target = Path(directory) / "late.csv"
+            self._write_export_report(
+                source,
+                [
+                    {"filename": "/image.jpg", "new": "1"},
+                    {"filename": "/image.jpg", "updated": "1"},
+                    {"filename": "/skipped.jpg", "skipped": "1"},
+                ],
+            )
+            reader = mock.Mock(return_value={})
+            warning = mock.Mock()
+            count = generate_late_photo_additions_report(
+                source, target, (), reader, warning
+            )
+            reader.assert_called_once_with(Path("/image.jpg"))
+            self.assertEqual(count, 2)
+            self.assertIn("1 file(s)", warning.call_args.args[0])
+            with target.open() as stream:
+                self.assertEqual(len(list(csv.DictReader(stream))), 2)
+
+    def test_spotlight_timeout_preserves_empty_metadata(self):
+        with mock.patch(
+            "photos_backup.apple_photos.late_additions.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("mdls", 10),
+        ) as run:
+            self.assertEqual(read_spotlight_metadata(Path("/image.jpg")), {})
+        self.assertEqual(run.call_args.kwargs["timeout"], 10)
 
     def _write_export_report(
         self,

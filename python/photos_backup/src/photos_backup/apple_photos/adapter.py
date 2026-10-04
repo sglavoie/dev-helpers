@@ -1,26 +1,30 @@
 from __future__ import annotations
 
 import dataclasses
+import importlib
+import inspect
 import json
 import os
 import sqlite3
 from collections.abc import Callable, Iterable
-from contextlib import closing
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
+from unittest.mock import patch
 
 from osxphotos import PhotosDB
 from osxphotos.cli.export import export_cli
 from osxphotos.export_db import OSXPHOTOS_EXPORTDB_VERSION
 from osxphotos.export_db_utils import export_db_migrate_photos_library
 
-from photos_backup.apple_photos.identity import AssetIdentity
 from photos_backup.apple_photos.downloads import (
     DEFAULT_DOWNLOAD_TIMEOUT,
     bounded_downloads,
 )
+from photos_backup.apple_photos.identity import AssetIdentity
 from photos_backup.archive.errors import ArchiveUnsafe
+from photos_backup.progress import ExportProgress
 
 ExportRunner = Callable[[dict[str, Any]], int]
 AssetReader = Callable[[Path], tuple[AssetIdentity, ...]]
@@ -65,25 +69,64 @@ def run_osxphotos_export(
     *,
     download_timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
     local_first: bool = False,
+    progress: ExportProgress | None = None,
 ) -> int:
     """Run an export with a per-asset download budget and no overall time limit."""
     arguments = dict(arguments)
-    if local_first:
-        database = PhotosDB(dbfile=arguments["db"])
+    if local_first or progress:
+        with progress.phase("Loading Photos library") if progress else nullcontext():
+            database = PhotosDB(dbfile=arguments["db"])
         query = database.query
 
         def ordered_query(options):
-            return sorted(query(options), key=_needs_download)
+            with (
+                progress.phase("Selecting assets", "checking local availability")
+                if progress
+                else nullcontext()
+            ):
+                photos = query(options)
+                if local_first:
+                    photos = sorted(photos, key=_needs_download)
+                if progress:
+                    progress.selection(len(photos))
+                return photos
 
         database.query = ordered_query
         arguments["db"] = database
-    with bounded_downloads(download_timeout) as downloads:
+    if progress:
+        arguments["no_progress"] = True
+    with bounded_downloads(download_timeout, progress) as downloads:
         try:
-            status = export_cli(**arguments)
+            with _export_progress(progress):
+                status = export_cli(**arguments)
         finally:
             if not arguments.get("dry_run"):
                 downloads.write_failures(Path(arguments["report"]))
         return status or int(bool(downloads.failures))
+
+
+@contextmanager
+def _export_progress(progress: ExportProgress | None):
+    """Observe the upstream per-asset loop without replacing export behavior."""
+    if progress is None:
+        yield
+        return
+    module = importlib.import_module("osxphotos.cli.export")
+    original = module.export_photo
+
+    def export_photo(*args, **kwargs):
+        photo = kwargs["photo"]
+        with progress.phase("Exporting asset", photo.original_filename, announce=False):
+            result = original(*args, **kwargs)
+            progress.asset_done()
+            return result
+
+    export_photo.__signature__ = inspect.signature(original)
+    with (
+        progress.phase("Exporting"),
+        patch.object(module, "export_photo", export_photo),
+    ):
+        yield
 
 
 def _needs_download(photo) -> bool:

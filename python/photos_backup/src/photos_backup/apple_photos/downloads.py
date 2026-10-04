@@ -8,12 +8,15 @@ the child never opens the export database or writes to the archive.
 from __future__ import annotations
 
 import json
+import select
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import time
-from contextlib import contextmanager
+import traceback
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -22,7 +25,10 @@ import click
 from osxphotos.exportoptions import ExportOptions
 from osxphotos.photoexporter import PhotoExporter, StagedFiles
 
+from photos_backup.progress import ExportProgress
+
 DEFAULT_DOWNLOAD_TIMEOUT = 120
+MAX_CONTROL_RESPONSE_BYTES = 65536
 
 # The upstream staging method needs these scalar properties, not a PhotosDB.
 _PHOTO_FIELDS = (
@@ -51,20 +57,26 @@ _OPTION_FIELDS = (
 class DownloadBudget:
     """One budget per asset, shared by its versions and retries, for this run."""
 
-    def __init__(self, seconds: float) -> None:
+    def __init__(self, seconds: float, progress: ExportProgress | None = None) -> None:
         if seconds <= 0:
             raise ValueError("download timeout must be positive")
         self.seconds = seconds
         self.spent: dict[str, float] = {}
         self.failures: dict[str, dict] = {}
+        self._issues: dict[str, dict[tuple, str]] = {}
+        self.attempts: dict[str, int] = {}
+        self.worker = DownloadWorker()
+        self.progress = progress
 
     def stage(self, exporter: PhotoExporter, options: ExportOptions) -> StagedFiles:
         photo = exporter.photo
+        key = tuple(getattr(options, name) for name in _OPTION_FIELDS)
         remaining = self.seconds - self.spent.get(photo.uuid, 0)
         if remaining <= 0:
             if photo.uuid not in self.failures:
                 self._failure(
                     photo,
+                    key,
                     f"Missing-file download budget exhausted after {self.seconds:g}s",
                 )
             return StagedFiles()
@@ -85,44 +97,78 @@ class DownloadBudget:
             ),
             encoding="utf-8",
         )
-        click.echo(
-            f"Retrieving missing files: {photo.original_filename} ({photo.uuid}); "
-            f"{remaining:.0f}s download budget remaining",
-            err=True,
+        self.attempts[photo.uuid] = self.attempts.get(photo.uuid, 0) + 1
+        detail = (
+            f"{photo.original_filename} ({photo.uuid}); "
+            f"attempt {self.attempts[photo.uuid]}"
         )
+        if self.progress is None:
+            click.echo(
+                f"Retrieving missing files: {detail}; "
+                f"{remaining:.0f}s download budget remaining",
+                err=True,
+            )
         started = time.monotonic()
         keep = False
         try:
-            _run_worker(request, response, remaining)
+            with (
+                self.progress.phase(
+                    "Retrieving missing files", detail, budget=remaining
+                )
+                if self.progress
+                else nullcontext()
+            ):
+                self.worker.run(request, response, remaining)
             staged = StagedFiles(**json.loads(response.read_text(encoding="utf-8")))
             keep = True
+            _validate_staging(staged, photo, options)
             if staged.error:
-                self._failure(photo, "; ".join(str(error) for error in staged.error))
+                self._failure(
+                    photo, key, "; ".join(str(error) for error in staged.error)
+                )
+            else:
+                issues = self._issues.get(photo.uuid, {})
+                issues.pop(key, None)
+                if not issues:
+                    self.failures.pop(photo.uuid, None)
+                else:
+                    self.failures[photo.uuid]["reason"] = "; ".join(issues.values())
+                if self.progress:
+                    self.progress.unresolved = len(self.failures)
             return staged
         except subprocess.TimeoutExpired:
+            self.worker.close()
             # Exhaust the UUID's budget, so upstream retries cannot restart it.
             self.spent[photo.uuid] = self.seconds
             self._failure(
-                photo, f"Missing-file download timed out after {self.seconds:g}s"
+                photo, key, f"Missing-file download timed out after {self.seconds:g}s"
             )
             return StagedFiles()
         except (OSError, ValueError, TypeError, subprocess.CalledProcessError) as error:
-            self._failure(photo, f"Missing-file download failed: {error}")
+            self.worker.close()
+            self._failure(photo, key, f"Missing-file download failed: {error}")
             return StagedFiles()
         finally:
-            self.spent[photo.uuid] = self.spent.get(photo.uuid, 0) + (
-                time.monotonic() - started
+            self.spent[photo.uuid] = min(
+                self.seconds,
+                self.spent.get(photo.uuid, 0) + time.monotonic() - started,
             )
             if not keep:
                 shutil.rmtree(root)
 
-    def _failure(self, photo, reason: str) -> None:
+    def _failure(self, photo, key: tuple, reason: str) -> None:
+        self._issues.setdefault(photo.uuid, {})[key] = reason
         self.failures[photo.uuid] = {
             "uuid": photo.uuid,
             "filename": photo.original_filename,
-            "reason": reason,
+            "reason": "; ".join(self._issues[photo.uuid].values()),
         }
-        click.echo(f"Still unbacked-up: {photo.original_filename}: {reason}", err=True)
+        message = f"Unresolved download: {photo.original_filename}: {reason}"
+        if self.progress:
+            self.progress.unresolved = len(self.failures)
+            self.progress.message(message)
+        else:
+            click.echo(message, err=True)
 
     def write_failures(self, report: Path) -> None:
         if not self.failures:
@@ -131,31 +177,135 @@ class DownloadBudget:
         path.write_text(
             json.dumps(list(self.failures.values()), indent=2) + "\n", encoding="utf-8"
         )
-        click.echo(f"Incomplete downloads (retry on the next run): {path}", err=True)
+        message = f"Incomplete downloads (retry on the next run): {path}"
+        if self.progress:
+            self.progress.message(message)
+        else:
+            click.echo(message, err=True)
+
+
+def _validate_staging(staged: StagedFiles, photo, options: ExportOptions) -> None:
+    """A nominal success with absent requested components is still unresolved."""
+    required = ["edited" if options.edited else "original"]
+    if photo.live_photo and options.live_photo:
+        required.append("edited_live" if options.edited else "original_live")
+    if photo.has_raw and options.raw_photo:
+        required.append("raw")
+    missing = [name for name in required if not getattr(staged, name)]
+    if missing:
+        staged.error.append(
+            (
+                photo.original_filename,
+                f"PhotoKit returned no {', '.join(missing)}",
+            )
+        )
+
+
+class DownloadWorker:
+    """One serial child, replaced after a timeout or protocol failure.
+
+    A private socket carries control messages; native stdout/stderr cannot corrupt
+    the protocol. The child only stages files, never opening the archive database.
+    """
+
+    def __init__(self) -> None:
+        self.process: subprocess.Popen | None = None
+        self.channel: socket.socket | None = None
+        self.diagnostics = None
+        self.sequence = 0
+
+    def _start(self) -> None:
+        parent, child = socket.socketpair()
+        self.channel = parent
+        self.diagnostics = tempfile.TemporaryFile()
+        try:
+            self.process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "photos_backup.apple_photos.downloads",
+                    "--serve",
+                    str(child.fileno()),
+                ],
+                pass_fds=(child.fileno(),),
+                stdin=subprocess.DEVNULL,
+                stdout=self.diagnostics,
+                stderr=self.diagnostics,
+            )
+        finally:
+            child.close()
+
+    def run(self, request: Path, response: Path, timeout: float) -> None:
+        deadline = time.monotonic() + timeout
+        try:
+            if self.process is None:
+                self._start()
+            self.diagnostics.seek(0)
+            self.diagnostics.truncate()
+            self.sequence += 1
+            message = {
+                "id": self.sequence,
+                "request": str(request),
+                "response": str(response),
+            }
+            self.channel.settimeout(max(0.001, deadline - time.monotonic()))
+            self.channel.sendall((json.dumps(message) + "\n").encode())
+            received = b""
+            while b"\n" not in received:
+                remaining = deadline - time.monotonic()
+                if (
+                    remaining <= 0
+                    or not select.select([self.channel], [], [], remaining)[0]
+                ):
+                    raise subprocess.TimeoutExpired("PhotoKit worker", timeout)
+                chunk = self.channel.recv(4096)
+                if not chunk:
+                    raise OSError("PhotoKit worker exited before replying")
+                received += chunk
+                if len(received) > MAX_CONTROL_RESPONSE_BYTES:
+                    raise ValueError("Oversized PhotoKit worker response")
+            reply = json.loads(received)
+            if not isinstance(reply, dict) or reply.get("id") != self.sequence:
+                raise ValueError("Mismatched PhotoKit worker response")
+            if reply.get("error"):
+                raise OSError(reply["error"])
+            if reply.get("ok") is not True:
+                raise ValueError("Invalid PhotoKit worker response")
+        except BaseException as error:
+            self.close()
+            if isinstance(error, TimeoutError):
+                raise subprocess.TimeoutExpired("PhotoKit worker", timeout) from error
+            raise
+
+    def close(self) -> None:
+        if self.channel is not None:
+            self.channel.close()
+            self.channel = None
+        if self.process is not None:
+            if self.process.poll() is None:
+                self.process.kill()
+            self.process.wait()
+            self.process = None
+        if self.diagnostics is not None:
+            self.diagnostics.close()
+            self.diagnostics = None
 
 
 def _run_worker(request: Path, response: Path, timeout: float) -> None:
-    # subprocess.run kills and reaps the child on timeout or interruption.
-    # A fresh interpreter avoids forking Apple's multithreaded frameworks.
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "photos_backup.apple_photos.downloads",
-            str(request),
-            str(response),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+    """Standalone request helper, also useful for process-lifecycle checks."""
+    worker = DownloadWorker()
+    try:
+        worker.run(request, response, timeout)
+    finally:
+        worker.close()
 
 
 @contextmanager
-def bounded_downloads(seconds: float = DEFAULT_DOWNLOAD_TIMEOUT):
+def bounded_downloads(
+    seconds: float = DEFAULT_DOWNLOAD_TIMEOUT, progress: ExportProgress | None = None
+):
     """Temporarily adapt osxphotos's private staging seam for one serial export."""
-    budget = DownloadBudget(seconds)
+    budget = DownloadBudget(seconds, progress)
     original = PhotoExporter._stage_photo_for_export_with_photokit
 
     def stage(exporter, options):
@@ -163,8 +313,20 @@ def bounded_downloads(seconds: float = DEFAULT_DOWNLOAD_TIMEOUT):
             return original(exporter, options)
         return budget.stage(exporter, options)
 
-    with patch.object(PhotoExporter, "_stage_photo_for_export_with_photokit", stage):
-        yield budget
+    try:
+        with patch.object(
+            PhotoExporter, "_stage_photo_for_export_with_photokit", stage
+        ):
+            yield budget
+    finally:
+        budget.worker.close()
+
+
+class _WorkerStagedFiles(StagedFiles):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not hasattr(self, "uuids"):
+            self.uuids = {}
 
 
 def _worker(request: Path, response: Path) -> None:
@@ -172,11 +334,31 @@ def _worker(request: Path, response: Path) -> None:
     photo = SimpleNamespace(**document["photo"], _verbose=lambda _: None)
     exporter = PhotoExporter(photo)
     exporter._temp_dir_path = request.parent
-    staged = exporter._stage_photo_for_export_with_photokit(
-        ExportOptions(**document["options"])
-    )
+    # osxphotos 0.76.1's RAW branch writes StagedFiles.uuids although its
+    # constructor omits it. Supply the unused bookkeeping map only in the child;
+    # the parent still uses the ordinary StagedFiles wire format.
+    with patch("osxphotos.photoexporter.StagedFiles", _WorkerStagedFiles):
+        staged = exporter._stage_photo_for_export_with_photokit(
+            ExportOptions(**document["options"])
+        )
     response.write_text(json.dumps(staged.asdict()), encoding="utf-8")
 
 
+def _serve(descriptor: int) -> None:
+    with socket.socket(fileno=descriptor) as channel, channel.makefile("rb") as stream:
+        for line in stream:
+            message = json.loads(line)
+            try:
+                _worker(Path(message["request"]), Path(message["response"]))
+                reply = {"id": message["id"], "ok": True}
+            except Exception as error:
+                traceback.print_exc()
+                reply = {"id": message["id"], "error": str(error)}
+            channel.sendall((json.dumps(reply) + "\n").encode())
+
+
 if __name__ == "__main__":
-    _worker(Path(sys.argv[1]), Path(sys.argv[2]))
+    if sys.argv[1] == "--serve":
+        _serve(int(sys.argv[2]))
+    else:
+        _worker(Path(sys.argv[1]), Path(sys.argv[2]))

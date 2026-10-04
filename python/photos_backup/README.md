@@ -44,6 +44,7 @@ stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 |---------|-------------|
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
+| `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
 | `photos-backup approve-cleanup RUN_ID` | Delete the archive files a pending cleanup run listed, after revalidating them |
 | `photos-backup approve-cleanup RUN_ID --discard` | Reject a pending cleanup run instead; nothing is deleted |
@@ -222,6 +223,7 @@ a limited osxphotos simulation for exporter development without writing assets.
 
 ```sh
 photos-backup recent                         # photos/videos taken in the last 30 days
+photos-backup recent --days 60               # a larger capture-date window
 photos-backup recent --days 30 --dry-run      # show the plan without exporting
 photos-backup recent --download-timeout 300  # allow 5 minutes per missing asset
 ```
@@ -236,19 +238,40 @@ are outside the selected window.
 There is **no total run time limit**. Missing-file retrieval has a 120-second
 budget per asset, shared across its original/edited versions and any retries
 within a run. Local copies and metadata writes do not consume that budget.
-The retrieval runs in a separate process so a stalled native PhotoKit call can
-be terminated without interrupting an archive write. This is an elapsed-time
+One download worker is started lazily and reused for serial retrievals, avoiding
+repeated Python/PhotoKit imports. Worker startup and request overhead count toward
+the asset's budget. A stalled worker is killed and reaped without interrupting an
+archive write; the next eligible asset gets a fresh worker. Ctrl+C also reaps the
+worker. This is an elapsed-time
 limit, so a large download taking longer than the budget is also deferred; use
 `--download-timeout` to allow it more time. The same default protection applies
 to bootstrap and daily exports.
 
-Failed or timed-out downloads are printed immediately and recorded beside the
-CSV export report in a `.downloads.json` file, with asset UUIDs, filenames, and
+Failed or timed-out downloads are printed immediately. Failures still unresolved
+at the end of the run are recorded beside the CSV export report in a `.downloads.json` file, with asset UUIDs, filenames, and
 reasons. Other unavailable components appear in the CSV's `missing` rows.
 The recent command exits nonzero when files remain missing or errors occur.
 Rerun it to retry; completed exports are retained, and each run gets a fresh
 per-asset budget. Items that age out of the date window require a larger `--days`
 value or a full export.
+
+`recent` announces archive checks, library loading, asset selection, export, and
+report generation. During export, status shows the current filename, **assets
+processed / selected**, operation elapsed time, and unresolved download count.
+Retrieval status also shows the attempt number and remaining per-asset budget.
+Processed assets include skipped and unsuccessful items; one asset can produce
+multiple files. Final file outcomes come from the export CSV, not that counter.
+No byte percentage or estimated completion time is inferred from a PhotoKit wait.
+
+Terminal status refreshes every second. Redirected output uses plain lines every
+10 seconds, plus phase transitions and failures. Phase timings include nested
+work and must not be added together. Export elapsed time includes report
+creation; total command time also includes archive checks and library loading.
+
+Late-additions reports reuse Spotlight metadata for repeated paths within a run.
+Each `mdls` call has a 10-second timeout. Unavailable metadata remains blank and
+produces an enrichment warning; it does not turn an otherwise successful media
+backup into a failed export.
 
 A recent export never initializes the archive, advances its full/daily export
 timestamps, or mirrors deletions. Finish bootstrap separately when a complete

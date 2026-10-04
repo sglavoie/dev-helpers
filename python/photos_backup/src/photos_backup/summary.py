@@ -171,7 +171,23 @@ def print_export_result(result: ExportResult, *, dry_run: bool = False) -> None:
     prefix = "Would export" if dry_run else "Exported"
     click.echo(f"{prefix} ({result.plan.mode.value}): {result.plan.reason}")
     if result.missing_count:
-        click.echo(f"  Missing from iCloud: {result.missing_count}")
+        click.echo(f"  Missing export files: {result.missing_count}")
+    if result.performed:
+        click.echo(
+            "  File outcomes: "
+            + ", ".join(
+                f"{name}={result.counts.get(name, 0)}"
+                for name in ("new", "updated", "skipped", "missing", "error")
+            )
+        )
+    if result.phase_timings:
+        click.echo(
+            "  Phase timings (nested phases overlap): "
+            + ", ".join(
+                f"{name}: {seconds:.1f}s"
+                for name, seconds in result.phase_timings.items()
+            )
+        )
     if result.late_additions_path is not None:
         click.echo(
             f"  Late additions: {result.late_additions_rows} "

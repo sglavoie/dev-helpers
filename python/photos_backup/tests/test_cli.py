@@ -182,7 +182,10 @@ class ConstructionTests(unittest.TestCase):
             resolve_rclone_source(config, config_path), Path("/Volumes/Data/Pictures")
         )
 
-    def test_remote_backup_uses_the_resolved_source(self) -> None:
+    @mock.patch(
+        "photos_backup.remote.backup.shutil.which", return_value="/usr/bin/rclone"
+    )
+    def test_remote_backup_uses_the_resolved_source(self, _which) -> None:
         config_path = self.write_config(CONFIG)
         config = load_rclone_config(config_path)
         backup = RemoteBackup(

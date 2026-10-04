@@ -4,6 +4,7 @@ import dataclasses
 import datetime
 import tempfile
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +21,7 @@ from photos_backup.apple_photos.plan import (
     export_arguments,
     plan_export,
 )
+from photos_backup.progress import ExportProgress
 from photos_backup.summary import read_export_report
 
 if TYPE_CHECKING:
@@ -44,6 +46,7 @@ class ApplePhotosExport:
         extra_arguments: dict[str, Any] | None = None,
         metadata_reader: MetadataReader | None = None,
         plan_only: bool = False,
+        progress: ExportProgress | None = None,
     ) -> None:
         self.config = config
         self.archive = archive
@@ -54,6 +57,7 @@ class ApplePhotosExport:
         self.extra_arguments = dict(extra_arguments or {})
         self.metadata_reader = metadata_reader or read_spotlight_metadata
         self.plan_only = plan_only
+        self.progress = progress
 
     def export(self) -> ExportResult:
         now = self.archive.now()
@@ -98,17 +102,22 @@ class ApplePhotosExport:
 
         start = time.monotonic()
         exit_code = self.runner(arguments)
-        elapsed = time.monotonic() - start
 
-        report = read_export_report(report_path)
-        late_additions_rows = 0
-        if late_additions_path is not None:
-            late_additions_rows = generate_late_photo_additions_report(
-                export_report_path=report_path,
-                output_path=late_additions_path,
-                spouse_device_models=self.config.spouse_device_models,
-                metadata_reader=self.metadata_reader,
-            )
+        with (
+            self.progress.phase("Generating reports")
+            if self.progress
+            else nullcontext()
+        ):
+            report = read_export_report(report_path)
+            late_additions_rows = 0
+            if late_additions_path is not None:
+                late_additions_rows = generate_late_photo_additions_report(
+                    export_report_path=report_path,
+                    output_path=late_additions_path,
+                    spouse_device_models=self.config.spouse_device_models,
+                    metadata_reader=self.metadata_reader,
+                    warning=self.progress.message if self.progress else None,
+                )
 
         result = ExportResult(
             plan=plan,
@@ -117,7 +126,8 @@ class ApplePhotosExport:
             report_path=report_path,
             late_additions_path=late_additions_path,
             late_additions_rows=late_additions_rows,
-            elapsed_seconds=elapsed,
+            elapsed_seconds=time.monotonic() - start,
+            phase_timings=dict(self.progress.timings) if self.progress else {},
             report_problem=report.problem,
         )
         if (

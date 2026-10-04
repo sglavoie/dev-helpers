@@ -9,8 +9,9 @@ from photos_backup.archive.paths import ArchivePaths
 from photos_backup.archive.probes import real_hostname
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
+from photos_backup.progress import ExportProgress
 from tests.test_cli import ArchiveCommandTestCase
-from tests.test_export import FakeRunner, THURSDAY, row
+from tests.test_export import THURSDAY, FakeRunner, row
 
 
 class RecentTests(ArchiveCommandTestCase):
@@ -102,8 +103,11 @@ class RecentTests(ArchiveCommandTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(
-            runner.call_args.kwargs, {"download_timeout": 10, "local_first": True}
+            {k: v for k, v in runner.call_args.kwargs.items() if k != "progress"},
+            {"download_timeout": 10, "local_first": True},
         )
+
+        self.assertIsInstance(runner.call_args.kwargs["progress"], ExportProgress)
 
     def test_invalid_limits_are_rejected(self):
         for option in ("--days", "--download-timeout"):

@@ -6,6 +6,8 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
+import click
+
 SPOTLIGHT_KEYS = (
     "kMDItemContentCreationDate",
     "kMDItemDateAdded",
@@ -33,32 +35,44 @@ def generate_late_photo_additions_report(
     output_path: Path,
     spouse_device_models: tuple[str, ...],
     metadata_reader: MetadataReader | None = None,
+    warning: Callable[[str], None] | None = None,
 ) -> int:
     """Write a CSV report for files newly exported or updated in this run."""
     if not export_report_path.exists():
         return 0
 
     metadata_reader = metadata_reader or read_spotlight_metadata
-    rows = []
-    with export_report_path.open(newline="") as f:
-        reader = csv.DictReader(f)
+    warning = warning or (lambda message: click.echo(message, err=True))
+    count = 0
+    unavailable = 0
+    metadata_cache: dict[Path, dict[str, str]] = {}
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with (
+        export_report_path.open(newline="") as source,
+        output_path.open("w", newline="") as output,
+    ):
+        reader = csv.DictReader(source)
+        writer = csv.DictWriter(output, fieldnames=REPORT_COLUMNS)
+        writer.writeheader()
         for row in reader:
             statuses = export_statuses(row)
             if not {"new", "updated"}.intersection(statuses):
                 continue
-
             filename = row.get("filename", "")
-            metadata = metadata_reader(Path(filename)) if filename else {}
-            report_row = build_report_row(row, metadata, spouse_device_models)
-            rows.append(report_row)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=REPORT_COLUMNS)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    return len(rows)
+            path = Path(filename)
+            if filename and path not in metadata_cache:
+                metadata_cache[path] = metadata_reader(path)
+                if not metadata_cache[path] or not any(metadata_cache[path].values()):
+                    unavailable += 1
+            metadata = metadata_cache.get(path, {}) if filename else {}
+            writer.writerow(build_report_row(row, metadata, spouse_device_models))
+            count += 1
+    if unavailable:
+        warning(
+            f"Spotlight metadata unavailable for {unavailable} file(s) "
+            "(missing, failed, or timed out); late-additions enrichment is incomplete."
+        )
+    return count
 
 
 def build_report_row(
@@ -106,8 +120,9 @@ def read_spotlight_metadata(path: Path) -> dict[str, str]:
             check=True,
             capture_output=True,
             text=True,
+            timeout=10,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return {}
 
     metadata: dict[str, str] = {}

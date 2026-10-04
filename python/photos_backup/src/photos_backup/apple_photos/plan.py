@@ -50,6 +50,7 @@ class ExportResult:
     late_additions_path: Path | None = None
     late_additions_rows: int = 0
     elapsed_seconds: float = 0.0
+    phase_timings: dict[str, float] = field(default_factory=dict)
     state_advanced: bool = False
     report_problem: str | None = None
     performed: bool = True

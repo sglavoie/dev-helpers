@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.plan import (
@@ -278,6 +279,31 @@ class ExportTestCase(unittest.TestCase):
 
 
 class DirectExportTests(ExportTestCase):
+    def test_elapsed_time_includes_report_generation(self):
+        now = [0.0]
+        runner = FakeRunner([row("a.jpg", new=1)])
+
+        def run(arguments):
+            now[0] += 2
+            return runner(arguments)
+
+        def report(**kwargs):
+            now[0] += 5
+            return 1
+
+        with (
+            mock.patch(
+                "photos_backup.apple_photos.export.time.monotonic",
+                side_effect=lambda: now[0],
+            ),
+            mock.patch(
+                "photos_backup.apple_photos.export.generate_late_photo_additions_report",
+                side_effect=report,
+            ),
+        ):
+            result = self.run_export(run)
+        self.assertEqual(result.elapsed_seconds, 7)
+
     def test_a_clean_full_export_advances_both_timestamps(self) -> None:
         runner = FakeRunner([row("a.jpg", new=1), row("b.jpg", updated=1)])
 

@@ -59,12 +59,14 @@ class DownloadTests(unittest.TestCase):
     def downloaded(request, response, timeout):
         image = request.parent / "photo.jpg"
         image.write_bytes(b"downloaded original")
-        response.write_text(json.dumps(StagedFiles(original=str(image)).asdict()))
+        edited = json.loads(request.read_text())["options"].get("edited", False)
+        staged = StagedFiles(**{"edited" if edited else "original": str(image)})
+        response.write_text(json.dumps(staged.asdict()))
 
     def test_timeout_is_shared_across_versions_and_retries(self):
         budget = DownloadBudget(120)
         with mock.patch(
-            "photos_backup.apple_photos.downloads._run_worker",
+            "photos_backup.apple_photos.downloads.DownloadWorker.run",
             side_effect=subprocess.TimeoutExpired("worker", 120),
         ) as run:
             for options in (
@@ -83,7 +85,7 @@ class DownloadTests(unittest.TestCase):
         budget = DownloadBudget(120)
         with (
             mock.patch(
-                "photos_backup.apple_photos.downloads._run_worker",
+                "photos_backup.apple_photos.downloads.DownloadWorker.run",
                 side_effect=self.downloaded,
             ) as run,
             mock.patch(
@@ -104,7 +106,7 @@ class DownloadTests(unittest.TestCase):
         budget = DownloadBudget(120)
         with (
             mock.patch(
-                "photos_backup.apple_photos.downloads._run_worker",
+                "photos_backup.apple_photos.downloads.DownloadWorker.run",
                 side_effect=self.downloaded,
             ) as run,
             mock.patch(
@@ -120,7 +122,7 @@ class DownloadTests(unittest.TestCase):
     def test_worker_failure_is_reported_and_staging_removed(self):
         budget = DownloadBudget(120)
         with mock.patch(
-            "photos_backup.apple_photos.downloads._run_worker",
+            "photos_backup.apple_photos.downloads.DownloadWorker.run",
             side_effect=subprocess.CalledProcessError(1, "worker"),
         ):
             budget.stage(self.exporter, ExportOptions())
@@ -135,7 +137,9 @@ class DownloadTests(unittest.TestCase):
     def test_fully_local_export_does_not_start_a_download_worker(self):
         with (
             bounded_downloads(1),
-            mock.patch("photos_backup.apple_photos.downloads._run_worker") as run,
+            mock.patch(
+                "photos_backup.apple_photos.downloads.DownloadWorker.run"
+            ) as run,
         ):
             staged = self.exporter._stage_photos_for_export(
                 ExportOptions(
@@ -154,7 +158,9 @@ class DownloadTests(unittest.TestCase):
     def test_dry_run_never_downloads(self):
         with (
             bounded_downloads(1),
-            mock.patch("photos_backup.apple_photos.downloads._run_worker") as run,
+            mock.patch(
+                "photos_backup.apple_photos.downloads.DownloadWorker.run"
+            ) as run,
         ):
             staged = self.exporter._stage_photo_for_export_with_photokit(
                 ExportOptions(dry_run=True)
@@ -239,7 +245,7 @@ class DownloadTests(unittest.TestCase):
                 "photos_backup.apple_photos.adapter.export_cli", side_effect=export
             ),
             mock.patch(
-                "photos_backup.apple_photos.downloads._run_worker",
+                "photos_backup.apple_photos.downloads.DownloadWorker.run",
                 side_effect=subprocess.TimeoutExpired("worker", 120),
             ),
         ):
@@ -269,6 +275,98 @@ class DownloadTests(unittest.TestCase):
                 local_first=True,
             )
         self.assertEqual(result, 0)
+
+    def test_successful_retry_clears_only_the_recovered_version(self):
+        budget = DownloadBudget(120)
+        with mock.patch(
+            "photos_backup.apple_photos.downloads.DownloadWorker.run",
+            side_effect=OSError("temporary failure"),
+        ):
+            budget.stage(self.exporter, ExportOptions())
+            budget.stage(self.exporter, ExportOptions(edited=True))
+        with mock.patch(
+            "photos_backup.apple_photos.downloads.DownloadWorker.run",
+            side_effect=self.downloaded,
+        ):
+            budget.stage(self.exporter, ExportOptions(edited=True))
+            self.assertIn("asset-1", budget.failures)
+            budget.stage(self.exporter, ExportOptions())
+        self.assertFalse(budget.failures)
+        budget.write_failures(self.root / "export.csv")
+        self.assertFalse((self.root / "export.downloads.json").exists())
+
+    def test_incomplete_response_cannot_clear_an_unresolved_download(self):
+        budget = DownloadBudget(120)
+
+        def empty(request, response, timeout):
+            response.write_text(json.dumps(StagedFiles().asdict()))
+
+        with mock.patch.object(budget.worker, "run", side_effect=empty):
+            staged = budget.stage(self.exporter, ExportOptions())
+        self.assertTrue(staged.error)
+        self.assertIn(
+            "PhotoKit returned no original", budget.failures["asset-1"]["reason"]
+        )
+
+    def test_up_to_date_missing_asset_does_not_start_worker(self):
+        self.exporter.photo.path = None
+        with (
+            bounded_downloads(1),
+            mock.patch.object(
+                self.exporter, "_needs_download_for_update", return_value=False
+            ),
+            mock.patch(
+                "photos_backup.apple_photos.downloads.DownloadWorker.run"
+            ) as run,
+        ):
+            staged = self.exporter._stage_photos_for_export(
+                ExportOptions(
+                    download_missing=True,
+                    use_photokit=True,
+                    update=True,
+                    export_aae=False,
+                ),
+                dest=self.root / "archived.jpg",
+            )
+        self.assertTrue(staged.update_skipped)
+        run.assert_not_called()
+
+    def test_bad_staging_response_is_a_failure_and_resets_worker(self):
+        budget = DownloadBudget(120)
+
+        def malformed(request, response, timeout):
+            response.write_text('{"unexpected": true}')
+
+        with (
+            mock.patch.object(budget.worker, "run", side_effect=malformed),
+            mock.patch.object(budget.worker, "close") as close,
+        ):
+            budget.stage(self.exporter, ExportOptions())
+        close.assert_called_once()
+        self.assertIn("asset-1", budget.failures)
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_worker_stages_raw_pair_with_upstream_semantics(self):
+        item = photo(has_raw=True)
+        request, response = self.root / "request.json", self.root / "response.json"
+        request.write_text(
+            json.dumps(
+                {
+                    "photo": {k: v for k, v in vars(item).items() if k != "_verbose"},
+                    "options": {"raw_photo": True},
+                }
+            )
+        )
+        with mock.patch("osxphotos.photoexporter.PhotoLibrary") as library:
+            library.return_value.fetch_uuid.return_value.export.side_effect = [
+                [str(self.root / "image.jpeg")],
+                [str(self.root / "image.dng")],
+            ]
+            _worker(request, response)
+        result = json.loads(response.read_text())
+        self.assertTrue(result["original"].endswith("image.jpeg"))
+        self.assertTrue(result["raw"].endswith("image.dng"))
+        self.assertFalse(result["error"])
 
 
 if __name__ == "__main__":
