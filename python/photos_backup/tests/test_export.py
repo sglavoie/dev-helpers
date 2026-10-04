@@ -478,6 +478,35 @@ class DirectExportTests(ExportTestCase):
         self.assertEqual(runner.arguments["limit"], 5)
         self.assertFalse(runner.arguments["use_photokit"])
 
+    def test_custom_exports_preserve_baseline_and_keep_reports(self) -> None:
+        baseline = ArchiveState(
+            last_full_export_at=LAST_MONDAY,
+            last_successful_export_at=LAST_MONDAY,
+            last_report_path=self.archive / "previous.csv",
+        )
+        for options in (
+            {"limit": 5},
+            {"extra_arguments": {"limit": 5}},
+            {"extra_arguments": {"album": "Holiday"}},
+            {"extra_arguments": {"skip_movies": True}},
+            {"extra_arguments": {"from_date": THURSDAY}},
+        ):
+            with self.subTest(options=options):
+                result = self.run_export(
+                    FakeRunner([row("a.jpg", new=1)]), state=baseline, **options
+                )
+                self.assertTrue(result.complete)
+                self.assertFalse(result.state_advanced)
+                self.assertEqual(self.state, baseline)
+                self.assertTrue(result.report_path.is_file())
+                self.assertEqual(result.files_transferred, 1)
+
+    def test_custom_export_does_not_establish_a_first_full_baseline(self) -> None:
+        result = self.run_export(FakeRunner(), extra_arguments={"limit": 5})
+        self.assertFalse(result.state_advanced)
+        self.assertIsNone(self.state.last_full_export_at)
+        self.assertIsNone(self.state.last_successful_export_at)
+
     def test_the_summary_names_the_step_and_the_failure(self) -> None:
         runner = FakeRunner([row("a.jpg", error=1)])
 

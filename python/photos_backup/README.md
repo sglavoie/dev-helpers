@@ -182,12 +182,14 @@ is checked after the real export. It writes nothing and never initializes.
 ### Checking recorded status
 
 `photos-backup status` shows the archive writer, initialization and export
-timestamps, latest report, last completed mirror, pending cleanup, and the next
-export mode with its cadence reason. Timestamps include relative ages; pending
+timestamps, last successful baseline report, last completed mirror, pending
+cleanup, and the next export mode with its cadence reason. Timestamps include relative ages; pending
 cleanup includes commands to approve or discard it. It reads state without
 scanning exported files, opening the Photos library, taking over ownership, or
 writing anything.
 An uninitialized archive suggests `photos-backup bootstrap`.
+The baseline report belongs to the last successful full or incremental export;
+it does not describe newer failed, recent, or custom manual exports.
 
 Suggested recovery and cleanup commands preserve any explicit `--config` and
 `--volume` options and quote paths for pasting into a shell, so they target the
@@ -289,6 +291,11 @@ the managed library, destination, export database, report, dry-run mode, or
 cleanup behavior, nor load an osxphotos configuration that overrides them.
 Use this tool's TOML configuration, `--volume`, and cleanup commands for those
 changes. Other extra flags still accept `--flag value` or `--flag=value`.
+Manual exports with any forwarded flags keep their exported files and reports
+but do not advance daily/full backup timestamps or replace the baseline report.
+This conservative rule covers asset filters, limits, and skipped components
+without assuming a custom run covered the scheduled export. Manual exports
+without forwarded flags retain the normal cadence behavior.
 Real exports print their CSV report path, including when the export fails.
 
 SSD, SD-card, and remote transfers display progress while they run. Their
@@ -341,8 +348,17 @@ the asset's budget. A stalled worker is killed and reaped without interrupting a
 archive write; the next eligible asset gets a fresh worker. Ctrl+C also reaps the
 worker. This is an elapsed-time
 limit, so a large download taking longer than the budget is also deferred; use
-`--download-timeout` to allow it more time. The same default protection applies
-to bootstrap and daily exports.
+`--download-timeout` to allow it more time. Bootstrap and daily exports offer
+the same timeout option and live phase/download progress:
+
+```sh
+photos-backup bootstrap --download-timeout 300
+photos-backup daily --download-timeout 300
+```
+
+Both default to 120 seconds per asset and report total command time, including
+failed or interrupted runs. Bootstrap also reports its library coverage check;
+daily reports cleanup reconciliation. Their dry runs remain planning-only.
 
 Failed or timed-out downloads are printed immediately. Failures still unresolved
 at the end of the run are recorded beside the CSV export report in a `.downloads.json` file, with asset UUIDs, filenames, and

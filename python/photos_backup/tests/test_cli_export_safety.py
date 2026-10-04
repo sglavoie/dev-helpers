@@ -8,6 +8,7 @@ from photos_backup.apple_photos.export import ARCHIVE_MANAGED_ARGUMENTS
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
 from photos_backup.apple_photos.takeover import TakeoverCheck
+from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import BackupSummary, print_export_result
@@ -142,6 +143,28 @@ class ExportEntryPointTests(ArchiveCommandTestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(exporter.arguments["limit"], 5)
         self.assertTrue(exporter.arguments["use_photokit"])
+
+    def test_restricted_manual_export_retains_the_daily_baseline(self):
+        paths = self.initialized_archive()
+        before = ArchiveStateStore(paths).load()
+        for flag in ("--limit=5", "--album=Holiday"):
+            with (
+                self.subTest(flag=flag),
+                self.mounted(),
+                mock.patch(
+                    "photos_backup.cli.apple_photos.ensure_writer",
+                    return_value=TakeoverCheck(WriterStatus.UNCHANGED, "test.local"),
+                ),
+                mock.patch(
+                    "photos_backup.apple_photos.export.run_osxphotos_export",
+                    side_effect=FakeRunner(),
+                ),
+            ):
+                result = self.invoke("apple-photos", flag)
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(ArchiveStateStore(paths).load(), before)
+            self.assertIn("timestamps were not advanced", result.output)
+            self.assertIn("Export report:", result.output)
 
     def test_actual_pipeline_failure_takes_precedence_over_blocked_takeover(self):
         with (

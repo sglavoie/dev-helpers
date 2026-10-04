@@ -27,7 +27,8 @@ class DailyTests(ArchiveCommandTestCase):
                 "photos_backup.cli.daily.ensure_writer", return_value=UNCHANGED_WRITER
             ),
             mock.patch(
-                "photos_backup.apple_photos.export.run_osxphotos_export", runner
+                "photos_backup.cli.daily.run_osxphotos_export",
+                side_effect=lambda arguments, **kwargs: runner(arguments),
             ),
             mock.patch("photos_backup.apple_photos.cleanup._reconcile") as reconcile,
         ):
@@ -38,6 +39,54 @@ class DailyTests(ArchiveCommandTestCase):
         self.assertIn("1 file(s) remain missing", result.output)
         self.assertEqual(ArchiveStateStore(paths).load(), before)
         reconcile.assert_not_called()
+
+    def test_timeout_and_progress_reach_exporter_and_dry_run_preserves_state(self):
+        paths = self.initialized_archive(pending_cleanup_run_id="run-7")
+        for dry_run in (True, False):
+            with (
+                self.subTest(dry_run=dry_run),
+                self.mounted(),
+                mock.patch(
+                    "photos_backup.cli.daily.ensure_writer",
+                    return_value=UNCHANGED_WRITER,
+                ),
+                mock.patch(
+                    "photos_backup.cli.daily.run_osxphotos_export",
+                    side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
+                ) as runner,
+            ):
+                before = paths.state_file.read_bytes()
+                reports = list(paths.reports.glob("*"))
+                result = self.runner.invoke(
+                    cli,
+                    [
+                        "--config",
+                        str(self.config_path),
+                        "daily",
+                        "--download-timeout",
+                        "300",
+                        *(["--dry-run"] if dry_run else []),
+                    ],
+                )
+            self.assertEqual(result.exit_code, 3, result.output)
+            self.assertIn("300s per asset", result.output)
+            self.assertIn("Total command time:", result.output)
+            self.assertIn("Reconciling archive cleanup", result.output)
+            if dry_run:
+                runner.assert_not_called()
+                self.assertEqual(paths.state_file.read_bytes(), before)
+                self.assertEqual(list(paths.reports.glob("*")), reports)
+            else:
+                self.assertEqual(runner.call_args.kwargs["download_timeout"], 300)
+                self.assertIn(
+                    "Generating reports", runner.call_args.kwargs["progress"].timings
+                )
+
+    def test_invalid_timeout_is_rejected_before_opening_archive(self):
+        with mock.patch("photos_backup.cli.daily.open_archive") as opened:
+            result = self.runner.invoke(cli, ["daily", "--download-timeout", "0"])
+        self.assertEqual(result.exit_code, 2, result.output)
+        opened.assert_not_called()
 
     def test_daily_refuses_an_uninitialized_archive(self) -> None:
         with mock.patch(

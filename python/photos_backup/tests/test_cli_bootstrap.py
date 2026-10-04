@@ -23,13 +23,14 @@ class BootstrapTests(ArchiveCommandTestCase):
             read_export_db=lambda _: written if runner.arguments is not None else (),
         )
 
-        def bootstrap_with_fakes(config, archive):
+        def bootstrap_with_fakes(config, archive, **kwargs):
+            kwargs["runner"] = runner
             return bootstrap_archive(
                 config,
                 archive,
                 probes=probes,
-                runner=runner,
                 metadata_reader=lambda path: {},
+                **kwargs,
             )
 
         with (
@@ -49,6 +50,46 @@ class BootstrapTests(ArchiveCommandTestCase):
         self.assertIn("Bootstrapping (fresh archive)", result.output)
         self.assertIn("1 of 1 library asset(s) recorded", result.output)
         self.assertIn("Archive initialized at", result.output)
+        self.assertIn("Checking library coverage", result.output)
+        self.assertIn("Total command time:", result.output)
+
+    def test_timeout_and_progress_reach_the_real_export_path(self):
+        with (
+            self.mounted(),
+            mock.patch(
+                "photos_backup.apple_photos.bootstrap.PhotosProbes",
+                return_value=PhotosProbes(
+                    read_library=lambda _: (),
+                    read_export_db=lambda _: (),
+                ),
+            ),
+            mock.patch(
+                "photos_backup.cli.bootstrap.run_osxphotos_export",
+                side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
+            ) as runner,
+        ):
+            result = self.runner.invoke(
+                cli,
+                [
+                    "--config",
+                    str(self.config_path),
+                    "bootstrap",
+                    "--download-timeout",
+                    "300",
+                ],
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(runner.call_args.kwargs["download_timeout"], 300)
+        self.assertIn(
+            "Checking library coverage", runner.call_args.kwargs["progress"].timings
+        )
+        self.assertIn("300s per asset", result.output)
+
+    def test_invalid_timeout_is_rejected_before_opening_archive(self):
+        with mock.patch("photos_backup.cli.bootstrap.open_archive") as opened:
+            result = self.runner.invoke(cli, ["bootstrap", "--download-timeout", "0"])
+        self.assertEqual(result.exit_code, 2, result.output)
+        opened.assert_not_called()
 
     def test_an_incomplete_bootstrap_explains_why_it_did_not_initialize(self) -> None:
         result = self.run_bootstrap(

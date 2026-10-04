@@ -402,7 +402,9 @@ def print_archive_status(
             f"{value.isoformat()} ({_relative_age(value, now)})" if value else "(never)"
         )
         click.echo(f"  {label}: {timestamp}")
-    click.echo(f"  Latest report: {state.last_report_path or '(none)'}")
+    click.echo(
+        f"  Last successful baseline report: {state.last_report_path or '(none)'}"
+    )
     click.echo(f"  Pending cleanup: {state.pending_cleanup_run_id or '(none)'}")
     if state.pending_cleanup_run_id:
         click.echo(

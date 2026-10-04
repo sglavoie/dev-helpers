@@ -171,6 +171,10 @@ class ApplePhotosExport:
             result.complete
             and not self.archive.dry_run
             and plan.mode is not ExportMode.RECENT
+            # Custom osxphotos flags can restrict assets or exported components.
+            # A clean report only proves completion of that custom request.
+            and not self.extra_arguments
+            and not self.limit
         ):
             self._advance_state(plan, now, report_path)
             result = dataclasses.replace(result, state_advanced=True)

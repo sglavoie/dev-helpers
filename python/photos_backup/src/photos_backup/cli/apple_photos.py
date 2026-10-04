@@ -43,6 +43,8 @@ def apple_photos(ctx: click.Context, testing: bool, dry_run: bool) -> None:
             plan_only=dry_run,
         ).export()
     print_export_result(result, dry_run=readonly)
+    if extra_arguments and not readonly:
+        click.echo("Custom export: daily/full backup timestamps were not advanced.")
     if not result.complete:
         raise click.ClickException(str(result.failure_reason()))
 

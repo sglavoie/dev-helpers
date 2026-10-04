@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from photos_backup.archive import Archive
     from photos_backup.archive.state import ArchiveState
     from photos_backup.config import ApplePhotosConfig
+    from photos_backup.progress import ExportProgress
 
 FRESH_REASON = "bootstrapping a fresh archive"
 RESUME_REASON = "resuming an interrupted bootstrap"
@@ -65,6 +67,7 @@ def bootstrap_archive(
     probes: PhotosProbes | None = None,
     runner: ExportRunner | None = None,
     metadata_reader: MetadataReader | None = None,
+    progress: ExportProgress | None = None,
 ) -> BootstrapResult:
     """Fill a fresh archive with one complete export, then initialize it.
 
@@ -74,8 +77,9 @@ def bootstrap_archive(
     written once that export also covers the whole library.
     """
     active = probes or PhotosProbes()
-    resumed = _require_bootstrappable(archive, archive.state_store.load())
-    takeover = ensure_writer(config, archive, probes=active)
+    with progress.phase("Checking archive writer") if progress else nullcontext():
+        resumed = _require_bootstrappable(archive, archive.state_store.load())
+        takeover = ensure_writer(config, archive, probes=active)
 
     plan = ExportPlan(ExportMode.FULL, RESUME_REASON if resumed else FRESH_REASON)
     export = ApplePhotosExport(
@@ -85,14 +89,16 @@ def bootstrap_archive(
         runner=runner,
         metadata_reader=metadata_reader,
         plan_only=archive.dry_run,
+        progress=progress,
     ).export()
 
     coverage = None
     if not archive.dry_run:
-        coverage = assess_coverage(
-            active.read_library(config.library),
-            active.read_export_db(archive.paths.export_db),
-        )
+        with progress.phase("Checking library coverage") if progress else nullcontext():
+            coverage = assess_coverage(
+                active.read_library(config.library),
+                active.read_export_db(archive.paths.export_db),
+            )
     result = BootstrapResult(
         takeover=takeover, export=export, coverage=coverage, resumed=resumed
     )
