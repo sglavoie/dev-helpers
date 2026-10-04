@@ -70,7 +70,11 @@ def backup_all(
     summaries: list[BackupSummary] = []
 
     if skip_apple_photos:
-        summaries.append(BackupSummary(step_name="Apple Photos", skipped=True))
+        summaries.append(
+            BackupSummary(
+                step_name="Apple Photos", skipped=True, skip_reason="Skipped by request"
+            )
+        )
     else:
         try:
             assert config is not None
@@ -99,8 +103,10 @@ def backup_all(
     summaries.extend(
         _optional_step(
             "SD Card",
-            None if skip_sd_card else sd_config,
+            sd_config,
             lambda config: [SdCardBackup(config=config, dry_run=dry_run).backup()],
+            skip=skip_sd_card,
+            section="sd_card",
         )
     )
     summaries.extend(
@@ -113,6 +119,8 @@ def backup_all(
                 dry_run=dry_run,
                 sd_card=sd_config,
             ).backup(),
+            skip=skip_ssd,
+            section="ssd",
         )
     )
     summaries.extend(
@@ -126,6 +134,8 @@ def backup_all(
                     dry_run=dry_run,
                 ).backup()
             ],
+            skip=skip_remote,
+            section="rclone",
         )
     )
 
@@ -159,10 +169,21 @@ def _optional_step(
     step_name: str,
     config: T | None,
     run: Callable[[T], list[BackupSummary]],
+    *,
+    skip: bool,
+    section: str,
 ) -> list[BackupSummary]:
     """Run a prevalidated workflow, or report its absence as skipped."""
-    if config is None:
-        return [BackupSummary(step_name=step_name, skipped=True)]
+    if skip or config is None:
+        return [
+            BackupSummary(
+                step_name=step_name,
+                skipped=True,
+                skip_reason="Skipped by request"
+                if skip
+                else f"Not configured: [{section}]",
+            )
+        ]
     try:
         return run(config)
     except ActionRequired as error:

@@ -101,6 +101,8 @@ unknown key) fail with an error naming the file, section, and key.
 Only the sections a command needs are read, so an Apple Photos export works on a
 machine that has no SD card, SSD, or rclone configuration. `backup-all` and `ssd`
 report a workflow whose section is absent as skipped instead of failing.
+Pipeline summaries distinguish `Skipped by request` from
+`Not configured: [section]`.
 Before `backup-all` starts any export or transfer, it validates every enabled
 section and any configuration it depends on. Invalid configuration exits 2
 immediately. Skipped sections are not loaded unless another enabled step needs
@@ -196,8 +198,9 @@ The archive must still be available and its read lock obtainable.
 ### Verifying an archive
 
 `photos-backup verify` reads the archive and reports one `PASS`/`FAIL` line per
-property with the evidence behind it. It exits 1 when any check fails and 0
-otherwise, and it writes nothing at all: no directory, no state, no lock file.
+property with the evidence behind it. It exits 0 when all checks pass, 3 when
+pending cleanup approval is the only failed check, and 1 when any other check
+fails. It writes nothing at all: no directory, no state, no lock file.
 
 | Check | Fails when |
 |-------|------------|
@@ -288,6 +291,11 @@ its exporter is not invoked. A successful pipeline preview ends with
 `PREVIEW COMPLETE`. `backup-all` exits 3 for action-required steps, such as a
 blocked Apple Photos takeover or unavailable SSD source, unless another step
 fails, in which case it exits 1.
+
+SSD summaries retain each completed copy if a later copy fails, in both `ssd`
+and `backup-all`. The failed copy is named, and any remaining SSD copy is
+reported as skipped because the previous copy did not complete. SSD source
+and destination checks still run before any copying starts.
 
 ### Back up recent photos without waiting for bootstrap
 

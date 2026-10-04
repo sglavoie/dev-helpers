@@ -12,6 +12,7 @@ from photos_backup.config import (
     load_ssd_config,
 )
 from photos_backup.ssd.backup import Backup
+from photos_backup.errors import ActionRequired
 from photos_backup.summary import print_summary
 
 
@@ -41,6 +42,12 @@ def ssd(
     ).backup()
     for summary in summaries:
         print_summary(summary)
+    failures = [s for s in summaries if s.error and not s.action_required]
+    if failures:
+        raise click.ClickException("; ".join(s.error for s in failures))
+    actions = [s.error for s in summaries if s.error and s.action_required]
+    if actions:
+        raise ActionRequired("; ".join(actions))
 
 
 def load_optional_sd_card_config(config_path: Path | None) -> SdCardConfig | None:

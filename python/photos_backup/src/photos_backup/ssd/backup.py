@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from photos_backup.copy_safety import check_copy_paths
 from photos_backup.exclude import exclude_from_arg
+from photos_backup.errors import ActionRequired
 from photos_backup.process import stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
@@ -65,19 +66,43 @@ class Backup:
         if not self.dry_run:
             self.destination.mkdir(parents=True, exist_ok=True)
 
-        summaries = [
-            self._run_rsync(
-                "SSD: All Photos", self.source, exclude_from_arg(self.exclude_file)
+        copies = [("SSD: All Photos", self.source, self.exclude_file)]
+        if self.sd_card is not None:
+            copies.append(
+                ("SSD: SD Card", self.sd_card.destination, self.sd_card.exclude_file)
             )
-        ]
+        summaries: list[BackupSummary] = []
+        for step_name, source, exclude_file in copies:
+            if any(summary.error for summary in summaries):
+                summaries.append(
+                    BackupSummary(
+                        step_name=step_name,
+                        skipped=True,
+                        skip_reason="Previous SSD copy did not complete",
+                    )
+                )
+                continue
+            started = time.monotonic()
+            try:
+                summaries.append(
+                    self._run_rsync(step_name, source, exclude_from_arg(exclude_file))
+                )
+            except Exception as error:
+                summaries.append(
+                    BackupSummary(
+                        step_name=step_name,
+                        error=str(error),
+                        action_required=isinstance(error, ActionRequired),
+                        elapsed_seconds=time.monotonic() - started,
+                        dry_run=self.dry_run,
+                    )
+                )
         if self.sd_card is None:
-            summaries.append(BackupSummary(step_name="SSD: SD Card", skipped=True))
-        else:
             summaries.append(
-                self._run_rsync(
-                    "SSD: SD Card",
-                    self.sd_card.destination,
-                    exclude_from_arg(self.sd_card.exclude_file),
+                BackupSummary(
+                    step_name="SSD: SD Card",
+                    skipped=True,
+                    skip_reason="Not configured: [sd_card]",
                 )
             )
         return summaries

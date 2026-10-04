@@ -46,6 +46,7 @@ class BackupSummary:
     error: str | None = None
     dry_run: bool = False
     action_required: bool = False
+    skip_reason: str | None = None
 
 
 def parse_rsync_stats(output: str) -> dict[str, int | str]:
@@ -163,7 +164,8 @@ def print_summary(summary: BackupSummary) -> None:
     elif summary.planned:
         click.echo("  Status: PLANNED — command was not invoked")
     elif summary.skipped:
-        click.echo("  Status: SKIPPED")
+        reason = f" — {summary.skip_reason}" if summary.skip_reason else ""
+        click.echo(f"  Status: SKIPPED{reason}")
     else:
         click.echo("  Status: DRY RUN" if summary.dry_run else "  Status: OK")
         if summary.files_transferred:
@@ -430,6 +432,8 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
             status = "PLANNED"
         elif s.skipped:
             status = "SKIPPED"
+            if s.skip_reason:
+                status += f" — {s.skip_reason}"
         else:
             parts = ["DRY RUN" if s.dry_run else "OK"]
             if s.files_transferred:

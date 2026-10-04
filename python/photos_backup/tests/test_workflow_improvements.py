@@ -21,6 +21,74 @@ from tests.test_verify import MONDAY, THURSDAY, VerifyTestCase, write_export_db
 
 
 class SsdSafetyTests(unittest.TestCase):
+    def test_copy_failures_preserve_completed_results_and_stop_remaining_copies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("photos", "sd"):
+                (root / name).mkdir()
+            config = root / "config.toml"
+            config.write_text(
+                f'[ssd]\nsource = "{root / "photos"}"\ndestination = "{root / "backup"}"\n'
+                f'[sd_card]\nsource = "{root / "card"}"\ndestination = "{root / "sd"}"\n'
+            )
+            success = subprocess.CompletedProcess(
+                [], 0, stdout="Number of regular files transferred: 3\n"
+            )
+            for command, dry_run in (
+                ("ssd", False),
+                ("ssd", True),
+                ("backup-all", False),
+                ("backup-all", True),
+            ):
+                for failed_copy in (0, 1):
+                    for failure, exit_code in (
+                        (subprocess.CalledProcessError(23, ["rsync"]), 1),
+                        (ActionRequired("Drive disconnected"), 3),
+                    ):
+                        with (
+                            self.subTest(
+                                command=command,
+                                dry_run=dry_run,
+                                failed_copy=failed_copy,
+                                code=exit_code,
+                            ),
+                            mock.patch(
+                                "photos_backup.ssd.backup.stream_command",
+                                side_effect=[success] * failed_copy + [failure],
+                            ) as run,
+                        ):
+                            args = ["--config", str(config), command]
+                            if dry_run:
+                                args.append("--dry-run")
+                            if command == "backup-all":
+                                args += ["--skip-apple-photos", "--skip-sd-card"]
+                            result = CliRunner().invoke(cli, args)
+                        self.assertEqual(result.exit_code, exit_code, result.output)
+                        self.assertEqual(run.call_count, failed_copy + 1)
+                        self.assertIn("SSD: All Photos", result.output)
+                        self.assertIn("SSD: SD Card", result.output)
+                        if failed_copy:
+                            if command == "ssd":
+                                expected = (
+                                    "Proposed transfers: 3"
+                                    if dry_run
+                                    else "Files transferred: 3"
+                                )
+                            else:
+                                expected = (
+                                    "3 proposed transfers" if dry_run else "3 files"
+                                )
+                            self.assertIn(expected, result.output)
+                            self.assertNotIn("Previous SSD copy", result.output)
+                        else:
+                            self.assertIn(
+                                "Previous SSD copy did not complete", result.output
+                            )
+                        if dry_run:
+                            self.assertFalse((root / "backup").exists())
+                        else:
+                            (root / "backup").rmdir()
+
     def test_missing_sd_archive_stops_before_any_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -99,6 +167,29 @@ class SsdSafetyTests(unittest.TestCase):
 
 
 class PipelinePreflightTests(ArchiveCommandTestCase):
+    def test_skip_reasons_distinguish_explicit_flags_from_missing_sections(self):
+        self.config_path.write_text("")
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                args = [
+                    "--config",
+                    str(self.config_path),
+                    "backup-all",
+                    "--skip-apple-photos",
+                ]
+                if explicit:
+                    args += ["--skip-sd-card", "--skip-ssd", "--skip-remote"]
+                result = self.runner.invoke(cli, args)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(
+                    result.output.count("Skipped by request"), 4 if explicit else 1
+                )
+                for section in ("sd_card", "ssd", "rclone"):
+                    if explicit:
+                        self.assertNotIn(f"Not configured: [{section}]", result.output)
+                    else:
+                        self.assertIn(f"Not configured: [{section}]", result.output)
+
     def test_bad_later_configuration_stops_before_export(self):
         with self.config_path.open("a") as handle:
             handle.write("\n[rclone]\nremote = 42\n")
@@ -287,6 +378,29 @@ class StatusTests(ArchiveCommandTestCase):
 
 
 class VerificationReportTests(VerifyTestCase):
+    def test_pending_cleanup_is_action_required_unless_integrity_also_fails(self):
+        self.save_state(pending_cleanup_run_id="run-7")
+        before = self.paths.state_file.read_bytes()
+        for damaged in (False, True):
+            with self.subTest(damaged=damaged):
+                if damaged:
+                    self.exported.unlink()
+                destination = self.root / f"cleanup-{damaged}.json"
+                result = self.invoke_verify(destination)
+                self.assertEqual(result.exit_code, 1 if damaged else 3, result.output)
+                self.assertIn("approve-cleanup run-7", result.output)
+                document = json.loads(destination.read_text())
+                self.assertFalse(document["passed"])
+                failed = [
+                    check["name"] for check in document["checks"] if not check["passed"]
+                ]
+                self.assertIn("pending cleanup", failed)
+                if damaged:
+                    self.assertIn("missing assets", failed)
+                else:
+                    self.assertEqual(failed, ["pending cleanup"])
+                self.assertEqual(self.paths.state_file.read_bytes(), before)
+
     def invoke_verify(self, destination):
         config = self.root / "config.toml"
         config.write_text(

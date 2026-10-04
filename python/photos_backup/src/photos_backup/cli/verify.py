@@ -4,9 +4,10 @@ from pathlib import Path
 
 import click
 
-from photos_backup.apple_photos.verify import verify_archive
+from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from
+from photos_backup.errors import ActionRequired
 from photos_backup.summary import print_verification_report
 
 
@@ -52,5 +53,7 @@ def verify(ctx: click.Context, report_path: Path | None) -> None:
             ) from error
         click.echo(f"Verification report: {report_path}")
     if not report.passed:
+        if all(check.name == PENDING_CLEANUP for check in report.failed):
+            raise ActionRequired(report.failed[0].detail)
         failed = ", ".join(check.name for check in report.failed)
         raise click.ClickException(f"Archive check(s) failed: {failed}")
