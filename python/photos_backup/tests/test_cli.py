@@ -36,6 +36,7 @@ COMMANDS = (
     "recent",
     "sd-card",
     "ssd",
+    "status",
     "verify",
 )
 

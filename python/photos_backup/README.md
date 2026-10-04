@@ -44,6 +44,7 @@ stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 |---------|-------------|
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
+| `photos-backup status` | Show recorded export dates, writer, pending cleanup, and the next export mode |
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
 | `photos-backup approve-cleanup RUN_ID` | Delete the archive files a pending cleanup run listed, after revalidating them |
@@ -100,6 +101,16 @@ unknown key) fail with an error naming the file, section, and key.
 Only the sections a command needs are read, so an Apple Photos export works on a
 machine that has no SD card, SSD, or rclone configuration. `backup-all` and `ssd`
 report a workflow whose section is absent as skipped instead of failing.
+Before `backup-all` starts any export or transfer, it validates every enabled
+section and any configuration it depends on. Invalid configuration exits 2
+immediately. Skipped sections are not loaded unless another enabled step needs
+them (for example, remote backup's default source uses `ssd.destination`).
+
+SSD copies check configured sources before creating the destination. A missing
+source requires attention (exit 3), including a configured SD-card backup
+directory. For SSD source and destination paths under `/Volumes/<drive>`, the
+drive must be mounted, even during previews; an absent mount is never created.
+Ordinary local paths remain supported without adding configuration keys.
 
 ### Archive layout and safety
 
@@ -156,6 +167,18 @@ A `bootstrap --dry-run` validates the archive and prints the full export plan,
 but does not invoke osxphotos or scan the Photos library for coverage. Coverage
 is checked after the real export. It writes nothing and never initializes.
 
+### Checking recorded status
+
+`photos-backup status` shows the archive writer, initialization and export
+timestamps, latest report, last completed mirror, pending cleanup, and the next
+export mode with its cadence reason. It reads state without scanning exported
+files, opening the Photos library, taking over ownership, or writing anything.
+An uninitialized archive suggests `photos-backup bootstrap`.
+
+Status exits 0 when state can be read, even if bootstrap or cleanup is pending;
+it is an informational view, not a health check. Use `verify` to check the files.
+The archive must still be available and its read lock obtainable.
+
 ### Verifying an archive
 
 `photos-backup verify` reads the archive and reports one `PASS`/`FAIL` line per
@@ -174,6 +197,19 @@ otherwise, and it writes nothing at all: no directory, no state, no lock file.
 Every read that can fail is caught and reported as a failed check, so one corrupt
 file never hides the state of everything else. Another Mac owning the archive is
 a pass that names both hostnames, since that is normal for a shared archive.
+
+To save the full findings, including every missing, changed, or out-of-archive
+file path rather than just the terminal's three-path sample:
+
+```sh
+photos-backup verify --report ~/Desktop/photos-verification.json
+```
+
+The JSON contains `version`, `archive`, `passed`, and a `checks` array; each check
+has `name`, `passed`, `detail`, and `paths`. It is saved even when verification
+fails, and verification keeps its usual exit code. Choose a new file outside the
+archive in an existing directory: reports never overwrite existing files or
+modify archive contents. A report write failure exits 1.
 
 ### Daily export
 
@@ -232,8 +268,12 @@ Real exports print their CSV report path, including when the export fails.
 SSD, SD-card, and remote transfers display progress while they run. Their
 `--dry-run` options invoke rsync/rclone in preview mode and create no destination
 directories. Paths and exclude files may contain spaces or quotes. A failed
-standalone `remote` command exits 1; `backup-all` exits 3 for a blocked Apple
-Photos takeover unless another step fails, in which case it exits 1.
+standalone `remote` command exits 1. Transfer preview summaries say `DRY RUN`
+and label counts as proposed transfers; Apple Photos uses `PLANNED` because
+its exporter is not invoked. A successful pipeline preview ends with
+`PREVIEW COMPLETE`. `backup-all` exits 3 for action-required steps, such as a
+blocked Apple Photos takeover or unavailable SSD source, unless another step
+fails, in which case it exits 1.
 
 ### Back up recent photos without waiting for bootstrap
 

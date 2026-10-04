@@ -10,7 +10,6 @@ from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
-from photos_backup.cli.ssd import load_optional_sd_card_config
 from photos_backup.config import (
     MissingSection,
     load_rclone_config,
@@ -56,14 +55,25 @@ def backup_all(
     # A --volume override re-points the Apple Photos step only; the SSD and
     # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
+    # Resolve enabled configurations and their dependencies before any effects.
+    config = None if skip_apple_photos else apple_photos_config_from(ctx)
+    ssd_config = _load_optional(skip_ssd, lambda: load_ssd_config(config_path))
+    sd_config = _load_optional(
+        skip_sd_card and ssd_config is None, lambda: load_sd_card_config(config_path)
+    )
+    remote_config = _load_optional(skip_remote, lambda: load_rclone_config(config_path))
+    remote_source = (
+        resolve_rclone_source(remote_config, config_path)
+        if remote_config is not None
+        else None
+    )
     summaries: list[BackupSummary] = []
-    action_required: str | None = None
 
     if skip_apple_photos:
         summaries.append(BackupSummary(step_name="Apple Photos", skipped=True))
     else:
         try:
-            config = apple_photos_config_from(ctx)
+            assert config is not None
             with open_archive(config, dry_run=dry_run) as archive:
                 takeover = ensure_writer(config, archive)
                 if takeover.status is not WriterStatus.UNCHANGED:
@@ -78,41 +88,41 @@ def backup_all(
                 print_export_result(result, dry_run=dry_run)
                 summaries.append(result.summary())
         except ActionRequired as error:
-            action_required = str(error)
-            summaries.append(BackupSummary(step_name="Apple Photos", error=str(error)))
+            summaries.append(
+                BackupSummary(
+                    step_name="Apple Photos", error=str(error), action_required=True
+                )
+            )
         except Exception as error:
             summaries.append(BackupSummary(step_name="Apple Photos", error=str(error)))
 
     summaries.extend(
         _optional_step(
             "SD Card",
-            skip_sd_card,
-            lambda: load_sd_card_config(config_path),
+            None if skip_sd_card else sd_config,
             lambda config: [SdCardBackup(config=config, dry_run=dry_run).backup()],
         )
     )
     summaries.extend(
         _optional_step(
             "SSD",
-            skip_ssd,
-            lambda: load_ssd_config(config_path),
+            ssd_config,
             lambda config: SsdBackup(
                 config=config,
                 delete_at_destination=delete,
                 dry_run=dry_run,
-                sd_card=load_optional_sd_card_config(config_path),
+                sd_card=sd_config,
             ).backup(),
         )
     )
     summaries.extend(
         _optional_step(
             "Remote",
-            skip_remote,
-            lambda: load_rclone_config(config_path),
+            remote_config,
             lambda config: [
                 RemoteBackup(
                     config=config,
-                    source=resolve_rclone_source(config, config_path),
+                    source=remote_source,
                     dry_run=dry_run,
                 ).backup()
             ],
@@ -123,29 +133,41 @@ def backup_all(
     failed = [
         summary.step_name
         for summary in summaries
-        if summary.error
-        and not (action_required and summary.step_name == "Apple Photos")
+        if summary.error and not summary.action_required
     ]
     if failed:
         raise click.ClickException(f"Step(s) failed: {', '.join(failed)}")
-    if action_required:
-        raise ActionRequired(action_required)
+    actions = [
+        summary.error
+        for summary in summaries
+        if summary.action_required and summary.error
+    ]
+    if actions:
+        raise ActionRequired("; ".join(actions))
+
+
+def _load_optional(skip: bool, load: Callable[[], T]) -> T | None:
+    if skip:
+        return None
+    try:
+        return load()
+    except MissingSection:
+        return None
 
 
 def _optional_step(
     step_name: str,
-    skip: bool,
-    load: Callable[[], T],
+    config: T | None,
     run: Callable[[T], list[BackupSummary]],
 ) -> list[BackupSummary]:
-    """Run a workflow, skipping it when its configuration section is absent."""
-    if skip:
-        return [BackupSummary(step_name=step_name, skipped=True)]
-    try:
-        config = load()
-    except MissingSection:
+    """Run a prevalidated workflow, or report its absence as skipped."""
+    if config is None:
         return [BackupSummary(step_name=step_name, skipped=True)]
     try:
         return run(config)
+    except ActionRequired as error:
+        return [
+            BackupSummary(step_name=step_name, error=str(error), action_required=True)
+        ]
     except Exception as error:
         return [BackupSummary(step_name=step_name, error=str(error))]

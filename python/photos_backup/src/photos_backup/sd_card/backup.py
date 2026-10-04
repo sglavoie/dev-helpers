@@ -39,4 +39,5 @@ class Backup:
             files_transferred=stats["files_transferred"],
             total_size=stats["total_size"],
             elapsed_seconds=elapsed,
+            dry_run=self.dry_run,
         )

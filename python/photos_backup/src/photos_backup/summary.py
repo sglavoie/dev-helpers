@@ -23,9 +23,10 @@ if TYPE_CHECKING:
         LocalExportCleanup,
         LocalExportPlan,
     )
-    from photos_backup.apple_photos.plan import ExportResult
+    from photos_backup.apple_photos.plan import ExportPlan, ExportResult
     from photos_backup.apple_photos.takeover import TakeoverCheck
     from photos_backup.apple_photos.verify import VerificationReport
+    from photos_backup.archive import Archive, ArchiveState
 
 
 _SCALE = 1024
@@ -40,6 +41,8 @@ class BackupSummary:
     skipped: bool = False
     planned: bool = False
     error: str | None = None
+    dry_run: bool = False
+    action_required: bool = False
 
 
 def parse_rsync_stats(output: str) -> dict[str, int | str]:
@@ -151,18 +154,21 @@ def print_summary(summary: BackupSummary) -> None:
     """Print a formatted summary for a single backup step."""
     click.echo()
     click.echo(f"--- {summary.step_name} ---")
-    if summary.planned:
+    if summary.error:
+        status = "ACTION REQUIRED" if summary.action_required else "ERROR"
+        click.echo(f"  Status: {status} — {summary.error}")
+    elif summary.planned:
         click.echo("  Status: PLANNED — command was not invoked")
     elif summary.skipped:
         click.echo("  Status: SKIPPED")
-    elif summary.error:
-        click.echo(f"  Status: ERROR — {summary.error}")
     else:
-        click.echo("  Status: OK")
+        click.echo("  Status: DRY RUN" if summary.dry_run else "  Status: OK")
         if summary.files_transferred:
-            click.echo(f"  Files transferred: {summary.files_transferred}")
+            label = "Proposed transfers" if summary.dry_run else "Files transferred"
+            click.echo(f"  {label}: {summary.files_transferred}")
         if summary.total_size:
-            click.echo(f"  Total size: {summary.total_size}")
+            label = "Proposed size" if summary.dry_run else "Total size"
+            click.echo(f"  {label}: {summary.total_size}")
     click.echo(f"  Elapsed: {summary.elapsed_seconds:.1f}s")
 
 
@@ -332,6 +338,34 @@ def _print_counts(*labelled: tuple[str, tuple]) -> None:
             click.echo(f"  {label}: {len(items)}")
 
 
+def print_archive_status(
+    archive: Archive, state: ArchiveState, plan: ExportPlan
+) -> None:
+    """Display durable state only; this is not a verification of archive files."""
+    click.echo(f"Archive: {archive.paths.archive}")
+    click.echo("Recorded backup status (files have not been verified)")
+    click.echo(f"  Writer: {state.writer_hostname or '(unclaimed)'}")
+    for label, value in (
+        ("Initialized", state.initialized_at),
+        ("Last successful export", state.last_successful_export_at),
+        ("Last full export", state.last_full_export_at),
+        ("Last completed mirror", state.last_mirror_completed_at),
+    ):
+        click.echo(f"  {label}: {value.isoformat() if value else '(never)'}")
+    click.echo(f"  Latest report: {state.last_report_path or '(none)'}")
+    click.echo(f"  Pending cleanup: {state.pending_cleanup_run_id or '(none)'}")
+    if state.pending_cleanup_run_id:
+        click.echo(
+            f"  Review: {archive.paths.cleanup_manifest(state.pending_cleanup_run_id)}"
+        )
+        click.echo(
+            f"  Approve with: photos-backup approve-cleanup {state.pending_cleanup_run_id}"
+        )
+    if not state.initialized:
+        click.echo("  Next step: photos-backup bootstrap")
+    click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
+
+
 def print_verification_report(report: VerificationReport) -> None:
     """Print one pass/fail line per check, then the overall verdict."""
     click.echo()
@@ -355,10 +389,14 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
 
     total_elapsed = 0.0
     has_errors = False
+    needs_action = False
 
     for s in summaries:
         total_elapsed += s.elapsed_seconds
-        if s.error:
+        if s.error and s.action_required:
+            needs_action = True
+            status = f"ACTION REQUIRED: {s.error}"
+        elif s.error:
             has_errors = True
             status = f"ERROR: {s.error}"
         elif s.planned:
@@ -366,9 +404,10 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
         elif s.skipped:
             status = "SKIPPED"
         else:
-            parts = ["OK"]
+            parts = ["DRY RUN" if s.dry_run else "OK"]
             if s.files_transferred:
-                parts.append(f"{s.files_transferred} files")
+                label = "proposed transfers" if s.dry_run else "files"
+                parts.append(f"{s.files_transferred} {label}")
             if s.total_size:
                 parts.append(s.total_size)
             status = " | ".join(parts)
@@ -377,5 +416,9 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
 
     click.echo("-" * 60)
     overall = "COMPLETED WITH ERRORS" if has_errors else "ALL OK"
+    if not has_errors and needs_action:
+        overall = "ACTION REQUIRED"
+    elif not has_errors and any(s.dry_run or s.planned for s in summaries):
+        overall = "PREVIEW COMPLETE"
     click.echo(f"  {'Total':<25} {overall} ({total_elapsed:.1f}s)")
     click.echo("=" * 60)

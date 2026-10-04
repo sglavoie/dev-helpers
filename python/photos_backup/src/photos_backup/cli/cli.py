@@ -13,6 +13,7 @@ from photos_backup.cli.recent import recent
 from photos_backup.cli.sd_card import sd_card
 from photos_backup.cli.context import CliContext
 from photos_backup.cli.ssd import ssd
+from photos_backup.cli.status import status
 from photos_backup.cli.verify import verify
 from photos_backup.config import DEFAULT_CONFIG_PATH, normalize_volume_override
 
@@ -56,6 +57,7 @@ cli.add_command(remote)
 cli.add_command(recent)
 cli.add_command(sd_card)
 cli.add_command(ssd)
+cli.add_command(status)
 cli.add_command(verify)
 
 

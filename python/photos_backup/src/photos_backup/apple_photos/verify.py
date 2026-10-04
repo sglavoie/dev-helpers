@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from photos_backup.apple_photos.adapter import (
@@ -37,6 +38,7 @@ class Check:
     name: str
     passed: bool
     detail: str
+    paths: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,7 @@ def _check_export_database(
             f"{len(outside)} record(s) point outside the archive "
             f"({_sample(outside)}), so this database was written for another "
             "destination",
+            paths=tuple(record.path for record in outside),
         )
 
     return Check(
@@ -161,6 +164,7 @@ def _check_signatures(files: tuple[ExportedFile, ...], error: str | None) -> Che
             False,
             f"{len(mismatched)} of {len(comparable)} exported file(s) no longer "
             f"match their recorded size and modification time ({_sample(mismatched)})",
+            paths=tuple(record.path for record in mismatched),
         )
     return Check(
         SIGNATURES,
@@ -181,6 +185,7 @@ def _check_missing_assets(files: tuple[ExportedFile, ...], error: str | None) ->
             False,
             f"{len(absent)} of {len(files)} exported file(s) are gone from the "
             f"archive ({_sample(absent)})",
+            paths=tuple(record.path for record in absent),
         )
     return Check(
         MISSING_ASSETS, True, f"all {len(files)} exported file(s) are still present"
