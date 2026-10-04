@@ -170,6 +170,8 @@ def print_export_result(result: ExportResult, *, dry_run: bool = False) -> None:
     """Print the export plan, its reports, and the resulting step summary."""
     prefix = "Would export" if dry_run else "Exported"
     click.echo(f"{prefix} ({result.plan.mode.value}): {result.plan.reason}")
+    if result.report_path is not None and not dry_run:
+        click.echo(f"Export report: {result.report_path}")
     if result.missing_count:
         click.echo(f"  Missing export files: {result.missing_count}")
     if result.performed:

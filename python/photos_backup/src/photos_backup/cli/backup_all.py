@@ -6,6 +6,8 @@ from typing import TypeVar
 import click
 
 from photos_backup.apple_photos.export import ApplePhotosExport
+from photos_backup.apple_photos.identity import WriterStatus
+from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.cli.ssd import load_optional_sd_card_config
@@ -17,9 +19,15 @@ from photos_backup.config import (
     resolve_rclone_source,
 )
 from photos_backup.remote.backup import Backup as RemoteBackup
+from photos_backup.errors import ActionRequired
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
-from photos_backup.summary import BackupSummary, print_pipeline_summary
+from photos_backup.summary import (
+    BackupSummary,
+    print_export_result,
+    print_pipeline_summary,
+    print_takeover_check,
+)
 
 T = TypeVar("T")
 
@@ -49,6 +57,7 @@ def backup_all(
     # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
     summaries: list[BackupSummary] = []
+    action_required: str | None = None
 
     if skip_apple_photos:
         summaries.append(BackupSummary(step_name="Apple Photos", skipped=True))
@@ -56,17 +65,21 @@ def backup_all(
         try:
             config = apple_photos_config_from(ctx)
             with open_archive(config, dry_run=dry_run) as archive:
-                summaries.append(
-                    ApplePhotosExport(
-                        config=config,
-                        archive=archive,
-                        verbose=dry_run,
-                        limit=config.limit_export if dry_run else 0,
-                        plan_only=dry_run,
-                    )
-                    .export()
-                    .summary()
-                )
+                takeover = ensure_writer(config, archive)
+                if takeover.status is not WriterStatus.UNCHANGED:
+                    print_takeover_check(takeover, dry_run=dry_run)
+                result = ApplePhotosExport(
+                    config=config,
+                    archive=archive,
+                    verbose=dry_run,
+                    limit=config.limit_export if dry_run else 0,
+                    plan_only=dry_run,
+                ).export()
+                print_export_result(result, dry_run=dry_run)
+                summaries.append(result.summary())
+        except ActionRequired as error:
+            action_required = str(error)
+            summaries.append(BackupSummary(step_name="Apple Photos", error=str(error)))
         except Exception as error:
             summaries.append(BackupSummary(step_name="Apple Photos", error=str(error)))
 
@@ -107,9 +120,16 @@ def backup_all(
     )
 
     print_pipeline_summary(summaries)
-    failed = [summary.step_name for summary in summaries if summary.error]
+    failed = [
+        summary.step_name
+        for summary in summaries
+        if summary.error
+        and not (action_required and summary.step_name == "Apple Photos")
+    ]
     if failed:
         raise click.ClickException(f"Step(s) failed: {', '.join(failed)}")
+    if action_required:
+        raise ActionRequired(action_required)
 
 
 def _optional_step(

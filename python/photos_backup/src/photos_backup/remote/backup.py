@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary
 
 if TYPE_CHECKING:
@@ -43,14 +43,8 @@ class Backup:
             cmd.append("--dry-run")
 
         start = time.monotonic()
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = stream_command(cmd)
         elapsed = time.monotonic() - start
-
-        # Print rclone output
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
 
         if result.returncode != 0:
             return BackupSummary(
@@ -59,7 +53,7 @@ class Backup:
                 error=f"rclone exited with code {result.returncode}",
             )
 
-        stats = _parse_rclone_stats(result.stderr or result.stdout)
+        stats = _parse_rclone_stats(result.stdout)
         return BackupSummary(
             step_name="Remote",
             files_transferred=stats["files_transferred"],
@@ -71,12 +65,12 @@ class Backup:
 def _parse_rclone_stats(output: str) -> dict[str, int | str]:
     result: dict[str, int | str] = {"files_transferred": 0, "total_size": ""}
 
-    files_match = re.search(r"Transferred:\s*(\d+)\s*/\s*\d+", output)
-    if files_match:
-        result["files_transferred"] = int(files_match.group(1))
+    files_matches = re.findall(r"(?:Transferred:\s*|xfr#)(\d+)\s*/\s*\d+", output)
+    if files_matches:
+        result["files_transferred"] = int(files_matches[-1])
 
-    size_match = re.search(r"Transferred:\s*([\d.]+ \S+)\s*/", output)
-    if size_match:
-        result["total_size"] = size_match.group(1)
+    size_matches = re.findall(r"Transferred:\s*([\d.]+ \S+)\s*/", output)
+    if size_matches:
+        result["total_size"] = size_matches[-1]
 
     return result

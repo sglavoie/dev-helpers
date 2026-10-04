@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import shlex
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,6 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 from photos_backup.exclude import exclude_from_arg
+from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
@@ -37,21 +36,18 @@ class Backup:
             click.echo(f"'{src_path}' does not exist: skipping")
             return BackupSummary(step_name=step_name, skipped=True)
 
-        dry_run = "--dry-run" if self.dry_run else ""
-        delete = "--delete" if self.delete_at_destination else ""
-        cmd = f"""rsync -avh --progress --stats {delete} \
-            {dry_run} \
-            {exclude} \
-            {src_path} {self.destination}"""
+        cmd = ["rsync", "-avh", "--progress", "--stats"]
+        if self.delete_at_destination:
+            cmd.append("--delete")
+        if self.dry_run:
+            cmd.append("--dry-run")
+        if exclude:
+            cmd.append(exclude)
+        cmd.extend(["--", str(src_path), str(self.destination)])
 
         start = time.monotonic()
-        result = subprocess.run(
-            shlex.split(cmd), check=True, capture_output=True, text=True
-        )
+        result = stream_command(cmd, check=True)
         elapsed = time.monotonic() - start
-
-        if result.stdout:
-            print(result.stdout)
 
         stats = parse_rsync_stats(result.stdout)
         return BackupSummary(
@@ -62,7 +58,8 @@ class Backup:
         )
 
     def backup(self) -> list[BackupSummary]:
-        self.destination.mkdir(parents=True, exist_ok=True)
+        if not self.dry_run:
+            self.destination.mkdir(parents=True, exist_ok=True)
 
         summaries = [
             self._run_rsync(

@@ -18,3 +18,5 @@ def remote(ctx: click.Context, dry_run: bool) -> None:
         dry_run=dry_run,
     ).backup()
     print_summary(summary)
+    if summary.error:
+        raise click.ClickException(summary.error)

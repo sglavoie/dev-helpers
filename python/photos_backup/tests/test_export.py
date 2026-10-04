@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+import click
+
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.plan import (
     DIRECTORY_TEMPLATE,
@@ -473,6 +475,13 @@ class DirectExportTests(ExportTestCase):
 
 
 class DryRunExportTests(ExportTestCase):
+    def test_archive_managed_overrides_are_rejected_by_export_service(self) -> None:
+        runner = FakeRunner()
+        with self.assertRaises(click.UsageError):
+            self.run_export(runner, dry_run=True, extra_arguments={"cleanup": True})
+        self.assertIsNone(runner.arguments)
+        self.assertFalse(self.archive.exists())
+
     def test_a_planning_only_dry_run_never_invokes_osxphotos(self) -> None:
         runner = FakeRunner([row("a.jpg", new=1)])
 

@@ -214,10 +214,26 @@ yet, so the evidence always belongs to the run being judged: a second export on
 the same host and day that writes no report fails instead of inheriting the
 first export's report.
 
-Operational dry runs (`bootstrap`, `daily`, and `backup-all`) are planning-only:
+Apple Photos dry runs (`bootstrap`, `daily`, `recent`, `apple-photos`, and the
+Apple Photos step of `backup-all`) are planning-only:
 they do not invoke osxphotos, write reports, or touch `export.db` or `state.json`.
 The manual `apple-photos --testing` command is the deliberate exception: it runs
 a limited osxphotos simulation for exporter development without writing assets.
+Adding `--dry-run` to `--testing` selects the planning-only preview instead.
+
+Every export entry point checks the archive writer before exporting, including
+manual `apple-photos` and `backup-all` runs. Manual extra flags cannot override
+the managed library, destination, export database, report, dry-run mode, or
+cleanup behavior, nor load an osxphotos configuration that overrides them.
+Use this tool's TOML configuration, `--volume`, and cleanup commands for those
+changes. Other extra flags still accept `--flag value` or `--flag=value`.
+Real exports print their CSV report path, including when the export fails.
+
+SSD, SD-card, and remote transfers display progress while they run. Their
+`--dry-run` options invoke rsync/rclone in preview mode and create no destination
+directories. Paths and exclude files may contain spaces or quotes. A failed
+standalone `remote` command exits 1; `backup-all` exits 3 for a blocked Apple
+Photos takeover unless another step fails, in which case it exits 1.
 
 ### Back up recent photos without waiting for bootstrap
 

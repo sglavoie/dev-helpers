@@ -103,6 +103,10 @@ class ManualExportTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
+                "photos_backup.cli.apple_photos.ensure_writer",
+                return_value=UNCHANGED_WRITER,
+            ),
+            mock.patch(
                 "photos_backup.cli.apple_photos.ApplePhotosExport",
                 return_value=mock.Mock(export=lambda: result),
             ),

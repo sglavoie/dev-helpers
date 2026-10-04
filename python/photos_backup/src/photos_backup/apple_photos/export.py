@@ -8,6 +8,8 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import click
+
 from photos_backup.apple_photos.adapter import ExportRunner, run_osxphotos_export
 from photos_backup.apple_photos.late_additions import (
     MetadataReader,
@@ -29,6 +31,40 @@ if TYPE_CHECKING:
     from photos_backup.config import ApplePhotosConfig
 
 DRY_RUN_REPORT_NAME = "photos_export.csv"
+
+# These options would bypass the archive's path, identity, or evidence checks.
+ARCHIVE_MANAGED_ARGUMENTS = frozenset(
+    {
+        "dest",
+        "db",
+        "cli_db",
+        "alt_db",
+        "exportdb",
+        "no_exportdb",
+        "ignore_exportdb",
+        "ramdb",
+        "dry_run",
+        "cleanup",
+        "cleanup_command",
+        "cleanup_command_error",
+        "report",
+        "append",
+        "load_config",
+        "save_config",
+        "config_only",
+    }
+)
+
+
+def validate_export_overrides(arguments: dict[str, Any]) -> None:
+    blocked = ARCHIVE_MANAGED_ARGUMENTS.intersection(arguments)
+    if blocked:
+        flags = ", ".join(f"--{name.replace('_', '-')}" for name in sorted(blocked))
+        raise click.UsageError(
+            f"Archive-managed option(s) cannot be forwarded: {flags}. "
+            "Use photos-backup configuration, --volume, --dry-run, and the "
+            "cleanup commands instead."
+        )
 
 
 class ApplePhotosExport:
@@ -55,6 +91,7 @@ class ApplePhotosExport:
         self.plan = plan
         self.runner = runner or run_osxphotos_export
         self.extra_arguments = dict(extra_arguments or {})
+        validate_export_overrides(self.extra_arguments)
         self.metadata_reader = metadata_reader or read_spotlight_metadata
         self.plan_only = plan_only
         self.progress = progress

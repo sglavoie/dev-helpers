@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import shlex
-import subprocess
 import time
 from typing import TYPE_CHECKING
 
 from photos_backup.exclude import exclude_from_arg
+from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
@@ -20,22 +19,19 @@ class Backup:
         self.exclude_file = config.exclude_file
 
     def backup(self) -> BackupSummary:
-        self.dst_path.mkdir(parents=True, exist_ok=True)
-        dry_run = "--dry-run" if self.dry_run else ""
+        if not self.dry_run:
+            self.dst_path.mkdir(parents=True, exist_ok=True)
         exclude = exclude_from_arg(self.exclude_file)
-        cmd = f"""rsync -a --progress --stats \
-            {dry_run} \
-            {exclude} \
-            {self.src_path} {self.dst_path}"""
+        cmd = ["rsync", "-a", "--progress", "--stats"]
+        if self.dry_run:
+            cmd.append("--dry-run")
+        if exclude:
+            cmd.append(exclude)
+        cmd.extend(["--", str(self.src_path), str(self.dst_path)])
 
         start = time.monotonic()
-        result = subprocess.run(
-            shlex.split(cmd), check=True, capture_output=True, text=True
-        )
+        result = stream_command(cmd, check=True)
         elapsed = time.monotonic() - start
-
-        if result.stdout:
-            print(result.stdout)
 
         stats = parse_rsync_stats(result.stdout)
         return BackupSummary(
