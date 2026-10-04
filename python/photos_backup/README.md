@@ -48,12 +48,14 @@ stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
 | `photos-backup approve-cleanup RUN_ID` | Delete the archive files a pending cleanup run listed, after revalidating them |
+| `photos-backup approve-cleanup RUN_ID --dry-run` | Revalidate pending cleanup and list proposed deletions and files to keep |
 | `photos-backup approve-cleanup RUN_ID --discard` | Reject a pending cleanup run instead; nothing is deleted |
 | `photos-backup cleanup-local-export` | Delete the legacy local export once the archive proves it is redundant |
 | `photos-backup apple-photos` | Export manually, forwarding extra flags to osxphotos |
 | `photos-backup sd-card` | Copy RAW files from SD card to primary backup |
 | `photos-backup ssd` | Sync primary backup to secondary on-site backup (SSD) |
-| `photos-backup remote` | Sync backup to cloud via rclone |
+| `photos-backup remote` | Copy backup to cloud via rclone; preserve remote-only files |
+| `photos-backup remote --delete` | Mirror backup to cloud, including deletions |
 | `photos-backup backup-all` | Run the Apple Photos, SD card, SSD, and remote steps in one pass |
 
 ### Exit codes
@@ -215,6 +217,13 @@ Every read that can fail is caught and reported as a failed check, so one corrup
 file never hides the state of everything else. Another Mac owning the archive is
 a pass that names both hostnames, since that is normal for a shared archive.
 
+Signature output counts matched files, changed files, records missing a size or
+modification time, and signed records unavailable for comparison. A missing
+signature is reported as incomplete coverage, not a mismatch; the signatures
+check can still pass for the records it could compare. Missing or unreadable
+files fail the separate `missing assets` check. Verification checks size and
+modification time only; it does not checksum file contents.
+
 To save the full findings, including every missing, changed, or out-of-archive
 file path rather than just the terminal's three-path sample:
 
@@ -297,6 +306,16 @@ and `backup-all`. The failed copy is named, and any remaining SSD copy is
 reported as skipped because the previous copy did not complete. SSD source
 and destination checks still run before any copying starts.
 
+If an SSD step fails or requires action, `backup-all` skips remote backup when
+its source overlaps the SSD destination (including symlink aliases, subdirectories,
+and parent directories). An independent remote source can still run. Explicitly
+using `--skip-ssd` allows uploading the existing SSD backup. These rules also
+apply to dry runs; the SSD error still determines the pipeline exit code.
+
+Transfer summaries explicitly show zero files or zero proposed transfers when
+reported by the transfer tool. If statistics are unavailable, the summary says
+so instead of implying that no files needed copying.
+
 ### Back up recent photos without waiting for bootstrap
 
 ```sh
@@ -357,6 +376,19 @@ library backup is wanted. Stop an existing bootstrap with Ctrl+C and wait for
 it to exit before starting `recent`; both use the same archive lock.
 
 ### Mirroring deletions
+
+Before approving a pending run, preview its current effect:
+
+```sh
+photos-backup approve-cleanup RUN_ID --dry-run
+```
+
+The preview applies the same owner, manifest, and library revalidation checks as
+approval. It lists the paths and total bytes that would be deleted, plus changed,
+restored, or unreviewed candidates that would be kept. It creates no lock file,
+changes no state, and leaves the cleanup pending. Approval revalidates again,
+so a preview does not authorize later changes. `--dry-run` cannot be combined
+with `--discard`.
 
 Once an export is done, `daily` reconciles the archive against the library so a
 photo deleted in Photos eventually leaves the archive too. Nothing is ever
@@ -644,8 +676,19 @@ a list column.
 
 ## Remote backup (rclone)
 
-The `remote` command syncs your backup to a cloud storage provider using
+The `remote` command copies your backup to a cloud storage provider using
 [rclone](https://rclone.org/).
+
+**Behavior change:** remote backup now uses `rclone copy` by default, preserving
+files that exist only at the destination. To retain the previous deletion-mirroring
+behavior, use `photos-backup remote --delete` (which uses `rclone sync`). Review
+the effect first with `photos-backup remote --delete --dry-run`.
+
+For the full pipeline, `backup-all --delete` continues to enable SSD deletions
+only. Use `backup-all --delete-remote` to enable cloud deletions, or pass both
+flags to mirror deletions at both destinations. Neither flag changes Apple Photos
+archive cleanup approval rules. Update any scripts that relied on automatic remote
+deletions to pass the appropriate flag.
 
 1. Install rclone: `brew install rclone` or see https://rclone.org/install/
 2. Configure a remote: `rclone config`

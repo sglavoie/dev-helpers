@@ -97,6 +97,17 @@ class CleanupManifest:
 
 
 @dataclass(frozen=True)
+class CleanupPreview:
+    """Revalidated candidates, shared by preview and actual approval."""
+
+    run_id: str
+    manifest: CleanupManifest
+    deletable: tuple[CandidateFile, ...]
+    stale: tuple[Path, ...]
+    unreviewed: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
 class CleanupApproval:
     """What approving one pending run deleted, and what it deliberately did not."""
 
@@ -206,6 +217,33 @@ def approve_cleanup(
     modification time a person reviewed, and every candidate that is not in it
     is left for a later run to propose.
     """
+    if archive.dry_run:
+        raise ArchiveUnsafe("Cannot approve cleanup through a read-only archive")
+    preview = preview_cleanup(config, archive, run_id, probes=probes)
+    deleted, now = _delete(archive, preview.deletable)
+    changes: dict[str, Any] = {"pending_cleanup_run_id": None}
+    if not preview.unreviewed:
+        changes["last_mirror_completed_at"] = now
+    archive.state_store.update(**changes)
+
+    return CleanupApproval(
+        run_id=run_id,
+        manifest=preview.manifest,
+        deleted=deleted,
+        stale=preview.stale,
+        unreviewed=preview.unreviewed,
+        completed_at=now,
+    )
+
+
+def preview_cleanup(
+    config: ApplePhotosConfig,
+    archive: Archive,
+    run_id: str,
+    *,
+    probes: PhotosProbes | None = None,
+) -> CleanupPreview:
+    """Revalidate an approval without deleting files or advancing state."""
     state = archive.state_store.load()
     manifest = _require_pending(archive, state, run_id, require_owner=True)
     reconciliation, _ = _reconcile(config, archive, probes)
@@ -220,16 +258,10 @@ def approve_cleanup(
     )
     deletable_paths = {item.path for item in deletable}
 
-    deleted, now = _delete(archive, deletable)
-    changes: dict[str, Any] = {"pending_cleanup_run_id": None}
-    if not unreviewed:
-        changes["last_mirror_completed_at"] = now
-    archive.state_store.update(**changes)
-
-    return CleanupApproval(
+    return CleanupPreview(
         run_id=run_id,
         manifest=manifest,
-        deleted=deleted,
+        deletable=deletable,
         stale=tuple(
             sorted(
                 item.path
@@ -238,7 +270,6 @@ def approve_cleanup(
             )
         ),
         unreviewed=unreviewed,
-        completed_at=now,
     )
 
 

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from photos_backup.apple_photos.cleanup import (
         CleanupApproval,
         CleanupDiscard,
+        CleanupPreview,
         MirrorOutcome,
     )
     from photos_backup.apple_photos.local_export import (
@@ -38,7 +39,7 @@ _SECONDS_PER_MINUTE = 60
 @dataclass
 class BackupSummary:
     step_name: str
-    files_transferred: int = 0
+    files_transferred: int | None = None
     total_size: str = ""
     elapsed_seconds: float = 0.0
     skipped: bool = False
@@ -49,9 +50,9 @@ class BackupSummary:
     skip_reason: str | None = None
 
 
-def parse_rsync_stats(output: str) -> dict[str, int | str]:
+def parse_rsync_stats(output: str) -> dict[str, int | str | None]:
     """Parse rsync --stats output for file count and total size."""
-    result: dict[str, int | str] = {"files_transferred": 0, "total_size": ""}
+    result: dict[str, int | str | None] = {"files_transferred": None, "total_size": ""}
 
     files_match = re.search(r"Number of regular files transferred:\s*([\d,]+)", output)
     if files_match:
@@ -168,9 +169,11 @@ def print_summary(summary: BackupSummary) -> None:
         click.echo(f"  Status: SKIPPED{reason}")
     else:
         click.echo("  Status: DRY RUN" if summary.dry_run else "  Status: OK")
-        if summary.files_transferred:
+        if summary.files_transferred is not None:
             label = "Proposed transfers" if summary.dry_run else "Files transferred"
             click.echo(f"  {label}: {summary.files_transferred}")
+        else:
+            click.echo("  Transfer count: unavailable")
         if summary.total_size:
             label = "Proposed size" if summary.dry_run else "Total size"
             click.echo(f"  {label}: {summary.total_size}")
@@ -275,8 +278,29 @@ def print_mirror_outcome(outcome: MirrorOutcome, *, dry_run: bool = False) -> No
     if outcome.manifest_path is not None:
         click.echo(f"  Manifest: {outcome.manifest_path}")
         click.echo(
+            f"  Preview with: {suggested_command('approve-cleanup', outcome.run_id, '--dry-run')}"
+        )
+        click.echo(
             f"  Approve with: {suggested_command('approve-cleanup', outcome.run_id)}"
         )
+
+
+def print_cleanup_preview(preview: CleanupPreview) -> None:
+    """Show exactly what revalidation permits, without implying approval."""
+    total = sum(candidate.size for candidate in preview.deletable)
+    click.echo(f"Cleanup preview for run '{preview.run_id}'")
+    click.echo(f"  Would delete: {len(preview.deletable)} archive file(s)")
+    click.echo(f"  Proposed size: {human_size(total)} ({total} bytes)")
+    for candidate in preview.deletable:
+        click.echo(f"    Would delete: {candidate.path}")
+    for label, paths in (
+        ("No longer deletable, so kept", preview.stale),
+        ("Never reviewed, so kept", preview.unreviewed),
+    ):
+        click.echo(f"  {label}: {len(paths)}")
+        for path in paths:
+            click.echo(f"    Kept: {path}")
+    click.echo("Dry run: nothing was written or deleted; cleanup remains pending")
 
 
 def print_cleanup_approval(approval: CleanupApproval) -> None:
@@ -385,6 +409,9 @@ def print_archive_status(
             f"  Review: {archive.paths.cleanup_manifest(state.pending_cleanup_run_id)}"
         )
         click.echo(
+            f"  Preview with: {suggested_command('approve-cleanup', state.pending_cleanup_run_id, '--dry-run')}"
+        )
+        click.echo(
             f"  Approve with: {suggested_command('approve-cleanup', state.pending_cleanup_run_id)}"
         )
         click.echo(
@@ -436,9 +463,11 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
                 status += f" — {s.skip_reason}"
         else:
             parts = ["DRY RUN" if s.dry_run else "OK"]
-            if s.files_transferred:
+            if s.files_transferred is not None:
                 label = "proposed transfers" if s.dry_run else "files"
                 parts.append(f"{s.files_transferred} {label}")
+            else:
+                parts.append("transfer count unavailable")
             if s.total_size:
                 parts.append(s.total_size)
             status = " | ".join(parts)

@@ -17,10 +17,18 @@ if TYPE_CHECKING:
 
 
 class Backup:
-    def __init__(self, config: RcloneConfig, source: Path, dry_run: bool) -> None:
+    def __init__(
+        self,
+        config: RcloneConfig,
+        source: Path,
+        dry_run: bool,
+        *,
+        delete_at_destination: bool = False,
+    ) -> None:
         self.remote = config.remote
         self.src_path = source
         self.dry_run = dry_run
+        self.delete_at_destination = delete_at_destination
         self._check_rclone_installed()
 
     def _check_rclone_installed(self) -> None:
@@ -34,7 +42,7 @@ class Backup:
         check_copy_path(self.src_path, workflow="Remote", source=True)
         cmd = [
             "rclone",
-            "sync",
+            "sync" if self.delete_at_destination else "copy",
             str(self.src_path),
             self.remote,
             "--progress",
@@ -67,8 +75,8 @@ class Backup:
         )
 
 
-def _parse_rclone_stats(output: str) -> dict[str, int | str]:
-    result: dict[str, int | str] = {"files_transferred": 0, "total_size": ""}
+def _parse_rclone_stats(output: str) -> dict[str, int | str | None]:
+    result: dict[str, int | str | None] = {"files_transferred": None, "total_size": ""}
 
     files_matches = re.findall(r"(?:Transferred:\s*|xfr#)(\d+)\s*/\s*\d+", output)
     if files_matches:

@@ -43,6 +43,8 @@ destination = "/Volumes/Data/Pictures"
 # exclude_file = "~/.osxphotos.exclude"
 
 [rclone]
-# Remote name as configured with `rclone config`, plus the directory to sync.
+# Remote name as configured with `rclone config`, plus the directory to copy.
+# Remote-only files are preserved unless `remote --delete` or
+# `backup-all --delete-remote` is requested.
 remote = "b2:my-photos-bucket"
 source = "/Volumes/Data/Pictures"

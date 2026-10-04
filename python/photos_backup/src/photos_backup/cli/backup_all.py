@@ -34,6 +34,9 @@ T = TypeVar("T")
 @click.command(name="backup-all", help="Run the full backup pipeline.")
 @click.option("--dry-run", is_flag=True, help="Dry run for all steps.")
 @click.option(
+    "--delete-remote", is_flag=True, help="Delete remote files absent from its source."
+)
+@click.option(
     "--delete",
     is_flag=True,
     help="Delete extra files on SSD destination.",
@@ -47,6 +50,7 @@ def backup_all(
     ctx: click.Context,
     dry_run: bool,
     delete: bool,
+    delete_remote: bool,
     skip_apple_photos: bool,
     skip_sd_card: bool,
     skip_ssd: bool,
@@ -109,35 +113,63 @@ def backup_all(
             section="sd_card",
         )
     )
-    summaries.extend(
-        _optional_step(
-            "SSD",
-            ssd_config,
-            lambda config: SsdBackup(
-                config=config,
-                delete_at_destination=delete,
-                dry_run=dry_run,
-                sd_card=sd_config,
-            ).backup(),
-            skip=skip_ssd,
-            section="ssd",
-        )
+    ssd_summaries = _optional_step(
+        "SSD",
+        ssd_config,
+        lambda config: SsdBackup(
+            config=config,
+            delete_at_destination=delete,
+            dry_run=dry_run,
+            sd_card=sd_config,
+        ).backup(),
+        skip=skip_ssd,
+        section="ssd",
     )
-    summaries.extend(
-        _optional_step(
-            "Remote",
-            remote_config,
-            lambda config: [
-                RemoteBackup(
-                    config=config,
-                    source=remote_source,
-                    dry_run=dry_run,
-                ).backup()
-            ],
-            skip=skip_remote,
-            section="rclone",
+    summaries.extend(ssd_summaries)
+    remote_skip_reason = None
+    if (
+        not skip_remote
+        and remote_source is not None
+        and ssd_config is not None
+        and any(summary.error for summary in ssd_summaries)
+    ):
+        try:
+            source = remote_source.resolve()
+            destination = ssd_config.destination.resolve()
+            if source.is_relative_to(destination) or destination.is_relative_to(source):
+                remote_skip_reason = (
+                    "SSD copy did not complete; remote source overlaps its destination"
+                )
+        except (OSError, RuntimeError) as error:
+            remote_skip_reason = (
+                "SSD copy did not complete; could not check remote source independence: "
+                f"{error}"
+            )
+    if remote_skip_reason:
+        summaries.append(
+            BackupSummary(
+                step_name="Remote",
+                skipped=True,
+                skip_reason=remote_skip_reason,
+            )
         )
-    )
+    else:
+        summaries.extend(
+            _optional_step(
+                "Remote",
+                remote_config,
+                lambda config: [
+                    RemoteBackup(
+                        config=config,
+                        source=remote_source,
+                        dry_run=dry_run,
+                        delete_at_destination=delete_remote,
+                    ).backup()
+                ],
+                skip=skip_remote,
+                section="rclone",
+            )
+        )
 
     print_pipeline_summary(summaries)
     failed = [

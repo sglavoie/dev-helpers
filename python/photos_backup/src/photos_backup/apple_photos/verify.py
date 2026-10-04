@@ -209,19 +209,29 @@ def _check_signatures(
         for record in comparable
         if not _signature_matches(record, statuses[record.path])
     ]
+    unsigned = sum(record.size is None or record.mtime is None for record in files)
+    unavailable = len(files) - unsigned - len(comparable)
+    coverage = (
+        f"Signature coverage: {len(comparable) - len(mismatched)} matched, "
+        f"{len(mismatched)} changed, {unsigned} missing signatures, "
+        f"{unavailable} unavailable for comparison. "
+        "Size and modification time only; file contents were not checksummed."
+    )
+    if unsigned or unavailable:
+        coverage = "Coverage incomplete. " + coverage
     if mismatched:
         return Check(
             SIGNATURES,
             False,
             f"{len(mismatched)} of {len(comparable)} exported file(s) no longer "
-            f"match their recorded size and modification time ({_sample(mismatched)})",
+            f"match their recorded size and modification time ({_sample(mismatched)}). "
+            + coverage,
             paths=tuple(record.path for record in mismatched),
         )
     return Check(
         SIGNATURES,
         True,
-        f"{len(comparable)} of {len(files)} exported file(s) match their recorded "
-        "size and modification time",
+        coverage,
     )
 
 

@@ -53,6 +53,12 @@ class CommandHintTests(ArchiveCommandTestCase):
             if "Discard with:" in line
         )
         self.assertEqual(shlex.split(discard_hint), [*arguments, "--discard"])
+        preview_hint = next(
+            line.split("Preview with: ", 1)[1]
+            for line in result.output.splitlines()
+            if "Preview with:" in line
+        )
+        self.assertEqual(shlex.split(preview_hint), [*arguments, "--dry-run"])
         # Exercise Click parsing of the pasted command without approving anything.
         with mock.patch("photos_backup.cli.approve_cleanup.open_archive") as opened:
             opened.side_effect = RuntimeError("stop before approval")
@@ -84,7 +90,9 @@ class CommandHintTests(ArchiveCommandTestCase):
             result = self.runner.invoke(cli, [*self.options, "daily"])
         self.assertEqual(result.exit_code, 3, result.output)
         hint = shlex.join(["photos-backup", *self.options, "approve-cleanup", "run-7"])
-        self.assertEqual(result.output.count(hint), 2, result.output)
+        self.assertIn(f"  Preview with: {hint} --dry-run\n", result.output)
+        self.assertIn(f"  Approve with: {hint}\n", result.output)
+        self.assertIn(f"and run `{hint}`", result.output)
 
     def test_verify_recovery_hint_preserves_options(self):
         result = self.runner.invoke(cli, [*self.options, "verify"])
