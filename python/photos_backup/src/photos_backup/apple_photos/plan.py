@@ -4,7 +4,7 @@ import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from photos_backup.summary import BackupSummary
 
@@ -18,6 +18,36 @@ SIDECAR_FORMATS = ("json",)
 RETRY_ATTEMPTS = 3
 
 ERROR_COUNT_FIELDS = ("error", "exiftool_error", "sidecar_user_error", "user_error")
+
+
+class ManagedExportArguments(TypedDict):
+    """The options this application owns; manual CLI extras remain dynamic."""
+
+    dest: str
+    db: str
+    exportdb: str
+    report: str
+    directory: str
+    filename_template: str
+    sidecar: tuple[str, ...]
+    album_keyword: bool
+    exiftool: bool
+    export_aae: bool
+    download_missing: bool
+    use_photokit: bool
+    retry: int
+    update: bool
+    update_errors: bool
+    skip_bursts: bool
+    skip_edited: bool
+    skip_live: bool
+    skip_original_if_edited: bool
+    skip_raw: bool
+    cleanup: bool
+    from_date: datetime.datetime | None
+    dry_run: bool
+    verbose_flag: bool
+    limit: int
 
 
 class ExportMode(Enum):
@@ -158,7 +188,7 @@ def export_arguments(
     limit: int = 0,
 ) -> dict[str, Any]:
     """Build the exact osxphotos `export_cli` arguments for one run."""
-    return {
+    arguments: ManagedExportArguments = {
         "dest": str(dest),
         "db": str(config.library),
         "exportdb": str(export_db),
@@ -185,3 +215,4 @@ def export_arguments(
         "verbose_flag": verbose,
         "limit": limit,
     }
+    return dict(arguments)

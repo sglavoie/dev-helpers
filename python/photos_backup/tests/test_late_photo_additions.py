@@ -3,11 +3,13 @@ from __future__ import annotations
 import csv
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from photos_backup.apple_photos.late_additions import (
+    METADATA_BATCH_SIZE,
     generate_late_photo_additions_report,
     read_spotlight_metadata,
 )
@@ -213,6 +215,124 @@ class LateAdditionsReportTests(unittest.TestCase):
         ) as run:
             self.assertEqual(read_spotlight_metadata(Path("/image.jpg")), {})
         self.assertEqual(run.call_args.kwargs["timeout"], 10)
+
+    def test_concurrent_readers_are_bounded_and_csv_keeps_source_order(self):
+        workers = 4
+        barrier = threading.Barrier(workers)
+        lock = threading.Lock()
+        active = peak = 0
+        first_finished = threading.Event()
+
+        def reader(path):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                barrier.wait(timeout=5)
+                # Make a later row finish before the first row of its group.
+                if int(path.stem) % workers == 0:
+                    self.assertTrue(first_finished.wait(timeout=5))
+                else:
+                    first_finished.set()
+                return {"kMDItemAcquisitionModel": path.name}
+            finally:
+                with lock:
+                    active -= 1
+
+        with tempfile.TemporaryDirectory() as directory:
+            source, target = (
+                Path(directory) / "export.csv",
+                Path(directory) / "late.csv",
+            )
+            names = [f"/{i}.jpg" for i in range(workers * 3)]
+            self._write_export_report(
+                source, [{"filename": name, "new": "1"} for name in names]
+            )
+            count = generate_late_photo_additions_report(
+                source, target, (), reader, metadata_workers=workers
+            )
+            with target.open() as stream:
+                rows = list(csv.DictReader(stream))
+        self.assertEqual(count, len(names))
+        self.assertEqual(peak, workers)
+        self.assertEqual(active, 0)
+        self.assertEqual([row["filename"] for row in rows], names)
+        self.assertEqual(
+            [row["acquisition_model"] for row in rows],
+            [Path(name).name for name in names],
+        )
+
+    def test_batches_preserve_cache_missing_metadata_and_serial_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "export.csv"
+            rows = [
+                {"filename": f"/{i}.jpg", "new": "1"}
+                for i in range(METADATA_BATCH_SIZE + 1)
+            ]
+            rows.extend(
+                [
+                    {"filename": "/0.jpg", "updated": "1"},
+                    {"filename": "", "new": "1"},
+                    {"filename": "/skipped.jpg", "skipped": "1"},
+                ]
+            )
+            self._write_export_report(source, rows)
+            for workers in (1, 4):
+                reader = mock.Mock(
+                    side_effect=lambda path: (
+                        {}
+                        if path.name == "0.jpg"
+                        else {"kMDItemAcquisitionModel": path.name}
+                    )
+                )
+                warning = mock.Mock()
+                target = root / f"late-{workers}.csv"
+                count = generate_late_photo_additions_report(
+                    source, target, (), reader, warning, metadata_workers=workers
+                )
+                self.assertEqual(count, len(rows) - 1)
+                self.assertCountEqual(
+                    [call.args[0] for call in reader.call_args_list],
+                    [Path(f"/{i}.jpg") for i in range(METADATA_BATCH_SIZE + 1)],
+                )
+                warning.assert_called_once()
+                self.assertIn("1 file(s)", warning.call_args.args[0])
+            self.assertEqual(
+                (root / "late-1.csv").read_bytes(), (root / "late-4.csv").read_bytes()
+            )
+
+    def test_reader_error_shuts_down_pool_and_propagates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, target = (
+                Path(directory) / "export.csv",
+                Path(directory) / "late.csv",
+            )
+            self._write_export_report(source, [{"filename": "/0.jpg", "new": "1"}])
+            threads = []
+
+            def reader(path):
+                threads.append(threading.current_thread())
+                raise OSError("metadata reader failed")
+
+            with self.assertRaisesRegex(OSError, "metadata reader failed"):
+                generate_late_photo_additions_report(source, target, (), reader)
+            self.assertTrue(threads)
+            self.assertTrue(all(not thread.is_alive() for thread in threads))
+
+    def test_invalid_worker_count_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for workers in (0, -1):
+                with self.assertRaisesRegex(ValueError, "must be positive"):
+                    generate_late_photo_additions_report(
+                        root / "missing.csv",
+                        root / "late.csv",
+                        (),
+                        metadata_workers=workers,
+                    )
+            self.assertEqual(list(root.iterdir()), [])
 
     def _write_export_report(
         self,

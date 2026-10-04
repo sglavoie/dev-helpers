@@ -16,9 +16,11 @@ import sys
 import tempfile
 import time
 import traceback
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 from unittest.mock import patch
 
 import click
@@ -26,6 +28,9 @@ from osxphotos.exportoptions import ExportOptions
 from osxphotos.photoexporter import PhotoExporter, StagedFiles
 
 from photos_backup.progress import ExportProgress
+
+if TYPE_CHECKING:
+    from osxphotos import PhotoInfo
 
 DEFAULT_DOWNLOAD_TIMEOUT = 120
 MAX_CONTROL_RESPONSE_BYTES = 65536
@@ -54,6 +59,21 @@ _OPTION_FIELDS = (
 )
 
 
+class DownloadFailure(TypedDict):
+    uuid: str
+    filename: str
+    reason: str
+
+
+class WorkerRequest(TypedDict):
+    id: int
+    request: str
+    response: str
+
+
+StageKey = tuple[bool, ...]
+
+
 class DownloadBudget:
     """One budget per asset, shared by its versions and retries, for this run."""
 
@@ -62,15 +82,15 @@ class DownloadBudget:
             raise ValueError("download timeout must be positive")
         self.seconds = seconds
         self.spent: dict[str, float] = {}
-        self.failures: dict[str, dict] = {}
-        self._issues: dict[str, dict[tuple, str]] = {}
+        self.failures: dict[str, DownloadFailure] = {}
+        self._issues: dict[str, dict[StageKey, str]] = {}
         self.attempts: dict[str, int] = {}
         self.worker = DownloadWorker()
         self.progress = progress
 
     def stage(self, exporter: PhotoExporter, options: ExportOptions) -> StagedFiles:
         photo = exporter.photo
-        key = tuple(getattr(options, name) for name in _OPTION_FIELDS)
+        key: StageKey = tuple(getattr(options, name) for name in _OPTION_FIELDS)
         remaining = self.seconds - self.spent.get(photo.uuid, 0)
         if remaining <= 0:
             if photo.uuid not in self.failures:
@@ -156,7 +176,7 @@ class DownloadBudget:
             if not keep:
                 shutil.rmtree(root)
 
-    def _failure(self, photo, key: tuple, reason: str) -> None:
+    def _failure(self, photo: PhotoInfo, key: StageKey, reason: str) -> None:
         self._issues.setdefault(photo.uuid, {})[key] = reason
         self.failures[photo.uuid] = {
             "uuid": photo.uuid,
@@ -184,7 +204,9 @@ class DownloadBudget:
             click.echo(message, err=True)
 
 
-def _validate_staging(staged: StagedFiles, photo, options: ExportOptions) -> None:
+def _validate_staging(
+    staged: StagedFiles, photo: PhotoInfo, options: ExportOptions
+) -> None:
     """A nominal success with absent requested components is still unresolved."""
     required = ["edited" if options.edited else "original"]
     if photo.live_photo and options.live_photo:
@@ -209,9 +231,9 @@ class DownloadWorker:
     """
 
     def __init__(self) -> None:
-        self.process: subprocess.Popen | None = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.channel: socket.socket | None = None
-        self.diagnostics = None
+        self.diagnostics: BinaryIO | None = None
         self.sequence = 0
 
     def _start(self) -> None:
@@ -240,10 +262,11 @@ class DownloadWorker:
         try:
             if self.process is None:
                 self._start()
+            assert self.diagnostics is not None and self.channel is not None
             self.diagnostics.seek(0)
             self.diagnostics.truncate()
             self.sequence += 1
-            message = {
+            message: WorkerRequest = {
                 "id": self.sequence,
                 "request": str(request),
                 "response": str(response),
@@ -303,12 +326,12 @@ def _run_worker(request: Path, response: Path, timeout: float) -> None:
 @contextmanager
 def bounded_downloads(
     seconds: float = DEFAULT_DOWNLOAD_TIMEOUT, progress: ExportProgress | None = None
-):
+) -> Iterator[DownloadBudget]:
     """Temporarily adapt osxphotos's private staging seam for one serial export."""
     budget = DownloadBudget(seconds, progress)
     original = PhotoExporter._stage_photo_for_export_with_photokit
 
-    def stage(exporter, options):
+    def stage(exporter: PhotoExporter, options: ExportOptions) -> StagedFiles:
         if options.dry_run:
             return original(exporter, options)
         return budget.stage(exporter, options)
@@ -323,10 +346,10 @@ def bounded_downloads(
 
 
 class _WorkerStagedFiles(StagedFiles):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if not hasattr(self, "uuids"):
-            self.uuids = {}
+            self.uuids: dict[str, str] = {}
 
 
 def _worker(request: Path, response: Path) -> None:

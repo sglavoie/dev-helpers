@@ -8,5 +8,6 @@ wheels/
 
 # venv
 .venv
+.mypy_cache/
 
 *.csv

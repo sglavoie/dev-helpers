@@ -778,6 +778,7 @@ cd python/photos_backup
 uv sync                                  # create .venv and install the package
 uv run python3 -m unittest discover -v   # tests
 uv run ruff check .                      # lint
+uv run mypy                              # check Photos integration and report types
 uv run ruff format .                     # format
 uv run photos-backup --help              # run without installing
 ```
@@ -804,3 +805,44 @@ and deletion tests only ever touch temporary directories.
 Every test runs offline. Deletion tests use temporary fixtures or mocked effects;
 they must never target real photo libraries or backups. `cleanup-local-export`
 also refuses nonterminal stdin; `approve-cleanup` has no terminal requirement.
+
+### Dependency compatibility
+
+`osxphotos` is pinned to exactly `0.76.1` in both package requirements and the
+lockfile, including for `uv tool install`. The adapter depends on private export
+and PhotoKit staging hooks. Upgrade deliberately: update the pin and the supported
+version in `tests/test_osxphotos_compatibility.py`, refresh the lockfile, then run
+the full test suite and `uv run mypy`. The offline tests check upstream call
+signatures, staging serialization, and actual upstream staging with native Photos
+I/O mocked, including originals, edits, Live Photos, video, and RAW pairs. A real
+export on a disposable archive is still needed to validate native PhotoKit behavior
+before deploying an upgrade to both Macs.
+
+The type check covers the adapter, download worker, export argument builder, and
+late-additions report. It checks our code; upstream `osxphotos` internals remain
+outside static checking and are covered by the compatibility tests.
+
+### Profiling metadata reports
+
+Late-additions enrichment runs up to four `mdls` processes concurrently, each with
+the existing ten-second timeout. It schedules at most 32 changed rows per batch,
+preserves source CSV order, and reads metadata once per distinct path across the
+report. The per-path cache still grows with the number of distinct changed files.
+Missing metadata remains a warning and does not decide export success. Injected
+Python metadata readers must be thread-safe; callers can pass `metadata_workers=1`
+to `generate_late_photo_additions_report` for serial execution.
+
+Compare serial and concurrent enrichment without starting an export:
+
+```bash
+uv run python scripts/profile_reports.py                         # simulated I/O
+uv run python scripts/profile_reports.py --spotlight             # mdls on temporary files
+uv run python scripts/profile_reports.py --export-report /path/to/photos_export.csv
+```
+
+The last command reads an existing export report and queries Spotlight for its
+new or updated files. All generated CSVs and fixtures live in a temporary directory;
+the input report and exported files are not changed. Results describe only report
+enrichment, not total backup throughput. `--profile /tmp/photos-report.prof` also
+writes a cProfile file for the coordinator; worker time appears as waiting. Inspect
+it with `uv run python -m pstats /tmp/photos-report.prof`.

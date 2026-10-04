@@ -6,11 +6,11 @@ import inspect
 import json
 import os
 import sqlite3
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from unittest.mock import patch
 
 from osxphotos import PhotosDB
@@ -25,6 +25,10 @@ from photos_backup.apple_photos.downloads import (
 from photos_backup.apple_photos.identity import AssetIdentity
 from photos_backup.archive.errors import ArchiveUnsafe
 from photos_backup.progress import ExportProgress
+
+if TYPE_CHECKING:
+    from osxphotos import PhotoInfo
+    from osxphotos.queryoptions import QueryOptions
 
 ExportRunner = Callable[[dict[str, Any]], int]
 AssetReader = Callable[[Path], tuple[AssetIdentity, ...]]
@@ -78,7 +82,7 @@ def run_osxphotos_export(
             database = PhotosDB(dbfile=arguments["db"])
         query = database.query
 
-        def ordered_query(options):
+        def ordered_query(options: QueryOptions) -> list[PhotoInfo]:
             with (
                 progress.phase("Selecting assets", "checking local availability")
                 if progress
@@ -106,7 +110,7 @@ def run_osxphotos_export(
 
 
 @contextmanager
-def _export_progress(progress: ExportProgress | None):
+def _export_progress(progress: ExportProgress | None) -> Iterator[None]:
     """Observe the upstream per-asset loop without replacing export behavior."""
     if progress is None:
         yield
@@ -114,14 +118,14 @@ def _export_progress(progress: ExportProgress | None):
     module = importlib.import_module("osxphotos.cli.export")
     original = module.export_photo
 
-    def export_photo(*args, **kwargs):
+    def export_photo(*args: Any, **kwargs: Any) -> Any:
         photo = kwargs["photo"]
         with progress.phase("Exporting asset", photo.original_filename, announce=False):
             result = original(*args, **kwargs)
             progress.asset_done()
             return result
 
-    export_photo.__signature__ = inspect.signature(original)
+    setattr(export_photo, "__signature__", inspect.signature(original))
     with (
         progress.phase("Exporting"),
         patch.object(module, "export_photo", export_photo),
@@ -129,7 +133,7 @@ def _export_progress(progress: ExportProgress | None):
         yield
 
 
-def _needs_download(photo) -> bool:
+def _needs_download(photo: PhotoInfo) -> bool:
     """Process fully local assets before ones with missing export components."""
     return bool(
         not photo.path
@@ -273,7 +277,7 @@ def _select_first(
     queries: tuple[str, ...],
     export_db: Path,
     what: str,
-) -> list[tuple]:
+) -> list[tuple[Any, ...]]:
     """Run the first query the database understands, refusing a file with none."""
     last: sqlite3.Error | None = None
     for query in queries:

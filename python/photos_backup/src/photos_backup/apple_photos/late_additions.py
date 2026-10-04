@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import subprocess
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from itertools import islice
 from pathlib import Path
 
 import click
@@ -28,6 +30,8 @@ REPORT_COLUMNS = (
 )
 
 MetadataReader = Callable[[Path], dict[str, str]]
+METADATA_WORKERS = 4
+METADATA_BATCH_SIZE = 32
 
 
 def generate_late_photo_additions_report(
@@ -36,8 +40,15 @@ def generate_late_photo_additions_report(
     spouse_device_models: tuple[str, ...],
     metadata_reader: MetadataReader | None = None,
     warning: Callable[[str], None] | None = None,
+    *,
+    metadata_workers: int = METADATA_WORKERS,
 ) -> int:
-    """Write a CSV report for files newly exported or updated in this run."""
+    """Enrich changed files in bounded batches, retaining CSV order and caching.
+
+    Injected readers must be thread-safe, or use metadata_workers=1.
+    """
+    if metadata_workers < 1:
+        raise ValueError("metadata_workers must be positive")
     if not export_report_path.exists():
         return 0
 
@@ -54,19 +65,49 @@ def generate_late_photo_additions_report(
         reader = csv.DictReader(source)
         writer = csv.DictWriter(output, fieldnames=REPORT_COLUMNS)
         writer.writeheader()
-        for row in reader:
-            statuses = export_statuses(row)
-            if not {"new", "updated"}.intersection(statuses):
-                continue
-            filename = row.get("filename", "")
-            path = Path(filename)
-            if filename and path not in metadata_cache:
-                metadata_cache[path] = metadata_reader(path)
-                if not metadata_cache[path] or not any(metadata_cache[path].values()):
-                    unavailable += 1
-            metadata = metadata_cache.get(path, {}) if filename else {}
-            writer.writerow(build_report_row(row, metadata, spouse_device_models))
-            count += 1
+        changed = (
+            row
+            for row in reader
+            if {"new", "updated"}.intersection(export_statuses(row))
+        )
+        executor = (
+            ThreadPoolExecutor(max_workers=metadata_workers)
+            if metadata_workers > 1
+            else None
+        )
+        try:
+            while batch := list(islice(changed, METADATA_BATCH_SIZE)):
+                paths = list(
+                    dict.fromkeys(
+                        Path(row["filename"])
+                        for row in batch
+                        if row.get("filename")
+                        and Path(row["filename"]) not in metadata_cache
+                    )
+                )
+                results = (
+                    executor.map(metadata_reader, paths)
+                    if executor
+                    else map(metadata_reader, paths)
+                )
+                for path, metadata in zip(paths, results):
+                    metadata_cache[path] = metadata
+                    if not any(metadata.values()):
+                        unavailable += 1
+                for row in batch:
+                    filename = row.get("filename", "")
+                    metadata = (
+                        metadata_cache.get(Path(filename), {}) if filename else {}
+                    )
+                    writer.writerow(
+                        build_report_row(row, metadata, spouse_device_models)
+                    )
+                    count += 1
+        finally:
+            if executor:
+                # Cancel queued work on errors/interrupts; active mdls calls retain
+                # their per-process timeout and finish before the report closes.
+                executor.shutdown(wait=True, cancel_futures=True)
     if unavailable:
         warning(
             f"Spotlight metadata unavailable for {unavailable} file(s) "
