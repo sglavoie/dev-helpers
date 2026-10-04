@@ -214,6 +214,11 @@ class ArchiveCommandTestCase(unittest.TestCase):
     """Gives every test a fake mounted volume and a matching configuration file."""
 
     def setUp(self) -> None:
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
         self.runner = CliRunner()
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)

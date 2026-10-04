@@ -446,16 +446,11 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
     click.echo("=" * 60)
 
     total_elapsed = 0.0
-    has_errors = False
-    needs_action = False
-
     for s in summaries:
         total_elapsed += s.elapsed_seconds
         if s.error and s.action_required:
-            needs_action = True
             status = f"ACTION REQUIRED: {s.error}"
         elif s.error:
-            has_errors = True
             status = f"ERROR: {s.error}"
         elif s.planned:
             status = "PLANNED"
@@ -477,10 +472,18 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
         click.echo(f"  {s.step_name:<25} {status}")
 
     click.echo("-" * 60)
-    overall = "COMPLETED WITH ERRORS" if has_errors else "ALL OK"
-    if not has_errors and needs_action:
-        overall = "ACTION REQUIRED"
-    elif not has_errors and any(s.dry_run or s.planned for s in summaries):
-        overall = "PREVIEW COMPLETE"
+    overall = _pipeline_outcome(summaries)
     click.echo(f"  {'Total':<25} {overall} ({total_elapsed:.1f}s)")
     click.echo("=" * 60)
+
+
+def _pipeline_outcome(summaries: list[BackupSummary]) -> str:
+    if any(s.error and not s.action_required for s in summaries):
+        return "COMPLETED WITH ERRORS"
+    if any(s.error and s.action_required for s in summaries):
+        return "ACTION REQUIRED"
+    if all(s.skipped for s in summaries):
+        return "NOTHING TO DO — all steps skipped"
+    if any(s.dry_run or s.planned for s in summaries):
+        return "PREVIEW COMPLETE"
+    return "ALL OK"

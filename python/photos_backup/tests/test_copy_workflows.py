@@ -18,6 +18,11 @@ from photos_backup.ssd.backup import Backup as SsdBackup
 
 class CopyWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)

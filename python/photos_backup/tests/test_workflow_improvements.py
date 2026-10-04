@@ -21,6 +21,13 @@ from tests.test_verify import MONDAY, THURSDAY, VerifyTestCase, write_export_db
 
 
 class SsdSafetyTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
+
     def test_copy_failures_preserve_completed_results_and_stop_remaining_copies(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -181,6 +188,8 @@ class PipelinePreflightTests(ArchiveCommandTestCase):
                     args += ["--skip-sd-card", "--skip-ssd", "--skip-remote"]
                 result = self.runner.invoke(cli, args)
                 self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn("NOTHING TO DO — all steps skipped", result.output)
+                self.assertNotIn("ALL OK", result.output)
                 self.assertEqual(
                     result.output.count("Skipped by request"), 4 if explicit else 1
                 )
@@ -236,6 +245,13 @@ class PipelinePreflightTests(ArchiveCommandTestCase):
 
 
 class PreviewSummaryTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
+
     def test_copy_previews_never_claim_files_were_transferred(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

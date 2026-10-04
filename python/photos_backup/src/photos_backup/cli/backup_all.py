@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import ExitStack
 from functools import partial
+from shutil import which
 from typing import TypeVar
 
 import click
@@ -84,6 +85,12 @@ def backup_all(
         resolve_rclone_source(remote_config, config_path)
         if remote_config is not None
         else None
+    )
+    _check_executables(
+        apple_photos=config is not None and not dry_run,
+        local_copy=ssd_config is not None
+        or (sd_config is not None and not skip_sd_card),
+        remote=remote_config is not None,
     )
     summaries: list[BackupSummary] = []
 
@@ -192,6 +199,25 @@ def backup_all(
     ]
     if actions:
         raise ActionRequired("; ".join(actions))
+
+
+def _check_executables(*, apple_photos: bool, local_copy: bool, remote: bool) -> None:
+    required = [
+        executable
+        for executable, enabled in (
+            ("exiftool", apple_photos),
+            ("rsync", local_copy),
+            ("rclone", remote),
+        )
+        if enabled
+    ]
+    missing = [executable for executable in required if which(executable) is None]
+    if missing:
+        raise click.ClickException(
+            f"Required executable(s) not found on PATH: {', '.join(missing)}. "
+            "Install them and ensure they are on PATH before rerunning backup-all. "
+            "No backup steps were started."
+        )
 
 
 def _export_apple_photos(

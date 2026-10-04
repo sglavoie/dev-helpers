@@ -153,6 +153,11 @@ class CleanupPreviewTests(MirrorTestCase):
 
 class RemoteBehaviorTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name).resolve()

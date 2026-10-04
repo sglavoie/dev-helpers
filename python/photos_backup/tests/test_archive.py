@@ -245,7 +245,56 @@ class ArchiveStateTests(ArchiveTestCase):
         )
         store.save(saved)
         self.assertEqual(store.load(), saved)
+        self.assertEqual(
+            json.loads(store.path.read_text())["last_report_path"],
+            ".photos-backup/reports/run.csv",
+        )
         self.assertEqual([p.name for p in store.path.parent.iterdir()], ["state.json"])
+
+    def test_legacy_state_is_upgraded_only_on_write(self) -> None:
+        store = self.store()
+        store.path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "last_report_path": "/Volumes/Old/Archive/.photos-backup/reports/run.csv",
+                    "writer_hostname": "first-mac",
+                }
+            )
+        )
+        before = store.path.read_bytes()
+        state = store.load()
+        self.assertEqual(state.version, STATE_VERSION)
+        self.assertEqual(
+            state.last_report_path, self.archive / ".photos-backup/reports/run.csv"
+        )
+        self.assertEqual(store.path.read_bytes(), before)
+        store.update(writer_hostname="second-mac")
+        document = json.loads(store.path.read_text())
+        self.assertEqual(document["version"], STATE_VERSION)
+        self.assertEqual(document["last_report_path"], ".photos-backup/reports/run.csv")
+
+    def test_unrelated_absolute_report_paths_keep_their_meaning(self) -> None:
+        store = self.store()
+        report = self.root / "external.csv"
+        for version in (1, STATE_VERSION):
+            with self.subTest(version=version):
+                store.path.write_text(
+                    json.dumps({"version": version, "last_report_path": str(report)})
+                )
+                self.assertEqual(store.load().last_report_path, report)
+
+    def test_unsafe_relative_report_paths_are_rejected_without_writes(self) -> None:
+        store = self.store()
+        for report in ("../outside.csv", ".photos-backup/../../outside.csv", "."):
+            with self.subTest(report=report):
+                store.path.write_text(
+                    json.dumps({"version": STATE_VERSION, "last_report_path": report})
+                )
+                before = store.path.read_bytes()
+                with self.assertRaises(ArchiveUnsafe):
+                    store.load()
+                self.assertEqual(store.path.read_bytes(), before)
 
     def test_update_advances_only_named_fields(self) -> None:
         store = self.store()

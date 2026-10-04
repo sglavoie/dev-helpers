@@ -38,6 +38,37 @@ photos-backup --help
 the same commands. Configuration is not installed by this repository: it is
 stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 
+## Everyday workflow
+
+Once configuration is in place, connect the archive drive and run
+`photos-backup bootstrap` once to initialize it. After that:
+
+```bash
+photos-backup status                        # recorded dates and the next export mode
+photos-backup daily                         # export on cadence and reconcile cleanup
+photos-backup backup-all --skip-apple-photos # copy SD card, then SSD, then cloud
+photos-backup verify                        # check archive records, sizes, and timestamps
+```
+
+Run these as separate steps and read each result. If `daily` exits 3 because
+cleanup needs approval, its export has still completed; you can continue the
+copies while deciding what to delete. For other errors, follow the printed
+recovery instructions before continuing. Connect the configured copy drives;
+add `--skip-sd-card` when no card is attached. Unconfigured copy steps are skipped.
+
+When cleanup is pending, preview the run ID printed by `status`:
+
+```bash
+photos-backup approve-cleanup RUN_ID --dry-run
+photos-backup approve-cleanup RUN_ID           # approve after reviewing the preview
+# Or: photos-backup approve-cleanup RUN_ID --discard
+```
+
+`backup-all` on its own exports and copies, but does not reconcile archive
+cleanup; use `daily` for that. SSD and cloud deletions require separate explicit
+flags (`--delete` and `--delete-remote` on `backup-all`). `verify` checks the
+primary archive, not the SSD/cloud copies, and does not checksum file contents.
+
 ## Commands
 
 | Command | Description |
@@ -109,6 +140,12 @@ Before `backup-all` starts any export or transfer, it validates every enabled
 section and any configuration it depends on. Invalid configuration exits 2
 immediately. Skipped sections are not loaded unless another enabled step needs
 them (for example, remote backup's default source uses `ssd.destination`).
+After configuration validation, `backup-all` checks all required executables
+before starting any step: ExifTool for a real Apple Photos export, rsync for
+enabled SD-card/SSD copies, and rclone for an enabled remote copy. Missing tools
+are listed together and exit 1. Skipped or unconfigured steps require no tools.
+A dry run still needs rsync/rclone for transfer previews, but its planning-only
+Apple Photos step needs no ExifTool executable.
 
 SSD and SD-card copies check configured sources before creating the destination.
 A missing source requires attention (exit 3), including a configured SD-card
@@ -153,6 +190,16 @@ One run at a time holds an exclusive `flock` on `archive.lock`, released when th
 run ends or the process dies, so runs cannot overlap. State is replaced
 atomically and rejects an unrecognized version, an unknown key, a naive
 timestamp, or unparseable JSON rather than guessing.
+
+State version 2 stores report paths beneath the archive relative to its root,
+so `status` and `verify` find them after a mount name or archive location changes.
+Version 1 remains readable: absolute paths to managed `.photos-backup/reports/`
+files are interpreted beneath the current archive. Other historical absolute
+report references retain their original location. Read-only commands do not
+rewrite state; the next state write saves version 2. Update photos-backup on
+every Mac sharing the archive before a newer writer saves state: older builds
+reject version 2. This change concerns report references, not relocation of
+other archive metadata such as pending cleanup manifests.
 
 A `--dry-run` persists nothing: it creates no directory, no lock file, and no
 state, and takes only a read lock when a lock file already exists.
@@ -312,6 +359,8 @@ its exporter is not invoked. A successful pipeline preview ends with
 `PREVIEW COMPLETE`. `backup-all` exits 3 for action-required steps, such as a
 blocked Apple Photos takeover or unavailable SSD source, unless another step
 fails, in which case it exits 1.
+If every pipeline step is skipped, the summary says
+`NOTHING TO DO — all steps skipped` and exits 0, including in dry runs.
 
 The Apple Photos step of `backup-all` shows the same live export phases and
 per-asset download budget as `daily`. Use `backup-all --download-timeout 300`

@@ -10,7 +10,8 @@ from typing import Any
 from photos_backup.archive.errors import ArchiveUnavailable, ArchiveUnsafe
 from photos_backup.archive.paths import ArchivePaths
 
-STATE_VERSION = 1
+STATE_VERSION = 2
+LEGACY_STATE_VERSION = 1
 
 _TIMESTAMP_FIELDS = (
     "initialized_at",
@@ -75,12 +76,14 @@ class ArchiveStateStore:
             raise ArchiveUnsafe(
                 f"Archive state '{self.path}' is not valid JSON: {error}"
             ) from error
-        return _decode(document, self.path)
+        return _decode(document, self._paths)
 
     def save(self, state: ArchiveState) -> ArchiveState:
         if self._dry_run:
             return state
-        payload = json.dumps(_encode(state), indent=2, sort_keys=True) + "\n"
+        payload = (
+            json.dumps(_encode(state, self._paths), indent=2, sort_keys=True) + "\n"
+        )
         _write_atomic(self.path, payload)
         return state
 
@@ -88,8 +91,8 @@ class ArchiveStateStore:
         return self.save(replace(self.load(), **changes))
 
 
-def _encode(state: ArchiveState) -> dict:
-    document: dict = {"version": state.version}
+def _encode(state: ArchiveState, paths: ArchivePaths) -> dict:
+    document: dict = {"version": STATE_VERSION}
     for name in _TIMESTAMP_FIELDS:
         value = getattr(state, name)
         document[name] = None if value is None else value.isoformat()
@@ -97,33 +100,52 @@ def _encode(state: ArchiveState) -> dict:
         document[name] = getattr(state, name)
     for name in _PATH_FIELDS:
         value = getattr(state, name)
+        if value is not None and value.is_relative_to(paths.archive):
+            value = value.relative_to(paths.archive)
         document[name] = None if value is None else str(value)
     return document
 
 
-def _decode(document: Any, path: Path) -> ArchiveState:
+def _decode(document: Any, paths: ArchivePaths) -> ArchiveState:
+    path = paths.state_file
     if not isinstance(document, dict):
         raise ArchiveUnsafe(f"Archive state '{path}' must be a JSON object")
     version = document.get("version")
-    if type(version) is not int or version != STATE_VERSION:
+    if type(version) is not int or version not in (LEGACY_STATE_VERSION, STATE_VERSION):
         raise ArchiveUnsafe(
             f"Archive state '{path}' has version {version!r}; "
-            f"this build only understands version {STATE_VERSION}"
+            f"this build only understands versions {LEGACY_STATE_VERSION} and {STATE_VERSION}"
         )
     unknown = sorted(set(document) - set(_KNOWN_FIELDS))
     if unknown:
         raise ArchiveUnsafe(
             f"Archive state '{path}' has unknown key(s) {', '.join(unknown)}"
         )
-    values: dict = {"version": version}
+    values: dict = {"version": STATE_VERSION}
     for name in _TIMESTAMP_FIELDS:
         values[name] = _decode_timestamp(document.get(name), name, path)
     for name in _TEXT_FIELDS:
         values[name] = _decode_text(document.get(name), name, path)
     for name in _PATH_FIELDS:
         text = _decode_text(document.get(name), name, path)
-        values[name] = None if text is None else Path(text)
+        values[name] = None if text is None else _report_path(text, paths)
     return ArchiveState(**values)
+
+
+def _report_path(text: str, paths: ArchivePaths) -> Path:
+    """Resolve portable references and re-anchor legacy managed reports."""
+    report = Path(text)
+    if ".." in report.parts or report == Path("."):
+        raise ArchiveUnsafe(
+            f"Archive state '{paths.state_file}' has an unsafe last_report_path: {text!r}"
+        )
+    if not report.is_absolute():
+        return paths.archive / report
+    # Version 1 stored absolute paths. Only re-anchor the exact managed report
+    # directory; unrelated historical absolute references retain their meaning.
+    if report.parent.parts[-2:] == paths.reports.relative_to(paths.archive).parts:
+        return paths.reports / report.name
+    return report
 
 
 def _decode_timestamp(raw: Any, name: str, path: Path) -> datetime.datetime | None:

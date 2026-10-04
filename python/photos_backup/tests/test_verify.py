@@ -5,11 +5,14 @@ import dataclasses
 import datetime
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+from click.testing import CliRunner
 
 from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.verify import (
@@ -29,6 +32,7 @@ from photos_backup.archive import (
     create_archive_tree,
     open_archive,
 )
+from photos_backup.cli.cli import cli
 from tests.test_export import HOSTNAME, THURSDAY, make_config
 
 MONDAY = datetime.datetime(2026, 8, 10, 6, 0, tzinfo=datetime.UTC)
@@ -148,6 +152,52 @@ class VerifyTestCase(unittest.TestCase):
 
 
 class HealthyArchiveTests(VerifyTestCase):
+    def test_moved_archive_verifies_and_status_finds_legacy_and_portable_reports(self):
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                volume = self.root / f"Moved-{legacy}"
+                target = volume / "Archive"
+                shutil.copytree(self.archive_root, target)
+                paths = ArchivePaths(volume=volume, archive=target)
+                if legacy:
+                    document = json.loads(paths.state_file.read_text())
+                    document["version"] = 1
+                    document["last_report_path"] = str(self.report)
+                    paths.state_file.write_text(json.dumps(document))
+                before = paths.state_file.read_bytes()
+                probes = SystemProbes(
+                    is_mount=lambda path: path == volume,
+                    hostname=lambda: HOSTNAME,
+                    now=lambda: THURSDAY,
+                )
+                with open_archive(
+                    make_config(volume, target), dry_run=True, probes=probes
+                ) as archive:
+                    report = verify_archive(archive)
+                self.assertTrue(report.passed, report.failed)
+                config = self.root / "moved.toml"
+                config.write_text(
+                    f'[apple_photos]\nvolume = "{volume}"\narchive = "{target}"\n'
+                    'library = "/unused/Photos.photoslibrary"\n'
+                )
+                with mock.patch(
+                    "photos_backup.archive.probes.os.path.ismount", return_value=True
+                ):
+                    result = CliRunner().invoke(
+                        cli, ["--config", str(config), "status"]
+                    )
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn(str(paths.reports / self.report.name), result.output)
+                self.assertNotIn(str(self.report), result.output)
+                self.assertEqual(paths.state_file.read_bytes(), before)
+                # The report at the old location must not conceal a missing copy.
+                (paths.reports / self.report.name).unlink()
+                with open_archive(
+                    make_config(volume, target), dry_run=True, probes=probes
+                ) as archive:
+                    report = verify_archive(archive)
+                self.assertFalse(self.check(report, STATE).passed)
+
     def test_a_healthy_archive_passes_every_check(self) -> None:
         report = self.verify()
 
