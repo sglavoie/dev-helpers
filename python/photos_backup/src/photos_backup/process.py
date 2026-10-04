@@ -2,8 +2,30 @@ from __future__ import annotations
 
 import subprocess
 from collections import deque
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import click
+
+
+@contextmanager
+def transfer_errors(step: str, executable: str) -> Iterator[None]:
+    """Translate expected transfer failures while keeping streamed diagnostics."""
+    try:
+        yield
+    except subprocess.CalledProcessError as error:
+        raise click.ClickException(
+            f"{step}: {executable} exited with code {error.returncode}. "
+            "See the transfer output above for details."
+        ) from error
+    except FileNotFoundError as error:
+        raise click.ClickException(
+            f"{step}: {executable} was not found. Install it and ensure it is on PATH."
+        ) from error
+    except OSError as error:
+        raise click.ClickException(
+            f"{step}: could not run {executable}: {error}"
+        ) from error
 
 
 def stream_command(

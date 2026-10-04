@@ -15,5 +15,6 @@ def status(ctx: click.Context) -> None:
     config = apple_photos_config_from(ctx)
     with open_archive(config, dry_run=True) as archive:
         state = archive.state_store.load()
-        plan = plan_export(config, state, archive.now())
-        print_archive_status(archive, state, plan)
+        now = archive.now()
+        plan = plan_export(config, state, now)
+        print_archive_status(archive, state, plan, now=now)

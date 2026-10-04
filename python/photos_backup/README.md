@@ -179,8 +179,10 @@ is checked after the real export. It writes nothing and never initializes.
 
 `photos-backup status` shows the archive writer, initialization and export
 timestamps, latest report, last completed mirror, pending cleanup, and the next
-export mode with its cadence reason. It reads state without scanning exported
-files, opening the Photos library, taking over ownership, or writing anything.
+export mode with its cadence reason. Timestamps include relative ages; pending
+cleanup includes commands to approve or discard it. It reads state without
+scanning exported files, opening the Photos library, taking over ownership, or
+writing anything.
 An uninitialized archive suggests `photos-backup bootstrap`.
 
 Suggested recovery and cleanup commands preserve any explicit `--config` and
@@ -384,8 +386,10 @@ export normally but neither recompute nor replace it; they exit 3 until it is
 resolved.
 
 `photos-backup approve-cleanup RUN_ID` deletes those files, but only after
-recomputing the reconciliation from scratch. It refuses a run that is not the
-pending one, a manifest that is gone or malformed, and a Mac that does not own
+recomputing the reconciliation from scratch. Invoking it with the run ID is the
+approval: it does not prompt or require a terminal, so review the manifest first.
+It refuses a run that is not the pending one, a manifest that is gone or
+malformed, and a Mac that does not own
 the archive. A file is deleted only when its path, UUID, size, and modification
 time still match the manifest exactly, so a replacement whose export-database
 signature was refreshed too is reported as kept rather than deleted. Any other
@@ -591,8 +595,9 @@ not automated:
 | `goback usage last` | `daily` and `companion/apple-photos` appear as separate rows |
 
 `photos-backup bootstrap`, `approve-cleanup`, and `cleanup-local-export` are
-never part of an automated run: the first is a one-time decision, and the other
-two delete files only after a person confirms at a terminal. `sd-card` and
+kept out of scheduled runs: bootstrap is a one-time decision, `approve-cleanup`
+applies the explicitly named manifest without a confirmation prompt, and
+`cleanup-local-export` requires confirmation at a terminal. `sd-card` and
 `remote` stay manual as well — the SD card is only ever plugged in by hand, and
 the remote sync is a separate cost and bandwidth decision.
 
@@ -669,6 +674,6 @@ caller performs the effect. That is why the tests need neither a Photos library
 nor an external drive — the seams (`SystemProbes`, `PhotosProbes`) are injected,
 and deletion tests only ever touch temporary directories.
 
-Every test runs offline. No test may reach a destructive branch: the destructive
-commands require a terminal, and stdin is never a terminal under the test
-runner.
+Every test runs offline. Deletion tests use temporary fixtures or mocked effects;
+they must never target real photo libraries or backups. `cleanup-local-export`
+also refuses nonterminal stdin; `approve-cleanup` has no terminal requirement.

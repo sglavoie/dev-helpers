@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import datetime
 import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 
 
 _SCALE = 1024
+_SECONDS_PER_MINUTE = 60
 
 
 @dataclass
@@ -341,8 +343,24 @@ def _print_counts(*labelled: tuple[str, tuple]) -> None:
             click.echo(f"  {label}: {len(items)}")
 
 
+def _relative_age(value: datetime.datetime, now: datetime.datetime) -> str:
+    seconds = (now - value).total_seconds()
+    if abs(seconds) < _SECONDS_PER_MINUTE:
+        return "just now" if seconds >= 0 else "in less than a minute"
+    for unit, duration in (
+        ("day", 86400),
+        ("hour", 3600),
+        ("minute", _SECONDS_PER_MINUTE),
+    ):
+        count = int(abs(seconds) // duration)
+        if count:
+            age = f"{count} {unit}{'s' if count != 1 else ''}"
+            return f"{age} ago" if seconds >= 0 else f"in {age}"
+    raise AssertionError("unreachable age")
+
+
 def print_archive_status(
-    archive: Archive, state: ArchiveState, plan: ExportPlan
+    archive: Archive, state: ArchiveState, plan: ExportPlan, *, now: datetime.datetime
 ) -> None:
     """Display durable state only; this is not a verification of archive files."""
     click.echo(f"Archive: {archive.paths.archive}")
@@ -354,7 +372,10 @@ def print_archive_status(
         ("Last full export", state.last_full_export_at),
         ("Last completed mirror", state.last_mirror_completed_at),
     ):
-        click.echo(f"  {label}: {value.isoformat() if value else '(never)'}")
+        timestamp = (
+            f"{value.isoformat()} ({_relative_age(value, now)})" if value else "(never)"
+        )
+        click.echo(f"  {label}: {timestamp}")
     click.echo(f"  Latest report: {state.last_report_path or '(none)'}")
     click.echo(f"  Pending cleanup: {state.pending_cleanup_run_id or '(none)'}")
     if state.pending_cleanup_run_id:
@@ -363,6 +384,9 @@ def print_archive_status(
         )
         click.echo(
             f"  Approve with: {suggested_command('approve-cleanup', state.pending_cleanup_run_id)}"
+        )
+        click.echo(
+            f"  Discard with: {suggested_command('approve-cleanup', state.pending_cleanup_run_id, '--discard')}"
         )
     if not state.initialized:
         click.echo(f"  Next step: {suggested_command('bootstrap')}")

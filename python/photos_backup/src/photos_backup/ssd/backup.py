@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from photos_backup.copy_safety import check_copy_paths
 from photos_backup.exclude import exclude_from_arg
-from photos_backup.process import stream_command
+from photos_backup.process import stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
@@ -43,7 +43,8 @@ class Backup:
         cmd.extend(["--", str(src_path), str(self.destination)])
 
         start = time.monotonic()
-        result = stream_command(cmd, check=True)
+        with transfer_errors(step_name, "rsync"):
+            result = stream_command(cmd, check=True)
         elapsed = time.monotonic() - start
 
         stats = parse_rsync_stats(result.stdout)

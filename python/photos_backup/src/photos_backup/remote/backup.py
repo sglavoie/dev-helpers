@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import click
 
 from photos_backup.copy_safety import check_copy_path
-from photos_backup.process import stream_command
+from photos_backup.process import stream_command, transfer_errors
 from photos_backup.summary import BackupSummary
 
 if TYPE_CHECKING:
@@ -25,8 +25,9 @@ class Backup:
 
     def _check_rclone_installed(self) -> None:
         if not shutil.which("rclone"):
-            raise click.UsageError(
-                "rclone is not installed. Install it from https://rclone.org/install/"
+            raise click.ClickException(
+                "Remote: rclone was not found on PATH. "
+                "Install it from https://rclone.org/install/"
             )
 
     def backup(self) -> BackupSummary:
@@ -45,7 +46,8 @@ class Backup:
             cmd.append("--dry-run")
 
         start = time.monotonic()
-        result = stream_command(cmd)
+        with transfer_errors("Remote", "rclone"):
+            result = stream_command(cmd)
         elapsed = time.monotonic() - start
 
         if result.returncode != 0:

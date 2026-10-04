@@ -47,6 +47,12 @@ class CommandHintTests(ArchiveCommandTestCase):
         self.assertEqual(
             arguments, ["photos-backup", *self.options, "approve-cleanup", "run-7"]
         )
+        discard_hint = next(
+            line.split("Discard with: ", 1)[1]
+            for line in result.output.splitlines()
+            if "Discard with:" in line
+        )
+        self.assertEqual(shlex.split(discard_hint), [*arguments, "--discard"])
         # Exercise Click parsing of the pasted command without approving anything.
         with mock.patch("photos_backup.cli.approve_cleanup.open_archive") as opened:
             opened.side_effect = RuntimeError("stop before approval")

@@ -173,6 +173,68 @@ class CopyWorkflowTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("rclone exited with code 5", result.output)
 
+    def test_transfer_errors_are_readable_in_standalone_and_pipeline_commands(self):
+        for workflow, section, step, executable in (
+            ("sd-card", "sd_card", "SD Card", "rsync"),
+            ("ssd", "ssd", "SSD: All Photos", "rsync"),
+            ("remote", "rclone", "Remote", "rclone"),
+        ):
+            config = self.root / "config.toml"
+            config.write_text(
+                f'[{section}]\nsource = "{self.source}"\n'
+                + (
+                    'remote = "b2:photos"\n'
+                    if workflow == "remote"
+                    else f'destination = "{self.destination}"\n'
+                )
+            )
+            for command in (workflow, "backup-all"):
+                for failure in (
+                    None,
+                    FileNotFoundError("missing"),
+                    PermissionError("denied"),
+                ):
+                    with (
+                        self.subTest(
+                            workflow=workflow, command=command, failure=failure
+                        ),
+                        mock.patch(
+                            "photos_backup.remote.backup.shutil.which",
+                            return_value="rclone",
+                        ),
+                        mock.patch("photos_backup.process.subprocess.Popen") as popen,
+                    ):
+                        popen.side_effect = failure
+                        process = popen.return_value.__enter__.return_value
+                        process.stdout = iter(["transfer diagnostic\n"])
+                        process.wait.return_value = 23
+                        args = ["--config", str(config), command, "--dry-run"]
+                        if command == "backup-all":
+                            args.append("--skip-apple-photos")
+                        result = CliRunner().invoke(cli, args)
+                    self.assertEqual(result.exit_code, 1, result.output)
+                    self.assertIsInstance(result.exception, SystemExit)
+                    self.assertIn(step, result.output)
+                    self.assertIn(executable, result.output)
+                    if failure is None:
+                        self.assertIn("exited with code 23", result.output)
+                        self.assertIn("transfer diagnostic", result.output)
+                    elif isinstance(failure, FileNotFoundError):
+                        self.assertIn("PATH", result.output)
+                    else:
+                        self.assertIn("denied", result.output)
+                    if command == "backup-all":
+                        self.assertIn("COMPLETED WITH ERRORS", result.output)
+            self.assertFalse(self.destination.exists())
+
+    def test_missing_rclone_is_a_readable_runtime_failure(self):
+        config = self.root / "config.toml"
+        config.write_text(f'[rclone]\nremote = "b2:photos"\nsource = "{self.source}"\n')
+        with mock.patch("photos_backup.remote.backup.shutil.which", return_value=None):
+            result = CliRunner().invoke(cli, ["--config", str(config), "remote"])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Remote: rclone was not found on PATH", result.output)
+
     def test_remote_preview_keeps_arguments_and_final_statistics(self):
         with (
             mock.patch(

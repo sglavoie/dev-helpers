@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import shlex
 import subprocess
@@ -10,6 +11,7 @@ from unittest import mock
 
 from click.testing import CliRunner
 
+from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.config import SdCardConfig, SsdConfig
 from photos_backup.errors import ActionRequired
@@ -209,6 +211,32 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertIn("Next export: incremental", result.output)
         self.assertIn(str(report), result.output)
         self.assertIn(THURSDAY.isoformat(), result.output)
+        self.assertIn(f"{THURSDAY.isoformat()} (just now)", result.output)
+        self.assertIn(f"{MONDAY.isoformat()} (3 days ago)", result.output)
+
+    def test_status_relative_ages_handle_units_and_future_timestamps(self):
+        store = ArchiveStateStore(self.initialized_archive())
+        for offset, expected in (
+            (datetime.timedelta(seconds=59), "just now"),
+            (datetime.timedelta(minutes=1), "1 minute ago"),
+            (datetime.timedelta(minutes=2), "2 minutes ago"),
+            (datetime.timedelta(hours=1), "1 hour ago"),
+            (datetime.timedelta(days=1), "1 day ago"),
+            (datetime.timedelta(seconds=-30), "in less than a minute"),
+            (datetime.timedelta(hours=-2), "in 2 hours"),
+        ):
+            with self.subTest(expected=expected):
+                timestamp = THURSDAY - offset
+                store.update(last_successful_export_at=timestamp)
+                with mock.patch(
+                    "photos_backup.archive.Archive.now", return_value=THURSDAY
+                ):
+                    result = self.invoke_status()
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn(
+                    f"Last successful export: {timestamp.isoformat()} ({expected})",
+                    result.output,
+                )
 
     def invoke_status(self):
         with (
@@ -243,6 +271,7 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("another-mac", result.output)
         self.assertIn("approve-cleanup run-7", result.output)
+        self.assertIn("approve-cleanup run-7 --discard", result.output)
         self.assertIn("files have not been verified", result.output)
         self.assertEqual(paths.state_file.read_bytes(), before)
         self.assertFalse(paths.lock_file.exists())
