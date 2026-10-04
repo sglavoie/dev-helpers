@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.late_additions import csv_flag
 
@@ -269,7 +270,9 @@ def print_mirror_outcome(outcome: MirrorOutcome, *, dry_run: bool = False) -> No
         )
     if outcome.manifest_path is not None:
         click.echo(f"  Manifest: {outcome.manifest_path}")
-        click.echo(f"  Approve with: photos-backup approve-cleanup {outcome.run_id}")
+        click.echo(
+            f"  Approve with: {suggested_command('approve-cleanup', outcome.run_id)}"
+        )
 
 
 def print_cleanup_approval(approval: CleanupApproval) -> None:
@@ -359,10 +362,10 @@ def print_archive_status(
             f"  Review: {archive.paths.cleanup_manifest(state.pending_cleanup_run_id)}"
         )
         click.echo(
-            f"  Approve with: photos-backup approve-cleanup {state.pending_cleanup_run_id}"
+            f"  Approve with: {suggested_command('approve-cleanup', state.pending_cleanup_run_id)}"
         )
     if not state.initialized:
-        click.echo("  Next step: photos-backup bootstrap")
+        click.echo(f"  Next step: {suggested_command('bootstrap')}")
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
 
 

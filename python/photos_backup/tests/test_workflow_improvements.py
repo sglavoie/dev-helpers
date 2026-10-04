@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -147,10 +148,12 @@ class PreviewSummaryTests(unittest.TestCase):
             root = Path(directory)
             config = root / "config.toml"
             config.write_text(
-                f'[sd_card]\nsource = "{root}"\ndestination = "{root / "sd"}"\n'
-                f'[ssd]\nsource = "{root}"\ndestination = "{root / "ssd"}"\n'
+                f'[sd_card]\nsource = "{root / "card"}"\ndestination = "{root / "sd"}"\n'
+                f'[ssd]\nsource = "{root / "photos"}"\ndestination = "{root / "ssd"}"\n'
                 f'[rclone]\nsource = "{root}"\nremote = "b2:photos"\n'
             )
+            (root / "card").mkdir()
+            (root / "photos").mkdir()
             (root / "sd").mkdir()
             completed = subprocess.CompletedProcess(
                 [],
@@ -222,7 +225,12 @@ class StatusTests(ArchiveCommandTestCase):
         result = self.invoke_status()
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("(unclaimed)", result.output)
-        self.assertIn("photos-backup bootstrap", result.output)
+        self.assertIn(
+            shlex.join(
+                ["photos-backup", "--config", str(self.config_path), "bootstrap"]
+            ),
+            result.output,
+        )
         self.assertIn("Next export: full", result.output)
         self.assertEqual(list(self.volume.iterdir()), [])
 

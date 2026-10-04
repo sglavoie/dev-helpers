@@ -113,6 +113,13 @@ drive must be mounted, even during previews; an absent mount is never created.
 Remote uploads apply the same mount and source-directory checks before starting
 rclone. Ordinary local paths remain supported without adding configuration keys.
 
+SD-card and SSD copies also reject overlapping source and destination paths,
+including symlink aliases, before creating directories or starting rsync. Each
+source is copied into `destination/source-name`; SSD inputs must map to distinct,
+non-overlapping directories. An omitted `exclude_file` is optional. An explicitly
+configured file that is missing or is not a regular file prints a warning to
+stderr, and copying continues without those exclusions, including in dry runs.
+
 ### Archive layout and safety
 
 Everything the archive owns lives under one hidden directory inside
@@ -175,6 +182,10 @@ timestamps, latest report, last completed mirror, pending cleanup, and the next
 export mode with its cadence reason. It reads state without scanning exported
 files, opening the Photos library, taking over ownership, or writing anything.
 An uninitialized archive suggests `photos-backup bootstrap`.
+
+Suggested recovery and cleanup commands preserve any explicit `--config` and
+`--volume` options and quote paths for pasting into a shell, so they target the
+same archive as the command that printed them.
 
 Status exits 0 when state can be read, even if bootstrap or cleanup is pending;
 it is an informational view, not a health check. Use `verify` to check the files.

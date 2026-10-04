@@ -9,7 +9,7 @@ from photos_backup.apple_photos.local_export import (
 )
 from photos_backup.apple_photos.verify import verify_archive
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import apple_photos_config_from
+from photos_backup.cli.context import apple_photos_config_from, suggested_command
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import (
     print_local_export_cleanup,
@@ -48,7 +48,7 @@ def cleanup_local_export(ctx: click.Context, dry_run: bool) -> None:
         if not archive.state_store.load().initialized:
             raise ActionRequired(
                 f"Archive '{config.archive}' is not initialized; run "
-                "'photos-backup bootstrap' before deleting the local export"
+                f"`{suggested_command('bootstrap')}` before deleting the local export"
             )
         report = verify_archive(archive)
 

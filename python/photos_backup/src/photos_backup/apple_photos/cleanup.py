@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.adapter import PhotosProbes, resolve_export_files
 from photos_backup.apple_photos.files import (
     delete_files,
@@ -411,7 +412,7 @@ def _require_pending(
     if require_owner and state.writer_hostname != archive.hostname:
         raise ActionRequired(
             f"'{state.writer_hostname or 'an unknown host'}' owns this archive, not "
-            f"'{archive.hostname}'; run 'photos-backup daily' here first so this Mac "
+            f"'{archive.hostname}'; run `{suggested_command('daily')}` here first so this Mac "
             "proves it holds the same library before it deletes anything"
         )
 

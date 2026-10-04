@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.adapter import (
     INTEGRITY_OK,
     ExportedFile,
@@ -259,7 +260,7 @@ def _check_state(state: ArchiveState | None, error: str | None) -> Check:
         return Check(
             STATE,
             False,
-            "the archive has never been initialized; run 'photos-backup bootstrap'",
+            f"the archive has never been initialized; run `{suggested_command('bootstrap')}`",
         )
 
     problems = []
@@ -293,7 +294,7 @@ def _check_ownership(archive: Archive, state: ArchiveState | None) -> Check:
         return Check(
             OWNERSHIP,
             False,
-            "no Mac has claimed the archive; run 'photos-backup bootstrap'",
+            f"no Mac has claimed the archive; run `{suggested_command('bootstrap')}`",
         )
     if state.writer_hostname == archive.hostname:
         return Check(
@@ -319,7 +320,7 @@ def _check_pending_cleanup(archive: Archive, state: ArchiveState | None) -> Chec
         False,
         f"cleanup run '{run_id}' is waiting for approval "
         f"({archive.paths.cleanup_manifest(run_id)}); review it and run "
-        f"'photos-backup approve-cleanup {run_id}'",
+        f"`{suggested_command('approve-cleanup', run_id)}`",
     )
 
 

@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from photos_backup.copy_safety import check_copy_path
+from photos_backup.copy_safety import check_copy_paths
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary, parse_rsync_stats
@@ -31,8 +31,7 @@ class Backup:
     def _run_rsync(
         self, step_name: str, src_path: Path, exclude: str = ""
     ) -> BackupSummary:
-        check_copy_path(src_path, workflow="SSD", source=True)
-        check_copy_path(self.destination, workflow="SSD")
+        check_copy_paths((src_path,), self.destination, workflow="SSD")
 
         cmd = ["rsync", "-avh", "--progress", "--stats"]
         if self.delete_at_destination:
@@ -58,10 +57,10 @@ class Backup:
 
     def backup(self) -> list[BackupSummary]:
         # Validate every configured input before creating directories or copying.
-        check_copy_path(self.source, workflow="SSD", source=True)
+        sources = (self.source,)
         if self.sd_card is not None:
-            check_copy_path(self.sd_card.destination, workflow="SSD", source=True)
-        check_copy_path(self.destination, workflow="SSD")
+            sources += (self.sd_card.destination,)
+        check_copy_paths(sources, self.destination, workflow="SSD")
         if not self.dry_run:
             self.destination.mkdir(parents=True, exist_ok=True)
 

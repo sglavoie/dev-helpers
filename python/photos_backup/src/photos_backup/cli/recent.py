@@ -13,7 +13,7 @@ from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import apple_photos_config_from
+from photos_backup.cli.context import apple_photos_config_from, suggested_command
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import print_export_result
 
@@ -47,7 +47,8 @@ def recent(ctx: click.Context, days: int, download_timeout: int, dry_run: bool) 
     print_export_result(result, dry_run=dry_run)
     if not result.complete:
         raise click.ClickException(
-            "Recent backup is incomplete; review the reports and rerun 'photos-backup recent' "
+            "Recent backup is incomplete; review the reports and rerun "
+            f"`{suggested_command('recent', '--days', str(days), '--download-timeout', str(download_timeout))}` "
             "to retry missing items. Completed files are retained."
         )
 

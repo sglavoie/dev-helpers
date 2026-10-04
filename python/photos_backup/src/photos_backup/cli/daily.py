@@ -5,7 +5,7 @@ from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import apple_photos_config_from
+from photos_backup.cli.context import apple_photos_config_from, suggested_command
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import (
     print_export_result,
@@ -30,7 +30,7 @@ def daily(ctx: click.Context, dry_run: bool) -> None:
         if not archive.state_store.load().initialized:
             raise ActionRequired(
                 f"Archive '{config.archive}' is not initialized; "
-                "run 'photos-backup bootstrap' before the first daily run"
+                f"run `{suggested_command('bootstrap')}` before the first daily run"
             )
         takeover = ensure_writer(config, archive)
         result = ApplePhotosExport(
@@ -48,5 +48,5 @@ def daily(ctx: click.Context, dry_run: bool) -> None:
         raise ActionRequired(
             f"Cleanup run '{mirror.run_id}' needs approval because {mirror.reason}; "
             f"review '{mirror.manifest_path}' and run "
-            f"'photos-backup approve-cleanup {mirror.run_id}'"
+            f"`{suggested_command('approve-cleanup', mirror.run_id)}`"
         )

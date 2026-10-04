@@ -4,6 +4,7 @@ import datetime
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.identity import CoverageReport, assess_coverage
@@ -115,8 +116,8 @@ def _require_bootstrappable(archive: Archive, state: ArchiveState) -> bool:
     if state.initialized:
         raise ActionRequired(
             f"Archive '{paths.archive}' was already initialized at "
-            f"{state.initialized_at.isoformat()}; run 'photos-backup daily' to "
-            "keep it current or 'photos-backup verify' to check its health"
+            f"{state.initialized_at.isoformat()}; run `{suggested_command('daily')}` to "
+            f"keep it current or `{suggested_command('verify')}` to check its health"
         )
 
     recognized = paths.state_file.exists() or paths.export_db.exists()

@@ -206,3 +206,115 @@ class CopyWorkflowTests(unittest.TestCase):
             "Transferred: 2 KiB / 2 KiB\nTransferred: 2 / 2, 100%\n"
         )
         self.assertEqual(stats, {"files_transferred": 2, "total_size": "2 KiB"})
+
+    def test_overlapping_copy_paths_stop_before_any_effects(self):
+        alias = self.root / "source-alias"
+        alias.symlink_to(self.source, target_is_directory=True)
+        target_alias_parent = self.root / "target-alias-parent"
+        target_alias_parent.mkdir()
+        (target_alias_parent / self.source.name).symlink_to(self.source)
+        destinations = (
+            self.source,
+            self.source / "nested" / "backup",
+            alias / "backup",
+            self.source.parent,  # rsync's effective target is the source itself.
+            target_alias_parent,
+        )
+        for workflow in ("ssd", "sd_card"):
+            for dry_run in (False, True):
+                for destination in destinations:
+                    with (
+                        self.subTest(
+                            workflow=workflow, dry_run=dry_run, destination=destination
+                        ),
+                        mock.patch.object(Path, "mkdir") as mkdir,
+                        mock.patch(
+                            f"photos_backup.{workflow}.backup.stream_command"
+                        ) as run,
+                    ):
+                        backup = (
+                            SsdBackup(
+                                SsdConfig(self.source, destination, None), True, dry_run
+                            )
+                            if workflow == "ssd"
+                            else SdCardBackup(
+                                SdCardConfig(self.source, destination, None), dry_run
+                            )
+                        )
+                        with self.assertRaises(ActionRequired):
+                            backup.backup()
+                        mkdir.assert_not_called()
+                        run.assert_not_called()
+
+    def test_ssd_sources_cannot_share_a_target(self):
+        other_source = self.root / "other" / self.source.name
+        other_source.mkdir(parents=True)
+        for dry_run in (False, True):
+            with (
+                self.subTest(dry_run=dry_run),
+                mock.patch.object(Path, "mkdir") as mkdir,
+                mock.patch("photos_backup.ssd.backup.stream_command") as run,
+            ):
+                backup = SsdBackup(
+                    SsdConfig(self.source, self.destination, None),
+                    True,
+                    dry_run,
+                    sd_card=SdCardConfig(self.root, other_source, None),
+                )
+                with self.assertRaisesRegex(ActionRequired, "overlapping copy targets"):
+                    backup.backup()
+                mkdir.assert_not_called()
+                run.assert_not_called()
+
+    def test_ssd_target_cannot_overwrite_its_other_source(self):
+        other_source = self.root / "stored-card"
+        other_source.mkdir()
+        self.destination.mkdir(parents=True)
+        (self.destination / self.source.name).symlink_to(other_source)
+        with mock.patch("photos_backup.ssd.backup.stream_command") as run:
+            with self.assertRaisesRegex(ActionRequired, "overlaps source"):
+                SsdBackup(
+                    SsdConfig(self.source, self.destination, None),
+                    True,
+                    True,
+                    sd_card=SdCardConfig(self.root, other_source, None),
+                ).backup()
+        run.assert_not_called()
+
+    def test_exclusion_warning_is_visible_but_copy_continues(self):
+        for workflow, section in (("sd_card", "sd_card"), ("ssd", "ssd")):
+            for dry_run in (False, True):
+                for exclusion in (None, self.exclude, self.root / "missing-exclusions"):
+                    with self.subTest(
+                        workflow=workflow, dry_run=dry_run, exclusion=exclusion
+                    ):
+                        config = self.root / "config.toml"
+                        config.write_text(
+                            f'[{section}]\nsource = "{self.source}"\n'
+                            f'destination = "{self.destination}"\n'
+                            + (f'exclude_file = "{exclusion}"\n' if exclusion else "")
+                        )
+                        with mock.patch(
+                            f"photos_backup.{workflow}.backup.stream_command",
+                            return_value=subprocess.CompletedProcess([], 0, stdout=""),
+                        ) as run:
+                            result = CliRunner().invoke(
+                                cli,
+                                ["--config", str(config), workflow.replace("_", "-")]
+                                + (["--dry-run"] if dry_run else []),
+                            )
+                        self.assertEqual(result.exit_code, 0, result.output)
+                        run.assert_called_once()
+                        if exclusion is not None and not exclusion.exists():
+                            self.assertIn(str(exclusion), result.stderr)
+                            self.assertIn(
+                                "continuing without these exclusions", result.stderr
+                            )
+                            self.assertFalse(
+                                any(
+                                    arg.startswith("--exclude-from")
+                                    for arg in run.call_args.args[0]
+                                )
+                            )
+                        else:
+                            self.assertNotIn("Warning:", result.stderr)
