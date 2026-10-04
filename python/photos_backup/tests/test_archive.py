@@ -273,6 +273,27 @@ class ArchiveStateTests(ArchiveTestCase):
         with self.assertRaises(ArchiveUnsafe):
             store.load()
 
+    def test_non_integer_versions_fail_closed(self) -> None:
+        store = self.store()
+        for version in (True, False, 1.0, "1", None):
+            with self.subTest(version=version):
+                store.path.write_text(json.dumps({"version": version}))
+                before = store.path.read_bytes()
+                with self.assertRaises(ArchiveUnsafe) as caught:
+                    store.load()
+                self.assertIn("only understands version", str(caught.exception))
+                self.assertEqual(store.path.read_bytes(), before)
+
+    def test_invalid_utf8_state_fails_with_an_archive_error(self) -> None:
+        store = self.store()
+        store.path.write_bytes(b'{"version": 1, "writer_hostname": "\xff"}')
+        before = store.path.read_bytes()
+        with self.assertRaises(ArchiveUnsafe) as caught:
+            store.load()
+        self.assertIn("not valid UTF-8", str(caught.exception))
+        self.assertIn(str(store.path), str(caught.exception))
+        self.assertEqual(store.path.read_bytes(), before)
+
     def test_unknown_key_fails_closed(self) -> None:
         store = self.store()
         store.path.write_text(json.dumps({"version": STATE_VERSION, "wat": 1}))

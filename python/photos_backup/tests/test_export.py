@@ -25,6 +25,7 @@ from photos_backup.apple_photos.plan import (
 )
 from photos_backup.archive import ArchiveState, SystemProbes, open_archive
 from photos_backup.config import ApplePhotosConfig
+from photos_backup.progress import ExportProgress
 
 HOSTNAME = "Sebastiens MacBook.local"
 SAFE_HOSTNAME = "Sebastiens-MacBook-local"
@@ -375,6 +376,103 @@ class DirectExportTests(ExportTestCase):
         self.assertIsNone(self.state.last_successful_export_at)
         self.assertIsNone(self.state.last_full_export_at)
         self.assertIn("1 export error", str(result.failure_reason()))
+
+    def test_supplementary_report_failures_warn_and_preserve_success(self) -> None:
+        for error in (
+            OSError("disk full"),
+            UnicodeError("bad text"),
+            csv.Error("bad CSV"),
+        ):
+            for use_progress in (False, True):
+                with self.subTest(error=error, progress=use_progress):
+                    messages = []
+                    progress = (
+                        ExportProgress(sink=messages.append, terminal=False)
+                        if use_progress
+                        else None
+                    )
+
+                    def fail_report(**kwargs):
+                        kwargs["output_path"].write_text("partial report")
+                        raise error
+
+                    with (
+                        mock.patch(
+                            "photos_backup.apple_photos.export.generate_late_photo_additions_report",
+                            side_effect=fail_report,
+                        ),
+                        mock.patch(
+                            "photos_backup.apple_photos.export.click.echo"
+                        ) as echo,
+                    ):
+                        result = self.run_export(
+                            FakeRunner([row("a.jpg", new=1)]),
+                            state=ArchiveState(),
+                            progress=progress,
+                        )
+                    self.assertTrue(result.complete)
+                    self.assertTrue(result.state_advanced)
+                    self.assertIsNone(result.summary().error)
+                    self.assertIsNone(result.late_additions_path)
+                    self.assertEqual(result.late_additions_rows, 0)
+                    self.assertEqual(self.state.last_full_export_at, THURSDAY)
+                    self.assertEqual(self.state.last_report_path, result.report_path)
+                    if use_progress:
+                        warnings = [line for line in messages if "Warning:" in line]
+                        self.assertEqual(len(warnings), 1)
+                        warning = warnings[0]
+                    else:
+                        echo.assert_called_once()
+                        self.assertTrue(echo.call_args.kwargs["err"])
+                        warning = echo.call_args.args[0]
+                    self.assertIn("may be partial", warning)
+                    self.assertIn(str(error), warning)
+                    self.assertIn(str(result.report_path.parent), warning)
+
+    def test_supplementary_failure_does_not_mask_an_incomplete_export(self) -> None:
+        for runner in (
+            FakeRunner([row("a.jpg", error=1)]),
+            FakeRunner([row("a.jpg", missing=1)]),
+            FakeRunner(exit_code=1),
+        ):
+            with (
+                self.subTest(runner=runner),
+                mock.patch(
+                    "photos_backup.apple_photos.export.generate_late_photo_additions_report",
+                    side_effect=OSError("disk full"),
+                ),
+                mock.patch("photos_backup.apple_photos.export.click.echo"),
+            ):
+                baseline = ArchiveState(last_successful_export_at=LAST_MONDAY)
+                result = self.run_export(runner, state=baseline)
+                self.assertFalse(result.complete)
+                self.assertFalse(result.state_advanced)
+                self.assertEqual(self.state, baseline)
+                self.assertIsNotNone(result.failure_reason())
+
+    def test_unreadable_main_report_still_blocks_state_and_supplementary_report(self):
+        def invalid_report(arguments):
+            Path(arguments["report"]).write_bytes(b"filename,new\n\xff,1\n")
+            return 0
+
+        with mock.patch(
+            "photos_backup.apple_photos.export.generate_late_photo_additions_report"
+        ) as supplementary:
+            result = self.run_export(invalid_report)
+        supplementary.assert_not_called()
+        self.assertFalse(result.complete)
+        self.assertFalse(result.state_advanced)
+        self.assertIn("could not be read", result.failure_reason())
+        self.assertIsNone(result.late_additions_path)
+        self.assertIsNone(self.state.last_successful_export_at)
+
+    def test_supplementary_report_interruption_is_not_swallowed(self):
+        with mock.patch(
+            "photos_backup.apple_photos.export.generate_late_photo_additions_report",
+            side_effect=KeyboardInterrupt,
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_export(FakeRunner())
 
     def test_a_failing_exit_code_prevents_state_advancement(self) -> None:
         runner = FakeRunner([row("a.jpg", new=1)], exit_code=1)

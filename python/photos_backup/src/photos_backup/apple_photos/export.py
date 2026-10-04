@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import dataclasses
 import datetime
 import tempfile
@@ -147,14 +148,29 @@ class ApplePhotosExport:
         ):
             report = read_export_report(report_path)
             late_additions_rows = 0
+            if report.problem is not None:
+                late_additions_path = None
             if late_additions_path is not None:
-                late_additions_rows = generate_late_photo_additions_report(
-                    export_report_path=report_path,
-                    output_path=late_additions_path,
-                    spouse_device_models=self.config.spouse_device_models,
-                    metadata_reader=self.metadata_reader,
-                    warning=self.progress.message if self.progress else None,
-                )
+                try:
+                    late_additions_rows = generate_late_photo_additions_report(
+                        export_report_path=report_path,
+                        output_path=late_additions_path,
+                        spouse_device_models=self.config.spouse_device_models,
+                        metadata_reader=self.metadata_reader,
+                        warning=self.progress.message if self.progress else None,
+                    )
+                except (OSError, UnicodeError, csv.Error) as error:
+                    # This supplementary report is not evidence of export success.
+                    warning = (
+                        f"Warning: late-additions report '{late_additions_path}' "
+                        f"could not be completed and may be partial: {error}. "
+                        "Export status is based on the main export report."
+                    )
+                    if self.progress:
+                        self.progress.message(warning)
+                    else:
+                        click.echo(warning, err=True)
+                    late_additions_path = None
 
         result = ExportResult(
             plan=plan,

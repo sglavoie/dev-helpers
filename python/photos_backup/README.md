@@ -278,6 +278,11 @@ yet, so the evidence always belongs to the run being judged: a second export on
 the same host and day that writes no report fails instead of inheriting the
 first export's report.
 
+The supplementary late-additions CSV is best-effort: a file, encoding, or CSV
+error prints a warning identifying the report, which may be partial. A clean,
+complete export still advances its baseline; errors in the main osxphotos report
+continue to prevent that advance.
+
 Apple Photos dry runs (`bootstrap`, `daily`, `recent`, `apple-photos`, and the
 Apple Photos step of `backup-all`) are planning-only:
 they do not invoke osxphotos, write reports, or touch `export.db` or `state.json`.
@@ -307,6 +312,12 @@ its exporter is not invoked. A successful pipeline preview ends with
 `PREVIEW COMPLETE`. `backup-all` exits 3 for action-required steps, such as a
 blocked Apple Photos takeover or unavailable SSD source, unless another step
 fails, in which case it exits 1.
+
+The Apple Photos step of `backup-all` shows the same live export phases and
+per-asset download budget as `daily`. Use `backup-all --download-timeout 300`
+to allow five minutes per missing asset across retries; this does not limit the
+whole pipeline. Skipping Apple Photos also skips its progress display, and
+`--dry-run` remains planning-only for that step.
 
 SSD summaries retain each completed copy if a later copy fails, in both `ssd`
 and `backup-all`. The failed copy is named, and any remaining SSD copy is

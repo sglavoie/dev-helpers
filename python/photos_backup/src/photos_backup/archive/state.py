@@ -61,6 +61,10 @@ class ArchiveStateStore:
             raw = self.path.read_text(encoding="utf-8")
         except FileNotFoundError:
             return ArchiveState()
+        except UnicodeDecodeError as error:
+            raise ArchiveUnsafe(
+                f"Archive state '{self.path}' is not valid UTF-8: {error}"
+            ) from error
         except OSError as error:
             raise ArchiveUnavailable(
                 f"Could not read archive state '{self.path}': {error}"
@@ -101,7 +105,7 @@ def _decode(document: Any, path: Path) -> ArchiveState:
     if not isinstance(document, dict):
         raise ArchiveUnsafe(f"Archive state '{path}' must be a JSON object")
     version = document.get("version")
-    if version != STATE_VERSION:
+    if type(version) is not int or version != STATE_VERSION:
         raise ArchiveUnsafe(
             f"Archive state '{path}' has version {version!r}; "
             f"this build only understands version {STATE_VERSION}"

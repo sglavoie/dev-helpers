@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import ExitStack
+from functools import partial
 from typing import TypeVar
 
 import click
 
+from photos_backup.apple_photos.adapter import run_osxphotos_export
+from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
 from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.config import (
+    ApplePhotosConfig,
     MissingSection,
     load_rclone_config,
     load_sd_card_config,
@@ -19,6 +24,7 @@ from photos_backup.config import (
 )
 from photos_backup.remote.backup import Backup as RemoteBackup
 from photos_backup.errors import ActionRequired
+from photos_backup.progress import ExportProgress
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
 from photos_backup.summary import (
@@ -33,6 +39,13 @@ T = TypeVar("T")
 
 @click.command(name="backup-all", help="Run the full backup pipeline.")
 @click.option("--dry-run", is_flag=True, help="Dry run for all steps.")
+@click.option(
+    "--download-timeout",
+    type=click.IntRange(min=1),
+    default=DEFAULT_DOWNLOAD_TIMEOUT,
+    show_default=True,
+    help="Seconds allowed for missing-file retrieval per asset, across retries. No total run limit.",
+)
 @click.option(
     "--delete-remote", is_flag=True, help="Delete remote files absent from its source."
 )
@@ -49,6 +62,7 @@ T = TypeVar("T")
 def backup_all(
     ctx: click.Context,
     dry_run: bool,
+    download_timeout: int,
     delete: bool,
     delete_remote: bool,
     skip_apple_photos: bool,
@@ -82,19 +96,11 @@ def backup_all(
     else:
         try:
             assert config is not None
-            with open_archive(config, dry_run=dry_run) as archive:
-                takeover = ensure_writer(config, archive)
-                if takeover.status is not WriterStatus.UNCHANGED:
-                    print_takeover_check(takeover, dry_run=dry_run)
-                result = ApplePhotosExport(
-                    config=config,
-                    archive=archive,
-                    verbose=dry_run,
-                    limit=config.limit_export if dry_run else 0,
-                    plan_only=dry_run,
-                ).export()
-                print_export_result(result, dry_run=dry_run)
-                summaries.append(result.summary())
+            summaries.append(
+                _export_apple_photos(
+                    config, dry_run=dry_run, download_timeout=download_timeout
+                )
+            )
         except ActionRequired as error:
             summaries.append(
                 BackupSummary(
@@ -186,6 +192,36 @@ def backup_all(
     ]
     if actions:
         raise ActionRequired("; ".join(actions))
+
+
+def _export_apple_photos(
+    config: ApplePhotosConfig, *, dry_run: bool, download_timeout: int
+) -> BackupSummary:
+    with ExportProgress() as progress, ExitStack() as stack:
+        with progress.phase("Checking archive"):
+            archive = stack.enter_context(open_archive(config, dry_run=dry_run))
+        with progress.phase("Checking archive writer"):
+            takeover = ensure_writer(config, archive)
+        if takeover.status is not WriterStatus.UNCHANGED:
+            print_takeover_check(takeover, dry_run=dry_run)
+        progress.message(
+            f"Missing downloads: {download_timeout}s per asset; no total run limit."
+        )
+        result = ApplePhotosExport(
+            config=config,
+            archive=archive,
+            verbose=dry_run,
+            limit=config.limit_export if dry_run else 0,
+            plan_only=dry_run,
+            progress=progress,
+            runner=partial(
+                run_osxphotos_export,
+                download_timeout=download_timeout,
+                progress=progress,
+            ),
+        ).export()
+    print_export_result(result, dry_run=dry_run)
+    return result.summary()
 
 
 def _load_optional(skip: bool, load: Callable[[], T]) -> T | None:
