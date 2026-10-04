@@ -168,7 +168,7 @@ class ApplePhotosExport:
             report_problem=report.problem,
         )
         if (
-            result.clean
+            result.complete
             and not self.archive.dry_run
             and plan.mode is not ExportMode.RECENT
         ):

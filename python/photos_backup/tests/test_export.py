@@ -448,14 +448,27 @@ class DirectExportTests(ExportTestCase):
         self.assertTrue(second.report_path.is_file())
         self.assertEqual(self.state.last_report_path, second.report_path)
 
-    def test_missing_assets_are_reported_without_blocking_state(self) -> None:
-        runner = FakeRunner([row("a.jpg", new=1), row("b.jpg", missing=1)])
-
-        result = self.run_export(runner)
-
-        self.assertEqual(result.missing_count, 1)
-        self.assertTrue(result.clean)
-        self.assertEqual(self.state.last_successful_export_at, THURSDAY)
+    def test_missing_assets_preserve_state_and_retry_window(self) -> None:
+        for state in (
+            ArchiveState(),
+            ArchiveState(
+                last_full_export_at=LAST_MONDAY, last_successful_export_at=LAST_MONDAY
+            ),
+        ):
+            with self.subTest(state=state):
+                runner = FakeRunner([row("a.jpg", new=1), row("b.jpg", missing=1)])
+                result = self.run_export(runner, state=state)
+                self.assertTrue(result.clean)
+                self.assertFalse(result.complete)
+                self.assertFalse(result.state_advanced)
+                self.assertEqual(self.state, state)
+                self.assertIn("1 file(s) remain missing", result.failure_reason())
+                self.assertEqual(result.summary().error, result.failure_reason())
+                self.assertTrue(result.report_path.is_file())
+                retry = self.run_export(FakeRunner([row("b.jpg", new=1)]))
+                self.assertEqual(retry.plan, result.plan)
+                self.assertTrue(retry.complete)
+                self.assertTrue(retry.state_advanced)
 
     def test_extra_arguments_override_the_defaults(self) -> None:
         runner = FakeRunner()

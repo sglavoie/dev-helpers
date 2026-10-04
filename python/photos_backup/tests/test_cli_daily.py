@@ -11,11 +11,34 @@ from photos_backup.archive import ArchivePaths, ArchiveState, ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
 from tests.test_cli import ArchiveCommandTestCase
+from tests.test_export import FakeRunner, row
 
 UNCHANGED_WRITER = mock.Mock(status=WriterStatus.UNCHANGED)
 
 
 class DailyTests(ArchiveCommandTestCase):
+    def test_missing_downloads_fail_daily_without_advancing_or_cleaning(self):
+        paths = self.initialized_archive()
+        before = ArchiveStateStore(paths).load()
+        runner = FakeRunner([row("missing.mov", missing=1)])
+        with (
+            self.mounted(),
+            mock.patch(
+                "photos_backup.cli.daily.ensure_writer", return_value=UNCHANGED_WRITER
+            ),
+            mock.patch(
+                "photos_backup.apple_photos.export.run_osxphotos_export", runner
+            ),
+            mock.patch("photos_backup.apple_photos.cleanup._reconcile") as reconcile,
+        ):
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "daily"]
+            )
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("1 file(s) remain missing", result.output)
+        self.assertEqual(ArchiveStateStore(paths).load(), before)
+        reconcile.assert_not_called()
+
     def test_daily_refuses_an_uninitialized_archive(self) -> None:
         with mock.patch(
             "photos_backup.archive.probes.os.path.ismount",

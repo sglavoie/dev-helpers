@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.copy_safety import check_copy_path
 from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary
 
@@ -29,6 +30,7 @@ class Backup:
             )
 
     def backup(self) -> BackupSummary:
+        check_copy_path(self.src_path, workflow="Remote", source=True)
         cmd = [
             "rclone",
             "sync",

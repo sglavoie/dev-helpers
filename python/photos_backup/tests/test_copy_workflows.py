@@ -10,6 +10,7 @@ from click.testing import CliRunner
 
 from photos_backup.cli.cli import cli
 from photos_backup.config import RcloneConfig, SdCardConfig, SsdConfig
+from photos_backup.errors import ActionRequired
 from photos_backup.remote.backup import Backup as RemoteBackup, _parse_rclone_stats
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
@@ -25,6 +26,69 @@ class CopyWorkflowTests(unittest.TestCase):
         self.destination = self.root / "new parent" / "Backup Photos"
         self.exclude = self.root / "exclude photos.txt"
         self.exclude.write_text("*.tmp\n")
+
+    def test_sd_card_missing_inputs_stop_before_destination_creation(self):
+        for dry_run in (False, True):
+            for source, destination in (
+                (self.root / "missing", self.destination),
+                (Path("/Volumes/Offline/DCIM"), self.destination),
+                (self.source, Path("/Volumes/Offline/Photos")),
+            ):
+                with (
+                    self.subTest(
+                        dry_run=dry_run, source=source, destination=destination
+                    ),
+                    mock.patch.object(Path, "is_mount", return_value=False),
+                    mock.patch.object(Path, "mkdir") as mkdir,
+                    mock.patch("photos_backup.sd_card.backup.stream_command") as run,
+                ):
+                    with self.assertRaises(ActionRequired):
+                        SdCardBackup(
+                            SdCardConfig(source, destination, None), dry_run
+                        ).backup()
+                mkdir.assert_not_called()
+                run.assert_not_called()
+
+    def test_remote_missing_or_unmounted_source_never_starts_sync(self):
+        link = self.root / "linked-drive"
+        link.symlink_to("/Volumes/Offline/Photos")
+        for dry_run in (False, True):
+            for source in (
+                self.root / "missing",
+                Path("/Volumes/Offline/Photos"),
+                link,
+            ):
+                with (
+                    self.subTest(dry_run=dry_run, source=source),
+                    mock.patch.object(Path, "is_mount", return_value=False),
+                    mock.patch(
+                        "photos_backup.remote.backup.shutil.which",
+                        return_value="rclone",
+                    ),
+                    mock.patch("photos_backup.remote.backup.stream_command") as run,
+                ):
+                    with self.assertRaises(ActionRequired):
+                        RemoteBackup(
+                            RcloneConfig("b2:photos", source), source, dry_run
+                        ).backup()
+                run.assert_not_called()
+
+    def test_missing_source_returns_action_required_for_sd_card_and_remote(self):
+        for workflow in ("sd-card", "remote"):
+            config = self.root / "config.toml"
+            section = (
+                f'[sd_card]\nsource = "{self.root / "missing"}"\ndestination = "{self.destination}"\n'
+                if workflow == "sd-card"
+                else f'[rclone]\nsource = "{self.root / "missing"}"\nremote = "b2:photos"\n'
+            )
+            config.write_text(section)
+            with mock.patch(
+                "photos_backup.remote.backup.shutil.which", return_value="rclone"
+            ):
+                result = CliRunner().invoke(cli, ["--config", str(config), workflow])
+            self.assertEqual(result.exit_code, 3, result.output)
+            self.assertIn("source", result.output)
+            self.assertFalse(self.destination.exists())
 
     def test_rsync_paths_remain_single_arguments_and_previews_create_nothing(self):
         for workflow in ("ssd", "sd_card"):

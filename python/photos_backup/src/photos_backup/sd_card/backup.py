@@ -4,6 +4,7 @@ import time
 from typing import TYPE_CHECKING
 
 from photos_backup.exclude import exclude_from_arg
+from photos_backup.copy_safety import check_copy_path
 from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
@@ -19,6 +20,8 @@ class Backup:
         self.exclude_file = config.exclude_file
 
     def backup(self) -> BackupSummary:
+        check_copy_path(self.src_path, workflow="SD Card", source=True)
+        check_copy_path(self.dst_path, workflow="SD Card")
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)
         exclude = exclude_from_arg(self.exclude_file)

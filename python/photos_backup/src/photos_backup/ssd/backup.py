@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from photos_backup.errors import ActionRequired
+from photos_backup.copy_safety import check_copy_path
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.process import stream_command
 from photos_backup.summary import BackupSummary, parse_rsync_stats
@@ -31,8 +31,8 @@ class Backup:
     def _run_rsync(
         self, step_name: str, src_path: Path, exclude: str = ""
     ) -> BackupSummary:
-        _check_path(src_path, source=True)
-        _check_path(self.destination)
+        check_copy_path(src_path, workflow="SSD", source=True)
+        check_copy_path(self.destination, workflow="SSD")
 
         cmd = ["rsync", "-avh", "--progress", "--stats"]
         if self.delete_at_destination:
@@ -58,10 +58,10 @@ class Backup:
 
     def backup(self) -> list[BackupSummary]:
         # Validate every configured input before creating directories or copying.
-        _check_path(self.source, source=True)
+        check_copy_path(self.source, workflow="SSD", source=True)
         if self.sd_card is not None:
-            _check_path(self.sd_card.destination, source=True)
-        _check_path(self.destination)
+            check_copy_path(self.sd_card.destination, workflow="SSD", source=True)
+        check_copy_path(self.destination, workflow="SSD")
         if not self.dry_run:
             self.destination.mkdir(parents=True, exist_ok=True)
 
@@ -81,27 +81,3 @@ class Backup:
                 )
             )
         return summaries
-
-
-def _check_path(path: Path, *, source: bool = False) -> None:
-    """Never create a missing macOS volume while preparing a copy destination."""
-    if ".." in path.parts:
-        raise ActionRequired(f"SSD path '{path}' must not contain '..'")
-    volumes = Path("/Volumes")
-    # Check both spellings so a local symlink into /Volumes cannot bypass this.
-    for candidate in (path, path.resolve()):
-        if not candidate.is_relative_to(volumes):
-            continue
-        parts = candidate.relative_to(volumes).parts
-        if not parts:
-            raise ActionRequired("Configure an SSD path beneath a mounted drive")
-        volume = volumes / parts[0]
-        if volume.is_symlink() or not volume.is_dir() or not volume.is_mount():
-            raise ActionRequired(
-                f"SSD volume '{volume}' is not a mounted drive; connect it and retry"
-            )
-    if source and not path.is_dir():
-        raise ActionRequired(
-            f"SSD source '{path}' is not an available directory; "
-            "connect the source drive or correct the configured path"
-        )

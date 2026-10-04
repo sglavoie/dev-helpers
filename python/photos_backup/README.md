@@ -106,11 +106,12 @@ section and any configuration it depends on. Invalid configuration exits 2
 immediately. Skipped sections are not loaded unless another enabled step needs
 them (for example, remote backup's default source uses `ssd.destination`).
 
-SSD copies check configured sources before creating the destination. A missing
-source requires attention (exit 3), including a configured SD-card backup
-directory. For SSD source and destination paths under `/Volumes/<drive>`, the
+SSD and SD-card copies check configured sources before creating the destination.
+A missing source requires attention (exit 3), including a configured SD-card
+backup directory. For copy source and destination paths under `/Volumes/<drive>`, the
 drive must be mounted, even during previews; an absent mount is never created.
-Ordinary local paths remain supported without adding configuration keys.
+Remote uploads apply the same mount and source-directory checks before starting
+rclone. Ordinary local paths remain supported without adding configuration keys.
 
 ### Archive layout and safety
 
@@ -189,7 +190,7 @@ otherwise, and it writes nothing at all: no directory, no state, no lock file.
 |-------|------------|
 | `export database` | It is missing or unreadable, `PRAGMA integrity_check` is not `ok`, the schema version is one this osxphotos cannot read, or records point outside the archive |
 | `signatures` | An exported file no longer matches its recorded size and modification time |
-| `missing assets` | An exported file is gone from the archive |
+| `missing assets` | An exported file is missing, unreadable, not a regular file, or reached through a symlink beneath the archive |
 | `state` | State is unreadable, the archive was never initialized, no export is recorded, the last full export is newer than the last successful one, or the last report is gone |
 | `ownership` | No Mac has claimed the archive |
 | `pending cleanup` | A cleanup run is still waiting for approval |
@@ -237,9 +238,9 @@ The cadence comes from durable state and the clock:
 | Otherwise | incremental from `last_successful_export_at` minus `incremental_overlap_days` |
 
 A run advances `last_successful_export_at` (and `last_full_export_at` for a full
-run) only when osxphotos exits 0 and its report contains no error rows, so a
-partial export is retried rather than treated as a new baseline. Assets missing
-from iCloud are reported but do not block the advance.
+run) only when osxphotos exits 0 and its report contains no error or missing
+rows. An incomplete export exits 1 and keeps completed files and reports. The
+next run retries from the previous successful baseline.
 
 The report is the evidence that the export ran: a report osxphotos never wrote,
 one that cannot be read, and one carrying none of the columns osxphotos writes

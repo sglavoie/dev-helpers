@@ -42,7 +42,7 @@ def daily(ctx: click.Context, dry_run: bool) -> None:
         print_takeover_check(takeover, dry_run=dry_run)
     print_export_result(result, dry_run=dry_run)
     print_mirror_outcome(mirror, dry_run=dry_run)
-    if not result.clean:
+    if not result.complete:
         raise click.ClickException(str(result.failure_reason()))
     if mirror.pending:
         raise ActionRequired(

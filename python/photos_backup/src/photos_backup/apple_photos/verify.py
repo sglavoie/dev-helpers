@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import stat
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -69,33 +72,72 @@ def verify_archive(
     export_db = archive.paths.export_db
     files: tuple[ExportedFile, ...] = ()
     export_db_error: str | None = None
-    if not export_db.exists():
-        export_db_error = f"'{export_db}' does not exist"
-    else:
-        try:
+    try:
+        if not export_db.exists():
+            export_db_error = f"'{export_db}' does not exist"
+        else:
             files = resolve_export_files(
                 active.read_export_files(export_db), archive.paths.archive
             )
-        except ArchiveError as error:
-            export_db_error = str(error)
+    except (ArchiveError, OSError) as error:
+        export_db_error = str(error)
 
     state: ArchiveState | None = None
     state_error: str | None = None
     try:
         state = archive.state_store.load()
-    except ArchiveError as error:
+    except (ArchiveError, OSError) as error:
         state_error = str(error)
 
+    statuses, file_errors = _inspect_files(files, archive.paths.archive)
     return VerificationReport(
         checks=(
-            _check_export_database(archive, active, files, export_db_error),
-            _check_signatures(files, export_db_error),
-            _check_missing_assets(files, export_db_error),
-            _check_state(state, state_error),
+            _guard_check(
+                EXPORT_DATABASE,
+                lambda: _check_export_database(archive, active, files, export_db_error),
+            ),
+            _check_signatures(files, export_db_error, statuses),
+            _check_missing_assets(files, export_db_error, file_errors),
+            _guard_check(STATE, lambda: _check_state(state, state_error)),
             _check_ownership(archive, state),
             _check_pending_cleanup(archive, state),
         )
     )
+
+
+def _guard_check(name: str, run: Callable[[], Check]) -> Check:
+    try:
+        return run()
+    except (ArchiveError, OSError) as error:
+        return Check(name, False, str(error))
+
+
+def _inspect_files(
+    files: tuple[ExportedFile, ...], archive: Path
+) -> tuple[dict[Path, os.stat_result], dict[Path, str]]:
+    """Inspect each path once without following symlinks beneath the archive."""
+    statuses: dict[Path, os.stat_result] = {}
+    errors: dict[Path, str] = {}
+    for record in files:
+        path = record.path
+        if not path.is_relative_to(archive) or path == archive:
+            errors[path] = "not a file beneath the archive"
+            continue
+        current = archive
+        try:
+            for part in path.relative_to(archive).parts:
+                current = current / part
+                status = current.lstat()
+                if stat.S_ISLNK(status.st_mode):
+                    raise OSError(f"symlink at '{current}'")
+                if current != path and not stat.S_ISDIR(status.st_mode):
+                    raise OSError(f"not a directory: '{current}'")
+            if not stat.S_ISREG(status.st_mode):
+                raise OSError("not a regular file")
+            statuses[path] = status
+        except OSError as error:
+            errors[path] = str(error)
+    return statuses, errors
 
 
 def _check_export_database(
@@ -146,7 +188,11 @@ def _check_export_database(
     )
 
 
-def _check_signatures(files: tuple[ExportedFile, ...], error: str | None) -> Check:
+def _check_signatures(
+    files: tuple[ExportedFile, ...],
+    error: str | None,
+    statuses: dict[Path, os.stat_result],
+) -> Check:
     if error is not None:
         return Check(SIGNATURES, False, UNREADABLE_EXPORT_DB)
 
@@ -155,9 +201,13 @@ def _check_signatures(files: tuple[ExportedFile, ...], error: str | None) -> Che
         for record in files
         if record.size is not None
         and record.mtime is not None
-        and record.path.is_file()
+        and record.path in statuses
     ]
-    mismatched = [record for record in comparable if not _signature_matches(record)]
+    mismatched = [
+        record
+        for record in comparable
+        if not _signature_matches(record, statuses[record.path])
+    ]
     if mismatched:
         return Check(
             SIGNATURES,
@@ -174,17 +224,27 @@ def _check_signatures(files: tuple[ExportedFile, ...], error: str | None) -> Che
     )
 
 
-def _check_missing_assets(files: tuple[ExportedFile, ...], error: str | None) -> Check:
+def _check_missing_assets(
+    files: tuple[ExportedFile, ...],
+    error: str | None,
+    file_errors: dict[Path, str],
+) -> Check:
     if error is not None:
         return Check(MISSING_ASSETS, False, UNREADABLE_EXPORT_DB)
 
-    absent = [record for record in files if not record.path.exists()]
+    absent = [record for record in files if record.path in file_errors]
     if absent:
+        details = [
+            f"{record.path}: {file_errors[record.path]}"
+            for record in absent[:_PATH_SAMPLE]
+        ]
+        if len(absent) > _PATH_SAMPLE:
+            details.append(f"and {len(absent) - _PATH_SAMPLE} more")
         return Check(
             MISSING_ASSETS,
             False,
-            f"{len(absent)} of {len(files)} exported file(s) are gone from the "
-            f"archive ({_sample(absent)})",
+            f"{len(absent)} of {len(files)} exported file(s) are missing, invalid, "
+            f"or unreadable ({'; '.join(details)})",
             paths=tuple(record.path for record in absent),
         )
     return Check(
@@ -263,8 +323,7 @@ def _check_pending_cleanup(archive: Archive, state: ArchiveState | None) -> Chec
     )
 
 
-def _signature_matches(record: ExportedFile) -> bool:
-    status = record.path.stat()
+def _signature_matches(record: ExportedFile, status: os.stat_result) -> bool:
     return status.st_size == record.size and int(status.st_mtime) == int(record.mtime)
 
 

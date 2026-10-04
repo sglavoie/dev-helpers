@@ -72,23 +72,33 @@ class ExportResult:
     def clean(self) -> bool:
         return self.report_problem is None and is_clean(self.exit_code, self.counts)
 
+    @property
+    def complete(self) -> bool:
+        """The export ran cleanly and left no requested files missing."""
+        return self.clean and self.missing_count == 0
+
     def summary(self) -> BackupSummary:
         return BackupSummary(
             step_name="Apple Photos",
             files_transferred=self.files_transferred,
             elapsed_seconds=self.elapsed_seconds,
             planned=not self.performed,
-            error=None if self.clean else self.failure_reason(),
+            error=None if self.complete else self.failure_reason(),
         )
 
     def failure_reason(self) -> str | None:
-        if self.clean:
+        if self.complete:
             return None
         if self.error_count:
             return f"osxphotos reported {self.error_count} export error(s)"
         if self.exit_code != 0:
             return f"osxphotos exited with status {self.exit_code}"
-        return self.report_problem
+        if self.report_problem is not None:
+            return self.report_problem
+        return (
+            f"Export incomplete: {self.missing_count} file(s) remain missing; "
+            "review the reports and rerun the export to retry. Completed files are retained."
+        )
 
 
 def error_count(counts: dict[str, int]) -> int:

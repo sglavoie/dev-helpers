@@ -45,7 +45,7 @@ def recent(ctx: click.Context, days: int, download_timeout: int, dry_run: bool) 
     finally:
         click.echo(f"Total command time: {time.monotonic() - started:.1f}s")
     print_export_result(result, dry_run=dry_run)
-    if not result.clean or result.missing_count:
+    if not result.complete:
         raise click.ClickException(
             "Recent backup is incomplete; review the reports and rerun 'photos-backup recent' "
             "to retry missing items. Completed files are retained."
