@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import time
 from contextlib import ExitStack
 from functools import partial
@@ -67,37 +68,50 @@ class Backup:
         )
 
     def backup(self) -> list[BackupSummary]:
-        # Validate every configured input before creating directories or copying.
-        sources = (self.source,)
-        if self.sd_card is not None:
-            sources += (self.sd_card.destination,)
-        check_copy_paths(sources, self.destination, workflow="SSD")
-        with ExitStack() as locks:
-            for source in sources:
-                locks.enter_context(copy_source_lock(source))
-            return self._copy_sources()
-
-    def _copy_sources(self) -> list[BackupSummary]:
         copies = [("SSD: All Photos", self.source, self.exclude_file)]
         if self.sd_card is not None:
             copies.append(
                 ("SSD: SD Card", self.sd_card.destination, self.sd_card.exclude_file)
             )
-        # Resolve every exclusion before starting any copy, so a missing SD-card
-        # exclusion cannot be discovered after the first deletion-enabled copy.
-        prepared = [
-            (
-                step_name,
-                source,
-                exclude_from_arg(
-                    exclude_file, delete_at_destination=self.delete_at_destination
-                ),
-            )
-            for step_name, source, exclude_file in copies
-        ]
-        if not self.dry_run:
-            self.destination.mkdir(parents=True, exist_ok=True)
+        started_at = datetime.datetime.now(datetime.UTC).isoformat()
+        with ExitStack() as locks:
+            try:
+                # Validate every input and exclusion before creating destinations
+                # or copying, and keep all archive locks through the transfers.
+                sources = tuple(source for _, source, _ in copies)
+                check_copy_paths(sources, self.destination, workflow="SSD")
+                for source in sources:
+                    locks.enter_context(copy_source_lock(source))
+                prepared = [
+                    (
+                        step_name,
+                        source,
+                        exclude_from_arg(
+                            exclude_file,
+                            delete_at_destination=self.delete_at_destination,
+                        ),
+                    )
+                    for step_name, source, exclude_file in copies
+                ]
+                if not self.dry_run:
+                    self.destination.mkdir(parents=True, exist_ok=True)
+            except BaseException as error:
+                if self.history is not None:
+                    for step_name, source, _ in copies:
+                        self.history.record_preflight_failure(
+                            step_name,
+                            source,
+                            self.destination / source.name,
+                            error,
+                            started_at=started_at,
+                            dry_run=self.dry_run,
+                        )
+                raise
+            return self._copy_sources(prepared)
 
+    def _copy_sources(
+        self, prepared: list[tuple[str, Path, str]]
+    ) -> list[BackupSummary]:
         summaries: list[BackupSummary] = []
         for step_name, source, exclude in prepared:
             if any(summary.error for summary in summaries):

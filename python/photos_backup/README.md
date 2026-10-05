@@ -75,6 +75,7 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 |---------|-------------|
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
+| `photos-backup verify --json` | Print all verification findings as one JSON document |
 | `photos-backup status` | Show recorded export dates, writer, pending cleanup, and the next export mode |
 | `photos-backup status --json` | Read archive status and local transfer receipts as one JSON document |
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
@@ -274,30 +275,41 @@ same archive as the command that printed them.
 
 Status exits 0 when state can be read, even if bootstrap or cleanup is pending;
 it is an informational view, not a health check. Use `verify` to check the files.
-The archive must still be available and its read lock obtainable.
+When the archive is unavailable, locked, or its state cannot be read, status still
+shows local transfer history alongside an archive error. It preserves the archive
+error's nonzero exit code; it does not infer archive state from transfer receipts.
+Valid Apple Photos configuration is still required.
 
 `status --json` prints one versioned JSON document with `archive`, `observed_at`,
-`files_verified` (always false), `state`, `next_export`, `transfers`, and
+`files_verified` (always false), `state`, `next_export`, `archive_error`, `transfers`, and
 `transfer_history_errors`. Dates are ISO 8601 strings with timezones; missing
 state values are null. It preserves the normal status exit codes, including exit
 0 for pending cleanup or an uninitialized archive. Errors reading local receipts
 are included in `transfer_history_errors` rather than mixed into JSON output.
+If the archive cannot be read, `state` and `next_export` are null and
+`archive_error` contains the reason; otherwise `archive_error` is null. The JSON
+is still printed on archive errors, with CLI diagnostics on stderr.
 
-### Secondary transfer history
+### Transfer history
 
-Real `ssd`, `remote`, and `backup-all` copies record local receipts under
+Real `sd-card`, `ssd`, `remote`, and `backup-all` copies record local receipts under
 `~/.local/state/photos-backup/transfers/` (or
 `$XDG_STATE_HOME/photos-backup/transfers/` when that variable is an absolute path).
 Each named configuration file has separate history, with one receipt per step,
-source, and destination. The SSD destination includes the source directory name.
-Status shows the last attempt and last successful copy for each recorded route;
+source, and destination. SSD and SD-card destinations include the source directory
+name. SD-card receipts identify the configured source path, not a physical card.
+Status shows the last attempt and last successful copy with relative ages, plus
+available file count, size, and duration from the successful copy for each route;
 older destinations remain labeled with their original paths if configuration changes.
 
 A failed or interrupted transfer does not erase the previous success. An attempt
 whose completion was never recorded is labeled as running or interrupted, never
 successful. Receipts retain counts, size, duration, and any transfer error. Skipped
-steps and dry runs do not update history. SSD preflight refusals occur before a
-copy starts and do not create a new receipt. History begins with this version;
+steps and dry runs do not update history. SSD path, lock, exclusion, and destination
+preparation failures record a failed preflight attempt for each configured SSD
+route while preserving its previous success. Pipeline configuration and executable
+checks still run before any workflow is attempted. History begins when receipts
+are enabled for each workflow;
 older transfers and transfers from another Mac cannot be inferred.
 
 Receipts are replaced atomically under a local lock. History write failures warn
@@ -350,6 +362,13 @@ fails, and verification keeps its usual exit code. Choose a new file outside the
 archive in an existing directory: invalid parent directories are rejected before
 the scan starts. Reports never overwrite existing files or modify archive contents.
 A report write failure exits 1.
+
+Use `photos-backup verify --json` to print the same document directly to stdout,
+including failed findings, with the same exit codes. Progress and diagnostics stay
+on stderr. It can be combined with `--report` to save an identical document while
+also printing JSON; the saved-report notice then goes to stderr. Configuration or
+archive-opening errors that prevent verification from starting produce CLI errors
+on stderr without a findings document.
 
 ### Daily export
 

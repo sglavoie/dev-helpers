@@ -22,8 +22,9 @@ from photos_backup.summary import print_verification_report
     type=click.Path(dir_okay=False, path_type=Path),
     help="Save all findings as JSON to a new file outside the archive.",
 )
+@click.option("--json", "as_json", is_flag=True, help="Print all findings as JSON.")
 @click.pass_context
-def verify(ctx: click.Context, report_path: Path | None) -> None:
+def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
     config = apple_photos_config_from(ctx)
     with open_archive(config, dry_run=True) as archive:
         if report_path is not None:
@@ -44,14 +45,17 @@ def verify(ctx: click.Context, report_path: Path | None) -> None:
         ) as progress:
             report = verify_archive(archive, progress=progress)
 
-    print_verification_report(report)
+    document = {
+        "version": 1,
+        "archive": str(archive.paths.archive),
+        "passed": report.passed,
+        "checks": [asdict(check) for check in report.checks],
+    }
+    if as_json:
+        click.echo(json.dumps(document, indent=2, default=str))
+    else:
+        print_verification_report(report)
     if report_path is not None:
-        document = {
-            "version": 1,
-            "archive": str(archive.paths.archive),
-            "passed": report.passed,
-            "checks": [asdict(check) for check in report.checks],
-        }
         try:
             with report_path.open("x", encoding="utf-8") as handle:
                 handle.write(json.dumps(document, indent=2, default=str) + "\n")
@@ -59,7 +63,7 @@ def verify(ctx: click.Context, report_path: Path | None) -> None:
             raise click.ClickException(
                 f"Could not write report '{report_path}': {error}"
             ) from error
-        click.echo(f"Verification report: {report_path}")
+        click.echo(f"Verification report: {report_path}", err=as_json)
     if not report.passed:
         if all(check.name == PENDING_CLEANUP for check in report.failed):
             raise ActionRequired(report.failed[0].detail)

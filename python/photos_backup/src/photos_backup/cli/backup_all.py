@@ -140,7 +140,11 @@ def backup_all(
         _optional_step(
             "SD Card",
             sd_config,
-            lambda config: [SdCardBackup(config=config, dry_run=dry_run).backup()],
+            lambda config: [
+                SdCardBackup(
+                    config=config, dry_run=dry_run, history=TransferHistory(config_path)
+                ).backup()
+            ],
             skip=skip_sd_card,
             section="sd_card",
         )

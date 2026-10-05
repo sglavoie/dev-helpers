@@ -11,6 +11,7 @@ from unittest import mock
 
 from click.testing import CliRunner
 
+from photos_backup.archive import ArchiveLocked, ArchiveUnavailable
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.config import SdCardConfig, SsdConfig
@@ -309,6 +310,40 @@ class PreviewSummaryTests(unittest.TestCase):
 
 
 class StatusTests(ArchiveCommandTestCase):
+    def test_unavailable_archive_still_shows_history_without_writes(self):
+        history = TransferHistory(self.config_path)
+        history.run(
+            "Remote",
+            self.root / "photos",
+            "b2:photos",
+            lambda: BackupSummary("Remote", files_transferred=2),
+            dry_run=False,
+        )
+        before = {p: p.read_bytes() for p in history.directory.iterdir()}
+        for error in (ArchiveUnavailable("Drive disconnected"), ArchiveLocked("Busy")):
+            for as_json in (False, True):
+                with (
+                    self.subTest(error=error, as_json=as_json),
+                    mock.patch(
+                        "photos_backup.cli.status.open_archive", side_effect=error
+                    ),
+                ):
+                    result = self.invoke_status(*(["--json"] if as_json else []))
+                self.assertEqual(result.exit_code, error.exit_code, result.output)
+                self.assertIn("b2:photos", result.stdout)
+                if as_json:
+                    document = json.loads(result.stdout)
+                    self.assertIsNone(document["state"])
+                    self.assertIsNone(document["next_export"])
+                    self.assertEqual(document["archive_error"], str(error))
+                    self.assertFalse(document["files_verified"])
+                else:
+                    self.assertIn("Archive unavailable", result.stdout)
+        self.assertEqual(
+            {p: p.read_bytes() for p in history.directory.iterdir()}, before
+        )
+        self.assertEqual(list(self.volume.iterdir()), [])
+
     def test_json_status_is_one_document_with_iso_dates_and_no_writes(self):
         paths = self.initialized_archive(
             writer_hostname="test.local",
@@ -463,6 +498,34 @@ class StatusTests(ArchiveCommandTestCase):
 
 
 class VerificationReportTests(VerifyTestCase):
+    def test_json_stdout_matches_report_and_preserves_outcome_codes(self):
+        before = self.paths.state_file.read_bytes()
+        for condition, expected_code in (
+            ("healthy", 0),
+            ("cleanup", 3),
+            ("missing", 1),
+        ):
+            if condition == "cleanup":
+                self.save_state(pending_cleanup_run_id="run-7")
+            elif condition == "missing":
+                self.exported.unlink()
+            for save_report in (False, True):
+                with self.subTest(condition=condition, save_report=save_report):
+                    destination = (
+                        self.root / f"{condition}.json" if save_report else None
+                    )
+                    result = self.invoke_verify(destination, "--json")
+                    self.assertEqual(result.exit_code, expected_code, result.output)
+                    document = json.loads(result.stdout)
+                    self.assertEqual(document["passed"], expected_code == 0)
+                    self.assertEqual(len(document["checks"]), 6)
+                    self.assertIn("files checked", result.stderr)
+                    if destination:
+                        self.assertEqual(document, json.loads(destination.read_text()))
+                        self.assertIn("Verification report:", result.stderr)
+            if condition == "healthy":
+                self.assertEqual(self.paths.state_file.read_bytes(), before)
+
     def test_pending_cleanup_is_action_required_unless_integrity_also_fails(self):
         self.save_state(pending_cleanup_run_id="run-7")
         before = self.paths.state_file.read_bytes()
@@ -486,7 +549,7 @@ class VerificationReportTests(VerifyTestCase):
                     self.assertEqual(failed, ["pending cleanup"])
                 self.assertEqual(self.paths.state_file.read_bytes(), before)
 
-    def invoke_verify(self, destination):
+    def invoke_verify(self, destination, *extra):
         config = self.root / "config.toml"
         config.write_text(
             f'[apple_photos]\nvolume = "{self.volume}"\narchive = "{self.archive_root}"\n'
@@ -500,8 +563,8 @@ class VerificationReportTests(VerifyTestCase):
                 "--volume",
                 str(self.volume),
                 "verify",
-                "--report",
-                str(destination),
+                *(["--report", str(destination)] if destination else []),
+                *extra,
             ],
         )
 

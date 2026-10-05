@@ -147,6 +147,29 @@ class TransferHistory:
         )
         return result
 
+    def record_preflight_failure(
+        self,
+        step: str,
+        source: Path,
+        destination: Path,
+        error: BaseException,
+        *,
+        started_at: str,
+        dry_run: bool,
+    ) -> None:
+        """Record a refused copy without losing its last successful transfer."""
+        if dry_run:
+            return
+        self._record(
+            {"step": step, "source": str(source), "destination": str(destination)},
+            {
+                "started_at": started_at,
+                "completed_at": _now(),
+                "status": "failed" if isinstance(error, Exception) else "interrupted",
+                "error": f"Preflight: {str(error) or type(error).__name__}",
+            },
+        )
+
     def _record(self, identity: dict, attempt: dict) -> None:
         """Merge under a short lock; a receipt failure never masks a transfer."""
         path = self.directory / f"{_key(identity)}.json"

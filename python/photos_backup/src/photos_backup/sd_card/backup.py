@@ -10,16 +10,35 @@ from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
     from photos_backup.config import SdCardConfig
+    from photos_backup.transfers import TransferHistory
 
 
 class Backup:
-    def __init__(self, config: SdCardConfig, dry_run: bool) -> None:
+    def __init__(
+        self,
+        config: SdCardConfig,
+        dry_run: bool,
+        *,
+        history: TransferHistory | None = None,
+    ) -> None:
+        self.history = history
         self.dry_run = dry_run
         self.src_path = config.source
         self.dst_path = config.destination
         self.exclude_file = config.exclude_file
 
     def backup(self) -> BackupSummary:
+        if self.history is not None:
+            return self.history.run(
+                "SD Card",
+                self.src_path,
+                self.dst_path / self.src_path.name,
+                self._copy,
+                dry_run=self.dry_run,
+            )
+        return self._copy()
+
+    def _copy(self) -> BackupSummary:
         check_copy_paths((self.src_path,), self.dst_path, workflow="SD Card")
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)

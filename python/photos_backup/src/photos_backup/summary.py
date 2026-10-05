@@ -424,8 +424,15 @@ def print_archive_status(
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
 
 
-def print_transfer_history(receipts: list[dict], errors: list[str]) -> None:
-    click.echo("Secondary transfer history (this Mac, this configuration)")
+def print_transfer_history(
+    receipts: list[dict], errors: list[str], *, now: datetime.datetime | None = None
+) -> None:
+    now = now or datetime.datetime.now(datetime.UTC)
+
+    def timestamp(value: str) -> str:
+        return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
+
+    click.echo("Transfer history (this Mac, this configuration)")
     if not receipts:
         click.echo("  No transfer receipts recorded")
     for receipt in receipts:
@@ -436,13 +443,26 @@ def print_transfer_history(receipts: list[dict], errors: list[str]) -> None:
         outcome = attempt["status"]
         if outcome == "started":
             outcome = "completion not recorded (running or interrupted)"
-        click.echo(f"    Last attempt: {attempt['started_at']} — {outcome}")
+        click.echo(f"    Last attempt: {timestamp(attempt['started_at'])} — {outcome}")
         if attempt.get("error"):
             click.echo(f"    Error: {attempt['error']}")
         success = receipt["last_success"]
         click.echo(
-            f"    Last successful copy: {success['completed_at'] if success else '(never)'}"
+            f"    Last successful copy: {timestamp(success['completed_at']) if success else '(never)'}"
         )
+        if success:
+            details = []
+            count = success.get("files_transferred")
+            if type(count) is int and count >= 0:
+                details.append(f"{count} files")
+            size = success.get("total_size")
+            if isinstance(size, str) and size:
+                details.append(size)
+            elapsed = success.get("elapsed_seconds")
+            if type(elapsed) in (int, float) and elapsed >= 0:
+                details.append(f"{elapsed:.1f}s")
+            if details:
+                click.echo(f"    Successful copy details: {', '.join(details)}")
     for error in errors:
         click.echo(f"Warning: {error}", err=True)
 
