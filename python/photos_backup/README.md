@@ -324,6 +324,13 @@ property with the evidence behind it. It exits 0 when all checks pass, 3 when
 pending cleanup approval is the only failed check, and 1 when any other check
 fails. It writes nothing at all: no directory, no state, no lock file.
 
+If the archive cannot be opened, `verify --json` still prints one JSON document:
+`passed` is false, `checks` is empty, and `archive_error` contains the reason.
+The diagnostic remains on stderr and the original nonzero exit code is preserved.
+When verification runs, `archive_error` is null. Configuration and command-line
+errors retain normal CLI diagnostics. `--report` saves completed verification
+findings only; an archive-open error does not create a report file.
+
 Verification prints its current phase and file-check count to stderr, with
 periodic updates during long scans. Progress counts inspected records, including
 missing or invalid files; the final findings determine whether verification

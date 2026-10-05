@@ -44,7 +44,11 @@ from photos_backup.summary import (
 T = TypeVar("T")
 
 
-@click.command(name="backup-all", help="Run the full backup pipeline.")
+@click.command(
+    name="backup-all",
+    help="Export Apple Photos and copy SD card, SSD, and remote backups. "
+    "Archive cleanup is not reconciled here; run daily for cleanup reconciliation.",
+)
 @click.option("--dry-run", is_flag=True, help="Dry run for all steps.")
 @click.option(
     "--download-timeout",

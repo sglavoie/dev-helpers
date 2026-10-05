@@ -80,6 +80,6 @@ def daily(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
     if mirror.pending:
         raise ActionRequired(
             f"Cleanup run '{mirror.run_id}' needs approval because {mirror.reason}; "
-            f"review '{mirror.manifest_path}' and run "
-            f"`{suggested_command('approve-cleanup', mirror.run_id)}`"
+            f"review '{mirror.manifest_path}' and preview with "
+            f"`{suggested_command('approve-cleanup', mirror.run_id, '--dry-run')}`"
         )

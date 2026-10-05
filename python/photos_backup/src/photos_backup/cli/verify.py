@@ -1,11 +1,12 @@
 import json
+from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
 
 import click
 
 from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
-from photos_backup.archive import open_archive
+from photos_backup.archive import ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
@@ -26,20 +27,28 @@ from photos_backup.summary import print_verification_report
 @click.pass_context
 def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
     config = apple_photos_config_from(ctx)
-    with open_archive(config, dry_run=True) as archive:
+    with ExitStack() as stack:
+        try:
+            archive = stack.enter_context(open_archive(config, dry_run=True))
+        except (ArchiveError, OSError) as error:
+            if as_json:
+                click.echo(
+                    json.dumps(
+                        {
+                            "version": 1,
+                            "archive": str(config.archive),
+                            "passed": False,
+                            "checks": [],
+                            "archive_error": str(error),
+                        },
+                        indent=2,
+                    )
+                )
+            if isinstance(error, ArchiveError):
+                raise
+            raise click.ClickException(str(error)) from error
         if report_path is not None:
-            if report_path.resolve().is_relative_to(archive.paths.archive.resolve()):
-                raise click.UsageError(
-                    "The verification report must be outside the archive"
-                )
-            if report_path.exists() or report_path.is_symlink():
-                raise click.UsageError(
-                    f"Report '{report_path}' already exists; choose a new file"
-                )
-            if not report_path.parent.is_dir():
-                raise click.UsageError(
-                    f"Report parent '{report_path.parent}' must be an existing directory"
-                )
+            _validate_report_path(report_path, archive.paths.archive)
         with ExportProgress(
             item_label="files checked", show_downloads=False
         ) as progress:
@@ -49,6 +58,7 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
         "version": 1,
         "archive": str(archive.paths.archive),
         "passed": report.passed,
+        "archive_error": None,
         "checks": [asdict(check) for check in report.checks],
     }
     if as_json:
@@ -69,3 +79,17 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
             raise ActionRequired(report.failed[0].detail)
         failed = ", ".join(check.name for check in report.failed)
         raise click.ClickException(f"Archive check(s) failed: {failed}")
+
+
+def _validate_report_path(report_path: Path, archive_path: Path) -> None:
+    """Reject unsafe report destinations before scanning any files."""
+    if report_path.resolve().is_relative_to(archive_path.resolve()):
+        raise click.UsageError("The verification report must be outside the archive")
+    if report_path.exists() or report_path.is_symlink():
+        raise click.UsageError(
+            f"Report '{report_path}' already exists; choose a new file"
+        )
+    if not report_path.parent.is_dir():
+        raise click.UsageError(
+            f"Report parent '{report_path.parent}' must be an existing directory"
+        )

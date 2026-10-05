@@ -92,7 +92,7 @@ class CommandHintTests(ArchiveCommandTestCase):
         hint = shlex.join(["photos-backup", *self.options, "approve-cleanup", "run-7"])
         self.assertIn(f"  Preview with: {hint} --dry-run\n", result.output)
         self.assertIn(f"  Approve with: {hint}\n", result.output)
-        self.assertIn(f"and run `{hint}`", result.output)
+        self.assertIn(f"and preview with `{hint} --dry-run`", result.output)
 
     def test_verify_recovery_hint_preserves_options(self):
         result = self.runner.invoke(cli, [*self.options, "verify"])

@@ -498,6 +498,30 @@ class StatusTests(ArchiveCommandTestCase):
 
 
 class VerificationReportTests(VerifyTestCase):
+    def test_json_archive_open_errors_preserve_exit_codes_without_scanning(self):
+        before = self.paths.state_file.read_bytes()
+        for error in (
+            ArchiveUnavailable("archive drive is not mounted"),
+            ArchiveLocked("archive is busy"),
+            PermissionError("archive cannot be read"),
+        ):
+            with (
+                self.subTest(error=error),
+                mock.patch("photos_backup.cli.verify.open_archive", side_effect=error),
+                mock.patch("photos_backup.cli.verify.verify_archive") as scan,
+            ):
+                result = self.invoke_verify(None, "--json")
+            self.assertEqual(result.exit_code, getattr(error, "exit_code", 1))
+            document = json.loads(result.stdout)
+            self.assertEqual(document["archive"], str(self.archive_root))
+            self.assertFalse(document["passed"])
+            self.assertEqual(document["checks"], [])
+            self.assertEqual(document["archive_error"], str(error))
+            self.assertIn(str(error), result.stderr)
+            scan.assert_not_called()
+        self.assertEqual(self.paths.state_file.read_bytes(), before)
+        self.assertFalse(self.paths.lock_file.exists())
+
     def test_json_stdout_matches_report_and_preserves_outcome_codes(self):
         before = self.paths.state_file.read_bytes()
         for condition, expected_code in (
@@ -518,6 +542,7 @@ class VerificationReportTests(VerifyTestCase):
                     self.assertEqual(result.exit_code, expected_code, result.output)
                     document = json.loads(result.stdout)
                     self.assertEqual(document["passed"], expected_code == 0)
+                    self.assertIsNone(document["archive_error"])
                     self.assertEqual(len(document["checks"]), 6)
                     self.assertIn("files checked", result.stderr)
                     if destination:
