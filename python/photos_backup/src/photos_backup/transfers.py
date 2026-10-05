@@ -73,6 +73,26 @@ def _validate_attempt(attempt: object, field: str) -> None:
             raise ValueError(f"timestamp without timezone in {field}")
 
 
+def classify_transfers(
+    configured: list[dict], receipts: list[dict]
+) -> tuple[list[dict], list[dict]]:
+    """Match exact receipt identities without probing potentially unmounted paths."""
+
+    def identity(row: dict) -> tuple[str, str, str]:
+        return row["step"], row["source"], row["destination"]
+
+    by_identity = {identity(row): row for row in receipts}
+    current = [
+        by_identity.get(
+            identity(row), {**row, "last_attempt": None, "last_success": None}
+        )
+        for row in configured
+    ]
+    active = {identity(row) for row in configured}
+    historical = [row for row in receipts if identity(row) not in active]
+    return current, historical
+
+
 class TransferHistory:
     def __init__(self, config_path: Path | None, *, root: Path | None = None):
         self.directory = (root if root is not None else history_root()) / _key(
@@ -181,6 +201,24 @@ class TransferHistory:
                 try:
                     document = _read(path)
                 except FileNotFoundError:
+                    document = {"version": 1, **identity, "last_success": None}
+                except ValueError as error:
+                    # Reserve a unique name under the same lock, then preserve the
+                    # original bytes before starting a receipt with no prior success.
+                    with tempfile.NamedTemporaryFile(
+                        dir=self.directory, prefix=path.name + ".corrupt-", delete=False
+                    ) as handle:
+                        quarantined = Path(handle.name)
+                    try:
+                        os.replace(path, quarantined)
+                    except OSError:
+                        quarantined.unlink(missing_ok=True)
+                        raise
+                    click.echo(
+                        f"Warning: preserved invalid transfer receipt at '{quarantined}': "
+                        f"{error}; starting fresh history for this transfer.",
+                        err=True,
+                    )
                     document = {"version": 1, **identity, "last_success": None}
                 previous = document.get("last_attempt")
                 if previous is None or attempt["started_at"] >= previous["started_at"]:

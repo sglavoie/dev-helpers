@@ -132,7 +132,55 @@ class TransferHistoryTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         with mock.patch("photos_backup.transfers.click.echo"):
             self.assertEqual(self.run_transfer().files_transferred, 4)
+        self.assertEqual(self.receipt()["last_attempt"]["status"], "succeeded")
+        quarantined = list(self.history.directory.glob("*.corrupt-*"))
+        self.assertEqual(len(quarantined), 1)
+        self.assertEqual(quarantined[0].read_text(), "invalid")
+
+    def test_recovery_preserves_each_corrupt_receipt_without_inventing_success(self):
+        self.run_transfer()
+        path = next(self.history.directory.glob("*.json"))
+        for content in (b"invalid", b"\xff", b'{"version": 1}'):
+            with self.subTest(content=content):
+                path.write_bytes(content)
+                before = {p: p.read_bytes() for p in self.history.directory.iterdir()}
+                self.history.read()
+                self.run_transfer(dry_run=True)
+                self.assertEqual(
+                    {p: p.read_bytes() for p in self.history.directory.iterdir()},
+                    before,
+                )
+                with mock.patch("photos_backup.transfers.click.echo") as echo:
+                    self.run_transfer(
+                        lambda: BackupSummary("SSD: All Photos", error="offline")
+                    )
+                self.assertIn(
+                    "preserved invalid transfer receipt", echo.call_args.args[0]
+                )
+                receipt = self.receipt()
+                self.assertIsNone(receipt["last_success"])
+                self.assertEqual(receipt["last_attempt"]["status"], "failed")
+        self.assertCountEqual(
+            [p.read_bytes() for p in self.history.directory.glob("*.corrupt-*")],
+            [b"invalid", b"\xff", b'{"version": 1}'],
+        )
+        self.run_transfer()
+        self.assertEqual(self.receipt()["last_success"]["files_transferred"], 4)
+
+    def test_failed_quarantine_preserves_corrupt_receipt_and_transfer_result(self):
+        self.run_transfer()
+        path = next(self.history.directory.glob("*.json"))
+        path.write_text("invalid")
+        with (
+            mock.patch(
+                "photos_backup.transfers.os.replace", side_effect=OSError("denied")
+            ),
+            mock.patch("photos_backup.transfers.click.echo") as echo,
+        ):
+            self.assertEqual(self.run_transfer().files_transferred, 4)
+        self.assertIn("could not save transfer receipt", echo.call_args.args[0])
         self.assertEqual(path.read_text(), "invalid")
+        self.assertEqual(list(self.history.directory.glob("*.corrupt-*")), [])
 
     def test_cli_records_ssd_and_remote_results_in_standalone_and_pipeline_runs(self):
         self.source.mkdir()
@@ -323,7 +371,7 @@ class TransferHistoryTests(unittest.TestCase):
 
     def test_copy_only_status_reads_receipts_without_opening_archive_or_writing(self):
         self.config.write_text(
-            f'[ssd]\nsource = "{self.source}"\ndestination = "{self.destination}"\n'
+            f'[ssd]\nsource = "{self.source}"\ndestination = "{self.destination.parent}"\n'
         )
         for recorded in (False, True):
             if recorded:
@@ -352,6 +400,13 @@ class TransferHistoryTests(unittest.TestCase):
                         ):
                             self.assertIsNone(document[field])
                         self.assertEqual(len(document["transfers"]), int(recorded))
+                        self.assertEqual(document["historical_transfers"], [])
+                        self.assertEqual(len(document["configured_transfers"]), 1)
+                        self.assertEqual(
+                            document["configured_transfers"][0]["last_success"]
+                            is not None,
+                            recorded,
+                        )
                     else:
                         self.assertIn("Archive status: not configured", result.stdout)
                         self.assertIn("Transfer history", result.stdout)
@@ -366,7 +421,15 @@ class TransferHistoryTests(unittest.TestCase):
                 self.assertFalse(self.history.directory.exists())
 
     def test_status_does_not_hide_missing_invalid_or_malformed_configuration(self):
-        for content in (None, "[broken", "[apple_photos]\n", "apple_photos = 3\n"):
+        for content in (
+            None,
+            "[broken",
+            "[apple_photos]\n",
+            "apple_photos = 3\n",
+            "[ssd]\n",
+            "[sd_card]\n",
+            '[rclone]\nremote = "b2:photos"\n',
+        ):
             with self.subTest(content=content):
                 if content is not None:
                     self.config.write_text(content)
@@ -376,6 +439,73 @@ class TransferHistoryTests(unittest.TestCase):
                 self.assertEqual(result.exit_code, 2, result.output)
                 self.assertNotIn("archive_configured", result.stdout)
                 self.assertFalse(self.history.directory.exists())
+
+    def test_status_matches_all_configured_routes_without_probing_copy_paths(self):
+        card = self.root / "card"
+        raw = self.root / "raw"
+        backup = self.root / "backup"
+        self.config.write_text(
+            f'[sd_card]\nsource = "{card}"\ndestination = "{raw}"\n'
+            f'[ssd]\nsource = "{self.source}"\ndestination = "{backup}"\n'
+            '[rclone]\nremote = "b2:photos"\n'
+        )
+        routes = [
+            ("SD Card", card, raw / card.name),
+            ("SSD: All Photos", self.source, backup / self.source.name),
+            ("SSD: SD Card", raw, backup / raw.name),
+            ("Remote", backup, "b2:photos"),
+        ]
+        for step, source, destination in routes:
+            self.history.run(
+                step, source, destination, lambda: BackupSummary(step), dry_run=False
+            )
+        before = {p: p.read_bytes() for p in self.history.directory.iterdir()}
+        result = CliRunner().invoke(
+            cli, ["--config", str(self.config), "status", "--json"]
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        document = json.loads(result.stdout)
+        self.assertEqual(document["historical_transfers"], [])
+        self.assertEqual(len(document["configured_transfers"]), 4)
+        for row in document["configured_transfers"]:
+            self.assertIsNotNone(row["last_success"])
+        self.assertEqual(
+            {p: p.read_bytes() for p in self.history.directory.iterdir()}, before
+        )
+        self.assertFalse(backup.exists())
+
+    def test_status_separates_changed_sources_destinations_and_removed_routes(self):
+        self.run_transfer(lambda: BackupSummary("SSD: All Photos", error="old failure"))
+        for content in (
+            f'[ssd]\nsource = "{self.source}"\ndestination = "{self.root / "new"}"\n',
+            f'[ssd]\nsource = "{self.root / "new/photos"}"\ndestination = "{self.root / "backup"}"\n',
+            '[rclone]\nsource = "/offline/photos"\nremote = "b2:new"\n',
+            "",
+        ):
+            with self.subTest(content=content):
+                self.config.write_text(content)
+                args = ["--config", str(self.config), "status"]
+                result = CliRunner().invoke(cli, [*args, "--json"])
+                self.assertEqual(result.exit_code, 0, result.output)
+                document = json.loads(result.stdout)
+                self.assertEqual(
+                    document["historical_transfers"], document["transfers"]
+                )
+                self.assertEqual(
+                    len(document["configured_transfers"]), int(bool(content))
+                )
+                for row in document["configured_transfers"]:
+                    self.assertIsNone(row["last_attempt"])
+                    self.assertIsNone(row["last_success"])
+                rendered = CliRunner().invoke(cli, args).stdout
+                self.assertIn(
+                    "Historical destinations (not currently configured)", rendered
+                )
+                self.assertNotIn("latest attempt failed", rendered)
+                if content:
+                    self.assertIn("no successful copy recorded", rendered)
+                else:
+                    self.assertIn("No configured transfer destinations", rendered)
 
     def test_attention_summary_distinguishes_failure_interruption_and_unknown_completion(
         self,

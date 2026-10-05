@@ -1,15 +1,63 @@
 import datetime
 import json
 from dataclasses import asdict
+from pathlib import Path
 
 import click
 
 from photos_backup.apple_photos.plan import plan_export
 from photos_backup.archive import ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
-from photos_backup.config import MissingSection
+from photos_backup.config import (
+    MissingSection,
+    load_sd_card_config,
+    load_ssd_config,
+    load_rclone_config,
+    resolve_rclone_source,
+)
 from photos_backup.summary import print_archive_status, print_transfer_history
-from photos_backup.transfers import TransferHistory
+from photos_backup.transfers import TransferHistory, classify_transfers
+
+
+def _configured_transfers(config_path: Path | None) -> list[dict]:
+    try:
+        sd_card = load_sd_card_config(config_path)
+    except MissingSection:
+        sd_card = None
+    try:
+        ssd = load_ssd_config(config_path)
+    except MissingSection:
+        ssd = None
+    try:
+        remote = load_rclone_config(config_path)
+    except MissingSection:
+        remote = None
+
+    copies: list[tuple[str, Path, Path | str]] = []
+    if sd_card is not None:
+        copies.append(
+            ("SD Card", sd_card.source, sd_card.destination / sd_card.source.name)
+        )
+    if ssd is not None:
+        copies.append(
+            ("SSD: All Photos", ssd.source, ssd.destination / ssd.source.name)
+        )
+        if sd_card is not None:
+            copies.append(
+                (
+                    "SSD: SD Card",
+                    sd_card.destination,
+                    ssd.destination / sd_card.destination.name,
+                )
+            )
+    if remote is not None:
+        copies.append(
+            ("Remote", resolve_rclone_source(remote, config_path), remote.remote)
+        )
+    return [
+        {"step": step, "source": str(source), "destination": str(destination)}
+        for step, source, destination in copies
+    ]
 
 
 @click.command(
@@ -23,7 +71,10 @@ def status(ctx: click.Context, as_json: bool) -> None:
         config = apple_photos_config_from(ctx)
     except MissingSection:
         config = None
-    receipts, errors = TransferHistory(config_path_from(ctx)).read()
+    config_path = config_path_from(ctx)
+    configured = _configured_transfers(config_path)
+    receipts, errors = TransferHistory(config_path).read()
+    current, historical = classify_transfers(configured, receipts)
     now = datetime.datetime.now(datetime.UTC)
     document = {
         "version": 1,
@@ -35,6 +86,8 @@ def status(ctx: click.Context, as_json: bool) -> None:
         "next_export": None,
         "archive_error": None,
         "transfers": receipts,
+        "configured_transfers": current,
+        "historical_transfers": historical,
         "transfer_history_errors": errors,
     }
     archive_error = None
@@ -70,6 +123,6 @@ def status(ctx: click.Context, as_json: bool) -> None:
     if as_json:
         click.echo(json.dumps(document, indent=2, default=str))
     else:
-        print_transfer_history(receipts, errors, now=now)
+        print_transfer_history(current, errors, now=now, historical_receipts=historical)
     if archive_error is not None:
         raise archive_error

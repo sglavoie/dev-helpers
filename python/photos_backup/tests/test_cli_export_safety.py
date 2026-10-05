@@ -199,3 +199,29 @@ class ExportEntryPointTests(ArchiveCommandTestCase):
 
             result = self.runner.invoke(show)
             self.assertEqual(result.output.count(f"Export report: {report}"), 1)
+
+    def test_export_summary_names_each_additional_error_category(self):
+        for category in ("exiftool_error", "sidecar_user_error", "user_error"):
+            with self.subTest(category=category):
+
+                @click.command()
+                def show():
+                    print_export_result(
+                        ExportResult(
+                            ExportPlan(ExportMode.FULL, "test"),
+                            0,
+                            counts={category: 2},
+                        )
+                    )
+
+                result = self.runner.invoke(show)
+                outcomes = next(
+                    line
+                    for line in result.output.splitlines()
+                    if "File outcomes:" in line
+                )
+                self.assertIn(f"{category}=2", outcomes)
+                self.assertIn("2 export error(s)", result.output)
+                for other in ("exiftool_error", "sidecar_user_error", "user_error"):
+                    if other != category:
+                        self.assertNotIn(f", {other}=", outcomes)

@@ -280,7 +280,8 @@ shows local transfer history alongside an archive error. It preserves the archiv
 error's nonzero exit code; it does not infer archive state from transfer receipts.
 When `[apple_photos]` is absent, status shows that archive status is not configured,
 prints local transfer history, and exits 0. The configuration file must still exist
-and contain valid TOML; an invalid Apple Photos section still exits 2.
+and contain valid TOML. Status validates all configured workflow sections and
+remote-source dependencies; invalid configuration exits 2.
 
 `status --json` prints one versioned JSON document with `archive`, `archive_configured`, `observed_at`,
 `files_verified` (always false), `state`, `next_export`, `archive_error`, `transfers`, and
@@ -293,13 +294,18 @@ If the archive cannot be read, `state` and `next_export` are null and
 is still printed on archive errors, with CLI diagnostics on stderr.
 For copy-only configurations, `archive_configured` is false and `archive`, `state`,
 `next_export`, and `archive_error` are null.
+The additive `configured_transfers` field lists every current transfer route,
+including routes with no receipt (`last_attempt` and `last_success` are null).
+`historical_transfers` contains receipts whose step, source, or destination no
+longer matches the configuration. `transfers` still contains all recorded receipts.
 
 ### Transfer history
 
 The text view starts with an attention summary when latest attempts failed or were
 interrupted, completion was not recorded, or a copy has never succeeded. An attempt
 without a recorded completion may still be running. These informational counts can
-overlap and do not change the status exit code.
+overlap and do not change the status exit code. Attention counts cover current
+configured routes only, including those with no successful copy recorded.
 
 Real `sd-card`, `ssd`, `remote`, and `backup-all` copies record local receipts under
 `~/.local/state/photos-backup/transfers/` (or
@@ -309,7 +315,10 @@ source, and destination. SSD and SD-card destinations include the source directo
 name. SD-card receipts identify the configured source path, not a physical card.
 Status shows the last attempt and last successful copy with relative ages, plus
 available file count, size, and duration from the successful copy for each route;
-older destinations remain labeled with their original paths if configuration changes.
+routes with no receipt explicitly say no successful copy is recorded. When
+configuration changes, older routes appear separately under historical destinations.
+Matching uses the configured paths without probing copy drives, so an unmounted
+destination still appears. `--volume` continues to affect only Apple Photos.
 
 A failed or interrupted transfer does not erase the previous success. An attempt
 whose completion was never recorded is labeled as running or interrupted, never
@@ -322,8 +331,12 @@ are enabled for each workflow;
 older transfers and transfers from another Mac cannot be inferred.
 
 Receipts are replaced atomically under a local lock. History write failures warn
-without changing the transfer's result; malformed receipts are reported and left
-intact. Reading status creates nothing. These records describe completed commands,
+without changing the transfer's result. Reading status reports malformed receipts
+without modifying them. On the next real transfer, an invalid receipt is preserved
+under a unique `.corrupt-…` filename beside the original, and a fresh receipt starts
+with no previous success. If preservation fails, the invalid receipt stays in place
+and recording warns without changing the transfer result. Reading status creates
+nothing. These records describe completed commands,
 not verification of the destination files, and never modify archive writer state.
 
 ### Verifying an archive
