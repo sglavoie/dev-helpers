@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import stat
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -20,6 +21,7 @@ from photos_backup.archive.errors import ArchiveError
 if TYPE_CHECKING:
     from photos_backup.archive import Archive
     from photos_backup.archive.state import ArchiveState
+    from photos_backup.progress import ExportProgress
 
 EXPORT_DATABASE = "export database"
 SIGNATURES = "signatures"
@@ -61,7 +63,10 @@ class VerificationReport:
 
 
 def verify_archive(
-    archive: Archive, *, probes: PhotosProbes | None = None
+    archive: Archive,
+    *,
+    probes: PhotosProbes | None = None,
+    progress: ExportProgress | None = None,
 ) -> VerificationReport:
     """Report archive health without writing anything.
 
@@ -73,15 +78,16 @@ def verify_archive(
     export_db = archive.paths.export_db
     files: tuple[ExportedFile, ...] = ()
     export_db_error: str | None = None
-    try:
-        if not export_db.exists():
-            export_db_error = f"'{export_db}' does not exist"
-        else:
-            files = resolve_export_files(
-                active.read_export_files(export_db), archive.paths.archive
-            )
-    except (ArchiveError, OSError) as error:
-        export_db_error = str(error)
+    with progress.phase("Reading export database") if progress else nullcontext():
+        try:
+            if not export_db.exists():
+                export_db_error = f"'{export_db}' does not exist"
+            else:
+                files = resolve_export_files(
+                    active.read_export_files(export_db), archive.paths.archive
+                )
+        except (ArchiveError, OSError) as error:
+            export_db_error = str(error)
 
     state: ArchiveState | None = None
     state_error: str | None = None
@@ -90,20 +96,30 @@ def verify_archive(
     except (ArchiveError, OSError) as error:
         state_error = str(error)
 
-    statuses, file_errors = _inspect_files(files, archive.paths.archive)
-    return VerificationReport(
-        checks=(
-            _guard_check(
-                EXPORT_DATABASE,
-                lambda: _check_export_database(archive, active, files, export_db_error),
+    if progress:
+        progress.selection(len(files))
+    with progress.phase("Checking exported files") if progress else nullcontext():
+        statuses, file_errors = _inspect_files(files, archive.paths.archive, progress)
+    with (
+        progress.phase("Checking database integrity and archive state")
+        if progress
+        else nullcontext()
+    ):
+        return VerificationReport(
+            checks=(
+                _guard_check(
+                    EXPORT_DATABASE,
+                    lambda: _check_export_database(
+                        archive, active, files, export_db_error
+                    ),
+                ),
+                _check_signatures(files, export_db_error, statuses),
+                _check_missing_assets(files, export_db_error, file_errors),
+                _guard_check(STATE, lambda: _check_state(state, state_error)),
+                _check_ownership(archive, state),
+                _check_pending_cleanup(archive, state),
             ),
-            _check_signatures(files, export_db_error, statuses),
-            _check_missing_assets(files, export_db_error, file_errors),
-            _guard_check(STATE, lambda: _check_state(state, state_error)),
-            _check_ownership(archive, state),
-            _check_pending_cleanup(archive, state),
         )
-    )
 
 
 def _guard_check(name: str, run: Callable[[], Check]) -> Check:
@@ -114,18 +130,19 @@ def _guard_check(name: str, run: Callable[[], Check]) -> Check:
 
 
 def _inspect_files(
-    files: tuple[ExportedFile, ...], archive: Path
+    files: tuple[ExportedFile, ...],
+    archive: Path,
+    progress: ExportProgress | None = None,
 ) -> tuple[dict[Path, os.stat_result], dict[Path, str]]:
     """Inspect each path once without following symlinks beneath the archive."""
     statuses: dict[Path, os.stat_result] = {}
     errors: dict[Path, str] = {}
     for record in files:
         path = record.path
-        if not path.is_relative_to(archive) or path == archive:
-            errors[path] = "not a file beneath the archive"
-            continue
         current = archive
         try:
+            if not path.is_relative_to(archive) or path == archive:
+                raise OSError("not a file beneath the archive")
             for part in path.relative_to(archive).parts:
                 current = current / part
                 status = current.lstat()
@@ -138,6 +155,9 @@ def _inspect_files(
             statuses[path] = status
         except OSError as error:
             errors[path] = str(error)
+        finally:
+            if progress:
+                progress.asset_done()
     return statuses, errors
 
 

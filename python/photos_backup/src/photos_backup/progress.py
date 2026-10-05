@@ -1,4 +1,4 @@
-"""Live status for serial exports; the heartbeat never touches backup state."""
+"""Live status for exports and verification; the heartbeat never touches state."""
 
 from __future__ import annotations
 
@@ -17,8 +17,12 @@ class ExportProgress:
         clock: Callable[[], float] = time.monotonic,
         sink: Callable[[str], None] | None = None,
         terminal: bool | None = None,
+        item_label: str = "assets processed",
+        show_downloads: bool = True,
     ) -> None:
         self.clock = clock
+        self.item_label = item_label
+        self.show_downloads = show_downloads
         self.terminal = (
             click.get_text_stream("stderr").isatty() if terminal is None else terminal
         )
@@ -62,7 +66,7 @@ class ExportProgress:
                 return
             elapsed = max(0, now - self._started)
             count = (
-                f" | assets processed {self.processed}/{self.selected}"
+                f" | {self.item_label} {self.processed}/{self.selected}"
                 if self.selected is not None
                 else ""
             )
@@ -71,7 +75,11 @@ class ExportProgress:
                 if self._budget is not None
                 else ""
             )
-            failures = f" | unresolved downloads {self.unresolved}"
+            failures = (
+                f" | unresolved downloads {self.unresolved}"
+                if self.show_downloads
+                else ""
+            )
             line = (
                 f"{self._phase}: {self._detail} | elapsed {elapsed:.1f}s"
                 f"{count}{budget}{failures}"

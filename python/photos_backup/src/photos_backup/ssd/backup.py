@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import time
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from photos_backup.copy_safety import check_copy_paths
+from photos_backup.archive.lock import copy_source_lock
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
 from photos_backup.process import stream_command, transfer_errors
@@ -63,6 +65,12 @@ class Backup:
         if self.sd_card is not None:
             sources += (self.sd_card.destination,)
         check_copy_paths(sources, self.destination, workflow="SSD")
+        with ExitStack() as locks:
+            for source in sources:
+                locks.enter_context(copy_source_lock(source))
+            return self._copy_sources()
+
+    def _copy_sources(self) -> list[BackupSummary]:
         if not self.dry_run:
             self.destination.mkdir(parents=True, exist_ok=True)
 

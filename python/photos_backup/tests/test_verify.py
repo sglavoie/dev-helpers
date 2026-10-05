@@ -33,6 +33,7 @@ from photos_backup.archive import (
     open_archive,
 )
 from photos_backup.cli.cli import cli
+from photos_backup.progress import ExportProgress
 from tests.test_export import HOSTNAME, THURSDAY, make_config
 
 MONDAY = datetime.datetime(2026, 8, 10, 6, 0, tzinfo=datetime.UTC)
@@ -152,6 +153,30 @@ class VerifyTestCase(unittest.TestCase):
 
 
 class HealthyArchiveTests(VerifyTestCase):
+    def test_progress_counts_missing_files_without_changing_findings_or_state(self):
+        self.exported.unlink()
+        before = self.paths.state_file.read_bytes()
+        expected = self.verify()
+        lines = []
+        with (
+            open_archive(
+                self.config, dry_run=True, probes=self.system_probes
+            ) as archive,
+            ExportProgress(
+                sink=lines.append,
+                terminal=False,
+                item_label="files checked",
+                show_downloads=False,
+            ) as progress,
+        ):
+            actual = verify_archive(archive, progress=progress)
+        self.assertEqual(actual, expected)
+        self.assertEqual(progress.processed, 1)
+        self.assertTrue(any("files checked 1/1" in line for line in lines))
+        self.assertFalse(progress._thread.is_alive())
+        self.assertEqual(self.paths.state_file.read_bytes(), before)
+        self.assertFalse(self.paths.lock_file.exists())
+
     def test_moved_archive_verifies_and_status_finds_legacy_and_portable_reports(self):
         for legacy in (False, True):
             with self.subTest(legacy=legacy):

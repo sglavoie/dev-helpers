@@ -177,6 +177,7 @@ class CopyWorkflowTests(unittest.TestCase):
             result = CliRunner().invoke(cli, ["--config", str(config), "remote"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("rclone exited with code 5", result.output)
+        self.assertIn("rclone exited with code 5. network unavailable", result.output)
 
     def test_transfer_errors_are_readable_in_standalone_and_pipeline_commands(self):
         for workflow, section, step, executable in (
@@ -224,6 +225,9 @@ class CopyWorkflowTests(unittest.TestCase):
                     if failure is None:
                         self.assertIn("exited with code 23", result.output)
                         self.assertIn("transfer diagnostic", result.output)
+                        self.assertIn(
+                            "exited with code 23. transfer diagnostic", result.output
+                        )
                     elif isinstance(failure, FileNotFoundError):
                         self.assertIn("PATH", result.output)
                     else:

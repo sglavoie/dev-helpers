@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import ExitStack
 from functools import partial
+from pathlib import Path
 from shutil import which
 from typing import TypeVar
 
@@ -18,6 +19,9 @@ from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.config import (
     ApplePhotosConfig,
     MissingSection,
+    RcloneConfig,
+    SdCardConfig,
+    SsdConfig,
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
@@ -31,6 +35,7 @@ from photos_backup.ssd.backup import Backup as SsdBackup
 from photos_backup.summary import (
     BackupSummary,
     print_export_result,
+    print_pipeline_destinations,
     print_pipeline_summary,
     print_takeover_check,
 )
@@ -91,6 +96,19 @@ def backup_all(
         local_copy=ssd_config is not None
         or (sd_config is not None and not skip_sd_card),
         remote=remote_config is not None,
+    )
+    print_pipeline_destinations(
+        _pipeline_destinations(
+            config,
+            sd_config,
+            ssd_config,
+            remote_config,
+            remote_source,
+            skip_sd_card=skip_sd_card,
+            delete=delete,
+            delete_remote=delete_remote,
+        ),
+        dry_run=dry_run,
     )
     summaries: list[BackupSummary] = []
 
@@ -199,6 +217,54 @@ def backup_all(
     ]
     if actions:
         raise ActionRequired("; ".join(actions))
+
+
+def _pipeline_destinations(
+    config: ApplePhotosConfig | None,
+    sd_config: SdCardConfig | None,
+    ssd_config: SsdConfig | None,
+    remote_config: RcloneConfig | None,
+    remote_source: Path | None,
+    *,
+    skip_sd_card: bool,
+    delete: bool,
+    delete_remote: bool,
+) -> list[tuple[str, Path | str, Path | str, bool]]:
+    destinations: list[tuple[str, Path | str, Path | str, bool]] = []
+    if config is not None:
+        destinations.append(("Apple Photos", config.library, config.archive, False))
+    if sd_config is not None and not skip_sd_card:
+        destinations.append(
+            (
+                "SD Card",
+                sd_config.source,
+                sd_config.destination / sd_config.source.name,
+                False,
+            )
+        )
+    if ssd_config is not None:
+        destinations.append(
+            (
+                "SSD: All Photos",
+                ssd_config.source,
+                ssd_config.destination / ssd_config.source.name,
+                delete,
+            )
+        )
+        if sd_config is not None:
+            destinations.append(
+                (
+                    "SSD: SD Card",
+                    sd_config.destination,
+                    ssd_config.destination / sd_config.destination.name,
+                    delete,
+                )
+            )
+    if remote_config is not None and remote_source is not None:
+        destinations.append(
+            ("Remote", remote_source, remote_config.remote, delete_remote)
+        )
+    return destinations
 
 
 def _check_executables(*, apple_photos: bool, local_copy: bool, remote: bool) -> None:

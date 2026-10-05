@@ -8,6 +8,7 @@ from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from
 from photos_backup.errors import ActionRequired
+from photos_backup.progress import ExportProgress
 from photos_backup.summary import print_verification_report
 
 
@@ -34,7 +35,10 @@ def verify(ctx: click.Context, report_path: Path | None) -> None:
                 raise click.UsageError(
                     f"Report '{report_path}' already exists; choose a new file"
                 )
-        report = verify_archive(archive)
+        with ExportProgress(
+            item_label="files checked", show_downloads=False
+        ) as progress:
+            report = verify_archive(archive, progress=progress)
 
     print_verification_report(report)
     if report_path is not None:

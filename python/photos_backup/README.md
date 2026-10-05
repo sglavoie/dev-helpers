@@ -147,6 +147,11 @@ are listed together and exit 1. Skipped or unconfigured steps require no tools.
 A dry run still needs rsync/rclone for transfer previews, but its planning-only
 Apple Photos step needs no ExifTool executable.
 
+After preflight, `backup-all` prints the enabled source → destination pairs and
+whether each step can delete destination files. Local copies show the actual
+target including the source directory name. This overview makes `--volume`
+overrides visible alongside the independently configured SSD and remote sources.
+
 SSD and SD-card copies check configured sources before creating the destination.
 A missing source requires attention (exit 3), including a configured SD-card
 backup directory. For copy source and destination paths under `/Volumes/<drive>`, the
@@ -160,6 +165,15 @@ source is copied into `destination/source-name`; SSD inputs must map to distinct
 non-overlapping directories. An omitted `exclude_file` is optional. An explicitly
 configured file that is missing or is not a regular file prints a warning to
 stderr, and copying continues without those exclusions, including in dry runs.
+
+When an SSD source is the managed archive or a directory within it, the copy
+holds the archive's read lock for the transfer. A running export or cleanup
+blocks the copy with exit 3 before any destination is created; a copy already
+in progress blocks new archive writers. Previews take the same read lock and
+create nothing. An archive with missing or invalid lock metadata is refused.
+Ordinary directory copies need no Apple Photos configuration. Configure
+`ssd.source` as the archive itself: copying a parent directory does not discover
+and lock archives nested inside it.
 
 ### Archive layout and safety
 
@@ -229,11 +243,13 @@ is checked after the real export. It writes nothing and never initializes.
 ### Checking recorded status
 
 `photos-backup status` shows the archive writer, initialization and export
-timestamps, last successful baseline report, last completed mirror, pending
+timestamps, last successful baseline report, last archive cleanup reconciliation, pending
 cleanup, and the next export mode with its cadence reason. Timestamps include relative ages; pending
 cleanup includes commands to approve or discard it. It reads state without
 scanning exported files, opening the Photos library, taking over ownership, or
 writing anything.
+Cleanup reconciliation is separate from SSD and cloud copying; its timestamp
+does not indicate when either secondary backup last succeeded.
 An uninitialized archive suggests `photos-backup bootstrap`.
 The baseline report belongs to the last successful full or incremental export;
 it does not describe newer failed, recent, or custom manual exports.
@@ -252,6 +268,11 @@ The archive must still be available and its read lock obtainable.
 property with the evidence behind it. It exits 0 when all checks pass, 3 when
 pending cleanup approval is the only failed check, and 1 when any other check
 fails. It writes nothing at all: no directory, no state, no lock file.
+
+Verification prints its current phase and file-check count to stderr, with
+periodic updates during long scans. Progress counts inspected records, including
+missing or invalid files; the final findings determine whether verification
+passed. JSON reports retain their existing format.
 
 | Check | Fails when |
 |-------|------------|
@@ -350,7 +371,10 @@ without assuming a custom run covered the scheduled export. Manual exports
 without forwarded flags retain the normal cadence behavior.
 Real exports print their CSV report path, including when the export fails.
 
-SSD, SD-card, and remote transfers display progress while they run. Their
+SSD, SD-card, and remote transfers display progress while they run. Failure
+summaries include a short diagnostic excerpt from the retained output tail,
+preferring explicit error lines when available. Full streamed output remains
+available in the terminal or redirected log. Their
 `--dry-run` options invoke rsync/rclone in preview mode and create no destination
 directories. Paths and exclude files may contain spaces or quotes. A failed
 standalone `remote` command exits 1. Transfer preview summaries say `DRY RUN`

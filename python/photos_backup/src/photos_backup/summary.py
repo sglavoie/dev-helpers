@@ -396,7 +396,7 @@ def print_archive_status(
         ("Initialized", state.initialized_at),
         ("Last successful export", state.last_successful_export_at),
         ("Last full export", state.last_full_export_at),
-        ("Last completed mirror", state.last_mirror_completed_at),
+        ("Last archive cleanup reconciliation", state.last_mirror_completed_at),
     ):
         timestamp = (
             f"{value.isoformat()} ({_relative_age(value, now)})" if value else "(never)"
@@ -436,6 +436,18 @@ def print_verification_report(report: VerificationReport) -> None:
         click.echo(f"All {len(report.checks)} check(s) passed")
     else:
         click.echo(f"{len(report.failed)} of {len(report.checks)} check(s) failed")
+
+
+def print_pipeline_destinations(
+    steps: list[tuple[str, Path | str, Path | str, bool]], *, dry_run: bool
+) -> None:
+    """Show effective targets before the pipeline starts any work."""
+    if not steps:
+        return
+    click.echo("Backup destinations" + (" (dry run)" if dry_run else ""))
+    for name, source, destination, delete in steps:
+        policy = "ON" if delete else "off"
+        click.echo(f"  {name}: {source} → {destination} | deletions: {policy}")
 
 
 def print_pipeline_summary(summaries: list[BackupSummary]) -> None:

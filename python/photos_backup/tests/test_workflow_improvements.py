@@ -320,6 +320,7 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertIn(THURSDAY.isoformat(), result.output)
         self.assertIn(f"{THURSDAY.isoformat()} (just now)", result.output)
         self.assertIn(f"{MONDAY.isoformat()} (3 days ago)", result.output)
+        self.assertIn("Last archive cleanup reconciliation:", result.output)
 
     def test_status_relative_ages_handle_units_and_future_timestamps(self):
         store = ArchiveStateStore(self.initialized_archive())
@@ -463,6 +464,10 @@ class VerificationReportTests(VerifyTestCase):
         result = self.invoke_verify(destination)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(json.loads(destination.read_text())["passed"])
+        self.assertIn("Reading export database", result.stderr)
+        self.assertIn("files checked 1/1", result.stderr)
+        self.assertNotIn("unresolved downloads", result.stderr)
+        self.assertNotIn("files checked", result.stdout)
 
     def test_report_never_overwrites_an_existing_file_or_writes_inside_archive(self):
         existing = self.root / "existing.json"

@@ -7,10 +7,25 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from photos_backup.process import stream_command
+from photos_backup.process import stream_command, transfer_failure
 
 
 class StreamCommandTests(unittest.TestCase):
+    def test_failure_excerpt_prefers_diagnostics_over_later_progress(self):
+        output = (
+            "\033[31mERROR: permission denied\033[0m\n" + "Transferred: 0 / 2\n" * 20
+        )
+        detail = transfer_failure("rclone", 5, output)
+        self.assertIn("ERROR: permission denied", detail)
+        self.assertNotIn("Transferred", detail)
+        self.assertNotIn("\033", detail)
+
+    def test_failure_excerpt_is_bounded_and_handles_absent_or_bytes_output(self):
+        detail = transfer_failure("rsync", 23, "ERROR: " + "x" * 10000)
+        self.assertLess(len(detail), 300)
+        self.assertIn("denied", transfer_failure("rsync", 23, b"denied\xff"))
+        self.assertIn("See the transfer output", transfer_failure("rsync", 23, None))
+
     def test_output_is_visible_before_child_finishes_and_stderr_is_drained(self):
         with tempfile.TemporaryDirectory() as directory:
             acknowledgement = Path(directory) / "seen"

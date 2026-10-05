@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import click
 
 from photos_backup.copy_safety import check_copy_path
-from photos_backup.process import stream_command, transfer_errors
+from photos_backup.process import stream_command, transfer_errors, transfer_failure
 from photos_backup.summary import BackupSummary
 
 if TYPE_CHECKING:
@@ -62,7 +62,8 @@ class Backup:
             return BackupSummary(
                 step_name="Remote",
                 elapsed_seconds=elapsed,
-                error=f"rclone exited with code {result.returncode}",
+                error=transfer_failure("rclone", result.returncode, result.stdout),
+                dry_run=self.dry_run,
             )
 
         stats = _parse_rclone_stats(result.stdout)

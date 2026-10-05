@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import re
 from collections import deque
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -15,8 +16,7 @@ def transfer_errors(step: str, executable: str) -> Iterator[None]:
         yield
     except subprocess.CalledProcessError as error:
         raise click.ClickException(
-            f"{step}: {executable} exited with code {error.returncode}. "
-            "See the transfer output above for details."
+            f"{step}: {transfer_failure(executable, error.returncode, error.output)}"
         ) from error
     except FileNotFoundError as error:
         raise click.ClickException(
@@ -26,6 +26,31 @@ def transfer_errors(step: str, executable: str) -> Iterator[None]:
         raise click.ClickException(
             f"{step}: could not run {executable}: {error}"
         ) from error
+
+
+def transfer_failure(
+    executable: str, returncode: int, output: str | bytes | None
+) -> str:
+    """Keep a short diagnostic in the summary, even after progress scrolls away."""
+    if isinstance(output, bytes):
+        output = output.decode(errors="replace")
+    lines = [
+        "".join(
+            character for character in click.unstyle(line) if character.isprintable()
+        ).strip()
+        for line in (output or "").splitlines()
+        if line.strip()
+    ]
+    diagnostics = [
+        line
+        for line in lines
+        if re.search(r"\b(error|fatal|failed|failure)\b|rsync:", line, re.IGNORECASE)
+    ]
+    excerpt = "; ".join(
+        line[:240] for line in list(dict.fromkeys(diagnostics or lines))[-3:]
+    )
+    detail = f" {excerpt}" if excerpt else " See the transfer output above for details."
+    return f"{executable} exited with code {returncode}.{detail}"
 
 
 def stream_command(

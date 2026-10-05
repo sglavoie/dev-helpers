@@ -1,5 +1,7 @@
 from unittest import mock
 
+import click
+
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import TakeoverCheck
@@ -120,6 +122,70 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
 
 
 class ExecutablePreflightTests(ArchiveCommandTestCase):
+    def test_destinations_are_printed_before_export_with_volume_override(self):
+        self.configure_copies()
+        override = self.root / "alternate"
+        override.mkdir()
+
+        def export(config, **kwargs):
+            click.echo("EXPORT STARTED")
+            return BackupSummary("Apple Photos")
+
+        with (
+            mock.patch(
+                "photos_backup.cli.backup_all._export_apple_photos", side_effect=export
+            ),
+            mock.patch("photos_backup.cli.backup_all.SdCardBackup") as sd,
+            mock.patch("photos_backup.cli.backup_all.SsdBackup") as ssd,
+            mock.patch("photos_backup.cli.backup_all.RemoteBackup") as remote,
+        ):
+            sd.return_value.backup.return_value = BackupSummary("SD Card")
+            ssd.return_value.backup.return_value = [BackupSummary("SSD")]
+            remote.return_value.backup.return_value = BackupSummary("Remote")
+            result = self.runner.invoke(
+                cli,
+                [
+                    "--config",
+                    str(self.config_path),
+                    "--volume",
+                    str(override),
+                    "backup-all",
+                    "--dry-run",
+                    "--delete",
+                ],
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertLess(
+            result.output.index("Backup destinations"),
+            result.output.index("EXPORT STARTED"),
+        )
+        self.assertIn(str(override / "Media" / "Apple Photos"), result.output)
+        self.assertIn(
+            f"SSD: All Photos: {self.root}/photos → {self.root}/ssd/photos | deletions: ON",
+            result.output,
+        )
+        self.assertIn(
+            f"SD Card: {self.root}/card → {self.root}/raw/card | deletions: off",
+            result.output,
+        )
+        self.assertIn(
+            f"Remote: {self.root}/ssd → b2:photos | deletions: off", result.output
+        )
+
+    def test_skipped_steps_are_omitted_and_remote_deletion_is_independent(self):
+        self.configure_copies()
+        with mock.patch("photos_backup.cli.backup_all.RemoteBackup") as remote:
+            remote.return_value.backup.return_value = BackupSummary("Remote")
+            result = self.invoke(
+                "--skip-apple-photos", "--skip-sd-card", "--skip-ssd", "--delete-remote"
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        overview = result.output.split("BACKUP PIPELINE SUMMARY")[0]
+        self.assertNotIn("Apple Photos:", overview)
+        self.assertNotIn("SD Card:", overview)
+        self.assertNotIn("SSD:", overview)
+        self.assertIn(f"Remote: {self.root}/ssd → b2:photos | deletions: ON", overview)
+
     def configure_copies(self):
         with self.config_path.open("a") as handle:
             handle.write(
