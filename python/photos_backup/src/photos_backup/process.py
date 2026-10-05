@@ -9,6 +9,11 @@ from contextlib import contextmanager
 import click
 
 
+def interactive_transfers() -> bool:
+    """Transfer output is streamed to stdout, which may be redirected to a log."""
+    return click.get_text_stream("stdout").isatty()
+
+
 @contextmanager
 def transfer_errors(step: str, executable: str) -> Iterator[None]:
     """Translate expected transfer failures while keeping streamed diagnostics."""

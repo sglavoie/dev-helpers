@@ -50,7 +50,7 @@ def _exclusive_lock(paths: ArchivePaths, probes: SystemProbes) -> Iterator[None]
 
 
 @contextmanager
-def copy_source_lock(source: Path) -> Iterator[None]:
+def copy_source_lock(source: Path, *, workflow: str = "SSD") -> Iterator[None]:
     """Lock an archive root (or a directory within it) for a consistent copy.
 
     Ordinary directories require no lock or Apple Photos configuration. A managed
@@ -77,7 +77,7 @@ def copy_source_lock(source: Path) -> Iterator[None]:
                 locks.enter_context(_shared_lock(paths, required=True))
             except ArchiveError as error:
                 raise ActionRequired(
-                    f"SSD source archive cannot be locked: {error}"
+                    f"{workflow} source archive cannot be locked: {error}"
                 ) from error
         yield
 

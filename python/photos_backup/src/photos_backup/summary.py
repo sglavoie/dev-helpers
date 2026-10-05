@@ -424,6 +424,29 @@ def print_archive_status(
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
 
 
+def print_transfer_history(receipts: list[dict], errors: list[str]) -> None:
+    click.echo("Secondary transfer history (this Mac, this configuration)")
+    if not receipts:
+        click.echo("  No transfer receipts recorded")
+    for receipt in receipts:
+        click.echo(
+            f"  {receipt['step']}: {receipt['source']} → {receipt['destination']}"
+        )
+        attempt = receipt["last_attempt"]
+        outcome = attempt["status"]
+        if outcome == "started":
+            outcome = "completion not recorded (running or interrupted)"
+        click.echo(f"    Last attempt: {attempt['started_at']} — {outcome}")
+        if attempt.get("error"):
+            click.echo(f"    Error: {attempt['error']}")
+        success = receipt["last_success"]
+        click.echo(
+            f"    Last successful copy: {success['completed_at'] if success else '(never)'}"
+        )
+    for error in errors:
+        click.echo(f"Warning: {error}", err=True)
+
+
 def print_verification_report(report: VerificationReport) -> None:
     """Print one pass/fail line per check, then the overall verdict."""
     click.echo()

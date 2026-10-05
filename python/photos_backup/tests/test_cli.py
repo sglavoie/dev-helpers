@@ -24,6 +24,7 @@ from photos_backup.exclude import exclude_from_arg
 from photos_backup.remote.backup import Backup as RemoteBackup
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
+from tests import isolate_transfer_history
 
 COMMANDS = (
     "apple-photos",
@@ -214,6 +215,7 @@ class ArchiveCommandTestCase(unittest.TestCase):
     """Gives every test a fake mounted volume and a matching configuration file."""
 
     def setUp(self) -> None:
+        self.history_root = isolate_transfer_history(self)
         self.enterContext(
             mock.patch(
                 "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"

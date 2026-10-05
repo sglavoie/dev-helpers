@@ -14,10 +14,12 @@ from photos_backup.errors import ActionRequired
 from photos_backup.remote.backup import Backup as RemoteBackup, _parse_rclone_stats
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
+from tests import isolate_transfer_history
 
 
 class CopyWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
+        isolate_transfer_history(self)
         self.enterContext(
             mock.patch(
                 "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
@@ -389,3 +391,90 @@ class CopyWorkflowTests(unittest.TestCase):
                             )
                         else:
                             self.assertNotIn("Warning:", result.stderr)
+
+    def test_ssd_deletions_require_all_configured_exclusions_before_any_copy(self):
+        card_backup = self.root / "card-backup"
+        card_backup.mkdir()
+        for invalid in (self.root / "missing", card_backup):
+            for section in ("ssd", "sd_card"):
+                for command in ("ssd", "backup-all"):
+                    for dry_run in (False, True):
+                        with self.subTest(
+                            invalid=invalid,
+                            section=section,
+                            command=command,
+                            dry_run=dry_run,
+                        ):
+                            config = self.root / "config.toml"
+                            config.write_text(
+                                f'[ssd]\nsource = "{self.source}"\n'
+                                f'destination = "{self.destination}"\n'
+                                f'exclude_file = "{invalid if section == "ssd" else self.exclude}"\n'
+                                f'[sd_card]\nsource = "{self.root / "card"}"\n'
+                                f'destination = "{card_backup}"\n'
+                                f'exclude_file = "{invalid if section == "sd_card" else self.exclude}"\n'
+                            )
+                            args = ["--config", str(config), command, "--delete"]
+                            if dry_run:
+                                args.append("--dry-run")
+                            if command == "backup-all":
+                                args += [
+                                    "--skip-apple-photos",
+                                    "--skip-sd-card",
+                                    "--skip-remote",
+                                ]
+                            with mock.patch(
+                                "photos_backup.ssd.backup.stream_command"
+                            ) as run:
+                                result = CliRunner().invoke(cli, args)
+                            self.assertEqual(result.exit_code, 3, result.output)
+                            self.assertIn("refusing SSD deletions", result.output)
+                            run.assert_not_called()
+                            self.assertFalse(self.destination.exists())
+
+    def test_transfer_progress_adapts_to_terminal_and_preserves_statistics(self):
+        for terminal in (False, True):
+            for workflow in ("ssd", "sd_card", "remote"):
+                with (
+                    self.subTest(terminal=terminal, workflow=workflow),
+                    mock.patch(
+                        f"photos_backup.{workflow}.backup.interactive_transfers",
+                        return_value=terminal,
+                    ),
+                    mock.patch(
+                        "photos_backup.remote.backup.shutil.which",
+                        return_value="rclone",
+                    ),
+                    mock.patch(
+                        f"photos_backup.{workflow}.backup.stream_command",
+                        return_value=subprocess.CompletedProcess([], 0, stdout=""),
+                    ) as run,
+                ):
+                    if workflow == "ssd":
+                        SsdBackup(
+                            SsdConfig(self.source, self.destination, None), False, True
+                        ).backup()
+                    elif workflow == "sd_card":
+                        SdCardBackup(
+                            SdCardConfig(self.source, self.destination, None), True
+                        ).backup()
+                    else:
+                        RemoteBackup(
+                            RcloneConfig("b2:photos", self.source), self.source, True
+                        ).backup()
+                    args = run.call_args.args[0]
+                    self.assertEqual("--progress" in args, terminal)
+                    self.assertIn("--stats", args)
+                    if workflow != "remote":
+                        self.assertIn("--itemize-changes", args)
+                    if workflow == "ssd":
+                        self.assertEqual("--verbose" in args, terminal)
+                    if workflow == "remote" and not terminal:
+                        self.assertIn("NOTICE", args)
+                        self.assertIn("1m", args)
+
+    def test_rclone_logged_one_line_statistics_keep_count_and_size(self):
+        output = "2026/10/04 12:00:00 NOTICE: 9 MiB / 9 MiB, 100%, 1 MiB/s, ETA 0s (xfr#3/3)\n"
+        self.assertEqual(
+            _parse_rclone_stats(output), {"files_transferred": 3, "total_size": "9 MiB"}
+        )

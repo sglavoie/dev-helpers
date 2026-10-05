@@ -16,12 +16,16 @@ from photos_backup.cli.cli import cli
 from photos_backup.config import SdCardConfig, SsdConfig
 from photos_backup.errors import ActionRequired
 from photos_backup.ssd.backup import Backup as SsdBackup
+from photos_backup.summary import BackupSummary
+from photos_backup.transfers import TransferHistory
+from tests import isolate_transfer_history
 from tests.test_cli import ArchiveCommandTestCase
 from tests.test_verify import MONDAY, THURSDAY, VerifyTestCase, write_export_db
 
 
 class SsdSafetyTests(unittest.TestCase):
     def setUp(self):
+        isolate_transfer_history(self)
         self.enterContext(
             mock.patch(
                 "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
@@ -305,6 +309,70 @@ class PreviewSummaryTests(unittest.TestCase):
 
 
 class StatusTests(ArchiveCommandTestCase):
+    def test_json_status_is_one_document_with_iso_dates_and_no_writes(self):
+        paths = self.initialized_archive(
+            writer_hostname="test.local",
+            pending_cleanup_run_id="run-7",
+            last_full_export_at=MONDAY,
+            last_successful_export_at=THURSDAY,
+            last_report_path=self.root / "report.csv",
+        )
+        before = paths.state_file.read_bytes()
+        with mock.patch("photos_backup.archive.Archive.now", return_value=THURSDAY):
+            result = self.invoke_status("--json")
+        self.assertEqual(result.exit_code, 0, result.output)
+        document = json.loads(result.stdout)
+        self.assertEqual(document["version"], 1)
+        self.assertFalse(document["files_verified"])
+        self.assertEqual(
+            document["state"]["last_successful_export_at"], THURSDAY.isoformat()
+        )
+        self.assertEqual(document["state"]["pending_cleanup_run_id"], "run-7")
+        self.assertEqual(document["next_export"]["mode"], "incremental")
+        self.assertEqual(document["transfers"], [])
+        self.assertEqual(document["transfer_history_errors"], [])
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(paths.state_file.read_bytes(), before)
+        self.assertFalse(paths.lock_file.exists())
+        self.assertFalse(self.history_root.exists())
+
+    def test_json_status_of_uninitialized_archive_keeps_nulls(self):
+        result = self.invoke_status("--json")
+        self.assertEqual(result.exit_code, 0, result.output)
+        document = json.loads(result.stdout)
+        self.assertIsNone(document["state"]["initialized_at"])
+        self.assertIsNone(document["state"]["last_report_path"])
+        self.assertEqual(document["next_export"]["mode"], "full")
+        self.assertFalse(self.history_root.exists())
+        self.assertEqual(list(self.volume.iterdir()), [])
+
+    def test_status_shows_local_transfer_results_and_reports_corrupt_receipts(self):
+        self.initialized_archive()
+        history = TransferHistory(self.config_path)
+        history.run(
+            "Remote",
+            self.root / "photos",
+            "b2:photos",
+            lambda: BackupSummary("Remote", files_transferred=2),
+            dry_run=False,
+        )
+        result = self.invoke_status()
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("Last successful copy:", result.output)
+        self.assertIn("b2:photos", result.output)
+        document = json.loads(self.invoke_status("--json").stdout)
+        self.assertEqual(
+            document["transfers"][0]["last_success"]["files_transferred"], 2
+        )
+        receipt = next(history.directory.glob("*.json"))
+        receipt.write_text("invalid")
+        result = self.invoke_status("--json")
+        self.assertEqual(result.exit_code, 0, result.output)
+        document = json.loads(result.stdout)
+        self.assertEqual(len(document["transfer_history_errors"]), 1)
+        self.assertEqual(document["transfers"], [])
+        self.assertEqual(receipt.read_text(), "invalid")
+
     def test_status_uses_existing_cadence_and_shows_latest_report(self):
         report = self.root / "export.csv"
         self.initialized_archive(
@@ -346,13 +414,13 @@ class StatusTests(ArchiveCommandTestCase):
                     result.output,
                 )
 
-    def invoke_status(self):
+    def invoke_status(self, *args):
         with (
             self.mounted(),
             mock.patch("photos_backup.apple_photos.adapter.PhotosProbes") as photos,
         ):
             result = self.runner.invoke(
-                cli, ["--config", str(self.config_path), "status"]
+                cli, ["--config", str(self.config_path), "status", *args]
             )
         photos.assert_not_called()
         return result
@@ -483,7 +551,31 @@ class VerificationReportTests(VerifyTestCase):
         self.assertEqual(existing.read_text(), "keep me")
         self.assertFalse((self.archive_root / "new.json").exists())
 
-    def test_report_write_error_is_a_readable_cli_failure(self):
-        result = self.invoke_verify(self.root / "absent" / "report.json")
+    def test_invalid_report_parent_stops_before_scanning_or_creating_anything(self):
+        not_directory = self.root / "file"
+        not_directory.write_text("keep")
+        for parent in (self.root / "absent", not_directory):
+            with (
+                self.subTest(parent=parent),
+                mock.patch("photos_backup.cli.verify.verify_archive") as scan,
+            ):
+                result = self.invoke_verify(parent / "report.json")
+            self.assertEqual(result.exit_code, 2, result.output)
+            self.assertIn("must be an existing directory", result.output)
+            scan.assert_not_called()
+        self.assertFalse((self.root / "absent").exists())
+        self.assertEqual(not_directory.read_text(), "keep")
+
+    def test_report_write_error_after_scan_is_a_readable_cli_failure(self):
+        destination = self.root / "report.json"
+        original_open = Path.open
+
+        def fail_report(path, mode="r", *args, **kwargs):
+            if path == destination and mode == "x":
+                raise PermissionError("permission changed during scan")
+            return original_open(path, mode, *args, **kwargs)
+
+        with mock.patch.object(Path, "open", fail_report):
+            result = self.invoke_verify(destination)
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("Could not write report", result.output)

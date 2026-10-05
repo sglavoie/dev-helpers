@@ -35,6 +35,10 @@ def verify(ctx: click.Context, report_path: Path | None) -> None:
                 raise click.UsageError(
                     f"Report '{report_path}' already exists; choose a new file"
                 )
+            if not report_path.parent.is_dir():
+                raise click.UsageError(
+                    f"Report parent '{report_path.parent}' must be an existing directory"
+                )
         with ExportProgress(
             item_label="files checked", show_downloads=False
         ) as progress:

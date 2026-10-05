@@ -76,6 +76,7 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
 | `photos-backup status` | Show recorded export dates, writer, pending cleanup, and the next export mode |
+| `photos-backup status --json` | Read archive status and local transfer receipts as one JSON document |
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
 | `photos-backup approve-cleanup RUN_ID` | Delete the archive files a pending cleanup run listed, after revalidating them |
@@ -164,16 +165,28 @@ including symlink aliases, before creating directories or starting rsync. Each
 source is copied into `destination/source-name`; SSD inputs must map to distinct,
 non-overlapping directories. An omitted `exclude_file` is optional. An explicitly
 configured file that is missing or is not a regular file prints a warning to
-stderr, and copying continues without those exclusions, including in dry runs.
+stderr, and ordinary copying continues without those exclusions, including in dry
+runs. With SSD deletions enabled (`ssd --delete` or `backup-all --delete`), every
+configured SSD and SD-card exclusion file must exist and be a regular file.
+Otherwise the SSD step exits 3 before creating its destination or starting either
+copy. The same refusal applies to previews. Restore the exclusion file or rerun
+without `--delete`; omitting an exclusion file from configuration remains supported.
 
-When an SSD source is the managed archive or a directory within it, the copy
+When an SSD or remote source is the managed archive or a directory within it, the copy
 holds the archive's read lock for the transfer. A running export or cleanup
 blocks the copy with exit 3 before any destination is created; a copy already
 in progress blocks new archive writers. Previews take the same read lock and
 create nothing. An archive with missing or invalid lock metadata is refused.
 Ordinary directory copies need no Apple Photos configuration. Configure
-`ssd.source` as the archive itself: copying a parent directory does not discover
-and lock archives nested inside it.
+`ssd.source` or `rclone.source` as the archive itself: copying a parent directory
+does not discover and lock archives nested inside it.
+
+Transfer output adapts to stdout: terminals keep live progress; redirected output
+keeps rsync statistics and rclone's one-line statistics at one-minute intervals,
+plus errors and the final summary. SSD logs omit the verbose per-file listing;
+rsync dry runs retain itemized proposed changes even when redirected.
+The rclone log mode explicitly enables statistics at `NOTICE` level so they remain
+visible without `--progress` ([rclone logging options](https://rclone.org/docs/#stats-log-level-string)).
 
 ### Archive layout and safety
 
@@ -249,7 +262,8 @@ cleanup includes commands to approve or discard it. It reads state without
 scanning exported files, opening the Photos library, taking over ownership, or
 writing anything.
 Cleanup reconciliation is separate from SSD and cloud copying; its timestamp
-does not indicate when either secondary backup last succeeded.
+does not indicate when either secondary backup last succeeded. The secondary
+transfer history below it records those copies separately.
 An uninitialized archive suggests `photos-backup bootstrap`.
 The baseline report belongs to the last successful full or incremental export;
 it does not describe newer failed, recent, or custom manual exports.
@@ -261,6 +275,35 @@ same archive as the command that printed them.
 Status exits 0 when state can be read, even if bootstrap or cleanup is pending;
 it is an informational view, not a health check. Use `verify` to check the files.
 The archive must still be available and its read lock obtainable.
+
+`status --json` prints one versioned JSON document with `archive`, `observed_at`,
+`files_verified` (always false), `state`, `next_export`, `transfers`, and
+`transfer_history_errors`. Dates are ISO 8601 strings with timezones; missing
+state values are null. It preserves the normal status exit codes, including exit
+0 for pending cleanup or an uninitialized archive. Errors reading local receipts
+are included in `transfer_history_errors` rather than mixed into JSON output.
+
+### Secondary transfer history
+
+Real `ssd`, `remote`, and `backup-all` copies record local receipts under
+`~/.local/state/photos-backup/transfers/` (or
+`$XDG_STATE_HOME/photos-backup/transfers/` when that variable is an absolute path).
+Each named configuration file has separate history, with one receipt per step,
+source, and destination. The SSD destination includes the source directory name.
+Status shows the last attempt and last successful copy for each recorded route;
+older destinations remain labeled with their original paths if configuration changes.
+
+A failed or interrupted transfer does not erase the previous success. An attempt
+whose completion was never recorded is labeled as running or interrupted, never
+successful. Receipts retain counts, size, duration, and any transfer error. Skipped
+steps and dry runs do not update history. SSD preflight refusals occur before a
+copy starts and do not create a new receipt. History begins with this version;
+older transfers and transfers from another Mac cannot be inferred.
+
+Receipts are replaced atomically under a local lock. History write failures warn
+without changing the transfer's result; malformed receipts are reported and left
+intact. Reading status creates nothing. These records describe completed commands,
+not verification of the destination files, and never modify archive writer state.
 
 ### Verifying an archive
 
@@ -304,8 +347,9 @@ photos-backup verify --report ~/Desktop/photos-verification.json
 The JSON contains `version`, `archive`, `passed`, and a `checks` array; each check
 has `name`, `passed`, `detail`, and `paths`. It is saved even when verification
 fails, and verification keeps its usual exit code. Choose a new file outside the
-archive in an existing directory: reports never overwrite existing files or
-modify archive contents. A report write failure exits 1.
+archive in an existing directory: invalid parent directories are rejected before
+the scan starts. Reports never overwrite existing files or modify archive contents.
+A report write failure exits 1.
 
 ### Daily export
 
@@ -636,7 +680,8 @@ the TOML file as follows:
 `APPLE_PHOTOS_DST_PATH` and `ALL_PHOTOS_PATH` held the same export directory, so
 `ssd` now copies that directory once instead of twice. Any `ONE_DRIVE_*` values
 in the old file are unused credentials and must not be carried over. An exclude
-file that does not exist on disk is still ignored rather than passed to rsync.
+file that does not exist on disk is warned about and ignored for ordinary copies;
+SSD deletion-enabled runs refuse it instead.
 
 ## Deployment
 

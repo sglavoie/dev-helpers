@@ -30,6 +30,7 @@ from photos_backup.config import (
 from photos_backup.remote.backup import Backup as RemoteBackup
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
+from photos_backup.transfers import TransferHistory
 from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
 from photos_backup.summary import (
@@ -152,6 +153,7 @@ def backup_all(
             delete_at_destination=delete,
             dry_run=dry_run,
             sd_card=sd_config,
+            history=TransferHistory(config_path),
         ).backup(),
         skip=skip_ssd,
         section="ssd",
@@ -195,6 +197,7 @@ def backup_all(
                         source=remote_source,
                         dry_run=dry_run,
                         delete_at_destination=delete_remote,
+                        history=TransferHistory(config_path),
                     ).backup()
                 ],
                 skip=skip_remote,

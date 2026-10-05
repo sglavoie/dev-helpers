@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from contextlib import ExitStack
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -9,11 +10,12 @@ from photos_backup.copy_safety import check_copy_paths
 from photos_backup.archive.lock import copy_source_lock
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
-from photos_backup.process import stream_command, transfer_errors
+from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
     from photos_backup.config import SdCardConfig, SsdConfig
+    from photos_backup.transfers import TransferHistory
 
 
 class Backup:
@@ -23,6 +25,8 @@ class Backup:
         delete_at_destination: bool,
         dry_run: bool,
         sd_card: SdCardConfig | None = None,
+        *,
+        history: TransferHistory | None = None,
     ) -> None:
         self.delete_at_destination = delete_at_destination
         self.dry_run = dry_run
@@ -30,17 +34,20 @@ class Backup:
         self.exclude_file = config.exclude_file
         self.destination = config.destination
         self.sd_card = sd_card
+        self.history = history
 
     def _run_rsync(
         self, step_name: str, src_path: Path, exclude: str = ""
     ) -> BackupSummary:
         check_copy_paths((src_path,), self.destination, workflow="SSD")
 
-        cmd = ["rsync", "-avh", "--progress", "--stats"]
+        cmd = ["rsync", "-ah", "--stats"]
+        if interactive_transfers():
+            cmd.extend(["--verbose", "--progress"])
         if self.delete_at_destination:
             cmd.append("--delete")
         if self.dry_run:
-            cmd.append("--dry-run")
+            cmd.extend(["--dry-run", "--itemize-changes"])
         if exclude:
             cmd.append(exclude)
         cmd.extend(["--", str(src_path), str(self.destination)])
@@ -71,16 +78,28 @@ class Backup:
             return self._copy_sources()
 
     def _copy_sources(self) -> list[BackupSummary]:
-        if not self.dry_run:
-            self.destination.mkdir(parents=True, exist_ok=True)
-
         copies = [("SSD: All Photos", self.source, self.exclude_file)]
         if self.sd_card is not None:
             copies.append(
                 ("SSD: SD Card", self.sd_card.destination, self.sd_card.exclude_file)
             )
+        # Resolve every exclusion before starting any copy, so a missing SD-card
+        # exclusion cannot be discovered after the first deletion-enabled copy.
+        prepared = [
+            (
+                step_name,
+                source,
+                exclude_from_arg(
+                    exclude_file, delete_at_destination=self.delete_at_destination
+                ),
+            )
+            for step_name, source, exclude_file in copies
+        ]
+        if not self.dry_run:
+            self.destination.mkdir(parents=True, exist_ok=True)
+
         summaries: list[BackupSummary] = []
-        for step_name, source, exclude_file in copies:
+        for step_name, source, exclude in prepared:
             if any(summary.error for summary in summaries):
                 summaries.append(
                     BackupSummary(
@@ -92,8 +111,17 @@ class Backup:
                 continue
             started = time.monotonic()
             try:
+                operation = partial(self._run_rsync, step_name, source, exclude)
                 summaries.append(
-                    self._run_rsync(step_name, source, exclude_from_arg(exclude_file))
+                    self.history.run(
+                        step_name,
+                        source,
+                        self.destination / source.name,
+                        operation,
+                        dry_run=self.dry_run,
+                    )
+                    if self.history is not None
+                    else operation()
                 )
             except Exception as error:
                 summaries.append(

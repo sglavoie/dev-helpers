@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.copy_safety import check_copy_paths
-from photos_backup.process import stream_command, transfer_errors
+from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 
 if TYPE_CHECKING:
@@ -24,9 +24,11 @@ class Backup:
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)
         exclude = exclude_from_arg(self.exclude_file)
-        cmd = ["rsync", "-a", "--progress", "--stats"]
+        cmd = ["rsync", "-a", "--stats"]
+        if interactive_transfers():
+            cmd.append("--progress")
         if self.dry_run:
-            cmd.append("--dry-run")
+            cmd.extend(["--dry-run", "--itemize-changes"])
         if exclude:
             cmd.append(exclude)
         cmd.extend(["--", str(self.src_path), str(self.dst_path)])

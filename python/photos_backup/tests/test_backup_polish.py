@@ -24,6 +24,7 @@ from photos_backup.apple_photos.verify import SIGNATURES
 from photos_backup.apple_photos.cleanup import approve_cleanup
 from photos_backup.archive import ArchiveUnsafe
 from tests.test_bootstrap import asset
+from tests import isolate_transfer_history
 from tests.test_cleanup import MirrorTestCase
 from tests.test_verify import VerifyTestCase, write_export_db
 
@@ -153,6 +154,7 @@ class CleanupPreviewTests(MirrorTestCase):
 
 class RemoteBehaviorTests(unittest.TestCase):
     def setUp(self):
+        isolate_transfer_history(self)
         self.enterContext(
             mock.patch(
                 "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
