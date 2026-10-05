@@ -278,9 +278,11 @@ it is an informational view, not a health check. Use `verify` to check the files
 When the archive is unavailable, locked, or its state cannot be read, status still
 shows local transfer history alongside an archive error. It preserves the archive
 error's nonzero exit code; it does not infer archive state from transfer receipts.
-Valid Apple Photos configuration is still required.
+When `[apple_photos]` is absent, status shows that archive status is not configured,
+prints local transfer history, and exits 0. The configuration file must still exist
+and contain valid TOML; an invalid Apple Photos section still exits 2.
 
-`status --json` prints one versioned JSON document with `archive`, `observed_at`,
+`status --json` prints one versioned JSON document with `archive`, `archive_configured`, `observed_at`,
 `files_verified` (always false), `state`, `next_export`, `archive_error`, `transfers`, and
 `transfer_history_errors`. Dates are ISO 8601 strings with timezones; missing
 state values are null. It preserves the normal status exit codes, including exit
@@ -289,8 +291,15 @@ are included in `transfer_history_errors` rather than mixed into JSON output.
 If the archive cannot be read, `state` and `next_export` are null and
 `archive_error` contains the reason; otherwise `archive_error` is null. The JSON
 is still printed on archive errors, with CLI diagnostics on stderr.
+For copy-only configurations, `archive_configured` is false and `archive`, `state`,
+`next_export`, and `archive_error` are null.
 
 ### Transfer history
+
+The text view starts with an attention summary when latest attempts failed or were
+interrupted, completion was not recorded, or a copy has never succeeded. An attempt
+without a recorded completion may still be running. These informational counts can
+overlap and do not change the status exit code.
 
 Real `sd-card`, `ssd`, `remote`, and `backup-all` copies record local receipts under
 `~/.local/state/photos-backup/transfers/` (or
@@ -831,10 +840,11 @@ Configure spouse-device models in the `[apple_photos]` section:
 spouse_device_models = ["iPhone SE (2nd generation)", "iPhone 17"]
 ```
 
-For an immediate Finder-compatible search, use Spotlight metadata directly:
+For an immediate Finder-compatible search, use Spotlight metadata directly.
+Replace the example path with your configured `apple_photos.archive`:
 
 ```sh
-mdfind -onlyin /Users/sglavoie/Pictures/export \
+mdfind -onlyin "/Volumes/SanDisk/Media/Apple Photos" \
 'kMDItemDateAdded >= $time.iso(2026-06-01T00:00:00Z) &&
  kMDItemContentCreationDate < $time.iso(2026-06-01T00:00:00Z) &&
  kMDItemAcquisitionModel == "*iPhone SE*"'

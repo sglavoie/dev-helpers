@@ -79,3 +79,46 @@ print('progress\\rfinished', file=sys.stderr, flush=True)
             with self.assertRaises(KeyboardInterrupt):
                 stream_command(["rsync"])
             process.kill.assert_called_once()
+
+    def test_early_error_survives_progress_in_returned_and_raised_failures(self):
+        command = [
+            sys.executable,
+            "-c",
+            "print('ERROR: permission denied for IMG_1234.HEIC'); "
+            "print('Transferred: 0 / 2\\n' * 250); raise SystemExit(5)",
+        ]
+        for check in (False, True):
+            with (
+                self.subTest(check=check),
+                mock.patch("photos_backup.process.click.echo"),
+            ):
+                if check:
+                    with self.assertRaises(subprocess.CalledProcessError) as raised:
+                        stream_command(command, check=True)
+                    output = raised.exception.output
+                else:
+                    output = stream_command(command).stdout
+                detail = transfer_failure("rclone", 5, output)
+                self.assertIn("permission denied for IMG_1234.HEIC", detail)
+                self.assertNotIn("Transferred", detail)
+
+    def test_retained_early_diagnostics_are_bounded_and_success_keeps_only_tail(self):
+        script = (
+            "for i in range(100): print(f'ERROR: {i} ' + 'x' * 1000)\n"
+            "for i in range(250): print(f'progress {i}')\n"
+            "raise SystemExit({code})"
+        )
+        for code in (0, 5):
+            with (
+                self.subTest(code=code),
+                mock.patch("photos_backup.process.click.echo"),
+            ):
+                result = stream_command(
+                    [sys.executable, "-c", script.replace("{code}", str(code))]
+                )
+                lines = result.stdout.splitlines()
+                self.assertEqual(len(lines), 220 if code else 200)
+                self.assertEqual(lines[-1], "progress 249")
+                if code:
+                    self.assertTrue(lines[0].startswith("ERROR: 80 "))
+                    self.assertLessEqual(max(map(len, lines[:20])), 240)

@@ -424,6 +424,22 @@ def print_archive_status(
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
 
 
+def _transfer_attention(receipts: list[dict]) -> list[str]:
+    attention = []
+    for status, label in (
+        ("failed", "latest attempt failed"),
+        ("interrupted", "latest attempt interrupted"),
+        ("started", "completion not recorded (running or interrupted)"),
+    ):
+        count = sum(row["last_attempt"]["status"] == status for row in receipts)
+        if count:
+            attention.append(f"{count} with {label}")
+    never_succeeded = sum(row["last_success"] is None for row in receipts)
+    if never_succeeded:
+        attention.append(f"{never_succeeded} with no successful copy recorded")
+    return attention
+
+
 def print_transfer_history(
     receipts: list[dict], errors: list[str], *, now: datetime.datetime | None = None
 ) -> None:
@@ -433,6 +449,9 @@ def print_transfer_history(
         return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
 
     click.echo("Transfer history (this Mac, this configuration)")
+    attention = _transfer_attention(receipts)
+    if attention:
+        click.echo(f"  Attention: {'; '.join(attention)}")
     if not receipts:
         click.echo("  No transfer receipts recorded")
     for receipt in receipts:

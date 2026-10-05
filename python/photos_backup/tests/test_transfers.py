@@ -320,3 +320,93 @@ class TransferHistoryTests(unittest.TestCase):
         ):
             path.write_text(json.dumps(value))
             self.assertEqual(len(self.history.read()[1]), 1)
+
+    def test_copy_only_status_reads_receipts_without_opening_archive_or_writing(self):
+        self.config.write_text(
+            f'[ssd]\nsource = "{self.source}"\ndestination = "{self.destination}"\n'
+        )
+        for recorded in (False, True):
+            if recorded:
+                self.run_transfer()
+            before = {p: p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
+            for as_json in (False, True):
+                with (
+                    self.subTest(recorded=recorded, as_json=as_json),
+                    mock.patch("photos_backup.cli.status.open_archive") as open_archive,
+                ):
+                    result = CliRunner().invoke(
+                        cli,
+                        ["--config", str(self.config), "status"]
+                        + (["--json"] if as_json else []),
+                    )
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    open_archive.assert_not_called()
+                    if as_json:
+                        document = json.loads(result.stdout)
+                        self.assertFalse(document["archive_configured"])
+                        for field in (
+                            "archive",
+                            "state",
+                            "next_export",
+                            "archive_error",
+                        ):
+                            self.assertIsNone(document[field])
+                        self.assertEqual(len(document["transfers"]), int(recorded))
+                    else:
+                        self.assertIn("Archive status: not configured", result.stdout)
+                        self.assertIn("Transfer history", result.stdout)
+                        self.assertIn(
+                            "SSD: All Photos" if recorded else "No transfer receipts",
+                            result.stdout,
+                        )
+            self.assertEqual(
+                {p: p.read_bytes() for p in self.root.rglob("*") if p.is_file()}, before
+            )
+            if not recorded:
+                self.assertFalse(self.history.directory.exists())
+
+    def test_status_does_not_hide_missing_invalid_or_malformed_configuration(self):
+        for content in (None, "[broken", "[apple_photos]\n", "apple_photos = 3\n"):
+            with self.subTest(content=content):
+                if content is not None:
+                    self.config.write_text(content)
+                result = CliRunner().invoke(
+                    cli, ["--config", str(self.config), "status", "--json"]
+                )
+                self.assertEqual(result.exit_code, 2, result.output)
+                self.assertNotIn("archive_configured", result.stdout)
+                self.assertFalse(self.history.directory.exists())
+
+    def test_attention_summary_distinguishes_failure_interruption_and_unknown_completion(
+        self,
+    ):
+        self.run_transfer()
+        receipt = self.receipt()
+        for status in ("succeeded", "failed", "interrupted", "started"):
+            for never_succeeded in (False, True):
+                with self.subTest(status=status, never_succeeded=never_succeeded):
+                    row = {
+                        **receipt,
+                        "last_attempt": {**receipt["last_attempt"], "status": status},
+                        "last_success": None
+                        if never_succeeded
+                        else receipt["last_success"],
+                    }
+                    with mock.patch("photos_backup.summary.click.echo") as echo:
+                        print_transfer_history([row], [])
+                    lines = [call.args[0] for call in echo.call_args_list]
+                    attention = [line for line in lines if "Attention:" in line]
+                    if status == "succeeded" and not never_succeeded:
+                        self.assertEqual(attention, [])
+                        continue
+                    self.assertEqual(len(attention), 1)
+                    if status == "started":
+                        self.assertIn(
+                            "completion not recorded (running or interrupted)",
+                            attention[0],
+                        )
+                    elif status != "succeeded":
+                        self.assertIn(f"latest attempt {status}", attention[0])
+                    self.assertEqual(
+                        "no successful copy recorded" in attention[0], never_succeeded
+                    )

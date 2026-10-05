@@ -8,6 +8,14 @@ from contextlib import contextmanager
 
 import click
 
+_DIAGNOSTIC = re.compile(r"\b(error|fatal|failed|failure)\b|rsync:", re.IGNORECASE)
+
+
+def _clean_line(line: str) -> str:
+    return "".join(
+        character for character in click.unstyle(line) if character.isprintable()
+    ).strip()
+
 
 def interactive_transfers() -> bool:
     """Transfer output is streamed to stdout, which may be redirected to a log."""
@@ -39,18 +47,8 @@ def transfer_failure(
     """Keep a short diagnostic in the summary, even after progress scrolls away."""
     if isinstance(output, bytes):
         output = output.decode(errors="replace")
-    lines = [
-        "".join(
-            character for character in click.unstyle(line) if character.isprintable()
-        ).strip()
-        for line in (output or "").splitlines()
-        if line.strip()
-    ]
-    diagnostics = [
-        line
-        for line in lines
-        if re.search(r"\b(error|fatal|failed|failure)\b|rsync:", line, re.IGNORECASE)
-    ]
+    lines = [_clean_line(line) for line in (output or "").splitlines() if line.strip()]
+    diagnostics = [line for line in lines if _DIAGNOSTIC.search(line)]
     excerpt = "; ".join(
         line[:240] for line in list(dict.fromkeys(diagnostics or lines))[-3:]
     )
@@ -65,8 +63,11 @@ def stream_command(
 
     Merge stderr into stdout so neither pipe can fill while reading the other.
     Text mode also turns carriage-return progress updates into readable lines.
+    Failed commands also retain bounded diagnostics that scrolled out of the tail.
     """
     tail: deque[str] = deque(maxlen=200)
+    diagnostics: deque[tuple[int, str]] = deque(maxlen=20)
+    line_count = 0
     with subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
@@ -79,11 +80,22 @@ def stream_command(
             for line in process.stdout:
                 click.echo(line, nl=False)
                 tail.append(line)
+                line_count += 1
+                cleaned = _clean_line(line)
+                if _DIAGNOSTIC.search(cleaned):
+                    diagnostics.append((line_count, cleaned[:240] + "\n"))
             returncode = process.wait()
         except BaseException:
             process.kill()
             raise
-    result = subprocess.CompletedProcess(command, returncode, stdout="".join(tail))
+    earlier_errors = (
+        "".join(line for index, line in diagnostics if index <= line_count - len(tail))
+        if returncode != 0
+        else ""
+    )
+    result = subprocess.CompletedProcess(
+        command, returncode, stdout=earlier_errors + "".join(tail)
+    )
     if check:
         result.check_returncode()
     return result

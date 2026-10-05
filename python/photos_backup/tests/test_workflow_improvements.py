@@ -359,6 +359,7 @@ class StatusTests(ArchiveCommandTestCase):
         document = json.loads(result.stdout)
         self.assertEqual(document["version"], 1)
         self.assertFalse(document["files_verified"])
+        self.assertTrue(document["archive_configured"])
         self.assertEqual(
             document["state"]["last_successful_export_at"], THURSDAY.isoformat()
         )
