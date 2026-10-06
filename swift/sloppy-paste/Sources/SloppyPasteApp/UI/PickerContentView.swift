@@ -37,6 +37,15 @@ struct PickerContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let error = navigator.draftRecoveryError {
+                Text(error)
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.yellow.opacity(0.15))
+            }
+        }
         .overlay {
             if actionMenu.isOpen {
                 ActionMenuOverlay(menu: actionMenu)

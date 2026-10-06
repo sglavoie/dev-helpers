@@ -39,7 +39,7 @@ var continueCmd = &cobra.Command{
 	Long: `Continue time tracking by creating a new entry based on a previous one.
 When no arguments are provided, displays an interactive table of unique keywords from the last 3 months.
 You can continue the last stopped entry, continue by keyword (most recent for that keyword),
-or continue by ID number.
+or continue by ID number or permanent UUID.
 
 The --backdate flag allows you to start the timer with a time offset, useful when you
 forgot to start tracking but know when you actually began working.

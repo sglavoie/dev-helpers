@@ -1,7 +1,9 @@
 package last
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -10,6 +12,49 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 )
+
+func TestSummaryJSONEmptyAndFilteredHistory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	config.ProfileFlag = ""
+	t.Cleanup(func() { config.ProfileFlag = "" })
+	var output bytes.Buffer
+	if err := SummaryJSON(&output); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "[]\n" {
+		t.Fatalf("empty summary = %q", output.String())
+	}
+	success := time.Date(2026, 8, 11, 9, 30, 0, 0, time.UTC)
+	for _, entry := range []db.HistoryEntry{
+		{CreatedAt: success, BackupType: "daily", Profile: "macbook"},
+		{CreatedAt: success.Add(time.Hour), BackupType: "daily", Profile: "macbook", ExitCode: 23},
+		{CreatedAt: success, BackupType: "weekly", Profile: "macbook", ExitCode: -1},
+		{CreatedAt: success, BackupType: "mirror", Profile: db.MirrorProfile},
+	} {
+		db.RecordBackup(entry)
+	}
+	config.ProfileFlag = "macbook"
+	output.Reset()
+	if err := SummaryJSON(&output); err != nil {
+		t.Fatal(err)
+	}
+	var rows []SummaryRow
+	if err := json.Unmarshal(output.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %+v", rows)
+	}
+	if rows[0].Profile != "macbook" || rows[0].BackupType != "daily" || rows[0].ExitCode != 23 || rows[0].LastSuccess == nil || *rows[0].LastSuccess != "2026-08-11 09:30:00" || rows[0].LatestAttempt != "2026-08-11 10:30:00" {
+		t.Fatalf("daily = %+v", rows[0])
+	}
+	if rows[1].LastSuccess != nil || rows[1].ExitCode != -1 {
+		t.Fatalf("weekly = %+v", rows[1])
+	}
+	if !bytes.Contains(output.Bytes(), []byte(`"last_success": null`)) {
+		t.Fatal("missing successes must be JSON null")
+	}
+}
 
 func seedHistory(t *testing.T) {
 	t.Helper()

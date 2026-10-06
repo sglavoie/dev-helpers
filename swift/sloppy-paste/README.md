@@ -15,10 +15,17 @@ to the list.
 
 Unfinished snippet edits survive closing the picker. **Resume Draft** appears
 above the list and in ⌘K; saving or explicitly discarding clears the draft.
-Drafts are kept in memory until the app quits. Starting the same kind of editor
+Drafts are saved atomically to `drafts.json` next to the snippet data and restored
+after quitting, rebuilding, or restarting the app. Starting the same kind of editor
 again (New Snippet, New Snippet from Clipboard, or editing the same snippet)
 resumes its unfinished draft. Separate editors keep separate drafts; Resume
 Draft offers the most recently created unfinished draft first.
+
+Saving or explicitly discarding a draft removes it from recovery. Draft text,
+including incomplete tags and surrounding whitespace, is preserved as typed.
+If the recovery file cannot be read, it is left untouched and the picker shows
+a warning; new drafts stay in memory until the file is repaired and the app
+restarted. A failed draft write also shows a warning to keep the app open.
 
 ⇧⌘D duplicates the selected snippet and opens the copy for editing. Snippet
 content is saved exactly as entered, including indentation and surrounding

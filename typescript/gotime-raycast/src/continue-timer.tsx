@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -13,7 +14,6 @@ import {
   getPreferenceValues,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { execSync } from "child_process";
 
 interface Preferences {
   daysToShow: string;
@@ -66,7 +66,7 @@ export default function Command() {
   const daysToShow = preferences.daysToShow || "7";
 
   const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", daysToShow, "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -200,8 +200,6 @@ function ContinueTimerAction(props: { entry: Entry; onComplete: () => void }) {
 }
 
 function BackdateForm(props: { entry: Entry; onComplete: () => void }) {
-  const { pop } = useNavigation();
-
   async function handleSubmit(values: BackdateFormValues) {
     const backdateValue =
       values.backdate === "custom"
@@ -215,14 +213,15 @@ function BackdateForm(props: { entry: Entry; onComplete: () => void }) {
       });
 
       // Build command
-      let command = `/Users/sglavoie/.local/bin/gt continue ${props.entry.short_id}`;
+      const args = ["continue"];
 
       // Add backdate flag if present
       if (backdateValue && backdateValue !== "none") {
-        command += ` --backdate ${backdateValue}`;
+        args.push("--backdate", backdateValue);
       }
 
-      execSync(command, { encoding: "utf-8" });
+      args.push("--", props.entry.id);
+      await runGT(args);
 
       await showToast({
         style: Toast.Style.Success,

@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -13,7 +14,6 @@ import {
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState, useMemo } from "react";
-import { execSync } from "child_process";
 
 interface Entry {
   id: string;
@@ -40,7 +40,7 @@ export default function Command() {
   const { push } = useNavigation();
 
   const { isLoading, data: entries } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", "30", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -230,17 +230,14 @@ function ConfigurationForm(props: {
 
     for (const keyword of props.selectedKeywords) {
       try {
-        let command = `/Users/sglavoie/.local/bin/gt start ${keyword}`;
-
-        if (values.tags.length > 0) {
-          command += ` ${values.tags.join(" ")}`;
-        }
+        const args = ["start"];
 
         if (backdateValue && backdateValue !== "none") {
-          command += ` --backdate ${backdateValue}`;
+          args.push("--backdate", backdateValue);
         }
 
-        execSync(command, { encoding: "utf-8" });
+        args.push("--", keyword, ...values.tags);
+        await runGT(args);
         successes.push(keyword);
 
         await showToast({

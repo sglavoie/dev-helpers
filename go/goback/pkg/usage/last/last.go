@@ -2,6 +2,8 @@ package last
 
 import (
 	"database/sql"
+	"encoding/json"
+	"io"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
@@ -18,6 +20,41 @@ func Summary() {
 	querySummaryBackupTypes(func(rows *sql.Rows) {
 		view.SqlToTextSummary(rows)
 	})
+}
+
+// SummaryRow uses stored timestamps verbatim: old history has no time zone.
+type SummaryRow struct {
+	Profile       string  `json:"profile"`
+	BackupType    string  `json:"backup_type"`
+	LatestAttempt string  `json:"latest_attempt"`
+	ExitCode      int     `json:"exit_code"`
+	LastSuccess   *string `json:"last_success"`
+}
+
+func SummaryJSON(w io.Writer) error {
+	result := []SummaryRow{}
+	var readErr error
+	querySummaryBackupTypes(func(rows *sql.Rows) {
+		for rows.Next() {
+			var row SummaryRow
+			var success sql.NullString
+			if err := rows.Scan(&row.Profile, &row.BackupType, &row.LatestAttempt, &row.ExitCode, &success); err != nil {
+				readErr = err
+				return
+			}
+			if success.Valid {
+				row.LastSuccess = &success.String
+			}
+			result = append(result, row)
+		}
+		readErr = rows.Err()
+	})
+	if readErr != nil {
+		return readErr
+	}
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
 }
 
 func queryAllLatestBackupTypes(e int, callback func(*sql.Rows)) {

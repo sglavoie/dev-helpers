@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -10,7 +11,6 @@ import {
   showToast,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { execSync } from "child_process";
 
 interface Entry {
   id: string;
@@ -46,7 +46,7 @@ function formatDuration(seconds: number): string {
 
 export default function Command() {
   const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", "3650", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -107,9 +107,7 @@ export default function Command() {
         title: "Removing tag...",
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt tags remove ${tagUsage.tag}`, {
-        encoding: "utf-8",
-      });
+      await runGT(["tags", "remove", "--", tagUsage.tag]);
 
       await showToast({
         style: Toast.Style.Success,

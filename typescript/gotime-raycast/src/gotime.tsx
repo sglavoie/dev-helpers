@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -11,7 +12,6 @@ import {
   Keyboard,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { execSync } from "child_process";
 import ActiveTimers from "./active-timers";
 import ContinueTimer from "./continue-timer";
 import DeleteTimer from "./delete-timer";
@@ -36,7 +36,7 @@ interface CommandItem {
 
 export default function Command() {
   const { data: activeTimers, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--active", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -75,9 +75,7 @@ export default function Command() {
         title: "Stopping all timers...",
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt stop --all`, {
-        encoding: "utf-8",
-      });
+      await runGT(["stop", "--all"]);
 
       await showToast({
         style: Toast.Style.Success,

@@ -20,7 +20,8 @@ When called without arguments, displays an interactive multi-selection table to 
 When called without field arguments, opens an interactive field editor showing all available fields.
 You can also directly set specific fields by providing field and value arguments.
 If multiple entries exist for a keyword, you'll be prompted to choose which ones to edit.
-If called on running entries, they will be stopped to avoid ambiguity with the end time.
+Direct keyword and tag edits leave running timers active; duration edits move their
+start time. Use 'gt update UUID --start ... --end ...' for explicit timestamp edits.
 
 Examples:
   gt set                             # Interactive multi-selection and field editor

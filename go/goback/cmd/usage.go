@@ -27,15 +27,24 @@ var lastUsageCmd = &cobra.Command{
 	Use:   "last",
 	Short: "Show the latest attempts for each profile and backup type",
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, err := cmd.Flags().GetBool("json")
+		cobra.CheckErr(err)
+		s, err := cmd.Flags().GetBool("summary")
+		cobra.CheckErr(err)
+		if jsonOutput && !s {
+			cobra.CheckErr("--json requires --summary")
+		}
 		e, err := cmd.Flags().GetInt("entries")
 		cobra.CheckErr(err)
 		if e < 1 {
 			cobra.CheckErr("Latest entries to show must be greater than 0")
 		}
 
-		s, err := cmd.Flags().GetBool("summary")
-		cobra.CheckErr(err)
 		if s {
+			if jsonOutput {
+				cobra.CheckErr(last.SummaryJSON(cmd.OutOrStdout()))
+				return
+			}
 			last.Summary()
 			return
 		}
@@ -88,6 +97,7 @@ func init() {
 
 	lastUsageCmd.Flags().IntP("entries", "e", 3, "Number of entries to show for each profile and backup type")
 	lastUsageCmd.Flags().BoolP("summary", "s", false, "Show the last success and latest attempt result for each profile and backup type")
+	lastUsageCmd.Flags().Bool("json", false, "Output --summary as JSON")
 
 	resetUsageCmd.Flags().BoolP("all", "a", false, "Reset all usage (set --keep=0)")
 	resetUsageCmd.Flags().IntP("keep", "k", 20, "Number of entries to keep")

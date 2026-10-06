@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-/** Absolute path of the gotime CLI the commands shell out to. */
-export const GT_BIN = "/Users/sglavoie/.local/bin/gt";
+export { GT_BIN } from "./gt";
 
 export interface Entry {
   id: string;

@@ -14,7 +14,7 @@ import (
 var deleteCmd = &cobra.Command{
 	Use:   "delete [keyword | ID]",
 	Short: "Delete time tracking entries",
-	Long: `Delete time tracking entries by keyword or short ID.
+	Long: `Delete time tracking entries by keyword, short ID, or permanent UUID.
 When no arguments are provided, displays an interactive table to select entries for deletion.
 In interactive mode, use Space to toggle selection and Enter to confirm deletion.
 When deleting by keyword, all entries for that keyword will be deleted.

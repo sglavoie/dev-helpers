@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -9,8 +10,7 @@ import {
   showToast,
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { useState, useEffect, useMemo } from "react";
-import { execSync } from "child_process";
+import { useState, useMemo } from "react";
 
 interface Entry {
   id: string;
@@ -40,7 +40,7 @@ export default function Command() {
 
   // Fetch existing entries to extract keywords and tags
   const { isLoading, data: entries } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", "30", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -141,19 +141,15 @@ export default function Command() {
       });
 
       // Build command
-      let command = `/Users/sglavoie/.local/bin/gt start ${keyword}`;
-
-      // Add tags if present
-      if (values.tags.length > 0) {
-        command += ` ${values.tags.join(" ")}`;
-      }
+      const args = ["start"];
 
       // Add backdate flag if present
       if (backdateValue && backdateValue !== "none") {
-        command += ` --backdate ${backdateValue}`;
+        args.push("--backdate", backdateValue);
       }
 
-      execSync(command, { encoding: "utf-8" });
+      args.push("--", keyword, ...values.tags);
+      await runGT(args);
 
       await showToast({
         style: Toast.Style.Success,

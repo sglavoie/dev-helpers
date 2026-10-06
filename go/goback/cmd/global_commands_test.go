@@ -70,6 +70,18 @@ func TestGlobalCommandsIgnoreUnmatchedProfiles(t *testing.T) {
 	}
 }
 
+func TestHistorySummaryJSONWithoutConfig(t *testing.T) {
+	home := t.TempDir()
+	out := globalCommand(t, home, "usage", "last", "--summary", "--json")
+	if strings.TrimSpace(out) != "[]" {
+		t.Fatalf("expected one empty JSON array, got %q", out)
+	}
+	out, err := profileCommand(t, `{}`, "usage", "last", "--json")
+	if err == nil || !strings.Contains(out, "--json requires --summary") {
+		t.Fatalf("invalid JSON flags: %v\n%s", err, out)
+	}
+}
+
 func TestCleanupDryRunThroughCLI(t *testing.T) {
 	if _, err := exec.LookPath("rsync"); err != nil {
 		t.Skip("rsync unavailable")

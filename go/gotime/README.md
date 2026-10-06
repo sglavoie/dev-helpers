@@ -79,6 +79,43 @@ gt undo
 - `gt tags [list|rename|remove]` - Manage tags across all entries
 - `gt pop` - Resume stashed entries
 
+## Editing from scripts and Raycast
+
+Use `gt list --json` to obtain permanent entry UUIDs. `set`, `stop`, `continue`,
+and `delete` accept a UUID wherever they accept a short ID. Short IDs are
+reassigned when entries are added, removed, or moved in time; use UUIDs when
+acting on a previously displayed entry.
+
+`update` changes several fields together, preserves the UUID, and records one
+undo operation. It validates the complete edit before saving:
+
+```bash
+gt update UUID --keyword review --tags work,project
+gt update UUID --start '2026-10-01T09:00:00-06:00' --end '2026-10-01T10:00:00-06:00'
+gt update UUID --tags ''                 # clear tags
+gt update UUID --end active              # resume this entry in place
+gt update UUID --duration 1800           # seconds; state stays running/stopped
+```
+
+Replace `UUID` with the entry's `id` from JSON. Timestamps require an explicit
+time zone (RFC3339); an end time completes the entry, while `--end active`
+clears the end time and keeps it running. Metadata-only edits leave its timing
+and running state unchanged. Duration edits move the end of a completed entry
+or the start of an active timer, and cannot be combined with timestamp flags.
+Future timestamps, reversed ranges, and conflicting active keywords are refused.
+Restore stashed entries before editing them. Use `gt undo` to restore an update.
+
+The [Raycast extension](../../typescript/gotime-raycast/README.md) uses this
+command; reinstall the CLI with `make install` when updating the extension.
+
+Saves write a temporary file, sync it, and replace the data file atomically.
+Existing file permissions and configuration symlinks are preserved. A short
+file lock protects the final comparison and replacement; if another process
+changed the data since it was loaded, the stale save fails with a retry message
+instead of overwriting that work. Reload the Raycast list or reopen the CLI editor
+before retrying. The adjacent `.lock` file is normal and remains on disk; its
+presence alone does not mean a process holds the lock.
+
 ## Advanced Filtering
 
 ### Time Ranges

@@ -33,7 +33,9 @@ make install
 
 This will install the `gt` binary to `~/.local/bin/gt`.
 
-**Important**: The extension expects `gt` to be at `~/.local/bin/gt`. If you installed it elsewhere, you'll need to update the paths in the source code (search for `~/.local/bin/gt` and replace with your path).
+The default executable is `~/.local/bin/gt`. Set **GoTime Binary** in the extension preferences if it is installed elsewhere. `~/` expands to your home directory, and paths containing spaces work without quoting.
+
+Rebuild and install `gt` from this repository before using the updated extension: entry editing requires `gt update`, and entry actions use permanent UUIDs.
 
 ## Installation
 
@@ -45,10 +47,10 @@ This will install the `gt` binary to `~/.local/bin/gt`.
    cd typescript/gotime-raycast
    ```
 
-2. Install dependencies (already done):
+2. Install dependencies:
 
    ```bash
-   npm install
+   npm ci
    ```
 
 3. Run in development mode:
@@ -113,8 +115,11 @@ gotime-raycast/
 │   │   └── EntryListItem.tsx    # Entry row with its action panel
 │   └── utils/
 │       ├── duration.ts          # Duration parsing and formatting
-│       ├── entries.ts           # Entry type, gt binary path, entry hooks
-│       ├── entry-edit.ts        # gt commands that edit or delete an entry
+│       ├── entries.ts           # Entry type and entry hooks
+│       ├── entry-edit.ts        # Entry edit/delete actions and toasts
+│       ├── gt.ts                # Configured binary and async command runner
+│       ├── gt-process.ts        # Literal argv execution and error reporting
+│       ├── entry-update.ts      # One update command per edit, addressed by UUID
 │       └── time.ts              # Time-of-day parsing and formatting
 ├── package.json            # Extension manifest
 ├── tsconfig.json          # TypeScript config
@@ -124,17 +129,28 @@ gotime-raycast/
 ### Scripts
 
 - `npm run dev` - Start development server
+- `npm test` - Run command argument and process tests (Node.js 24+)
 - `npm run build` - Build extension
 - `npm run lint` - Lint code
+- `npx eslint src tests` - Check code without Raycast's online author/icon validation
 - `npm run fix-lint` - Fix linting issues
+
+## Entry editing
+
+Edits preserve the original entry UUID and are validated together in one CLI
+operation. Short IDs can change as entries are added or moved; the extension
+uses UUIDs for edit, delete, stop, and continue actions.
+
+Changing only a keyword or tags leaves an active timer running. Setting an end
+time or duration completes it; clearing the end time makes it active. Timestamps
+retain their exact instants, including time zones, instead of being rounded to a
+relative backdate. `gt undo` can restore an edit.
 
 ## Customization
 
-If your `gt` binary is installed in a different location, you'll need to update the hardcoded path in all three command files:
-
-1. Open each file: `src/active-timers.tsx`, `src/weekly-report.tsx`, `src/start-timer.tsx`
-2. Find: `~/.local/bin/gt`
-3. Replace with your gt path (e.g., `/usr/local/bin/gt`)
+In Raycast Settings → Extensions → GoTime, set **GoTime Binary** to the installed
+executable, such as `~/.local/bin/gt` or `/usr/local/bin/gt`. All extension commands
+use this preference. No source edits are needed.
 
 ## Troubleshooting
 
@@ -146,7 +162,7 @@ Make sure the `gt` binary is at `~/.local/bin/gt`:
 ls -la ~/.local/bin/gt
 ```
 
-If it's elsewhere, update the paths in the source files as described in Customization above.
+If it is elsewhere, change **GoTime Binary** in the extension preferences. If editing reports an unknown `update` command, rebuild the CLI with `make install` in `go/gotime`.
 
 ### Timers not updating
 

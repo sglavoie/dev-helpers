@@ -47,15 +47,19 @@ var statusCmd = &cobra.Command{
 		if !nextWork.IsZero() {
 			nextWorkStr = nextWork.Format("Mon Jan 2 3:04 PM")
 		} else {
-			nextWorkStr = "cycle complete"
+			nextWorkStr = "none remaining this cycle"
+		}
+		workLabel := "Next work segment ends:"
+		if info.IsWorkDay {
+			workLabel = "Current work segment ends:"
 		}
 
-		fmt.Printf("Cycle:       %s -> %s\n", cycleStartStr, cycleEndStr)
-		fmt.Printf("Now:         %s\n", nowStr)
-		fmt.Printf("Expected:    %.1f%%\n", info.Expected)
-		fmt.Printf("Work days:   %d/%d completed\n", info.WorkDaysDone, info.WorkDaysTotal)
-		fmt.Printf("Next work:   %s\n", nextWorkStr)
-		fmt.Printf("Remaining:   %s\n", remainingStr)
+		fmt.Printf("%-27s %s -> %s\n", "Cycle:", cycleStartStr, cycleEndStr)
+		fmt.Printf("%-27s %s\n", "Now:", nowStr)
+		fmt.Printf("%-27s %.1f%%\n", "Expected:", info.Expected)
+		fmt.Printf("%-27s %d/%d completed\n", "Work days:", info.WorkDaysDone, info.WorkDaysTotal)
+		fmt.Printf("%-27s %s\n", workLabel, nextWorkStr)
+		fmt.Printf("%-27s %s\n", "Remaining:", remainingStr)
 	},
 }
 

@@ -209,6 +209,15 @@ for common rsync failures. Companion exit codes retain their own meaning.
 Timestamps in existing history have no timezone; ages use the current local
 timezone. Attempts with identical timestamps are ordered by history ID. Interrupted snapshot transfers are recorded with exit code `-1`.
 
+For scripts, `goback usage last --summary --json` emits one JSON array, ordered
+by profile and backup type. It honors `--profile` and returns `[]` for no history.
+Each row contains `profile`, `backup_type`, `latest_attempt`, `exit_code`, and
+`last_success` (`null` when no successful attempt remains). Timestamps retain
+the stored `YYYY-MM-DD HH:MM:SS` format without timezone information; no conversion
+to UTC is performed.
+A failed latest attempt leaves an earlier `last_success` intact. `--json`
+requires `--summary` and emits no table or terminal colors.
+
 ## Cleanup and terminal output
 
 ```bash

@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -11,7 +12,6 @@ import {
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState, useEffect } from "react";
-import { execSync } from "child_process";
 
 interface Entry {
   id: string;
@@ -56,7 +56,7 @@ export default function Command() {
   );
 
   const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--active", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -110,9 +110,7 @@ export default function Command() {
         title: "Stopping timer...",
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt stop ${entry.short_id}`, {
-        encoding: "utf-8",
-      });
+      await runGT(["stop", entry.id]);
 
       await showToast({
         style: Toast.Style.Success,
@@ -150,9 +148,7 @@ export default function Command() {
         title: "Stopping all timers...",
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt stop --all`, {
-        encoding: "utf-8",
-      });
+      await runGT(["stop", "--all"]);
 
       await showToast({
         style: Toast.Style.Success,

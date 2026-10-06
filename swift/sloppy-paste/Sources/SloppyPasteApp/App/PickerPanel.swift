@@ -77,7 +77,7 @@ final class PickerPanelController {
     static let panelSize = NSSize(width: 760, height: 480)
     static let zoomDefaultsKey = "picker.zoom"
 
-    let navigator = Navigator()
+    let navigator = Navigator(draftURL: Navigator.defaultDraftURL)
     private(set) lazy var keyRouter = KeyRouter(navigator: navigator) { [weak self] in
         self?.hide()
     }

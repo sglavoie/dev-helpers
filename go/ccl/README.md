@@ -27,13 +27,17 @@ ccl config          # show the configuration and where it lives
 `ccl status` output:
 
 ```
-Cycle:       Sun Oct 4 12:59 AM -> Sun Oct 11 12:59 AM
-Now:         Tue Oct 6 7:23 AM
-Expected:    37.8%
-Work days:   2/6 completed
-Next work:   Wed Oct 7 12:59 AM
-Remaining:   4d 17h 35m
+Cycle:                      Sun Oct 4 12:59 AM -> Sun Oct 11 12:59 AM
+Now:                        Tue Oct 6 7:23 AM
+Expected:                   37.8%
+Work days:                  2/6 completed
+Current work segment ends:  Wed Oct 7 12:59 AM
+Remaining:                  4d 17h 35m
 ```
+
+On a day off, `Next work segment ends` shows the end of the next work segment,
+or `none remaining this cycle` when all work segments have finished. These are
+segment end times, not the time to begin working.
 
 ## Configuration
 

@@ -22,10 +22,7 @@ import {
   getTimeValidationError,
 } from "../utils/time";
 import { Entry, formatRelativeTime } from "../utils/entries";
-import {
-  applyFieldEdits,
-  recreateEntryWithNewTimestamps,
-} from "../utils/entry-edit";
+import { updateEntry } from "../utils/entry-edit";
 
 export interface EditFormProps {
   entry: Entry;
@@ -34,7 +31,7 @@ export interface EditFormProps {
   onComplete: () => void;
 }
 
-/** Keywords and tags are restricted to what the gotime CLI accepts unquoted. */
+/** Keep newly entered names consistent with the start-timer form. */
 const NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 export function EditEntryForm({
@@ -59,7 +56,6 @@ export function EditEntryForm({
   const [endDateTime, setEndDateTime] = useState<Date | undefined>(
     entry.end_time ? new Date(entry.end_time) : undefined,
   );
-  const [timestampsChanged, setTimestampsChanged] = useState<boolean>(false);
   const [startTimeInput, setStartTimeInput] = useState<string>(
     formatTime(new Date(entry.start_time)),
   );
@@ -84,21 +80,6 @@ export function EditEntryForm({
       }
     }
   }, [startDateTime, endDateTime]);
-
-  // Detect timestamp changes
-  useEffect(() => {
-    const originalStart = new Date(entry.start_time);
-    const originalEnd = entry.end_time ? new Date(entry.end_time) : null;
-
-    const startChanged = startDateTime.getTime() !== originalStart.getTime();
-    const endChanged = endDateTime
-      ? originalEnd
-        ? endDateTime.getTime() !== originalEnd.getTime()
-        : true
-      : false;
-
-    setTimestampsChanged(startChanged || endChanged);
-  }, [startDateTime, endDateTime, entry]);
 
   function handleDurationChange(value: string) {
     setDurationInput(value);
@@ -204,19 +185,13 @@ export function EditEntryForm({
     }
 
     try {
-      const edit = {
+      await updateEntry({
         entry,
         keyword,
         tags: selectedTags,
-        duration: calculatedDuration,
-      };
-
-      // If timestamps changed, use delete+recreate workflow
-      if (timestampsChanged) {
-        await recreateEntryWithNewTimestamps({ ...edit, startDateTime });
-      } else {
-        await applyFieldEdits(edit);
-      }
+        startDateTime,
+        endDateTime,
+      });
 
       onComplete();
       await popToRoot();
@@ -245,11 +220,9 @@ export function EditEntryForm({
     >
       <Form.Description
         text={
-          entry.active
-            ? "⚠️ This is an ACTIVE entry. Changes will stop the timer."
-            : timestampsChanged
-              ? "⚠️ Changing timestamps will RECREATE the entry with a new ID"
-              : "Edit entry fields below"
+          endDateTime
+            ? "Saving keeps this entry completed, with the end time shown below."
+            : "This timer will keep running. Set an end time or duration to stop it."
         }
       />
 

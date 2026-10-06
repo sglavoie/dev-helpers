@@ -1,3 +1,4 @@
+import { GT_BIN } from "./utils/gt";
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useMemo, useState } from "react";
@@ -72,11 +73,6 @@ interface KeywordListItem {
   total_duration: number;
 }
 
-interface TagListItem {
-  tag: string;
-  count: number;
-}
-
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -114,7 +110,7 @@ export default function Command() {
 
   // Fetch available keywords
   const { data: keywordsList } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["keywords", "list", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -126,26 +122,22 @@ export default function Command() {
   );
 
   // Fetch available tags
-  const { data: tagsList } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
-    ["list", "--week", "--json"],
-    {
-      parseOutput: ({ stdout }) => {
-        const trimmed = stdout.trim();
-        if (!trimmed || trimmed === "[]") return [];
-        const entries = JSON.parse(trimmed) as Entry[];
-        // Extract unique tags from entries
-        const tagSet = new Set<string>();
-        entries.forEach((entry) => {
-          const tags = entry.tags ?? [];
-          tags.forEach((tag) => tagSet.add(tag));
-        });
-        return Array.from(tagSet)
-          .sort()
-          .map((tag) => ({ tag, count: 0 }));
-      },
+  const { data: tagsList } = useExec(GT_BIN, ["list", "--week", "--json"], {
+    parseOutput: ({ stdout }) => {
+      const trimmed = stdout.trim();
+      if (!trimmed || trimmed === "[]") return [];
+      const entries = JSON.parse(trimmed) as Entry[];
+      // Extract unique tags from entries
+      const tagSet = new Set<string>();
+      entries.forEach((entry) => {
+        const tags = entry.tags ?? [];
+        tags.forEach((tag) => tagSet.add(tag));
+      });
+      return Array.from(tagSet)
+        .sort()
+        .map((tag) => ({ tag, count: 0 }));
     },
-  );
+  });
 
   // Build dynamic command arguments based on filters
   const commandArgs = useMemo(() => {
@@ -182,19 +174,15 @@ export default function Command() {
   }, [timeRange, keywordFilter, tagFilter]);
 
   // Fetch report data with dynamic filters
-  const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
-    commandArgs,
-    {
-      parseOutput: ({ stdout }) => {
-        const trimmed = stdout.trim();
-        if (!trimmed) {
-          throw new Error("Empty output from report command");
-        }
-        return JSON.parse(trimmed) as ReportData;
-      },
+  const { isLoading, data, error, revalidate } = useExec(GT_BIN, commandArgs, {
+    parseOutput: ({ stdout }) => {
+      const trimmed = stdout.trim();
+      if (!trimmed) {
+        throw new Error("Empty output from report command");
+      }
+      return JSON.parse(trimmed) as ReportData;
     },
-  );
+  });
 
   if (error) {
     return (

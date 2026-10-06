@@ -2,7 +2,7 @@ import Foundation
 
 /// The snippet editor's working copy (TS SnippetForm and save-clipboard):
 /// validation, tag parsing and saving through `SnippetRepository`.
-public struct SnippetDraft: Sendable, Hashable {
+public struct SnippetDraft: Sendable, Hashable, Codable {
     public enum Field: Sendable, Hashable, CaseIterable {
         case title, content, description, tags
     }

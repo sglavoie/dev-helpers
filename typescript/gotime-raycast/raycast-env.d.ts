@@ -8,6 +8,8 @@
 /* eslint-disable @typescript-eslint/ban-types */
 
 type ExtensionPreferences = {
+  /** GoTime Binary - Path to the gt executable. Supports ~/ for your home directory. */
+  "gtBinary": string,
   /** Days to Show - Number of days to show when listing timers for continue/delete operations */
   "daysToShow": string
 }

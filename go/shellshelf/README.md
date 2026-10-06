@@ -1,18 +1,33 @@
 # ShellShelf
 
+Save shell commands with names, descriptions, and tags, then find, copy, edit,
+or run them from the terminal. Commands and settings live in `~/.shellshelf.json`.
+
+## Install and use
+
+From this directory, with Go installed:
+
+```bash
+mkdir -p ~/.local/bin
+go build -o ~/.local/bin/ss .
+ss --help
+ss add --name status --command 'git status --short'
+ss find
+```
+
+Add `~/.local/bin` to your `PATH`. `ss find` opens the interactive command picker
+and offers Run, Copy, Edit, and Print. Clipboard copying uses `pbcopy` on macOS,
+or `xclip`/`xsel` on Linux.
+
 ## Development
 
-### Installing project dependencies
-
 ```bash
-npm install
+go test ./...
+just --list
 ```
 
-This project also relies on [Air](https://github.com/cosmtrek/air) for live reloading with `make serve`. Install it with:
-
-```bash
-go install github.com/cosmtrek/air@latest
-```
+The justfile includes build, test, format, and lint recipes. Linting requires
+`golangci-lint`. There is no npm or web-server setup for the CLI.
 
 ### Debugging in GoLand
 
@@ -33,9 +48,3 @@ go install github.com/cosmtrek/air@latest
 - Set a breakpoint in the code.
 - Run the debugger by passing the necessary program arguments, e.g. `dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./main -- edit something -e`.
 - GoLand will connect to the debugger and stop at the breakpoint when a debugging session starts.
-
-### Updating CSS on the fly
-
-```bash
-npx tailwindcss -i web/styles.css -o web/static/styles.css --watch
-```

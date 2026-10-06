@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -9,7 +10,6 @@ import {
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState } from "react";
-import { execSync } from "child_process";
 
 interface Entry {
   id: string;
@@ -32,7 +32,7 @@ export default function Command() {
   const [newTagError, setNewTagError] = useState<string | undefined>();
 
   const { isLoading, data: tags } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", "3650", "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -92,10 +92,7 @@ export default function Command() {
         title: "Renaming tag...",
       });
 
-      execSync(
-        `/Users/sglavoie/.local/bin/gt tags rename ${oldTag} ${newTag}`,
-        { encoding: "utf-8" },
-      );
+      await runGT(["tags", "rename", "--", oldTag, newTag]);
 
       await showToast({
         style: Toast.Style.Success,

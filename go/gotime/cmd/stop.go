@@ -21,7 +21,7 @@ var stopCmd = &cobra.Command{
 	Long: `Stop time tracking for the specified entry or entries.
 When no arguments are provided, displays an interactive multi-selection table of active entries.
 You can stop by keyword (stops the most recent active entry for that keyword),
-by ID number (1-1000), or stop all active entries at once.
+by ID number (1-1000) or permanent UUID, or stop all active entries at once.
 
 Examples:
   gt stop                            # Interactive multi-selection from active entries

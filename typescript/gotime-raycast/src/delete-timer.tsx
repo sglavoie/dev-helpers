@@ -1,3 +1,4 @@
+import { GT_BIN, runGT } from "./utils/gt";
 import {
   Action,
   ActionPanel,
@@ -12,7 +13,6 @@ import {
 } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useState, useEffect } from "react";
-import { execSync } from "child_process";
 
 interface Preferences {
   daysToShow: string;
@@ -80,7 +80,7 @@ export default function Command() {
     new Map(),
   );
   const { isLoading, data, error, revalidate } = useExec(
-    "/Users/sglavoie/.local/bin/gt",
+    GT_BIN,
     ["list", "--days", daysToShow, "--json"],
     {
       parseOutput: ({ stdout }) => {
@@ -135,9 +135,7 @@ export default function Command() {
         title: "Deleting timer...",
       });
 
-      execSync(`/Users/sglavoie/.local/bin/gt delete ${entry.short_id}`, {
-        encoding: "utf-8",
-      });
+      await runGT(["delete", entry.id]);
 
       await showToast({
         style: Toast.Style.Success,

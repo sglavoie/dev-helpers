@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/config"
 	"github.com/sglavoie/dev-helpers/go/gotime/internal/models"
 )
@@ -28,12 +29,21 @@ type ParsedArgument struct {
 	Entry   *models.Entry // The entry found (if parsed as ID)
 }
 
-// ParseKeywordOrID parses an argument string as either a keyword or an ID (1-1000)
+// ParseKeywordOrID accepts a permanent UUID, a short ID (1-1000), or a keyword.
 // If it's a valid ID in range, it tries to find the entry and returns it
 // Otherwise, it treats it as a keyword
 func ParseKeywordOrID(argument string, cfg *models.Config) (*ParsedArgument, error) {
 	if argument == "" {
 		return nil, fmt.Errorf("argument cannot be empty")
+	}
+	if id, err := uuid.Parse(argument); err == nil {
+		for i := range cfg.Entries {
+			entry := &cfg.Entries[i]
+			if entry.ID == id.String() {
+				return &ParsedArgument{Type: ArgumentTypeID, ID: entry.ShortID, Entry: entry, Keyword: entry.Keyword}, nil
+			}
+		}
+		return nil, fmt.Errorf("no entry found with UUID %s", argument)
 	}
 
 	// Try to parse as an ID first
@@ -136,7 +146,6 @@ func ParseDuration(input string) (time.Duration, error) {
 	return duration, nil
 }
 
-
 // SortOrder represents the sorting direction
 type SortOrder int
 
@@ -158,7 +167,7 @@ const (
 func SortEntries[T models.Entry | *models.Entry](entries []T, field SortField, order SortOrder) {
 	sort.Slice(entries, func(i, j int) bool {
 		var ei, ej *models.Entry
-		
+
 		// Handle both Entry and *Entry types
 		switch v := any(entries[i]).(type) {
 		case models.Entry:
@@ -170,14 +179,14 @@ func SortEntries[T models.Entry | *models.Entry](entries []T, field SortField, o
 			ei = v
 			ej = any(entries[j]).(*models.Entry)
 		}
-		
+
 		switch field {
 		case ByStartTime:
 			if order == Descending {
 				return ei.StartTime.After(ej.StartTime)
 			}
 			return ei.StartTime.Before(ej.StartTime)
-			
+
 		case ByEndTime:
 			// Handle nil EndTime values
 			if ei.EndTime == nil && ej.EndTime == nil {
@@ -193,13 +202,13 @@ func SortEntries[T models.Entry | *models.Entry](entries []T, field SortField, o
 				return ei.EndTime.After(*ej.EndTime)
 			}
 			return ei.EndTime.Before(*ej.EndTime)
-			
+
 		case ByShortID:
 			if order == Ascending {
 				return ei.ShortID < ej.ShortID
 			}
 			return ei.ShortID > ej.ShortID
-			
+
 		default:
 			return false
 		}

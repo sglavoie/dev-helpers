@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,9 @@ import (
 // Manager handles configuration file operations
 type Manager struct {
 	configPath string
+	loaded     bool
+	loadedPath string
+	previous   []byte
 }
 
 // NewManager creates a new configuration manager
@@ -37,13 +41,16 @@ func NewManager(customPath string) *Manager {
 
 // Load loads the configuration from file
 func (m *Manager) Load() (*models.Config, error) {
-	// Check if file exists
-	if _, err := os.Stat(m.configPath); os.IsNotExist(err) {
+	path, err := m.storagePath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
 		// Create new config if file doesn't exist
+		m.loaded, m.loadedPath, m.previous = true, path, nil
 		return models.NewConfig(), nil
 	}
-
-	data, err := os.ReadFile(m.configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -60,14 +67,22 @@ func (m *Manager) Load() (*models.Config, error) {
 
 	// Update short IDs to ensure consistency
 	config.UpdateShortIDs()
+	m.loaded, m.loadedPath, m.previous = true, path, data
 
 	return &config, nil
 }
 
 // Save saves the configuration to file
 func (m *Manager) Save(config *models.Config) error {
+	path, err := m.storagePath()
+	if err != nil {
+		return err
+	}
+	if m.loaded && path != m.loadedPath {
+		return fmt.Errorf("config path changed while editing; reload and retry")
+	}
 	// Ensure directory exists
-	dir := filepath.Dir(m.configPath)
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -76,12 +91,76 @@ func (m *Manager) Save(config *models.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-
-	if err := os.WriteFile(m.configPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+	unlock, err := lockSave(path + ".lock")
+	if err != nil {
+		return err
 	}
+	defer unlock()
+	current, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if m.loaded && ((err == nil) != (m.previous != nil) || !bytes.Equal(current, m.previous)) {
+		return fmt.Errorf("GoTime data changed in another process; reload and retry your edit")
+	}
+	mode := os.FileMode(0600)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(dir, ".gotime-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	if err := tmp.Chmod(mode); err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("failed to replace config file: %w", err)
+	}
+	m.loaded, m.loadedPath, m.previous = true, path, data
 
 	return nil
+}
+
+// Follow an existing config symlink so atomic replacement preserves the link.
+func (m *Manager) storagePath() (string, error) {
+	path, err := filepath.Abs(m.configPath)
+	if err != nil {
+		return "", err
+	}
+	var missing []string
+	for {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		if info, statErr := os.Lstat(path); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			return "", fmt.Errorf("config symlink target is missing: %s", path)
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(path))
+		path = parent
+	}
 }
 
 // GetConfigPath returns the current config file path
