@@ -41,6 +41,8 @@ func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.Back
 
 	cobra.CheckErr(forEachProfile(func() error {
 		switch {
+		case depth < 0:
+			return fmt.Errorf("--depth must be greater than or equal to 0")
 		case testPattern != "" && showExcluded:
 			return fmt.Errorf("--test-pattern and --excluded are mutually exclusive")
 		case subdir != "" && testPattern == "" && !showExcluded:

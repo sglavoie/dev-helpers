@@ -107,52 +107,16 @@ func depthExcludePattern(depth int) string {
 
 // FindExcluded runs two rsync --list-only passes (with and without exclude patterns)
 // and returns paths that are present in the unfiltered list but absent in the filtered one.
+// It returns exact excluded roots, preserving parents that contain kept files.
 // When depth > 0 both passes are limited to that many directory levels.
 func FindExcluded(source string, patterns []string, depth int) ([]string, error) {
-	roots, err := FindExcludedWithFilters(source, filterArgs(nil, patterns), depth)
-	if err != nil {
-		return nil, err
-	}
-	return collapseToTopLevel(roots), nil
+	return FindExcludedWithFilters(source, filterArgs(nil, patterns), depth)
 }
 
 // isDSStore reports whether path is a .DS_Store file: either exactly ".DS_Store"
 // or ending with "/.DS_Store".
 func isDSStore(path string) bool {
 	return path == ".DS_Store" || strings.HasSuffix(path, "/.DS_Store")
-}
-
-// collapseToTopLevel reduces a sorted list of excluded paths to unique
-// top-level entries. Any path containing a "/" is collapsed to its first
-// component (as a directory with trailing slash), and duplicates are removed.
-// Top-level files (no internal "/") are kept as-is.
-func collapseToTopLevel(paths []string) []string {
-	seen := make(map[string]struct{}, len(paths))
-	var result []string
-
-	for _, p := range paths {
-		top := topLevelEntry(p)
-		key := strings.TrimSuffix(top, "/")
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			result = append(result, top)
-		}
-	}
-
-	sort.Strings(result)
-	return result
-}
-
-// topLevelEntry extracts the first path component from a path. A path with no
-// "/" (e.g. "file.txt") or only a trailing "/" (e.g. ".cache/") is already
-// top-level and returned unchanged. A deeper path like "CacheClip/audio/foo"
-// returns "CacheClip/".
-func topLevelEntry(path string) string {
-	idx := strings.Index(path, "/")
-	if idx == -1 || idx == len(path)-1 {
-		return path
-	}
-	return path[:idx+1]
 }
 
 // TestSinglePattern tests a single exclude pattern against the effective source
@@ -177,7 +141,7 @@ func TestSinglePattern(backupType models.BackupTypes, pattern string, subdir str
 		return
 	}
 
-	summary := fmt.Sprintf("%d top-level files/directories excluded by pattern %q from %s", len(excluded), pattern, source)
+	summary := fmt.Sprintf("%d excluded entries matching pattern %q from %s", len(excluded), pattern, source)
 	content := strings.Join(excluded, "\n")
 
 	displayExcludedResults(summary, content, len(excluded))
@@ -232,7 +196,7 @@ func applySubdir(source, subdir string) string {
 	return filepath.Join(source, subdir)
 }
 
-// FindExcludedRoots is like FindExcluded but returns the root entries of
+// FindExcludedRoots returns the root entries of
 // excluded subtrees instead of collapsing to top-level path components.
 // For example, if sglavoie/.cache/ and sglavoie/node_modules/ are excluded,
 // it returns those paths rather than collapsing both to sglavoie/.
@@ -243,6 +207,9 @@ func FindExcludedRoots(source string, patterns []string, depth int) ([]string, e
 // FindExcludedWithFilters returns exact roots omitted by the ordered backup
 // filters. Both scans must succeed before any candidates are returned.
 func FindExcludedWithFilters(source string, filters []string, depth int) ([]string, error) {
+	if depth < 0 {
+		return nil, fmt.Errorf("--depth must be greater than or equal to 0")
+	}
 	var depthArgs []string
 	if depth > 0 {
 		depthArgs = []string{"--exclude=" + depthExcludePattern(depth)}

@@ -7,12 +7,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/shellquote"
 )
 
 // companionKillGrace is how long a companion has to exit after the context is
@@ -49,7 +49,7 @@ func (r CompanionResult) Succeeded() bool {
 
 // CommandString renders the executed argument vector for display and history.
 func (r CompanionResult) CommandString() string {
-	return formatArgv(r.Argv)
+	return shellquote.Command(r.Argv)
 }
 
 // Status is the one-word outcome used in the combined result table. A dry run
@@ -172,12 +172,12 @@ func PrintCompanions(w io.Writer) error {
 
 	fmt.Fprintf(w, "\nDaily companions:\n")
 	for _, companion := range companions {
-		fmt.Fprintf(w, "  %s (%s): %s\n", companion.Name, companion.ID, formatArgv(companion.Argv(false)))
+		fmt.Fprintf(w, "  %s (%s): %s\n", companion.Name, companion.ID, shellquote.Command(companion.Argv(false)))
 		if len(companion.DryRunArgs) == 0 {
 			fmt.Fprintf(w, "    dry run: skipped, no dryRunArgs configured\n")
 			continue
 		}
-		fmt.Fprintf(w, "    dry run: %s\n", formatArgv(companion.Argv(true)))
+		fmt.Fprintf(w, "    dry run: %s\n", shellquote.Command(companion.Argv(true)))
 	}
 	return nil
 }
@@ -187,16 +187,4 @@ func writerOrDefault(w io.Writer, fallback io.Writer) io.Writer {
 		return fallback
 	}
 	return w
-}
-
-func formatArgv(argv []string) string {
-	quoted := make([]string, 0, len(argv))
-	for _, arg := range argv {
-		if strings.ContainsAny(arg, " \t\n\"'") {
-			quoted = append(quoted, fmt.Sprintf("%q", arg))
-			continue
-		}
-		quoted = append(quoted, arg)
-	}
-	return strings.Join(quoted, " ")
 }

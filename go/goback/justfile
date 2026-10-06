@@ -16,6 +16,7 @@ clean:
 # Build and install to ~/.local/bin (backs up the previous binary)
 install: clean
     go build
+    mkdir -p ~/.local/bin
     cp ~/.local/bin/{{app_name}} ~/.local/bin/{{app_name}}.bak || true
     rm -f ~/.local/bin/{{app_name}}
     cp {{app_name}} ~/.local/bin/{{app_name}}

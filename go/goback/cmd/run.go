@@ -95,7 +95,7 @@ var monthlyCmdRun = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Use:   "monthly",
 	Short: "Perform a monthly backup",
-	Long:  "Perform a monthly, incremental, compressed backup from the last daily backup.",
+	Long:  "Perform a monthly, incremental backup from the last daily backup.",
 	Run: func(cmd *cobra.Command, args []string) {
 		runBackups(run.MonthlyBackup)
 	},

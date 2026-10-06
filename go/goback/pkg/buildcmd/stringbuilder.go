@@ -1,10 +1,9 @@
 package buildcmd
 
 import (
-	"strings"
-
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/shellquote"
 	"github.com/spf13/viper"
 )
 
@@ -26,17 +25,7 @@ var booleanFlags = []struct {
 // CommandString is a shell-safe representation for display and copy/paste only.
 // Execution uses args directly and never asks a shell to interpret configuration.
 func (r *builder) CommandString() string {
-	quoted := make([]string, len(r.args))
-	for i, arg := range r.args {
-		if arg != "" && strings.IndexFunc(arg, func(c rune) bool {
-			return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("_@%+=:,./-", c))
-		}) == -1 {
-			quoted[i] = arg
-		} else {
-			quoted[i] = "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-		}
-	}
-	return strings.Join(quoted, " ")
+	return shellquote.Command(r.args)
 }
 
 func (r *builder) appendBooleanFlags() {

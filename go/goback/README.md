@@ -164,6 +164,17 @@ A real snapshot creates its destination directory only after validation and
 confirmation. Paths and include/exclude patterns are passed literally to rsync,
 so spaces, apostrophes, and shell characters are preserved. Source/destination
 overlap checks resolve symlinks and compare directory boundaries.
+Snapshot runs, including dry runs, require endpoints under `/Volumes/<name>`
+to be on mounted drives; leftover directories and symlinks escaping the named
+volume are refused. These checks run again after confirmation. Weekly and
+monthly check their actual source, `daily/`, so the original source can remain
+offline. Command previews do not require mounted drives.
+
+Use `goback preview daily --test-pattern '*.tmp'` to inspect one exclude pattern,
+or `goback preview daily --excluded` for the configured filters. Both show exact
+excluded paths: a match for `Documents/scratch.tmp` does not label all of
+`Documents/` as excluded. Fully excluded directories appear once with a trailing
+slash. `--depth` must be nonnegative; zero means unlimited depth.
 
 `ejectOnExit` applies only to snapshot runs whose requested transfers and
 companions all succeeded, with no dry runs or declined steps. Preview and

@@ -25,6 +25,7 @@ func TestConfigEditUsesPreferenceAndAllowsRepair(t *testing.T) {
 
 func TestPreviewValidatesSettingsWithoutMountedPaths(t *testing.T) {
 	for _, tc := range []struct{ profile, kind, want string }{
+		{`{"source":"/Volumes/Offline/source/","destination":"/Volumes/Offline/backup","rsync":{"daily":{"archive":true}}}`, "daily", "Full command:"},
 		{`{"source":"/offline/source/","destination":"/offline/backup","rsync":{"daily":{"archive":true}}}`, "daily", "Full command:"},
 		{`{"destination":"/offline/backup","rsync":{"weekly":{"archive":true}}}`, "weekly", "Full command:"},
 		{`{"destination":"/offline/backup","rsync":{"monthly":{"archive":false}}}`, "monthly", "Full command:"},
@@ -35,6 +36,46 @@ func TestPreviewValidatesSettingsWithoutMountedPaths(t *testing.T) {
 		out, err := profileCommand(t, `{"profiles":{"default":`+tc.profile+`}}`, "preview", tc.kind)
 		if (err == nil) != (tc.want == "Full command:") || !strings.Contains(out, tc.want) {
 			t.Fatalf("preview %s: %v\n%s", tc.kind, err, out)
+		}
+	}
+}
+
+func TestPatternPreviewsPreservePartiallyExcludedDirectories(t *testing.T) {
+	if _, err := exec.LookPath("rsync"); err != nil {
+		t.Skip("rsync unavailable")
+	}
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "Documents"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"keep.txt", "scratch.tmp"} {
+		if err := os.WriteFile(filepath.Join(root, "Documents", name), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	content, err := json.Marshal(map[string]any{"profiles": map[string]any{"test": map[string]any{
+		"source": root + "/", "destination": "/offline/backup",
+		"rsync": map[string]any{"daily": map[string]any{"archive": true, "excludedPatterns": []string{"*.tmp"}}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flags := range [][]string{{"--test-pattern", "*.tmp"}, {"--excluded"}} {
+		args := append([]string{"preview", "daily", "--no-pager"}, flags...)
+		out, err := profileCommand(t, string(content), args...)
+		if err != nil || !strings.Contains(out, "\nDocuments/scratch.tmp\n") || strings.Contains(out, "\nDocuments/\n") || strings.Contains(out, "keep.txt") {
+			t.Fatalf("%v: %v\n%s", flags, err, out)
+		}
+	}
+}
+
+func TestPreviewRejectsNegativeDepth(t *testing.T) {
+	content := `{"profiles":{"test":{"source":"/offline/source","destination":"/offline/backup","rsync":{"daily":{"archive":true}}}}}`
+	for _, flags := range [][]string{nil, {"--excluded"}, {"--test-pattern", "*.tmp"}} {
+		args := append([]string{"preview", "daily", "--depth", "-1"}, flags...)
+		out, err := profileCommand(t, content, args...)
+		if err == nil || !strings.Contains(out, "--depth must be greater than or equal to 0") {
+			t.Fatalf("%v: %v\n%s", flags, err, out)
 		}
 	}
 }

@@ -6,7 +6,9 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -198,12 +200,16 @@ func TestRunCompanionRefusesDryRunWithoutDryRunArgs(t *testing.T) {
 	}
 }
 
-func TestCommandStringQuotesArgumentsWithSpaces(t *testing.T) {
-	result := CompanionResult{Argv: []string{"photos-backup", "daily", "--archive", "/Volumes/SanDisk/Apple Photos"}}
-
-	want := `photos-backup daily --archive "/Volumes/SanDisk/Apple Photos"`
-	if result.CommandString() != want {
-		t.Fatalf("CommandString() = %q, want %q", result.CommandString(), want)
+func TestCopiedCompanionCommandPreservesLiteralArguments(t *testing.T) {
+	args := []string{"", "/Volumes/SanDisk/Apple Photos", "Sam's files", "$HOME", "$(printf expanded)", "`printf expanded`", "*", "a;b", "line\nbreak", `a\b`, `"quoted"`}
+	result := CompanionResult{Argv: append([]string{"printf", "%s\\0"}, args...)}
+	out, err := exec.Command("sh", "-c", result.CommandString()).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+	if !slices.Equal(got, args) {
+		t.Fatalf("copied command args = %q, want %q", got, args)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
 	"github.com/spf13/viper"
 )
 
@@ -56,11 +57,44 @@ func (r *builder) validateBeforeRun() error {
 	if err != nil {
 		return err
 	}
+	mounts := eject.OSDeps().Mounts
+	if err := validateSnapshotVolume(r.updatedSrc, src, mounts); err != nil {
+		return fmt.Errorf("source: %w", err)
+	}
+	if err := validateSnapshotVolume(r.updatedDestDir, dest, mounts); err != nil {
+		return fmt.Errorf("destination: %w", err)
+	}
 	if src == dest {
 		return fmt.Errorf("source and destination are the same: %s", src)
 	}
 	if containsPath(src, dest) || containsPath(dest, src) {
 		return fmt.Errorf("source and destination directories overlap: %s and %s", src, dest)
+	}
+	return nil
+}
+
+// validateSnapshotVolume checks both the configured path and its resolved
+// target. Local backups are allowed; paths under /Volumes must stay on a
+// mounted volume. Reuse the same device-based detector as volume ejection.
+func validateSnapshotVolume(path, resolved string, mounts eject.Mounts) error {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	for _, endpoint := range []string{absolute, resolved} {
+		// Preserve whitespace in volume names: it is part of the path.
+		rel, err := filepath.Rel(eject.VolumesRoot, endpoint)
+		if err != nil || rel == "." || !containsPath(eject.VolumesRoot, endpoint) {
+			continue
+		}
+		name, _, _ := strings.Cut(rel, string(filepath.Separator))
+		volume := filepath.Join(eject.VolumesRoot, name)
+		if !mounts.Mounted(volume) {
+			return fmt.Errorf("volume %s is not mounted; refusing to use %s", volume, path)
+		}
+		if !containsPath(volume, resolved) {
+			return fmt.Errorf("path %s resolves outside its volume %s to %s", path, volume, resolved)
+		}
 	}
 	return nil
 }
