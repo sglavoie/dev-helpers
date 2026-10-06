@@ -369,5 +369,75 @@ class DownloadTests(unittest.TestCase):
         self.assertFalse(result["error"])
 
 
+class PairedVideoFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def stage(self, *, edited=False, resource_types=(9, 10), data=b"video", error=None):
+        item = photo(live_photo=True, hasadjustments=edited)
+        request, response = self.root / "request.json", self.root / "response.json"
+        request.write_text(
+            json.dumps(
+                {
+                    "photo": {k: v for k, v in vars(item).items() if k != "_verbose"},
+                    "options": {"edited": edited, "live_photo": True},
+                }
+            )
+        )
+        resources = []
+        for kind in resource_types:
+            resource = mock.Mock()
+            resource.type.return_value = kind
+            resources.append(resource)
+        with (
+            mock.patch("osxphotos.photoexporter.PhotoLibrary") as upstream,
+            mock.patch("photos_backup.apple_photos.downloads.PhotoLibrary") as fallback,
+        ):
+            upstream.return_value.fetch_uuid.return_value.export.return_value = [
+                str(self.root / "photo.jpeg")
+            ]
+            asset = fallback.return_value.fetch_uuid.return_value
+            asset._resources.return_value = resources
+            asset._request_resource_data.side_effect = error
+            asset._request_resource_data.return_value = data
+            _worker(request, response)
+        return json.loads(response.read_text()), asset, resources
+
+    def test_still_classified_assets_recover_the_exact_requested_video(self):
+        for edited, index, component in (
+            (False, 0, "original_live"),
+            (True, 1, "edited_live"),
+        ):
+            with self.subTest(edited=edited):
+                result, asset, resources = self.stage(edited=edited)
+                self.assertFalse(result["error"])
+                self.assertEqual(Path(result[component]).read_bytes(), b"video")
+                self.assertTrue(result["edited" if edited else "original"])
+                asset._request_resource_data.assert_called_once_with(resources[index])
+
+    def test_missing_or_ambiguous_resources_remain_failures(self):
+        for edited, kinds in (
+            (False, (10,)),
+            (True, (9,)),
+            (False, (9, 9)),
+            (False, ()),
+        ):
+            with self.subTest(edited=edited, kinds=kinds):
+                result, asset, _ = self.stage(edited=edited, resource_types=kinds)
+                self.assertTrue(result["error"])
+                self.assertIsNone(result["edited_live" if edited else "original_live"])
+                asset._request_resource_data.assert_not_called()
+
+    def test_empty_or_failed_downloads_remain_failures(self):
+        for data, error in ((b"", None), (None, RuntimeError("cloud unavailable"))):
+            with self.subTest(error=error):
+                result, _, _ = self.stage(data=data, error=error)
+                self.assertTrue(result["error"])
+                self.assertIsNone(result["original_live"])
+                self.assertFalse((self.root / "original_live.mov").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

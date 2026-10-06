@@ -139,6 +139,10 @@ Failed or timed-out downloads are printed immediately. Failures still unresolved
 at the end of the run are recorded beside the CSV export report in a `.downloads.json` file, with asset UUIDs, filenames, and
 reasons. Other unavailable components appear in the CSV's `missing` rows.
 The recent command exits nonzero when files remain missing or errors occur.
+When PhotoKit classifies a Live Photo as a still but retains its paired-video
+resources, the download worker retrieves the requested video resource directly.
+Original and edited videos use their respective resources; unavailable video
+components still fail the export. This fallback shares the asset's timeout.
 Rerun it to retry; completed exports are retained, and each run gets a fresh
 per-asset budget. Items that age out of the date window require a larger `--days`
 value or a full export.

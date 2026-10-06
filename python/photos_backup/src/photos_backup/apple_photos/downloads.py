@@ -26,6 +26,7 @@ from unittest.mock import patch
 import click
 from osxphotos.exportoptions import ExportOptions
 from osxphotos.photoexporter import PhotoExporter, StagedFiles
+from osxphotos.photokit import PhotoLibrary, Photos
 
 from photos_backup.progress import ExportProgress
 
@@ -352,18 +353,60 @@ class _WorkerStagedFiles(StagedFiles):
             self.uuids: dict[str, str] = {}
 
 
+def _stage_missing_live_resource(
+    staged: StagedFiles, photo: Any, options: ExportOptions, directory: Path
+) -> None:
+    """Recover paired video when PhotoKit exports a Live Photo as a still.
+
+    Some assets retain paired-video resources without the PhotoLive subtype.
+    Upstream selects PhotoAsset for these and silently ignores video=True.
+    Read the exact requested resource in the bounded worker; never substitute
+    an original video for an edited one or suppress an upstream error.
+    """
+    component = "edited_live" if options.edited else "original_live"
+    if (
+        not photo.live_photo
+        or not options.live_photo
+        or staged.error
+        or getattr(staged, component)
+    ):
+        return
+    try:
+        asset = PhotoLibrary().fetch_uuid(photo.uuid)
+        resource_type = (
+            Photos.PHAssetResourceTypeFullSizePairedVideo
+            if options.edited
+            else Photos.PHAssetResourceTypePairedVideo
+        )
+        resources = [r for r in asset._resources() if r.type() == resource_type]
+        if len(resources) != 1:
+            raise ValueError(
+                f"Expected one {component} resource, found {len(resources)}"
+            )
+        data = asset._request_resource_data(resources[0])
+        if not data:
+            raise ValueError(f"PhotoKit returned empty {component} data")
+        destination = directory / f"{component}.mov"
+        destination.write_bytes(data)
+        setattr(staged, component, str(destination))
+    except Exception as error:
+        staged.error.append(
+            (photo.original_filename, f"Paired-video retrieval failed: {error}")
+        )
+
+
 def _worker(request: Path, response: Path) -> None:
     document = json.loads(request.read_text(encoding="utf-8"))
     photo = SimpleNamespace(**document["photo"], _verbose=lambda _: None)
     exporter = PhotoExporter(photo)
     exporter._temp_dir_path = request.parent
+    options = ExportOptions(**document["options"])
     # osxphotos 0.76.1's RAW branch writes StagedFiles.uuids although its
     # constructor omits it. Supply the unused bookkeeping map only in the child;
     # the parent still uses the ordinary StagedFiles wire format.
     with patch("osxphotos.photoexporter.StagedFiles", _WorkerStagedFiles):
-        staged = exporter._stage_photo_for_export_with_photokit(
-            ExportOptions(**document["options"])
-        )
+        staged = exporter._stage_photo_for_export_with_photokit(options)
+    _stage_missing_live_resource(staged, photo, options, request.parent)
     response.write_text(json.dumps(staged.asdict()), encoding="utf-8")
 
 
