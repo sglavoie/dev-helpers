@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
 
-import click
+import rich_click as click
 
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import (

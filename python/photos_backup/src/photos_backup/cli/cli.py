@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import click
+import rich_click as click
 
 from photos_backup.cli.apple_photos import apple_photos
 from photos_backup.cli.approve_cleanup import approve_cleanup
@@ -17,6 +17,7 @@ from photos_backup.cli.ssd import ssd
 from photos_backup.cli.status import status
 from photos_backup.cli.verify import verify
 from photos_backup.config import DEFAULT_CONFIG_PATH, normalize_volume_override
+from photos_backup.presentation import TerminalGroup
 
 
 def _volume_override(
@@ -25,7 +26,42 @@ def _volume_override(
     return normalize_volume_override(value) if value else None
 
 
-@click.group()
+@click.group(
+    cls=TerminalGroup,
+    context_settings={
+        "rich_help_config": click.RichHelpConfiguration(
+            text_markup="ansi",
+            command_groups={
+                "*": [
+                    {
+                        "name": "Inspect and verify",
+                        "commands": ["status", "doctor", "verify"],
+                    },
+                    {
+                        "name": "Back up photos",
+                        "commands": [
+                            "daily",
+                            "backup-all",
+                            "recent",
+                            "bootstrap",
+                            "apple-photos",
+                        ],
+                    },
+                    {
+                        "name": "Copy to destinations",
+                        "commands": ["sd-card", "ssd", "remote"],
+                    },
+                    {
+                        "name": "Review and clean up",
+                        "commands": ["approve-cleanup", "cleanup-local-export"],
+                    },
+                ]
+            },
+        )
+    },
+    epilog="Start with 'photos-backup doctor' to check your setup. "
+    "Pass --help to any command to see its options.",
+)
 @click.version_option(package_name="photos_backup", prog_name="photos-backup")
 @click.option(
     "--config",
@@ -45,7 +81,7 @@ def _volume_override(
 )
 @click.pass_context
 def cli(ctx: click.Context, config_path: Path | None, volume: Path | None) -> None:
-    """Pass `--help` to any command to see its usage."""
+    """Back up Apple Photos, SD cards, and archives to local and cloud storage."""
     ctx.obj = CliContext(config_path=config_path, volume=volume)
 
 

@@ -13,6 +13,7 @@ import click
 from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.late_additions import csv_flag
+from photos_backup.presentation import print_terminal_table
 
 if TYPE_CHECKING:
     from photos_backup.apple_photos.bootstrap import BootstrapResult
@@ -157,27 +158,47 @@ def _csv_count(value: str | None) -> int:
 
 def print_summary(summary: BackupSummary) -> None:
     """Print a formatted summary for a single backup step."""
-    click.echo()
-    click.echo(f"--- {summary.step_name} ---")
+    rows: list[tuple[str, str]] = []
     if summary.error:
         status = "ACTION REQUIRED" if summary.action_required else "ERROR"
-        click.echo(f"  Status: {status} — {summary.error}")
+        rows.append(("Status", f"{status} — {summary.error}"))
     elif summary.planned:
-        click.echo("  Status: PLANNED — command was not invoked")
+        rows.append(("Status", "PLANNED — command was not invoked"))
     elif summary.skipped:
         reason = f" — {summary.skip_reason}" if summary.skip_reason else ""
-        click.echo(f"  Status: SKIPPED{reason}")
+        rows.append(("Status", f"SKIPPED{reason}"))
     else:
-        click.echo("  Status: DRY RUN" if summary.dry_run else "  Status: OK")
+        rows.append(("Status", "DRY RUN" if summary.dry_run else "OK"))
         if summary.files_transferred is not None:
             label = "Proposed transfers" if summary.dry_run else "Files transferred"
-            click.echo(f"  {label}: {summary.files_transferred}")
+            rows.append((label, str(summary.files_transferred)))
         else:
-            click.echo("  Transfer count: unavailable")
+            rows.append(("Transfer count", "unavailable"))
         if summary.total_size:
             label = "Proposed size" if summary.dry_run else "Total size"
-            click.echo(f"  {label}: {summary.total_size}")
-    click.echo(f"  Elapsed: {summary.elapsed_seconds:.1f}s")
+            rows.append((label, summary.total_size))
+    rows.append(("Elapsed", f"{summary.elapsed_seconds:.1f}s"))
+    if print_terminal_table(
+        summary.step_name,
+        (),
+        rows,
+        styles=[_summary_style(summary)] + [""] * (len(rows) - 1),
+    ):
+        return
+    click.echo()
+    click.echo(f"--- {summary.step_name} ---")
+    for label, value in rows:
+        click.echo(f"  {label}: {value}")
+
+
+def _summary_style(summary: BackupSummary) -> str:
+    if summary.error:
+        return "bold yellow" if summary.action_required else "bold red"
+    if summary.planned or summary.dry_run:
+        return "cyan"
+    if summary.skipped:
+        return "dim"
+    return "green"
 
 
 def print_export_result(result: ExportResult, *, dry_run: bool = False) -> None:
@@ -804,16 +825,29 @@ def _print_short_transfer(
 
 def print_verification_report(report: VerificationReport) -> None:
     """Print one pass/fail line per check, then the overall verdict."""
+    verdict = (
+        f"All {len(report.checks)} check(s) passed"
+        if report.passed
+        else f"{len(report.failed)} of {len(report.checks)} check(s) failed"
+    )
+    if print_terminal_table(
+        "Archive verification",
+        ("Result", "Check", "Details"),
+        [
+            ("PASS" if check.passed else "FAIL", check.name, check.detail)
+            for check in report.checks
+        ],
+        styles=["green" if check.passed else "bold red" for check in report.checks],
+        caption=verdict,
+    ):
+        return
     click.echo()
     click.echo("--- Archive verification ---")
     for check in report.checks:
         status = "PASS" if check.passed else "FAIL"
         click.echo(f"  [{status}] {check.name}: {check.detail}")
     click.echo()
-    if report.passed:
-        click.echo(f"All {len(report.checks)} check(s) passed")
-    else:
-        click.echo(f"{len(report.failed)} of {len(report.checks)} check(s) failed")
+    click.echo(verdict)
 
 
 def print_pipeline_destinations(
@@ -830,11 +864,7 @@ def print_pipeline_destinations(
 
 def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
     """Print a table summarizing all pipeline steps."""
-    click.echo()
-    click.echo("=" * 60)
-    click.echo("BACKUP PIPELINE SUMMARY")
-    click.echo("=" * 60)
-
+    rows: list[tuple[str, str]] = []
     total_elapsed = 0.0
     for s in summaries:
         total_elapsed += s.elapsed_seconds
@@ -859,10 +889,27 @@ def print_pipeline_summary(summaries: list[BackupSummary]) -> None:
                 parts.append(s.total_size)
             status = " | ".join(parts)
 
-        click.echo(f"  {s.step_name:<25} {status}")
+        rows.append((s.step_name, status))
 
-    click.echo("-" * 60)
     overall = _pipeline_outcome(summaries)
+    if print_terminal_table(
+        "BACKUP PIPELINE SUMMARY",
+        ("Step", "Result", "Elapsed"),
+        [
+            (name, status, f"{s.elapsed_seconds:.1f}s")
+            for (name, status), s in zip(rows, summaries)
+        ],
+        styles=[_summary_style(s) for s in summaries],
+        caption=f"{overall} ({total_elapsed:.1f}s)",
+    ):
+        return
+    click.echo()
+    click.echo("=" * 60)
+    click.echo("BACKUP PIPELINE SUMMARY")
+    click.echo("=" * 60)
+    for name, status in rows:
+        click.echo(f"  {name:<25} {status}")
+    click.echo("-" * 60)
     click.echo(f"  {'Total':<25} {overall} ({total_elapsed:.1f}s)")
     click.echo("=" * 60)
 

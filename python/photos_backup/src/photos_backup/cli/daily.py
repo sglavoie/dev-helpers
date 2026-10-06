@@ -2,7 +2,7 @@ import time
 from contextlib import ExitStack
 from functools import partial
 
-import click
+import rich_click as click
 
 from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.cleanup import reconcile_mirror

@@ -1,6 +1,6 @@
 import sys
 
-import click
+import rich_click as click
 
 from photos_backup.apple_photos.local_export import (
     confirmation_matches,

@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-import click
+import rich_click as click
 
 from photos_backup.apple_photos.plan import plan_export
 from photos_backup.apple_photos.attempt import ExportAttemptStore

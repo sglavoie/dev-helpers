@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import click
+import rich_click as click
 
 from photos_backup.cli.context import config_path_from
 from photos_backup.config import (

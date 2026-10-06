@@ -34,6 +34,12 @@ uv tool install --editable .   # or: uv pip install -e .
 photos-backup --help
 ```
 
+After dependency changes, refresh the installed tool from this directory with
+`uv tool install --force --editable .`. Editable installs pick up source changes
+immediately, but do not automatically install new dependencies. For development,
+`uv run photos-backup --help` from `python/photos_backup` uses the project's
+environment; outside that directory it may find the installed tool on `PATH`.
+
 `photos-backup` is the entry point; `cli` remains as an alias for it and exposes
 the same commands. Configuration is not installed by this repository: it is
 stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
@@ -86,6 +92,12 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 - [Development](docs/development.md): tests, dependency compatibility, and profiling.
 
 ## Commands
+
+Help groups commands by task using rich-click. In a terminal, backup summaries
+and verification results use Rich tables with labeled, colored outcomes.
+Redirected summaries and errors stay plain for logs; `status --json` and
+`verify --json` still emit JSON. Set `NO_COLOR=1` to disable color, or `TERM=dumb`
+for plain summary output even in a terminal.
 
 | Command | Description |
 |---------|-------------|

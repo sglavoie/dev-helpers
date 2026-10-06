@@ -7,6 +7,8 @@ dependencies = [
     "click>=8.4.2",
     # Private PhotoKit/export hooks are tested against this exact release.
     "osxphotos==0.76.1",
+    "rich>=13.5.2,<14",
+    "rich-click>=1.9,<2",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"

@@ -5,7 +5,7 @@ from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
 
-import click
+import rich_click as click
 
 from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
 from photos_backup.archive import ArchiveError, open_archive

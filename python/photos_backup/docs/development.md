@@ -21,6 +21,7 @@ The package lives under `src/photos_backup/`:
 | `archive/` | Path resolution, mount and symlink safety, locking, versioned state |
 | `apple_photos/` | Export planning, identity and takeover, reconciliation, cleanup, verification |
 | `summary.py` | Every line the commands print |
+| `presentation.py` | Terminal tables and redirected error formatting |
 | `errors.py` | `ActionRequired`, the exit-code-3 exception |
 | `exclude.py` | The shared `--exclude-from` argument helper |
 | `sd_card/`, `ssd/`, `remote/` | rsync and rclone workflows |
@@ -36,6 +37,12 @@ they must never target real photo libraries or backups. `cleanup-local-export`
 also refuses nonterminal stdin; `approve-cleanup` has no terminal requirement.
 
 ## Dependency compatibility
+
+The CLI uses rich-click on top of Click; command parsing, prompts, and exit codes
+remain Click's responsibility. Rich renders summary tables only on capable
+terminals. Pass data as `Text` so filenames and error messages containing brackets
+are never interpreted as markup. Keep Rich within the range required by the pinned
+`osxphotos` release (currently `>=13.5.2,<14`).
 
 `osxphotos` is pinned to exactly `0.76.1` in both package requirements and the
 lockfile, including for `uv tool install`. The adapter depends on private export

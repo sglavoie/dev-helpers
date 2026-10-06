@@ -1,4 +1,4 @@
-import click
+import rich_click as click
 
 from photos_backup.apple_photos.cleanup import approve_cleanup as run_cleanup_approval
 from photos_backup.apple_photos.cleanup import discard_cleanup as run_cleanup_discard

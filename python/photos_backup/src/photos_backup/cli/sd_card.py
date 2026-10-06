@@ -1,4 +1,4 @@
-import click
+import rich_click as click
 
 from photos_backup.cli.context import config_path_from
 from photos_backup.config import load_sd_card_config
