@@ -61,7 +61,10 @@ func ProfileCompanions(profile string) ([]Companion, error) {
 	}
 
 	key := "profiles." + profile + "." + companionsKey
-	raw := viper.Get(key)
+	return parseCompanions(viper.Get(key), key)
+}
+
+func parseCompanions(raw any, key string) ([]Companion, error) {
 	if raw == nil {
 		return nil, nil
 	}

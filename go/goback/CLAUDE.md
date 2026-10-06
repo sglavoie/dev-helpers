@@ -19,7 +19,7 @@ goback is a CLI backup tool that wraps `rsync` for incremental daily, weekly, an
 
 ### Command layer (`cmd/`)
 
-All commands are Cobra subcommands registered under `RootCmd`. The `PersistentPreRunE` hook loads backup configuration for operational commands. Completion and history commands bypass configuration entirely; history filters may name retired profiles. Config subcommands skip validation so a broken configuration can be repaired.
+All commands are Cobra subcommands registered under `RootCmd`. The `PersistentPreRunE` hook loads backup configuration for operational commands. Completion and history commands bypass configuration entirely; history filters may name retired profiles. Config repair subcommands skip validation so a broken configuration can be repaired. `config check` bypasses initialization and uses a separate read-only reader: it validates all declared backups without prompting, writing, resolving a hostname, or checking mounted paths. Backup, preview, mirror, and backup-cleanup commands reuse its strict key/type validation before executing.
 
 The main commands are `run daily|weekly|monthly|all` (execute backups), `preview daily|weekly|monthly` (print the rsync command without running it), `mirror` (mirror one configured directory onto another), `config edit|print|reset`, `clean db|logs|backup`, `usage last|view|reset`, and `eject [--all|--volume NAME|--list]`. Preview supports `--test-pattern`, `--excluded`, `--subdir`, and `--depth` to try exclude patterns against the source.
 

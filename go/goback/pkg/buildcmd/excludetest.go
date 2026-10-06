@@ -123,18 +123,12 @@ func isDSStore(path string) bool {
 // for the given backup type and displays which files/directories it would exclude.
 func TestSinglePattern(backupType models.BackupTypes, pattern string, subdir string, depth int) {
 	source := effectiveSource(backupType)
-	source = applySubdir(source, subdir)
-
-	if err := CheckSourceAccessible(source); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	excluded, err := FindExcluded(source, []string{pattern}, depth)
+	excluded, err := findExcludedInSubdir(source, filterArgs(nil, []string{pattern}), subdir, depth)
 	if err != nil {
 		fmt.Printf("Error testing pattern: %v\n", err)
 		os.Exit(1)
 	}
+	source = previewScopeDescription(source, subdir)
 
 	if len(excluded) == 0 {
 		fmt.Printf("Pattern %q does not exclude any files from %s\n", pattern, source)
@@ -157,18 +151,12 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 	}
 
 	source := effectiveSource(backupType)
-	source = applySubdir(source, subdir)
-
-	if err := CheckSourceAccessible(source); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	excluded, err := FindExcludedWithFilters(source, filters, depth)
+	excluded, err := findExcludedInSubdir(source, filters, subdir, depth)
 	if err != nil {
 		fmt.Printf("Error testing patterns: %v\n", err)
 		os.Exit(1)
 	}
+	source = previewScopeDescription(source, subdir)
 
 	if len(excluded) == 0 {
 		fmt.Printf("The %d configured patterns do not exclude any files from %s\n",
@@ -183,17 +171,58 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 	displayExcludedResults(summary, content, len(excluded))
 }
 
-// applySubdir scopes a source path to a subdirectory. If subdir is empty the
-// source is returned unchanged. If subdir is an absolute path it replaces the
-// source entirely; otherwise it is joined as a relative path.
-func applySubdir(source, subdir string) string {
-	if subdir == "" {
-		return source
+// Keep the rsync root unchanged: rebasing it changes anchored filters and loses
+// exclusions inherited from parent directories. Paths remain source-relative;
+// depth is measured from the selected subdirectory.
+func findExcludedInSubdir(source string, filters []string, subdir string, depth int) ([]string, error) {
+	if source == "" {
+		return nil, fmt.Errorf("source not set for profile %q", config.ActiveProfileName)
 	}
-	if filepath.IsAbs(subdir) {
-		return subdir
+	if depth < 0 {
+		return nil, fmt.Errorf("--depth must be greater than or equal to 0")
 	}
-	return filepath.Join(source, subdir)
+	root, err := filepath.Abs(source)
+	if err != nil {
+		return nil, err
+	}
+	scope := subdir
+	if !filepath.IsAbs(scope) {
+		scope = filepath.Join(root, scope)
+	}
+	rel, err := filepath.Rel(root, scope)
+	if err != nil || !containsPath(root, scope) {
+		return nil, fmt.Errorf("--subdir must be inside the backup source %s", source)
+	}
+	if err := CheckSourceAccessible(scope); err != nil {
+		return nil, err
+	}
+	scanDepth := depth
+	if depth > 0 && rel != "." {
+		scanDepth += strings.Count(filepath.ToSlash(rel), "/") + 1
+	}
+	excluded, err := FindExcludedWithFilters(root, filters, scanDepth)
+	if err != nil || rel == "." {
+		return excluded, err
+	}
+	prefix := filepath.ToSlash(rel) + "/"
+	var scoped []string
+	for _, path := range excluded {
+		switch {
+		case strings.HasPrefix(path, prefix):
+			scoped = append(scoped, path)
+		case strings.HasSuffix(path, "/") && strings.HasPrefix(prefix, path):
+			// An excluded ancestor means the entire selected directory is excluded.
+			return []string{prefix}, nil
+		}
+	}
+	return scoped, nil
+}
+
+func previewScopeDescription(source, subdir string) string {
+	if subdir != "" {
+		return fmt.Sprintf("%s (subdirectory %q)", source, subdir)
+	}
+	return source
 }
 
 // FindExcludedRoots returns the root entries of

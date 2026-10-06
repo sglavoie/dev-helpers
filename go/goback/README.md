@@ -61,6 +61,7 @@ A single profile needs no hostname setting. This example leaves deletion off;
 review the preview and dry run before your first backup:
 
 ```bash
+goback config check
 goback preview daily
 goback run daily --dry-run
 goback run daily
@@ -92,7 +93,7 @@ just
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
-| `config edit\|print\|reset` | Manage `~/.goback.json`. |
+| `config check\|edit\|print\|reset` | Check or manage `~/.goback.json`. |
 | `clean db\|logs\|backup` | Remove a history entry, old log files, or excluded backup content. |
 
 `--config <path>` points any command at a different configuration file, which is
@@ -141,6 +142,14 @@ at all and rejects `--profile` and `--all` rather than ignoring them.
 `goback config edit` uses the configured `editor`, falling back to `$EDITOR`
 when unset or when the configuration is malformed and needs repair.
 
+`goback config check` validates the entire selected configuration file, including
+unknown keys, value types, companion definitions, and required settings for each
+declared backup type and mirror. It works without mounted drives or a matching
+hostname, never prompts or changes the file, and exits nonzero on errors. Use
+`--config <path>` to check another file. Backup, preview, mirror, and backup-cleanup
+commands also reject unknown keys and invalid value types before doing work;
+configuration editing, printing, and history remain available for repairs.
+
 ## Snapshot previews, dry runs, and history
 
 ```bash
@@ -158,7 +167,8 @@ directories, record no backup history, and never automatically eject a drive.
 Companions run only with their configured `dryRunArgs`; those without them are
 skipped during a dry run. Both forms of snapshot dry run list individual changes
 and show transfer statistics; `--quiet` suppresses statistics but keeps the
-change list. The result table labels dry runs explicitly.
+change list. The result table labels dry runs explicitly for both the main
+backup and companions, including companions skipped for lack of `dryRunArgs`.
 
 A real snapshot creates its destination directory only after validation and
 confirmation. Paths and include/exclude patterns are passed literally to rsync,
@@ -175,6 +185,12 @@ or `goback preview daily --excluded` for the configured filters. Both show exact
 excluded paths: a match for `Documents/scratch.tmp` does not label all of
 `Documents/` as excluded. Fully excluded directories appear once with a trailing
 slash. `--depth` must be nonnegative; zero means unlimited depth.
+`--subdir Documents` limits the displayed exclusions to that directory while
+evaluating filters from the original backup source, so anchored patterns such as
+`/Documents/private.txt` keep the same meaning as in a backup. Displayed paths
+remain relative to the original source. Absolute subdirectory paths must stay
+inside that source. With `--subdir`, depth is measured from the selected directory;
+the scan still starts at the original source to preserve parent exclusions.
 
 `ejectOnExit` applies only to snapshot runs whose requested transfers and
 companions all succeeded, with no dry runs or declined steps. Preview and

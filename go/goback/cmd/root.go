@@ -18,6 +18,10 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Checking must not create or offer to replace an invalid file.
+		if cmd == checkCmd {
+			return nil
+		}
 		// Completion and history do not depend on backup configuration. History
 		// filters can also name profiles removed from the configuration.
 		if cmd.Name() == "completion" || cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" || cmd == usageCmd || cmd.Parent() == usageCmd {
@@ -31,6 +35,11 @@ var RootCmd = &cobra.Command{
 		}
 		if err := config.ValidateCompanionPlacement(); err != nil {
 			return err
+		}
+		if cmd.Parent() == runCmd || cmd.Parent() == previewCmd || cmd == mirrorCmd || cmd == cleanBackupCmd {
+			if _, err := config.Check(false); err != nil {
+				return err
+			}
 		}
 		if !needsProfileResolution(cmd) {
 			return nil

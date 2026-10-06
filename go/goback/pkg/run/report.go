@@ -62,7 +62,11 @@ func (r *Report) Print(w io.Writer) {
 	}
 	for _, companion := range r.Companions {
 		name := "companion/" + companion.Companion.ID
-		t.AppendRow([]any{name, companion.Status(), duration(companion.Duration), companionDetails(companion)})
+		status := companion.Status()
+		if companion.DryRun {
+			status = "dry run: " + status
+		}
+		t.AppendRow([]any{name, status, duration(companion.Duration), companionDetails(companion)})
 	}
 
 	fmt.Fprintln(w)

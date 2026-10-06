@@ -55,12 +55,12 @@ func TestPatternPreviewsPreservePartiallyExcludedDirectories(t *testing.T) {
 	}
 	content, err := json.Marshal(map[string]any{"profiles": map[string]any{"test": map[string]any{
 		"source": root + "/", "destination": "/offline/backup",
-		"rsync": map[string]any{"daily": map[string]any{"archive": true, "excludedPatterns": []string{"*.tmp"}}},
+		"rsync": map[string]any{"daily": map[string]any{"archive": true, "excludedPatterns": []string{"/Documents/*.tmp"}}},
 	}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, flags := range [][]string{{"--test-pattern", "*.tmp"}, {"--excluded"}} {
+	for _, flags := range [][]string{{"--test-pattern", "/Documents/*.tmp"}, {"--excluded"}, {"--test-pattern", "/Documents/*.tmp", "--subdir", "Documents"}, {"--excluded", "--subdir", "Documents"}} {
 		args := append([]string{"preview", "daily", "--no-pager"}, flags...)
 		out, err := profileCommand(t, string(content), args...)
 		if err != nil || !strings.Contains(out, "\nDocuments/scratch.tmp\n") || strings.Contains(out, "\nDocuments/\n") || strings.Contains(out, "keep.txt") {
@@ -131,6 +131,10 @@ func TestDryRunListsFilesAndPrintsPlainReport(t *testing.T) {
 		}
 		content, err := json.Marshal(map[string]any{"confirmExec": false, "profiles": map[string]any{"default": map[string]any{
 			"source": src + "/", "destination": dest, "rsync": map[string]any{"daily": map[string]any{"archive": true, "dryRun": configured}},
+			"dailyCompanions": []any{
+				map[string]any{"id": "check", "command": []string{"/usr/bin/true"}, "dryRunArgs": []string{"--dry-run"}},
+				map[string]any{"id": "skipped", "command": []string{"/usr/bin/false"}},
+			},
 		}}})
 		if err != nil {
 			t.Fatal(err)
@@ -140,7 +144,7 @@ func TestDryRunListsFilesAndPrintsPlainReport(t *testing.T) {
 			args = append(args, "--dry-run")
 		}
 		out, err := profileCommand(t, string(content), args...)
-		if err != nil || !strings.Contains(out, "new-file.txt") || !strings.Contains(out, "dry run: succeeded") || strings.Contains(out, "\x1b[") {
+		if err != nil || !strings.Contains(out, "new-file.txt") || strings.Count(out, "dry run: succeeded") != 2 || !strings.Contains(out, "dry run: skipped") || strings.Contains(out, "\x1b[") {
 			t.Fatalf("configured=%v: %v\n%s", configured, err, out)
 		}
 		if _, err := os.Stat(filepath.Join(dest, "daily")); !os.IsNotExist(err) {

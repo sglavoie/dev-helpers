@@ -6,10 +6,25 @@ import (
 )
 
 func init() {
+	configCmd.AddCommand(checkCmd)
 	configCmd.AddCommand(editCmd)
 	configCmd.AddCommand(printCmd)
 	configCmd.AddCommand(resetCmd)
 	RootCmd.AddCommand(configCmd)
+}
+
+var checkCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check all configuration settings without requiring mounted drives",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path, err := config.Check(true)
+		if err != nil {
+			return err
+		}
+		cmd.Printf("Configuration OK: %s\n", path)
+		return nil
+	},
 }
 
 // configCmd represents the config command
