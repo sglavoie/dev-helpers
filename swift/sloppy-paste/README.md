@@ -48,6 +48,17 @@ This is also available as **Copy and Keep Open** in the ⌘K action menu.
 ⌘+ (or ⌘=) and ⌘- zoom the picker in and out, and ⌘0 resets it. The whole panel
 grows or shrinks with its contents, and the zoom level is remembered.
 
+Drag any border or corner of the picker to resize it. Opposite borders move
+together, so the picker grows or shrinks around its centre. The new size is
+remembered in points at 100% zoom and restored on the next open; it can also be
+typed in under **Settings › Picker › Width / Height** (600×360 to 3000×2000,
+760×480 by default). A size larger than the screen is shrunk to fit.
+
+With the ⌘D detail pane open, drag the divider between it and the list to
+change the pane's width; double-click the divider to reset it. The width is
+remembered like the picker's size and can be set under **Settings › Picker ›
+Detail pane width**. The list always keeps at least 280 points.
+
 ## Requirements
 
 - macOS 15 or later.

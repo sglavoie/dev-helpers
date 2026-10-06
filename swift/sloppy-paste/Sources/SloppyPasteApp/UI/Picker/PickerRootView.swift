@@ -19,6 +19,7 @@ struct PickerRootView: View {
     @AppStorage("picker.showingDetail") private var showingDetail = false
     @AppStorage("picker.sortOption") private var sortRaw = SortOption.updatedDesc.rawValue
     @AppStorage("picker.showRecentSection") private var showRecentSection = true
+    @AppStorage(DetailPaneWidth.defaultsKey) private var storedDetailWidth = Double(DetailPaneWidth.defaultWidth)
 
     @ViewState private var query = ""
     @ViewState private var options = SnippetFilterOptions()
@@ -30,6 +31,11 @@ struct PickerRootView: View {
     @ViewState private var tagChooser: TagFilterChooserModel?
     @ViewState private var tagChooserSearchHandle = FocusHandle()
     @FocusState private var searchFocused: Bool
+    /// The width of the list and detail pane row, to keep the list visible.
+    @ViewState private var paneRowWidth: CGFloat = 0
+    /// The detail pane's width while its divider is dragged; saved on release.
+    @ViewState private var draggedDetailWidth: CGFloat?
+    @ViewState private var detailDragStartWidth: CGFloat = 0
 
     private var sort: SortOption { SortOption(rawValue: sortRaw) ?? .updatedDesc }
 
@@ -60,7 +66,22 @@ struct PickerRootView: View {
                 list(state, selection: selection, historyAvailable: historyAvailable, now: now)
                     .frame(maxWidth: .infinity)
                 if showingDetail {
-                    Divider()
+                    PaneDivider(
+                        onBegin: { detailDragStartWidth = detailWidth },
+                        onDrag: { dx in
+                            draggedDetailWidth = DetailPaneWidth.dragged(
+                                from: detailDragStartWidth, by: dx, in: paneRowWidth)
+                        },
+                        onEnd: {
+                            if let draggedDetailWidth {
+                                storedDetailWidth = Double(draggedDetailWidth)
+                            }
+                            draggedDetailWidth = nil
+                        },
+                        onReset: {
+                            draggedDetailWidth = nil
+                            storedDetailWidth = Double(DetailPaneWidth.defaultWidth)
+                        })
                     Group {
                         if case .snippet(let snippet) = selection {
                             SnippetDetailView(snippet: snippet)
@@ -70,10 +91,11 @@ struct PickerRootView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
-                    .frame(width: 330)
+                    .frame(width: detailWidth)
                 }
             }
             .frame(maxHeight: .infinity)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { paneRowWidth = $0 }
             Divider()
             footer(state, selection: selection)
         }
@@ -97,6 +119,13 @@ struct PickerRootView: View {
         .onChange(of: query) { selectedID = nil }
         .onChange(of: options) { selectedID = nil }
         .keyBindings(bindings(selection: selection), for: .root)
+    }
+
+    /// The detail pane's width as shown: the stored width (or the one being
+    /// dragged), narrowed when the picker is too small to fit it beside the list.
+    private var detailWidth: CGFloat {
+        let width = draggedDetailWidth ?? DetailPaneWidth.sanitized(storedDetailWidth)
+        return paneRowWidth > 0 ? DetailPaneWidth.displayed(width, in: paneRowWidth) : width
     }
 
     // MARK: Header

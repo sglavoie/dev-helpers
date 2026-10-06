@@ -74,8 +74,10 @@ struct PickerCommands {
 /// Owns the picker panel and its navigation state, and shows or hides it.
 @MainActor
 final class PickerPanelController {
-    static let panelSize = NSSize(width: 760, height: 480)
     static let zoomDefaultsKey = "picker.zoom"
+    /// The picker's size in points at 100% zoom; see `PanelSize`.
+    static let widthDefaultsKey = "picker.width"
+    static let heightDefaultsKey = "picker.height"
 
     let navigator = Navigator(draftURL: Navigator.defaultDraftURL)
     private(set) lazy var keyRouter = KeyRouter(navigator: navigator) { [weak self] in
@@ -101,12 +103,14 @@ final class PickerPanelController {
     private var hideSuppressionCount = 0
     /// Menus that began tracking while the panel was visible and have not ended.
     private var menuTrackingDepth = 0
+    /// The panel's frame when a border drag began.
+    private var resizeStartFrame: NSRect?
 
     init(store: SnippetStore, accessibility: AccessibilityPermission) {
         self.store = store
         self.accessibility = accessibility
         paster = Paster(accessibility: accessibility)
-        panel = PickerPanel(contentRect: NSRect(origin: .zero, size: Self.panelSize))
+        panel = PickerPanel(contentRect: NSRect(origin: .zero, size: PanelSize.defaultSize))
 
         let root = PickerContentView()
             .environment(store)
@@ -119,7 +123,7 @@ final class PickerPanelController {
             .environment(\.pickerPanel, self)
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        panel.contentView = hostingView
+        panel.contentView = PanelResizeContainer(content: hostingView, resizer: self)
         applyZoom(PanelZoom.sanitized(UserDefaults.standard.object(forKey: Self.zoomDefaultsKey) as? Double))
 
         panel.onResignKey = { [weak self] in
@@ -318,8 +322,20 @@ final class PickerPanelController {
 
     /// The panel's frame size at the current zoom, before fitting it to a screen.
     private var preferredFrameSize: NSSize {
+        frameSize(forUnzoomed: Self.storedSize)
+    }
+
+    /// The size set by dragging the borders or in Settings, at 100% zoom.
+    static var storedSize: CGSize {
+        let defaults = UserDefaults.standard
+        return PanelSize.sanitized(
+            width: defaults.object(forKey: widthDefaultsKey) as? Double,
+            height: defaults.object(forKey: heightDefaultsKey) as? Double)
+    }
+
+    private func frameSize(forUnzoomed size: CGSize) -> NSSize {
         let zoom = zoomLevel.level
-        let content = NSSize(width: Self.panelSize.width * zoom, height: Self.panelSize.height * zoom)
+        let content = NSSize(width: size.width * zoom, height: size.height * zoom)
         return panel.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
     }
 
@@ -349,6 +365,34 @@ final class PickerPanelController {
                 }
             }
         }
+    }
+}
+
+extension PickerPanelController: PanelResizer {
+    func beginResize() {
+        resizeStartFrame = panel.frame
+    }
+
+    func resize(_ edges: PanelSize.Edges, by delta: CGVector) {
+        guard let start = resizeStartFrame, let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let frame = PanelSize.dragged(
+            start, edges: edges, by: delta,
+            minimum: frameSize(forUnzoomed: PanelSize.minimum),
+            maximum: frameSize(forUnzoomed: PanelSize.maximum),
+            in: visible)
+        panel.setFrame(frame, display: true)
+    }
+
+    /// Remembers the new size at 100% zoom, so the next open and other zoom
+    /// levels keep it.
+    func endResize() {
+        guard resizeStartFrame != nil else { return }
+        resizeStartFrame = nil
+        let content = panel.contentRect(forFrameRect: panel.frame).size
+        let zoom = zoomLevel.level
+        let size = PanelSize.sanitized(width: content.width / zoom, height: content.height / zoom)
+        UserDefaults.standard.set(Double(size.width), forKey: Self.widthDefaultsKey)
+        UserDefaults.standard.set(Double(size.height), forKey: Self.heightDefaultsKey)
     }
 }
 

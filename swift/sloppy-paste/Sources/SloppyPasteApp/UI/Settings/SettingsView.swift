@@ -19,6 +19,11 @@ struct SettingsView: View {
     @AppStorage("placeholders.maxDisplayedHistoryValues")
     private var maxDisplayedHistoryValues = StorageConstants.defaultMaxDisplayedHistoryValues
     @AppStorage(Paster.delayDefaultsKey) private var pasteDelay = Paster.defaultDelayMilliseconds
+    @AppStorage(PickerPanelController.widthDefaultsKey)
+    private var pickerWidth = Double(PanelSize.defaultSize.width)
+    @AppStorage(PickerPanelController.heightDefaultsKey)
+    private var pickerHeight = Double(PanelSize.defaultSize.height)
+    @AppStorage(DetailPaneWidth.defaultsKey) private var detailWidth = Double(DetailPaneWidth.defaultWidth)
 
     var body: some View {
         Form {
@@ -50,7 +55,34 @@ struct SettingsView: View {
                     ForEach(SortOption.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
                 }
                 Toggle("Show detail pane", isOn: $showingDetail)
+                LabeledContent("Detail pane width") {
+                    SizeField(
+                        value: Binding(
+                            get: { Double(DetailPaneWidth.sanitized(detailWidth)) },
+                            set: { detailWidth = Double(DetailPaneWidth.sanitized($0)) }),
+                        range: DetailPaneWidth.minimum...DetailPaneWidth.maximum)
+                }
                 Toggle("Show Recently Used section", isOn: $showRecentSection)
+                LabeledContent("Width") {
+                    SizeField(value: sizeBinding(\.width, $pickerWidth),
+                              range: PanelSize.minimum.width...PanelSize.maximum.width)
+                }
+                LabeledContent("Height") {
+                    SizeField(value: sizeBinding(\.height, $pickerHeight),
+                              range: PanelSize.minimum.height...PanelSize.maximum.height)
+                }
+                HStack {
+                    Text("Points at 100% zoom. Dragging the picker's borders also sets them.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if CGSize(width: pickerWidth, height: pickerHeight) != PanelSize.defaultSize {
+                        Button("Reset Size") {
+                            pickerWidth = Double(PanelSize.defaultSize.width)
+                            pickerHeight = Double(PanelSize.defaultSize.height)
+                        }
+                        .controlSize(.small)
+                    }
+                }
                 LabeledContent("Placeholder history values shown") {
                     Stepper("\(maxDisplayedHistoryValues)", value: $maxDisplayedHistoryValues, in: 5...100, step: 5)
                 }
@@ -102,6 +134,18 @@ struct SettingsView: View {
             launchAtLogin.refresh()
             store.reloadIfChanged()
         }
+    }
+
+    /// One dimension of the stored picker size, clamped like the picker clamps it.
+    private func sizeBinding(_ dimension: KeyPath<CGSize, CGFloat>, _ storage: Binding<Double>) -> Binding<Double> {
+        Binding(
+            get: { Double(PanelSize.sanitized(width: pickerWidth, height: pickerHeight)[keyPath: dimension]) },
+            set: { newValue in
+                let size = dimension == \CGSize.width
+                    ? PanelSize.sanitized(width: newValue, height: pickerHeight)
+                    : PanelSize.sanitized(width: pickerWidth, height: newValue)
+                storage.wrappedValue = Double(size[keyPath: dimension])
+            })
     }
 
     private func revealDataFile() {
@@ -184,6 +228,24 @@ struct HotKeyRecorder: View {
         } else {
             hint = nil
             if wasRecording { hotKeys.resume() }
+        }
+    }
+}
+
+/// A point value typed in or stepped by 20.
+private struct SizeField: View {
+    @Binding var value: Double
+    let range: ClosedRange<CGFloat>
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("", value: $value, format: .number.grouping(.never))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 64)
+            Text("pt").foregroundStyle(.secondary)
+            Stepper("", value: $value, in: Double(range.lowerBound)...Double(range.upperBound), step: 20)
+                .labelsHidden()
         }
     }
 }
