@@ -1,9 +1,11 @@
-# Build the resident DDC brightness applier.
+# Build the resident DDC brightness applier and install it with its client
+# script, ddc-brightness.
 #
 # Uses the Xcode toolchain explicitly: the Command Line Tools linker cannot
 # read the MacOSX26+ SDK stubs ("tapi error: malformed file").
 
 BIN     := ddc-brightnessd
+SCRIPT  := ddc-brightness
 PREFIX  ?= $(HOME)/.local/bin
 CC      := xcrun --sdk macosx clang
 # ARC is required, not cosmetic: dispatch_main() exits the main thread, which
@@ -21,12 +23,12 @@ all: $(BIN)
 $(BIN): $(BIN).m
 	$(CC) $(CFLAGS) $< -o $@ $(LDLIBS)
 
-# rm first: the target may be a symlink (e.g. a stale stow link), and cp would
+# rm first: a target may be a symlink (e.g. a stale stow link), and cp would
 # write through it instead of replacing it.
 install: $(BIN)
 	mkdir -p $(PREFIX)
-	rm -f $(PREFIX)/$(BIN)
-	cp $(BIN) $(PREFIX)/$(BIN)
+	rm -f $(PREFIX)/$(BIN) $(PREFIX)/$(SCRIPT)
+	cp $(BIN) $(SCRIPT) $(PREFIX)/
 
 clean:
 	rm -f $(BIN)

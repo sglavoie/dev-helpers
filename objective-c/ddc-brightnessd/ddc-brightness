@@ -1,0 +1,345 @@
+#!/opt/homebrew/bin/bash
+# Adjust external monitor brightness over DDC/CI using m1ddc (Apple Silicon).
+#
+# The interpreter is pinned rather than found through `env`: Karabiner runs
+# shell_command with a minimal PATH, where `env bash` is macOS's bash 3.2, which
+# has no EPOCHREALTIME and aborts under `set -u`. m1ddc is a Homebrew hard
+# dependency anyway, so requiring Homebrew's bash costs nothing.
+#
+# Three properties of this setup shape the design:
+#
+# 1. The PA27JCV answers DDC writes reliably but drops roughly half of all DDC
+#    reads (m1ddc prints -7 on a failed read). So `m1ddc chg` is unusable: it
+#    reads the current value first and jumps to a garbage level when the read
+#    fails. The current level lives in a cache file instead, and only absolute
+#    `set` writes are issued.
+#
+# 2. A DDC write costs ~75ms, while the keyboard's slider fires far faster than
+#    that. One process per event would have them all read the same cached level
+#    and clobber each other, so ten ticks of +4 move the display by 4.
+#
+# 3. That ~75ms write is the only real cost, so nothing else may add to it. The
+#    hot path does no sleeping and forks nothing beyond m1ddc itself.
+#
+# Relative adjustments are therefore split in two. Every invocation appends its
+# delta to a queue as a uniquely named empty file (atomic, fork-free, so the
+# key handler returns in a few ms). Whichever invocation wins an mkdir lock
+# becomes the applier: it drains the queue and writes the summed delta
+# immediately, then keeps draining for as long as events keep arriving. Events
+# that land during a write are absorbed by the next pass, so the write duration
+# doubles as the coalescing window and adds no latency of its own. No event is
+# lost, and the display converges on the level the user actually asked for.
+#
+# Usage:
+#   ddc-brightness up [step]      raise brightness (from default step)
+#   ddc-brightness down [step]    lower brightness
+#   ddc-brightness set <0-100>    set an absolute level
+#   ddc-brightness get            print the cached level
+#   ddc-brightness sync           re-read the level from the monitor
+#
+# Environment:
+#   DDC_DISPLAY    substring matched against `m1ddc display list` (default PA27JCV)
+#   DDC_STEP       default step size (default 10)
+#   DDC_IDLE_MS    grace period before the applier gives up the lock (default 50)
+#   DDC_NOTIFY     set to 1 to show a macOS notification after each change
+
+set -uo pipefail
+
+M1DDC=${M1DDC:-/opt/homebrew/bin/m1ddc}
+DISPLAY_MATCH=${DDC_DISPLAY:-PA27JCV}
+DEFAULT_STEP=${DDC_STEP:-20}
+IDLE_MS=${DDC_IDLE_MS:-50}
+STATE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/ddc-brightness/$DISPLAY_MATCH
+STATE_FILE=$STATE_DIR/level
+INDEX_FILE=$STATE_DIR/display-index
+QUEUE_DIR=$STATE_DIR/queue
+LOCK_DIR=$STATE_DIR/lock
+DAEMON_PID_FILE=$STATE_DIR/daemon.pid
+
+# `sleep` wants seconds; printf is a builtin, so this costs no fork.
+printf -v IDLE_SEC '%d.%03d' $((IDLE_MS / 1000)) $((IDLE_MS % 1000))
+
+die() {
+    echo "ddc-brightness: $*" >&2
+    exit 1
+}
+
+mkdir -p "$QUEUE_DIR"
+
+# --- queue -----------------------------------------------------------------
+#
+# The delta is encoded in the filename ("p4" / "m4") rather than the contents,
+# so creating an entry needs no fork and the applier can never read a
+# half-written one.
+
+# EPOCHREALTIME is a bash builtin, so the name is both ordered and fork-free.
+# ddc-brightnessd applies entries in name order, which for mixed relative and
+# absolute requests has to be the order they were created in.
+enqueue() {
+    local tag=$1
+    : >"$QUEUE_DIR/${EPOCHREALTIME}.$$.${RANDOM}.$tag"
+}
+
+enqueue_delta() {
+    local delta=$1
+    if [ "$delta" -lt 0 ]; then
+        enqueue "m$((-delta))"
+    else
+        enqueue "p$delta"
+    fi
+}
+
+# Sum and remove every queued entry, leaving the resulting target in $DRAINED
+# and setting $DRAINED_ANY if there was anything to do. Only used by the
+# fallback applier; ddc-brightnessd has its own copy of this logic.
+drain_queue() {
+    local file tag files=()
+    load_level
+    DRAINED=$LEVEL
+    DRAINED_ANY=0
+    for file in "$QUEUE_DIR"/*; do
+        [ -e "$file" ] || continue
+        files+=("$file")
+        tag=${file##*.}
+        case $tag in
+        p*) DRAINED=$((DRAINED + ${tag#p})) DRAINED_ANY=1 ;;
+        m*) DRAINED=$((DRAINED - ${tag#m})) DRAINED_ANY=1 ;;
+        a*) DRAINED=${tag#a} DRAINED_ANY=1 ;;
+        esac
+    done
+    # One rm for the whole batch; per-file forks would rival the DDC write.
+    [ ${#files[@]} -gt 0 ] && rm -f "${files[@]}"
+    return 0
+}
+
+queue_is_empty() {
+    local file
+    for file in "$QUEUE_DIR"/*; do
+        [ -e "$file" ] && return 1
+    done
+    return 0
+}
+
+# --- lock ------------------------------------------------------------------
+
+# An applier killed mid-flight would otherwise leave the lock behind and strand
+# every later event in the queue, so a lock whose owner is gone is reclaimed.
+#
+# The dead-owner test alone is not enough: an enqueuing caller acquires the
+# lock and exits milliseconds later, before the applier it spawned has written
+# its own pid. During that gap the recorded owner is legitimately dead, so age
+# is checked too and only a lock left untouched for minutes is taken over.
+acquire_lock() {
+    local owner=''
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        echo $$ >"$LOCK_DIR/pid"
+        return 0
+    fi
+    read -r owner <"$LOCK_DIR/pid" 2>/dev/null
+    if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+        return 1
+    fi
+    [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +1 2>/dev/null)" ] || return 1
+    rm -rf "$LOCK_DIR"
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        echo $$ >"$LOCK_DIR/pid"
+        return 0
+    fi
+    return 1
+}
+
+release_lock() {
+    rm -rf "$LOCK_DIR"
+}
+
+# --- display ---------------------------------------------------------------
+
+# Index of the first display whose name contains $DISPLAY_MATCH. Cached,
+# because the lookup costs ~25ms and the index only changes when displays are
+# plugged or unplugged.
+find_display() {
+    "$M1DDC" display list 2>/dev/null |
+        awk -v want="$DISPLAY_MATCH" 'index($0, want) { gsub(/[^0-9]/, "", $1); print $1; exit }'
+}
+
+# Resolved once per process into $DISPLAY_N.
+display_index() {
+    [ -n "${DISPLAY_N:-}" ] && return 0
+    read -r DISPLAY_N <"$INDEX_FILE" 2>/dev/null
+    case ${DISPLAY_N:-} in
+    '' | *[!0-9]*)
+        DISPLAY_N=$(find_display)
+        [ -n "$DISPLAY_N" ] || return 1
+        echo "$DISPLAY_N" >"$INDEX_FILE"
+        ;;
+    esac
+    return 0
+}
+
+# DDC reads fail intermittently; retry a few times before giving up.
+read_luminance() {
+    local attempt=0 value
+    display_index || return 1
+    while [ "$attempt" -lt 8 ]; do
+        attempt=$((attempt + 1))
+        value=$("$M1DDC" display "$DISPLAY_N" get luminance 2>/dev/null)
+        case $value in
+        '' | -*) sleep 0.15 ;;
+        *)
+            echo "$value"
+            return 0
+            ;;
+        esac
+    done
+    return 1
+}
+
+# Cached level, seeded from the monitor (or 50) the first time it is needed.
+# Kept in $LEVEL so a run of writes never re-reads the file.
+load_level() {
+    [ -n "${LEVEL:-}" ] && return 0
+    read -r LEVEL <"$STATE_FILE" 2>/dev/null
+    case ${LEVEL:-} in
+    '' | *[!0-9]*)
+        LEVEL=$(read_luminance) || LEVEL=50
+        echo "$LEVEL" >"$STATE_FILE"
+        ;;
+    esac
+    return 0
+}
+
+write_luminance() {
+    local level=$1
+    display_index || return 1
+    if "$M1DDC" display "$DISPLAY_N" set luminance "$level" >/dev/null 2>&1; then
+        return 0
+    fi
+    # A stale cached index (display reconnected on another port) is the likely
+    # cause, so re-resolve once before reporting failure.
+    rm -f "$INDEX_FILE"
+    DISPLAY_N=''
+    display_index || return 1
+    "$M1DDC" display "$DISPLAY_N" set luminance "$level" >/dev/null 2>&1
+}
+
+apply() {
+    local level=$1
+    [ "$level" -lt 0 ] && level=0
+    [ "$level" -gt 100 ] && level=100
+    write_luminance "$level" || die "DDC write failed"
+    LEVEL=$level
+    echo "$level" >"$STATE_FILE"
+    if [ "${DDC_NOTIFY:-0}" = 1 ]; then
+        osascript -e "display notification \"Brightness ${level}%\" with title \"$DISPLAY_MATCH\"" >/dev/null 2>&1
+    fi
+}
+
+# --- fallback coalescing applier -------------------------------------------
+#
+# Only runs when ddc-brightnessd is not up. Shelling out to m1ddc costs ~74ms
+# per write against the daemon's ~30ms, so this is a correctness fallback
+# rather than the intended path.
+
+# Applies immediately, then stays resident while the slide continues. The only
+# sleep is the idle grace period after the queue has gone quiet, so an active
+# slide runs at exactly the rate DDC allows.
+run_applier() {
+    trap release_lock EXIT INT TERM
+    while :; do
+        drain_queue
+        if [ "$DRAINED_ANY" = 1 ]; then
+            apply "$DRAINED"
+            continue
+        fi
+        sleep "$IDLE_SEC"
+        queue_is_empty || continue
+        release_lock
+        trap - EXIT INT TERM
+        # An event that landed between the check and the unlock would have no
+        # applier, so pick the lock back up rather than leaving it stranded.
+        if ! queue_is_empty && acquire_lock; then
+            trap release_lock EXIT INT TERM
+            continue
+        fi
+        break
+    done
+    echo "${LEVEL:-}"
+    return 0
+}
+
+# True when ddc-brightnessd is running and will pick the queue up itself.
+# `read` and `kill` are both builtins, so this costs no fork on the hot path.
+daemon_is_up() {
+    local pid=''
+    read -r pid <"$DAEMON_PID_FILE" 2>/dev/null
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# Karabiner waits for each shell_command to exit before dispatching the next
+# event. If the caller also applied the change, the first tick of a slide would
+# block every tick behind it for the whole slide, capping the slider at roughly
+# six events per second. So the caller only ever enqueues.
+#
+# With the daemon up that is the whole job. Without it, the lock goes to a
+# detached fallback applier so the keypress still lands.
+adjust() {
+    enqueue_delta "$1"
+    daemon_is_up && exit 0
+    acquire_lock || exit 0
+    if [ -t 1 ] || [ "${DDC_SYNC:-0}" = 1 ]; then
+        run_applier
+        return
+    fi
+    # Detach with every descriptor closed: Karabiner would otherwise keep
+    # waiting on the pipe the child inherited.
+    DDC_LOCK_HELD=1 nohup "$0" __applier >/dev/null 2>&1 </dev/null &
+    exit 0
+}
+
+[ -x "$M1DDC" ] || die "m1ddc not found at $M1DDC (brew install m1ddc)"
+
+cmd=${1:-get}
+case $cmd in
+up)
+    adjust "${2:-$DEFAULT_STEP}"
+    ;;
+down)
+    adjust "-${2:-$DEFAULT_STEP}"
+    ;;
+__applier)
+    # Internal: spawned by adjust(), inheriting a lock the parent acquired.
+    [ "${DDC_LOCK_HELD:-0}" = 1 ] || die "__applier is internal"
+    echo $$ >"$LOCK_DIR/pid"
+    run_applier >/dev/null
+    ;;
+set)
+    [ $# -ge 2 ] || die "set requires a level between 0 and 100"
+    case $2 in
+    '' | *[!0-9]*) die "invalid level: $2" ;;
+    esac
+    [ "$2" -le 100 ] || die "invalid level: $2"
+    if daemon_is_up; then
+        # Queued as an absolute request so it cannot overtake, or be overtaken
+        # by, relative ticks the daemon has not applied yet.
+        enqueue "a$2"
+        echo "$2"
+        exit 0
+    fi
+    drain_queue
+    apply "$2"
+    echo "$LEVEL"
+    ;;
+get)
+    load_level
+    echo "$LEVEL"
+    ;;
+sync)
+    rm -f "$INDEX_FILE"
+    level=$(read_luminance) || die "monitor did not answer any DDC read"
+    echo "$level" >"$STATE_FILE"
+    echo "$level"
+    ;;
+*)
+    die "unknown command: $cmd (up|down|set|get|sync)"
+    ;;
+esac
