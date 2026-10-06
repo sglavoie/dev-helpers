@@ -70,8 +70,10 @@ goback run weekly
 
 Weekly and monthly copy the existing `daily/` backup, so they also work when
 the original source is offline. These are three maintained directories, not a
-new dated snapshot for every invocation. The optional global `mirror` and daily
-companions can be added later using the examples below.
+new dated snapshot for every invocation. Generated configurations use the same
+daily, weekly, and monthly settings as this example, with deletion disabled.
+Existing configuration files keep their current settings. The optional global
+`mirror` and daily companions can be added later using the examples below.
 
 ## Usage
 
@@ -136,6 +138,9 @@ default; the paths shown above are only what a generated configuration starts
 with. Because the mirror belongs to no profile, `goback mirror` needs no profile
 at all and rejects `--profile` and `--all` rather than ignoring them.
 
+`goback config edit` uses the configured `editor`, falling back to `$EDITOR`
+when unset or when the configuration is malformed and needs repair.
+
 ## Snapshot previews, dry runs, and history
 
 ```bash
@@ -145,11 +150,15 @@ goback run daily              # perform the backup
 goback usage last --summary   # last success and latest attempt per profile/type
 ```
 
-Preview never creates a backup directory or ejects a drive. Snapshot dry runs,
-from either `--dry-run` or the profile's `rsync.<type>.dryRun`, create no backup
+Preview checks required configuration settings without requiring mounted drives;
+an unconfigured backup type produces an error. It never creates a backup directory
+or ejects a drive. Snapshot dry runs, from either `--dry-run` or the profile's
+`rsync.<type>.dryRun`, create no backup
 directories, record no backup history, and never automatically eject a drive.
 Companions run only with their configured `dryRunArgs`; those without them are
-skipped during a dry run. The result table labels dry runs explicitly.
+skipped during a dry run. Both forms of snapshot dry run list individual changes
+and show transfer statistics; `--quiet` suppresses statistics but keeps the
+change list. The result table labels dry runs explicitly.
 
 A real snapshot creates its destination directory only after validation and
 confirmation. Paths and include/exclude patterns are passed literally to rsync,
@@ -164,6 +173,8 @@ cleanup commands never automatically eject drives.
 history, including companions and the global mirror. Each row shows the last
 successful backup, the latest attempt, and its result (including a failure's
 exit code). A failed attempt does not replace the last successful backup.
+If history cannot be opened or written, goback prints a warning and continues
+with companions and the result report; the transfer outcome is preserved.
 `Never recorded` means no success remains in the stored history. Use
 `--profile NAME` to narrow the report. Without `--summary`, `--entries` applies
 to each profile/type pair. The summary includes relative ages alongside exact timestamps and explanations
@@ -194,10 +205,13 @@ backup-type selector. Without `--profile`, it covers all profiles; `--keep`
 retains that many rows across the selected scope, with history ID breaking
 same-timestamp ties. History commands work even without a configuration file,
 and can filter profiles that are no longer configured. Shell completion also
-works without configuration or a matching hostname.
+works without configuration or a matching hostname. Profile names complete after
+`--profile` (or `-p`), using `--config` when supplied. Missing or malformed
+configuration produces no profile suggestions and is never changed.
 
 The pager is automatically bypassed when input or output is not a terminal.
-Use the global `--no-pager` flag to bypass it interactively as well.
+Use the global `--no-pager` flag to bypass it interactively as well. Run reports
+and history tables omit terminal colors when redirected.
 
 ## `goback mirror`
 

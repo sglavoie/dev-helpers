@@ -14,6 +14,7 @@ func init() {
 
 // configCmd represents the config command
 var configCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "config",
 	Short: "Work with the configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -24,6 +25,7 @@ var configCmd = &cobra.Command{
 
 // editCmd edits the configuration file with the default editor
 var editCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "edit",
 	Short: "Edit the configuration file with the default editor",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -33,6 +35,7 @@ var editCmd = &cobra.Command{
 
 // printCmd prints the configuration file
 var printCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "print",
 	Short: "Print the configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -46,6 +49,7 @@ var printCmd = &cobra.Command{
 
 // resetCmd resets the configuration file
 var resetCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "reset",
 	Short: "Reset the configuration file to its default values",
 	Run: func(cmd *cobra.Command, args []string) {

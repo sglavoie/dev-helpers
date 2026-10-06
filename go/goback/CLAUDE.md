@@ -71,7 +71,7 @@ Dependencies split by capability: `Deps` (`FS`, `Capacity`, `Devices`, `Clock`, 
 
 ### Configuration (`pkg/config`)
 
-Config lives at `~/.goback.json` and is read via Viper; `--config <path>` points any command at a different file, which is read as-is and never rewritten when it already exists. The top-level keys are `confirmExec`, `ejectOnExit`, `showProgress`, `editor`, a `mirror` object, and a `profiles` object. Defaults are set in `defaults.go`, which writes `profiles.default.rsync.daily.*`, `profiles.default.rsync.weekly.*`, and `mirror.*`. Monthly has no dedicated defaults and must be added manually by the user.
+Config lives at `~/.goback.json` and is read via Viper; `--config <path>` points any command at a different file, which is read as-is and never rewritten when it already exists. The top-level keys are `confirmExec`, `ejectOnExit`, `showProgress`, `editor`, a `mirror` object, and a `profiles` object. Defaults are set in `defaults.go`, with daily, weekly, and monthly settings matching the README quick start (deletion, deleteExcluded, and ignoreErrors disabled), plus `mirror.*`. Existing configurations are not rewritten. `config edit` opportunistically reads the editor preference, falling back to `$EDITOR` when the file is malformed.
 
 Backups are organized under `profiles`: each profile owns its `source`, `destination`, `hostname`, `rsync` settings, and optional `dailyCompanions`. The active profile is the one whose `hostname` matches, or the one named by `--profile`; `--all` covers every profile. `config.ConfiguredEndpoints` returns every path the configuration points at, each profile's source and destination in sorted profile order followed by the mirror's, deduplicated and never touched on disk.
 
@@ -96,7 +96,7 @@ The Apple Photos companion this repository ships alongside is configured as:
 
 ### Database (`pkg/db`)
 
-SQLite database at `~/.goback.db` with a single `backups` table storing id, created_at, backup_type, execution_time, command, profile, and exit_code. `backup_type` is `daily`, `weekly`, `monthly`, `mirror`, or `companion/<id>` for a companion program. A mirror belongs to no profile, so it is recorded under the `global` profile (`db.MirrorProfile`) and only when rsync was actually started; `usage view --mirror` and `usage reset --mirror` are what read and trim those rows, and filtering history by profile never shows them. Every write goes through `db.RecordBackup`, which logs a warning rather than failing the backup. The `WithDb` callback pattern opens, passes, and closes the connection. `WithQuery` closes the connection before rows are consumed, so rows must be read within a `WithRows` callback.
+SQLite database at `~/.goback.db` with a single `backups` table storing id, created_at, backup_type, execution_time, command, profile, and exit_code. `backup_type` is `daily`, `weekly`, `monthly`, `mirror`, or `companion/<id>` for a companion program. A mirror belongs to no profile, so it is recorded under the `global` profile (`db.MirrorProfile`) and only when rsync was actually started; `usage view --mirror` and `usage reset --mirror` are what read and trim those rows, and filtering history by profile never shows them. Every write goes through `db.RecordBackup`, which logs a warning rather than failing the backup. Database initialization returns errors; recording catches opening, migration, insertion, and closing failures as warnings. Explicit history commands still fail on database errors through `WithDb`. `QueryRows` consumes rows inside its callback before closing the rows and connection.
 
 `usage last` ranks attempts per profile and backup type, with history ID breaking timestamp ties. `usage last --summary` independently selects the latest attempt and the last successful timestamp for each pair, so failures and interruptions remain visible without hiding an earlier success. The summary reports only retained history and includes global mirror and companion rows.
 
@@ -122,4 +122,10 @@ failures are explained through `pkg/rsyncstatus` in run, mirror, and history
 summaries; companion exit codes are never interpreted as rsync codes.
 
 `printer.Pager` prints directly for redirected input/output and for the global
-`--no-pager` flag. History tables are rendered once and omit color when redirected.
+`--no-pager` flag. History tables are rendered once; both history and run reports omit color when redirected.
+
+Snapshot dry runs always itemize changes; CLI and configuration dry runs both
+include statistics unless quiet. Previews validate required settings without
+checking whether paths are mounted. Commands reject surplus positional
+arguments. Profile completion reads a separate Viper instance without prompting,
+creating configuration, or resolving a hostname.

@@ -21,6 +21,7 @@ import (
 var profileFlags = []string{"profile", "all"}
 
 var mirrorCmd = &cobra.Command{
+	Args:        cobra.NoArgs,
 	Use:         "mirror",
 	Short:       "Mirror the configured source directory onto its destination",
 	Long:        "Mirror the configured source directory onto its destination, deleting whatever the destination holds that the source does not.\n\nEvery run starts with the same preflight --dry-run prints, and a real mirror then asks for an explicit confirmation that defaults to No. Neither drive is ever ejected.",

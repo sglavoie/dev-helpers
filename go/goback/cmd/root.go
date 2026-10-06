@@ -13,6 +13,7 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
+	Args:    cobra.NoArgs,
 	Use:     "goback",
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
@@ -64,6 +65,9 @@ func init() {
 		panic(err)
 	}
 	RootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet")
+	if err := RootCmd.RegisterFlagCompletionFunc("profile", completeProfiles); err != nil {
+		panic(err)
+	}
 }
 
 func lastCommitDate() string {

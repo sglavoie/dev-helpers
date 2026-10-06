@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/spf13/viper"
 )
 
 // validateBeforeRun only reads paths. Destination creation belongs to execution,
@@ -65,4 +68,16 @@ func (r *builder) validateBeforeRun() error {
 func containsPath(parent, child string) bool {
 	rel, err := filepath.Rel(parent, child)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+}
+
+// validateSettings checks configuration without requiring mounted endpoints.
+func (r *builder) validateSettings() error {
+	prefix := config.ActiveProfilePrefix()
+	if _, _, err := configuredPaths(r.builderType.String() != "daily"); err != nil {
+		return err
+	}
+	if !viper.IsSet(r.builderSettingsPrefix() + "archive") {
+		return fmt.Errorf("no rsync.%s configuration found for profile %q (%srsync.%s.archive is required)", r.builderType.String(), config.ActiveProfileName, prefix, r.builderType.String())
+	}
+	return nil
 }

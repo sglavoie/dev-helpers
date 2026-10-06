@@ -13,7 +13,7 @@ import (
 )
 
 func TestPreviewDoesNotEject(t *testing.T) {
-	content := `{"ejectOnExit":true,"profiles":{"test":{"source":"/fixture","destination":"/fixture-backup"}}}`
+	content := `{"ejectOnExit":true,"profiles":{"test":{"source":"/fixture","destination":"/fixture-backup","rsync":{"daily":{"archive":true}}}}}`
 	output, err := profileCommand(t, content, "preview", "daily")
 	if err != nil {
 		t.Fatalf("preview: %v\n%s", err, output)

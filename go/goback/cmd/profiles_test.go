@@ -53,7 +53,7 @@ func TestProfileSelectionThroughCommandExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := func(host string, media bool) map[string]any {
-		return map[string]any{"hostname": host, "backupMedia": media, "source": "/fixture-source", "destination": "/fixture-destination"}
+		return map[string]any{"hostname": host, "backupMedia": media, "source": "/fixture-source", "destination": "/fixture-destination", "rsync": map[string]any{"daily": map[string]any{"archive": true}}}
 	}
 	tests := []struct {
 		name     string
@@ -143,7 +143,7 @@ func TestMisplacedCompanionsFailButConfigRepairRemainsAccessible(t *testing.T) {
 }
 
 func TestPreviewShowsCompanionsInTheirProfile(t *testing.T) {
-	content := `{"profiles":{"default":{"dailyCompanions":[{"id":"photos","command":["photos-backup","daily"],"dryRunArgs":["--dry-run"]}]}}}`
+	content := `{"profiles":{"default":{"source":"/offline/source/","destination":"/offline/backup","rsync":{"daily":{"archive":true}},"dailyCompanions":[{"id":"photos","command":["photos-backup","daily"],"dryRunArgs":["--dry-run"]}]}}}`
 	output, err := profileCommand(t, content, "preview", "daily")
 	if err != nil || !strings.Contains(output, "photos-backup daily") || !strings.Contains(output, "photos-backup daily --dry-run") {
 		t.Fatalf("preview failed to show companions: %v\n%s", err, output)

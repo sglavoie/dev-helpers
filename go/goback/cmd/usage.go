@@ -12,6 +12,7 @@ import (
 )
 
 var usageCmd = &cobra.Command{
+	Args:        cobra.NoArgs,
 	Annotations: withProfileResolution(profileNotRequired),
 	Use:         "usage",
 	Short:       "Manage goback's usage",
@@ -22,6 +23,7 @@ var usageCmd = &cobra.Command{
 }
 
 var lastUsageCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "last",
 	Short: "Show the latest attempts for each profile and backup type",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -42,6 +44,7 @@ var lastUsageCmd = &cobra.Command{
 }
 
 var viewUsageCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "view",
 	Short: "View goback's usage",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -55,6 +58,7 @@ var viewUsageCmd = &cobra.Command{
 }
 
 var resetUsageCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "reset",
 	Short: "Reset goback's usage",
 	Run: func(cmd *cobra.Command, args []string) {

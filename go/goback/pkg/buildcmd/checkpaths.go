@@ -21,7 +21,7 @@ func validateDerivedSourceAndDestination() (string, string, error) {
 	return validatePaths(true)
 }
 
-func validatePaths(derived bool) (string, string, error) {
+func configuredPaths(derived bool) (string, string, error) {
 	prefix := config.ActiveProfilePrefix()
 	src := viper.GetString(prefix + "source")
 	if src == "" && !derived {
@@ -34,6 +34,14 @@ func validatePaths(derived bool) (string, string, error) {
 
 	if derived {
 		src = dest + "/daily/"
+	}
+	return src, dest, nil
+}
+
+func validatePaths(derived bool) (string, string, error) {
+	src, dest, err := configuredPaths(derived)
+	if err != nil {
+		return "", "", err
 	}
 	srcIsDir, err := isDirectory(src)
 	if err != nil {

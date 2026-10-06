@@ -12,6 +12,7 @@ import (
 
 // previewCmd simply prints the rsync command that would be executed
 var previewCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "preview",
 	Short: "Print the rsync command that would be executed",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -63,6 +64,7 @@ func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.Back
 }
 
 var dailyCmdPreview = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "daily",
 	Short: "Preview command for daily backup",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -71,6 +73,7 @@ var dailyCmdPreview = &cobra.Command{
 }
 
 var weeklyCmdPreview = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "weekly",
 	Short: "Preview command for weekly backup",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -79,6 +82,7 @@ var weeklyCmdPreview = &cobra.Command{
 }
 
 var monthlyCmdPreview = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "monthly",
 	Short: "Preview command for monthly backup",
 	Run: func(cmd *cobra.Command, args []string) {

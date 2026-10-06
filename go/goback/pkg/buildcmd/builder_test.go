@@ -96,7 +96,7 @@ func TestSnapshotPassesLiteralArgumentsAndCopyableCommand(t *testing.T) {
 	if result := b.Execute(context.Background()); result.Err != nil {
 		t.Fatal(result.Err)
 	}
-	want := []string{"--archive", "--dry-run", "--stats", "--exclude=" + pattern, "--", src, filepath.Join(dest, "daily")}
+	want := []string{"--archive", "--dry-run", "--itemize-changes", "--stats", "--exclude=" + pattern, "--", src, filepath.Join(dest, "daily")}
 	if got := readArgs(t, log); !slices.Equal(got, want) {
 		t.Fatalf("args = %q, want %q", got, want)
 	}

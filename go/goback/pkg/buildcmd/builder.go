@@ -43,8 +43,8 @@ func (r *builder) BuildNoCheck() {
 }
 
 func (r *builder) BuildCheck() error {
-	if !viper.IsSet(r.builderSettingsPrefix() + "archive") {
-		return fmt.Errorf("no rsync.%s configuration found for profile %q", r.builderType.String(), config.ActiveProfileName)
+	if err := r.validateSettings(); err != nil {
+		return err
 	}
 	r.build()
 	return r.validateBeforeRun()

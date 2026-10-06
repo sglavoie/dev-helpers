@@ -31,8 +31,9 @@ func mustCreateFileWithConfirmation() {
 }
 
 func mustCreateDefaultFile() {
-	_, errFile := os.Create(viper.ConfigFileUsed())
+	file, errFile := os.Create(viper.ConfigFileUsed())
 	cobra.CheckErr(errFile)
+	cobra.CheckErr(file.Close())
 
 	setDefaultValues()
 

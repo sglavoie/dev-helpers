@@ -17,6 +17,7 @@ import (
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "run",
 	Short: "Run the backup command",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -71,6 +72,7 @@ func runBackupProfiles(ctx context.Context, action func(context.Context, *run.Re
 }
 
 var dailyCmdRun = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "daily",
 	Short: "Perform a daily backup",
 	Long:  "Perform a daily, incremental backup.",
@@ -80,6 +82,7 @@ var dailyCmdRun = &cobra.Command{
 }
 
 var weeklyCmdRun = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "weekly",
 	Short: "Perform a weekly backup",
 	Long:  "Perform a weekly, incremental backup from the last daily backup.",
@@ -89,6 +92,7 @@ var weeklyCmdRun = &cobra.Command{
 }
 
 var monthlyCmdRun = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "monthly",
 	Short: "Perform a monthly backup",
 	Long:  "Perform a monthly, incremental, compressed backup from the last daily backup.",
@@ -98,6 +102,7 @@ var monthlyCmdRun = &cobra.Command{
 }
 
 var allCmdRun = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "all",
 	Short: "Run daily, weekly, and monthly backups in sequence",
 	Run: func(cmd *cobra.Command, args []string) {

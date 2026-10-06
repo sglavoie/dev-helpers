@@ -14,6 +14,7 @@ import (
 )
 
 var ejectCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "eject",
 	Short: "Eject the disk linked to the backup",
 	Long: "Eject the disk linked to the backup.\n\n" +

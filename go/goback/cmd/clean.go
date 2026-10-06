@@ -11,6 +11,7 @@ import (
 )
 
 var cleanCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "clean",
 	Short: "Clean unwanted data",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -32,6 +33,7 @@ var cleanDbCmd = &cobra.Command{
 
 // cleanLogsCmd represents the command to clean logs
 var cleanLogsCmd = &cobra.Command{
+	Args:  cobra.NoArgs,
 	Use:   "logs",
 	Short: "Remove logs",
 	Run: func(cmd *cobra.Command, args []string) {

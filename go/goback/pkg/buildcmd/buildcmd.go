@@ -47,6 +47,9 @@ func BuildMonthly() (*RsyncBuilder, error) {
 
 func PrintCommandDaily() error {
 	c := commandToRunDailyNoCheck()
+	if err := c.validateSettings(); err != nil {
+		return err
+	}
 	c.BuildNoCheck()
 	c.FormattedPreview()
 	return nil
@@ -54,6 +57,9 @@ func PrintCommandDaily() error {
 
 func PrintCommandWeekly() error {
 	c := commandToRunWeeklyNoCheck()
+	if err := c.validateSettings(); err != nil {
+		return err
+	}
 	c.BuildNoCheck()
 	c.FormattedPreview()
 	return nil
@@ -61,6 +67,9 @@ func PrintCommandWeekly() error {
 
 func PrintCommandMonthly() error {
 	c := commandToRunMonthlyNoCheck()
+	if err := c.validateSettings(); err != nil {
+		return err
+	}
 	c.BuildNoCheck()
 	c.FormattedPreview()
 	return nil

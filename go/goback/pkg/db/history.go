@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"log"
 	"time"
 )
@@ -29,20 +28,29 @@ func CompanionBackupType(id string) string {
 // RecordBackup appends an entry to the backup history. A history write is
 // never worth failing a backup over, so a failure is only logged.
 func RecordBackup(entry HistoryEntry) {
-	CreateDatabaseFileIfNotExists()
+	if err := recordBackup(entry); err != nil {
+		log.Printf("warning: failed to record backup in history; history unavailable for %s, profile %q (exit code %d): %v", entry.BackupType, entry.Profile, entry.ExitCode, err)
+	}
+}
 
-	WithDb(func(sqldb *sql.DB) {
-		_, err := sqldb.Exec(
-			"INSERT INTO backups VALUES(NULL,?,?,?,?,?,?);",
-			entry.CreatedAt.Format("2006-01-02 15:04:05"),
-			entry.BackupType,
-			entry.ExecutionTime,
-			entry.Command,
-			entry.Profile,
-			entry.ExitCode,
-		)
-		if err != nil {
-			log.Printf("warning: failed to record backup in history: %v", err)
+func recordBackup(entry HistoryEntry) (err error) {
+	sqldb, err := open()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := sqldb.Close(); err == nil {
+			err = closeErr
 		}
-	})
+	}()
+	_, err = sqldb.Exec(
+		"INSERT INTO backups VALUES(NULL,?,?,?,?,?,?);",
+		entry.CreatedAt.Format("2006-01-02 15:04:05"),
+		entry.BackupType,
+		entry.ExecutionTime,
+		entry.Command,
+		entry.Profile,
+		entry.ExitCode,
+	)
+	return err
 }
