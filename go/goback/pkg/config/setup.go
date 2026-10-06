@@ -161,7 +161,15 @@ func SelectProfiles() ([]string, error) {
 	if AllProfiles {
 		return names, nil
 	}
+	return DefaultProfiles()
+}
 
+// DefaultProfiles reports what a run without --profile or --all would select.
+func DefaultProfiles() ([]string, error) {
+	names := ProfileNames()
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no backup profiles configured")
+	}
 	matching := MatchingProfiles()
 	if len(matching) > 0 {
 		return matching, nil
@@ -170,6 +178,15 @@ func SelectProfiles() ([]string, error) {
 		return names, nil
 	}
 	return nil, fmt.Errorf("could not auto-detect profile for this machine.\nNo profile hostname matches %q.\nAvailable profiles: %v\nUse --profile to specify one, or add a 'hostname' field to your profile.", mustHostname(), names)
+}
+
+// LoadReadOnly loads validated settings without prompting or creating a file.
+func LoadReadOnly() error {
+	if _, err := Check(true); err != nil {
+		return err
+	}
+	setViperCfg()
+	return viper.ReadInConfig()
 }
 
 func mustHostname() string {

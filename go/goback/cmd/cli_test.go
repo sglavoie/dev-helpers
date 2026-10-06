@@ -166,7 +166,7 @@ func TestOnlyGlobalCommandsSkipProfileResolution(t *testing.T) {
 			path := cmd.CommandPath()
 			want := true
 			switch {
-			case path == "goback mirror" || path == "goback completion" || path == "goback usage" || strings.HasPrefix(path, "goback usage "):
+			case path == "goback profiles" || path == "goback status" || path == "goback mirror" || path == "goback completion" || path == "goback usage" || strings.HasPrefix(path, "goback usage "):
 				want = false
 			case path == "goback eject":
 				want = !all

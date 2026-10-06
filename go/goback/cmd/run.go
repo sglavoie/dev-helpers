@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
@@ -106,19 +105,6 @@ var allCmdRun = &cobra.Command{
 	Use:   "all",
 	Short: "Run daily, weekly, and monthly backups in sequence",
 	Run: func(cmd *cobra.Command, args []string) {
-		runBackups(func(ctx context.Context, report *run.Report) error {
-			if err := run.DailyBackup(ctx, report); err != nil {
-				return err
-			}
-			if buildcmd.IsConfigured("weekly") {
-				if err := run.WeeklyBackup(ctx, report); err != nil {
-					return err
-				}
-			}
-			if buildcmd.IsConfigured("monthly") {
-				return run.MonthlyBackup(ctx, report)
-			}
-			return nil
-		})
+		runBackups(run.AllBackups)
 	},
 }

@@ -1,6 +1,7 @@
 package cleanbackup
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -8,9 +9,23 @@ import (
 	"testing"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/destinationlock"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/viper"
 )
+
+func TestCleanupRefusesCompetingBackupBeforePrompt(t *testing.T) {
+	daily := fixture(t)
+	_, release, err := destinationlock.Acquire(context.Background(), filepath.Dir(daily))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	err = cleanType(models.Daily{}, false, func(string) bool { t.Fatal("prompted while destination locked"); return true }, func(string) error { t.Fatal("deleted while destination locked"); return nil })
+	if err == nil {
+		t.Fatal("cleanup ignored backup lock")
+	}
+}
 
 func fixture(t *testing.T) string {
 	t.Helper()

@@ -9,7 +9,6 @@ package mirror
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/destinationlock"
 )
 
 // PartialDir is the hidden directory holding resumable partial data. rsync
@@ -186,39 +187,14 @@ func OSExecDeps(approver Approver, stdout, stderr io.Writer) ExecDeps {
 	}
 }
 
-// lockPerm is the mode of a lock file. It carries no content and is only ever
-// opened by its owner.
-const lockPerm = 0o600
-
-// osLocker locks a destination through flock on a file named after it. The
-// lock file lives outside both endpoints, because anything inside the
-// destination is content the mirror itself deletes. It is machine-local, which
-// is the exclusion a single-user CLI can promise: it serializes the mirrors
-// started on this machine under this user's temporary directory.
+// osLocker shares the destination lock protocol with snapshot runs and cleanup.
+// Tests supply an isolated lock directory; production uses os.TempDir().
 type osLocker struct {
 	dir string
 }
 
 func (l osLocker) Lock(destination string) (func(), error) {
-	sum := sha256.Sum256([]byte(destination))
-	path := filepath.Join(l.dir, fmt.Sprintf("goback-mirror-%x.lock", sum[:8]))
-
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, lockPerm)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open the mirror lock %s: %w", path, err)
-	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		file.Close()
-		if errors.Is(err, syscall.EWOULDBLOCK) {
-			return nil, fmt.Errorf("another goback mirror is already running for %s: wait for it to finish, since two mirrors of one destination would each delete what the other just wrote", destination)
-		}
-		return nil, fmt.Errorf("cannot lock the mirror destination %s through %s: %w", destination, path, err)
-	}
-
-	return func() {
-		syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-		file.Close()
-	}, nil
+	return destinationlock.LockResolved(l.dir, destination)
 }
 
 // osRuleWriter writes the deletion boundary to a throwaway file next to the

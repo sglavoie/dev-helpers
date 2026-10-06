@@ -47,12 +47,14 @@ func (s MainStatus) String() string {
 
 // MainResult is the outcome of one main backup command.
 type MainResult struct {
-	BackupType string
-	DryRun     bool
-	Status     MainStatus
-	ExitCode   int
-	Duration   time.Duration
-	Err        error
+	BackupType    string
+	DryRun        bool
+	Status        MainStatus
+	ExitCode      int
+	Duration      time.Duration
+	Err           error
+	SkipReason    string
+	DiagnosticLog string
 }
 
 // Attempted reports whether rsync actually ran, whatever it exited with.
@@ -150,6 +152,17 @@ func runMain(ctx context.Context, steps backupSteps) MainResult {
 		result.Err = err
 		return result
 	}
+	if locker, ok := c.(interface {
+		Lock(context.Context) (context.Context, func(), error)
+	}); ok {
+		locked, release, err := locker.Lock(ctx)
+		if err != nil {
+			result.Status, result.Err = MainSkipped, err
+			return result
+		}
+		defer release()
+		ctx = locked
+	}
 
 	if !c.PrintCommandToRunWithConfirmation() {
 		result.Status = MainDeclined
@@ -160,6 +173,7 @@ func runMain(ctx context.Context, steps backupSteps) MainResult {
 	result.ExitCode = execution.ExitCode
 	result.Duration = execution.Duration
 	result.Err = execution.Err
+	result.DiagnosticLog = execution.DiagnosticLog
 	switch {
 	case execution.Interrupted:
 		result.Status = MainInterrupted

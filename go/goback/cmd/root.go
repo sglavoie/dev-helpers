@@ -18,6 +18,9 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd == profilesCmd || cmd == statusCmd {
+			return config.LoadReadOnly()
+		}
 		// Checking must not create or offer to replace an invalid file.
 		if cmd == checkCmd {
 			return nil

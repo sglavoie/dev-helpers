@@ -3,6 +3,7 @@ package buildcmd
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,8 +15,59 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/destinationlock"
 	"github.com/spf13/viper"
 )
+
+func TestSnapshotRefusesCompetingWriterBeforeCreatingDestination(t *testing.T) {
+	_, dest, args := snapshotFixture(t)
+	_, release, err := destinationlock.Acquire(context.Background(), dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	b, err := BuildDaily()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := b.Execute(context.Background())
+	if result.Err == nil || !result.NotStarted {
+		t.Fatalf("result: %+v", result)
+	}
+	requireAbsent(t, filepath.Join(dest, "daily"))
+	requireAbsent(t, args)
+}
+
+func TestFailedSnapshotKeepsDiagnosticsButDryRunDoesNot(t *testing.T) {
+	for _, dry := range []bool{false, true} {
+		t.Run(fmt.Sprint(dry), func(t *testing.T) {
+			_, _, args := snapshotFixture(t)
+			viper.Set("cliDryRun", dry)
+			if err := os.WriteFile(filepath.Join(filepath.Dir(args), "rsync"), []byte("#!/bin/sh\necho 'permission denied: important.txt' >&2\nexit 23\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			b, err := BuildDaily()
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := b.Execute(context.Background())
+			if result.ExitCode != 23 || result.Err == nil {
+				t.Fatalf("result: %+v", result)
+			}
+			if dry {
+				if result.DiagnosticLog != "" {
+					t.Fatal("dry run saved diagnostics")
+				}
+				requireAbsent(t, filepath.Join(os.Getenv("HOME"), ".goback"))
+			} else {
+				data, err := os.ReadFile(result.DiagnosticLog)
+				if err != nil || !strings.Contains(string(data), "permission denied: important.txt") {
+					t.Fatalf("log %q: %v", data, err)
+				}
+			}
+		})
+	}
+}
 
 func snapshotFixture(t *testing.T) (string, string, string) {
 	t.Helper()
@@ -125,6 +177,7 @@ func TestSnapshotCreatesDestinationOnlyAtExecution(t *testing.T) {
 	if result := b.Execute(context.Background()); result.Err != nil {
 		t.Fatal(result.Err)
 	}
+	requireAbsent(t, filepath.Join(os.Getenv("HOME"), ".goback", "logs"))
 	if info, err := os.Stat(filepath.Join(dest, "daily")); err != nil || !info.IsDir() {
 		t.Fatalf("destination not created: %v", err)
 	}
@@ -140,6 +193,40 @@ func TestSnapshotCreatesDestinationOnlyAtExecution(t *testing.T) {
 			t.Fatal("expected exactly one successful transfer")
 		}
 	})
+}
+
+func TestDiagnosticWriteFailurePreservesTransferFailure(t *testing.T) {
+	_, _, args := snapshotFixture(t)
+	if err := os.WriteFile(filepath.Join(os.Getenv("HOME"), ".goback"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(args), "rsync"), []byte("#!/bin/sh\nexit 23\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	b, err := BuildDaily()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := b.Execute(context.Background())
+	if result.ExitCode != 23 || result.Err == nil || result.DiagnosticLog != "" {
+		t.Fatalf("result: %+v", result)
+	}
+}
+
+func TestSnapshotRejectsDestinationOutsideItsLock(t *testing.T) {
+	_, dest, args := snapshotFixture(t)
+	if err := os.Symlink(t.TempDir(), filepath.Join(dest, "daily")); err != nil {
+		t.Fatal(err)
+	}
+	b, err := BuildDaily()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := b.Execute(context.Background())
+	if result.Err == nil || !strings.Contains(result.Err.Error(), "outside locked destination") {
+		t.Fatalf("result: %+v", result)
+	}
+	requireAbsent(t, args)
 }
 
 func TestSnapshotPathValidation(t *testing.T) {

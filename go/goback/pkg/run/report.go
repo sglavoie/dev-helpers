@@ -71,10 +71,17 @@ func (r *Report) Print(w io.Writer) {
 
 	fmt.Fprintln(w)
 	t.Render()
+	for _, main := range r.Mains {
+		if main.DiagnosticLog != "" {
+			fmt.Fprintf(w, "%s diagnostic log: %s\n", main.BackupType, main.DiagnosticLog)
+		}
+	}
 }
 
 func mainDetails(main MainResult) string {
 	switch {
+	case main.SkipReason != "":
+		return main.SkipReason
 	case main.Status == MainFailed:
 		detail := fmt.Sprintf("exit code %d", main.ExitCode)
 		if explanation := rsyncstatus.Explanation(main.ExitCode); explanation != "" {

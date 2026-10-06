@@ -7,7 +7,25 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/destinationlock"
 )
+
+func TestMirrorRefusesOverlappingSnapshotLock(t *testing.T) {
+	locks := t.TempDir()
+	release, err := destinationlock.LockResolved(locks, filepath.Dir(testDestination))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	setup := mirrorSetup()
+	setup.exec.Locker = osLocker{dir: locks}
+	result, err := setup.run(context.Background())
+	requireErrorContains(t, err, "another goback operation")
+	if result.Status != StatusSkipped || len(setup.approver.plans) != 0 || len(setup.streamer.calls) != 0 {
+		t.Fatal("mirror ignored overlapping snapshot lock")
+	}
+}
 
 // rsync opens its arguments itself, after the last thing the mirror can check,
 // so both endpoints are bound to the directories they are before the transfer
@@ -94,7 +112,7 @@ func TestMirrorRefusesAConcurrentMirrorOfTheSameDestination(t *testing.T) {
 	<-holding
 
 	result, err := second.run(context.Background())
-	requireErrorContains(t, err, "another goback mirror is already running")
+	requireErrorContains(t, err, "another goback operation is already running")
 	requireErrorContains(t, err, testDestination)
 	if result.Status != StatusSkipped {
 		t.Fatalf("status = %s, want skipped", result.Status)
@@ -231,7 +249,7 @@ func TestMirrorRefusesAConcurrentMirrorOfAResolvedAliasOfTheDestination(t *testi
 	<-holding
 
 	result, err := second.run(context.Background())
-	requireErrorContains(t, err, "another goback mirror is already running")
+	requireErrorContains(t, err, "another goback operation is already running")
 	requireErrorContains(t, err, testDestination)
 	if result.Status != StatusSkipped {
 		t.Fatalf("status = %s, want skipped", result.Status)

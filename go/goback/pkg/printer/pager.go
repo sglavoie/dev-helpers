@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -80,6 +81,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
 		if m.searchMode {
 			switch msg.String() {
 			case "enter":
@@ -93,7 +97,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "backspace":
 				if len(m.searchInput) > 0 {
-					m.searchInput = m.searchInput[:len(m.searchInput)-1]
+					_, size := utf8.DecodeLastRuneInString(m.searchInput)
+					m.searchInput = m.searchInput[:len(m.searchInput)-size]
 				}
 				return m, nil
 			default:

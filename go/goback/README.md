@@ -93,6 +93,8 @@ just
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
+| `profiles` | List configured profiles, their paths, and automatic selection. |
+| `status [--older-than 48h] [--json]` | Show configured backups, including those with no recorded attempts. |
 | `config check\|edit\|print\|reset` | Check or manage `~/.goback.json`. |
 | `clean db\|logs\|backup` | Remove a history entry, old log files, or excluded backup content. |
 
@@ -150,6 +152,41 @@ hostname, never prompts or changes the file, and exits nonzero on errors. Use
 commands also reject unknown keys and invalid value types before doing work;
 configuration editing, printing, and history remain available for repairs.
 
+## Profiles and backup status
+
+Use `goback profiles` to see source/destination paths, configured backup types,
+hostname matches, and which profiles a run without `--profile` or `--all` would
+select. It works with offline drives and unmatched hostnames. `--profile NAME`
+narrows the listing without changing the meaning of the auto-selected column.
+
+`goback status` lists every configured daily, weekly, and monthly backup and the
+global mirror, even when no history exists. Use `--profile NAME` to narrow it;
+the global mirror is omitted when a profile is selected. Companion and retired
+profile history remains available through `usage last --summary`.
+
+```bash
+goback profiles
+goback status
+goback status --older-than 48h
+goback status --profile default --older-than 168h --json
+```
+
+`--older-than` marks a last success as `stale` when it is older than the supplied
+positive duration (`48h`, `168h`, etc.). Without a threshold, freshness is not
+assessed. A recent failed attempt does not make an older success fresh. `never
+run` means there is no retained attempt for that configured profile/type; history
+trimming can also produce this label. A failed-only history has `no recorded
+success`. Timestamps are interpreted in the current local timezone, matching
+existing history. Status is informational: stale and never-run rows do not change
+its exit code. `--json` emits an array with `profile`, `backup_type`, `last_success`,
+`latest_attempt`, `exit_code`, `result`, and `freshness`; missing timestamps and
+exit codes are `null`.
+
+Both overview commands validate configuration without prompting or changing it,
+and require no mounted drives. Status opens existing history read-only and never
+creates or migrates a database. Existing `usage` commands still work without a
+configuration file.
+
 ## Snapshot previews, dry runs, and history
 
 ```bash
@@ -179,6 +216,21 @@ to be on mounted drives; leftover directories and symlinks escaping the named
 volume are refused. These checks run again after confirmation. Weekly and
 monthly check their actual source, `daily/`, so the original source can remain
 offline. Command previews do not require mounted drives.
+
+Real snapshot runs lock the entire profile destination before confirmation.
+`run all` retains that lock through daily companions and the weekly/monthly
+copies, so daily cannot be changed by another goback operation while it is being
+copied. Cleanup uses the same lock, and mirrors coordinate with it when their
+destinations overlap. A competing operation fails immediately. Symlink aliases
+of the same root share a lock; snapshot and cleanup paths that resolve outside
+their locked profile root are refused. Locks coordinate processes on this
+machine using the same temporary directory; they do not exclude other programs
+or another computer. Dry runs do not create lock files.
+
+Declining a step in `run all` skips the remaining steps for that profile and
+explains the skips in the result table. Other selected profiles still run.
+Independent `run weekly` and `run monthly` commands continue to use the existing
+daily backup.
 
 Use `goback preview daily --test-pattern '*.tmp'` to inspect one exclude pattern,
 or `goback preview daily --excluded` for the configured filters. Both show exact
@@ -217,6 +269,53 @@ the stored `YYYY-MM-DD HH:MM:SS` format without timezone information; no convers
 to UTC is performed.
 A failed latest attempt leaves an earlier `last_success` intact. `--json`
 requires `--summary` and emits no table or terminal colors.
+
+## Failed-run diagnostics
+
+Failed or interrupted snapshot transfers save the last 64 KiB of combined
+stdout/stderr in `~/.goback/logs/`. The result report prints the full log path.
+Each log includes the profile, backup type, exit code, and executed command;
+filenames include the UTC timestamp. Files are private (mode 0600). Only the
+newest 20 failure logs are retained, separately from SQLite history. Successes
+and dry runs create no diagnostic logs. Failure to save a log produces a warning
+and preserves the transfer's original result. Mirror and companion output is
+not captured by this snapshot logging feature.
+
+```bash
+ls -lt ~/.goback/logs/
+less ~/.goback/logs/failure-REPLACE-WITH-THE-REPORTED-NAME.log
+```
+
+## Recovering a file
+
+Use `goback profiles` to find the destination and `goback usage last --summary`
+to check when daily, weekly, or monthly last succeeded. Look for the desired
+file inside the corresponding directory. These are maintained copies, so a
+previous version exists only if one of those copies still contains it.
+
+Copy the candidate into a new temporary directory first. For the quick-start
+configuration, recovering `notes.txt` from daily looks like this:
+
+```bash
+recovery_dir="$(mktemp -d "${TMPDIR:-/tmp}/goback-recovery.XXXXXX")"
+rsync -a --dry-run -- "/Volumes/Backup/Documents/daily/notes.txt" "$recovery_dir/"
+rsync -a -- "/Volumes/Backup/Documents/daily/notes.txt" "$recovery_dir/"
+open "$recovery_dir/notes.txt"
+```
+
+Substitute `weekly` or `monthly` to inspect another copy. If the original text
+file still exists, compare it:
+
+```bash
+diff -u "$HOME/Documents/notes.txt" "$recovery_dir/notes.txt"
+```
+
+Once you have inspected the recovered file, copy it back with an overwrite
+confirmation:
+
+```bash
+cp -ip "$recovery_dir/notes.txt" "$HOME/Documents/notes.txt"
+```
 
 ## Cleanup and terminal output
 
@@ -370,8 +469,9 @@ paths that are different names for one directory exclude each other, and a
 destination that comes to name another directory during the confirmation, or
 that stops being the directory it was, is refused rather than transferred under
 the lock of the directory it used to name. What rsync is bound to is therefore
-always the directory the held lock was taken for. Mirrors of different
-destinations are independent.
+always the directory the held lock was taken for. Mirrors of non-overlapping
+destinations are independent. The same lock protocol also excludes snapshot
+runs and cleanup operations whose destinations overlap the mirror's.
 
 ### Capacity
 

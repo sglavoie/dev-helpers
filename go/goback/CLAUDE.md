@@ -55,7 +55,7 @@ The mirror creates nothing, and that is what makes every binding a comparison ag
 
 The last listing `destinationUnchanged` performed is also what bounds the transfer's deletions. `DeletionRules` turns it into rsync filter rules, one `R /<path>` per entry the mirror walked followed by a terminating `P /**`, written by a `RuleWriter` to a throwaway file rsync merges through `--filter=merge <path>`. `--from0` makes that file null-delimited, so an entry whose name holds a newline stays one rule rather than splitting into two, and `filterPattern` backslash-escapes `*`, `?`, and `[` in the names that contain them, since rsync honors an escape only in a pattern that already looks like a wildcard. The effect is that rsync's own destination scan, which happens after every listing the mirror made, may delete exactly what the mirror saw and nothing else: content another writer adds in that last window survives instead of being deleted unreviewed. Filter rules affect `--delete` only, never what is transferred.
 
-The lock is `flock` on a file named after the resolved destination in the temporary directory, never inside either endpoint, since anything inside the destination is content the mirror deletes. Hashing the resolved path rather than the configured one is what makes two symlink aliases of one directory take the same lock, and `stillApproved`'s resolved-destination comparison is what keeps the lock held equal to the destination the transfer uses when an alias is retargeted during the prompt. It is taken before the prompt and released when `Mirror` returns, and it never waits: a second mirror of the same destination is refused rather than queued behind an approval nobody may answer.
+The mirror uses the shared `pkg/destinationlock` flock protocol in the temporary directory, never inside either endpoint. An exclusive destination lock plus shared ancestor locks excludes snapshots and cleanup with overlapping destinations while allowing unrelated siblings. Hashing the resolved path rather than the configured one is what makes two symlink aliases of one directory take the same lock, and `stillApproved`'s resolved-destination comparison is what keeps the lock held equal to the destination the transfer uses when an alias is retargeted during the prompt. It is taken before the prompt and released when `Mirror` returns, and it never waits: a second mirror of the same destination is refused rather than queued behind an approval nobody may answer.
 
 Dependencies split by capability: `Deps` (`FS`, `Capacity`, `Devices`, `Clock`, `Runner`) is read-only and is all a preflight ever receives, while `ExecDeps` (`Approver`, `Locker`, `Rules`, `Binder`, `Streamer`) carries the write-capable seams. Nothing in either set creates a directory, so no preflight and no transfer can materialize an endpoint. Cancellation sends SIGTERM and then kills after `killGrace`; the partial data stays in `.goback-partial` for the next run.
 
@@ -129,3 +129,29 @@ include statistics unless quiet. Previews validate required settings without
 checking whether paths are mounted. Commands reject surplus positional
 arguments. Profile completion reads a separate Viper instance without prompting,
 creating configuration, or resolving a hostname.
+
+### Profile overview, status, and snapshot diagnostics
+
+`profiles` and `status` use `config.LoadReadOnly`, which validates and reads the
+configuration without prompting or creating it. Neither requires profile
+resolution or mounted paths. `profiles` uses `DefaultProfiles` to mark the same
+selection an unqualified run would make. `status` joins configured snapshot
+types and the global mirror with `db.ReadSummary`; it reads SQLite with
+`mode=ro`, supports legacy columns without migrating, and shows missing attempts.
+`--older-than` assesses last-success age in the current local timezone;
+`--json` returns nulls for absent timestamps and exit codes. Status is
+informational, including when stale. Companion history remains in `usage`.
+
+`pkg/destinationlock` coordinates snapshot, cleanup, and mirror writers on
+this machine. Snapshot and cleanup operations lock the whole profile destination;
+`run.AllBackups` holds that lock across the full sequence and companions.
+Sequential inner calls reuse a context lease, rechecking the destination's
+resolved path and directory identity. Do not share that context with concurrent
+writers. Snapshot/cleanup endpoints resolving outside the locked root are
+refused. Locks are nonblocking; dry runs create none. Declining any `run all`
+step appends explained skipped results for the remaining steps of that profile.
+
+Snapshot execution tees stdout/stderr into a mutex-protected 64 KiB tail.
+Failures/interruption save private, self-describing files under `~/.goback/logs`,
+retaining the latest 20; the report prints their paths. Successes and dry runs
+write no diagnostic files. Logging errors warn without replacing transfer errors.

@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
 	"github.com/spf13/viper"
 )
 
@@ -17,11 +20,12 @@ import (
 // reported separately from a failure because the two lead to different
 // decisions about what may run afterwards.
 type ExecutionResult struct {
-	NotStarted  bool // preparation or process startup failed before rsync ran
-	Interrupted bool
-	ExitCode    int
-	Duration    time.Duration
-	Err         error
+	NotStarted    bool // preparation or process startup failed before rsync ran
+	Interrupted   bool
+	ExitCode      int
+	Duration      time.Duration
+	Err           error
+	DiagnosticLog string
 }
 
 // RequireRsync reports whether rsync can be executed at all.
@@ -50,10 +54,15 @@ func (r *builder) BuildCheck() error {
 	return r.validateBeforeRun()
 }
 
-func (r *builder) Execute(ctx context.Context) ExecutionResult {
+func (r *builder) Execute(ctx context.Context) (result ExecutionResult) {
 	if ctx.Err() != nil {
 		return ExecutionResult{NotStarted: true, Interrupted: true, ExitCode: -1, Err: fmt.Errorf("backup interrupted")}
 	}
+	ctx, release, err := r.Lock(ctx)
+	if err != nil {
+		return ExecutionResult{NotStarted: true, ExitCode: 1, Err: err}
+	}
+	defer release()
 	if err := r.validateBeforeRun(); err != nil {
 		return ExecutionResult{NotStarted: true, ExitCode: 1, Err: err}
 	}
@@ -63,12 +72,31 @@ func (r *builder) Execute(ctx context.Context) ExecutionResult {
 		}
 	}
 	cmd := exec.CommandContext(ctx, r.args[0], r.args[1:]...)
+	// Capturing output uses pipes. A descendant retaining a pipe must not keep
+	// cancellation (and the destination lock) waiting indefinitely.
+	cmd.WaitDelay = 10 * time.Second
 	r.exitCode = 0
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if !r.dryRun {
+		tail := &diagnostics.Tail{}
+		cmd.Stdout = io.MultiWriter(os.Stdout, tail)
+		cmd.Stderr = io.MultiWriter(os.Stderr, tail)
+		defer func() {
+			if result.Err == nil {
+				return
+			}
+			fmt.Fprintf(tail, "\ngoback: %v\n", result.Err)
+			path, err := tail.Save(config.ActiveProfileName, r.builderType.String(), r.CommandString(), result.ExitCode)
+			result.DiagnosticLog = path
+			if err != nil {
+				log.Printf("warning: could not save or trim diagnostic logs: %v", err)
+			}
+		}()
+	}
 
 	start := time.Now()
-	err := cmd.Start()
+	err = cmd.Start()
 	started := err == nil
 	if started {
 		err = cmd.Wait()

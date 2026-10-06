@@ -1,6 +1,7 @@
 package cleanbackup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/destinationlock"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/inputs"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
@@ -28,6 +30,50 @@ func cleanType(backupType models.BackupTypes, dryRun bool, approve func(string) 
 		return fmt.Errorf("destination not set for profile %q", config.ActiveProfileName)
 	}
 	scanDir := filepath.Join(dest, backupType.String())
+	var checkLocked func() error
+	if !dryRun {
+		ctx, release, err := destinationlock.Acquire(context.Background(), dest)
+		if err != nil {
+			return err
+		}
+		defer release()
+		root, err := filepath.EvalSymlinks(dest)
+		if err != nil {
+			return err
+		}
+		root, err = filepath.Abs(root)
+		if err != nil {
+			return err
+		}
+		resolved, err := filepath.EvalSymlinks(scanDir)
+		if err != nil {
+			return err
+		}
+		resolved, err = filepath.Abs(resolved)
+		if err != nil {
+			return err
+		}
+		if !destinationlock.Within(root, resolved) {
+			return fmt.Errorf("cleanup path %s resolves outside locked destination %s", scanDir, root)
+		}
+		info, err := os.Stat(scanDir)
+		if err != nil {
+			return err
+		}
+		checkLocked = func() error {
+			if _, _, err := destinationlock.Acquire(ctx, dest); err != nil {
+				return err
+			}
+			now, err := os.Stat(scanDir)
+			if err != nil {
+				return err
+			}
+			if !os.SameFile(info, now) {
+				return fmt.Errorf("cleanup directory changed during confirmation: %s", scanDir)
+			}
+			return nil
+		}
+	}
 
 	if err := buildcmd.CheckSourceAccessible(scanDir); err != nil {
 		return err
@@ -66,6 +112,9 @@ func cleanType(backupType models.BackupTypes, dryRun bool, approve func(string) 
 	if !approve(fmt.Sprintf("Delete %d entries from %s?", len(excluded), scanDir)) {
 		fmt.Println("Aborted")
 		return nil
+	}
+	if err := checkLocked(); err != nil {
+		return err
 	}
 
 	var failures []error
