@@ -7,6 +7,7 @@ from photos_backup.exclude import exclude_from_arg
 from photos_backup.copy_safety import check_copy_paths
 from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
+from photos_backup.space import print_destination_space
 
 if TYPE_CHECKING:
     from photos_backup.config import SdCardConfig
@@ -41,6 +42,7 @@ class Backup:
 
     def _copy(self) -> BackupSummary:
         check_copy_paths((self.src_path,), self.dst_path, workflow="SD Card")
+        print_destination_space(self.dst_path)
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)
         exclude = exclude_from_arg(self.exclude_file)

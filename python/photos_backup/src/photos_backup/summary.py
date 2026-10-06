@@ -453,6 +453,21 @@ def print_export_attempt(
     )
     if attempt["error"]:
         click.echo(f"  Error: {attempt['error']}")
+    if attempt.get("missing_count") is not None:
+        click.echo(f"  Missing files: {attempt['missing_count']}")
+    if attempt.get("error_count") is not None:
+        click.echo(f"  Export errors: {attempt['error_count']}")
+    if attempt["status"] in ("failed", "interrupted", "started"):
+        if attempt.get("download_report_path"):
+            click.echo(
+                f"  Download report (if written): {attempt['download_report_path']}"
+            )
+        if attempt.get("retry_arguments"):
+            click.echo(
+                f"  Retry export: {suggested_command(*attempt['retry_arguments'])}"
+            )
+        elif attempt["restricted"]:
+            click.echo("  Retry with the original manual export options/limit.")
 
 
 def _transfer_attention(receipts: list[dict]) -> list[str]:
@@ -471,6 +486,16 @@ def _transfer_attention(receipts: list[dict]) -> list[str]:
     never_succeeded = sum(row["last_success"] is None for row in receipts)
     if never_succeeded:
         attention.append(f"{never_succeeded} with no successful copy recorded")
+    older_copies = sum(
+        row.get("archive_exported_since_copy") is True for row in receipts
+    )
+    if older_copies:
+        attention.append(
+            f"{older_copies} with an archive export since the copy started"
+        )
+    newer_ssd = sum(row.get("ssd_copied_since_upload") is True for row in receipts)
+    if newer_ssd:
+        attention.append(f"{newer_ssd} with an SSD copy since the cloud upload started")
     return attention
 
 
@@ -496,7 +521,7 @@ def print_transfer_history(
             else "  No transfer receipts recorded"
         )
     for receipt in receipts:
-        _print_transfer_receipt(receipt, now=now)
+        _print_transfer_receipt(receipt, now=now, retry=True)
     if historical_receipts:
         click.echo("  Historical destinations (not currently configured)")
         for receipt in historical_receipts:
@@ -505,11 +530,23 @@ def print_transfer_history(
         click.echo(f"Warning: {error}", err=True)
 
 
-def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
+def _print_transfer_receipt(
+    receipt: dict, *, now: datetime.datetime, retry: bool = False
+) -> None:
     def timestamp(value: str) -> str:
         return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
 
     click.echo(f"  {receipt['step']}: {receipt['source']} → {receipt['destination']}")
+    if receipt.get("archive_exported_since_copy"):
+        click.echo(
+            "    Archive exported since this copy started (recorded-time hint; "
+            "destination files have not been checked)"
+        )
+    if receipt.get("ssd_copied_since_upload"):
+        click.echo(
+            "    SSD copy completed since the last cloud upload started "
+            "(recorded-time hint; destination files have not been checked)"
+        )
     attempt = receipt["last_attempt"]
     if attempt is None:
         click.echo("    No transfer receipts recorded; no successful copy recorded")
@@ -521,6 +558,8 @@ def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
     click.echo(f"    Attempt mode: {_transfer_mode(attempt)}")
     if attempt.get("error"):
         click.echo(f"    Error: {attempt['error']}")
+    if retry:
+        _print_transfer_retry(receipt)
     success = receipt["last_success"]
     click.echo(
         f"    Last successful copy: {timestamp(success['completed_at']) if success else '(never)'}"
@@ -539,6 +578,25 @@ def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
             details.append(f"{elapsed:.1f}s")
         if details:
             click.echo(f"    Successful copy details: {', '.join(details)}")
+
+
+def _print_transfer_retry(receipt: dict) -> None:
+    attempt = receipt["last_attempt"]
+    if attempt["status"] in ("failed", "interrupted"):
+        command = {
+            "SD Card": "sd-card",
+            "SSD: All Photos": "ssd",
+            "SSD: SD Card": "ssd",
+            "Remote": "remote",
+        }.get(receipt["step"])
+        if command:
+            arguments = [command]
+            if attempt.get("mode") == "mirror":
+                arguments.extend(["--delete", "--dry-run"])
+                label = "Preview mirror retry"
+            else:
+                label = "Retry copy"
+            click.echo(f"    {label}: {suggested_command(*arguments)}")
 
 
 def _transfer_mode(attempt: dict) -> str:

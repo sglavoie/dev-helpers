@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -33,6 +34,47 @@ class CopyWorkflowTests(unittest.TestCase):
         self.destination = self.root / "new parent" / "Backup Photos"
         self.exclude = self.root / "exclude photos.txt"
         self.exclude.write_text("*.tmp\n")
+
+    def test_space_reporting_failure_does_not_block_copy_preview_or_create_target(self):
+        with (
+            mock.patch(
+                "photos_backup.space.disk_usage",
+                side_effect=PermissionError("no capacity access"),
+            ),
+            mock.patch("photos_backup.space.click.echo") as echo,
+            mock.patch(
+                "photos_backup.sd_card.backup.stream_command",
+                return_value=subprocess.CompletedProcess([], 0, stdout=""),
+            ) as run,
+        ):
+            result = SdCardBackup(
+                SdCardConfig(self.source, self.destination, None), True
+            ).backup()
+        self.assertIsNone(result.error)
+        self.assertTrue(result.dry_run)
+        self.assertIn("--dry-run", run.call_args.args[0])
+        self.assertIn("free space unavailable", echo.call_args.args[0])
+        self.assertFalse(self.destination.parent.exists())
+
+    def test_preview_reports_space_from_existing_parent_before_running_transfer(self):
+        calls = []
+
+        def capacity(path):
+            calls.append(path)
+            return shutil.disk_usage(path)
+
+        def copy(*args, **kwargs):
+            self.assertEqual(calls[-1], self.root)
+            return subprocess.CompletedProcess([], 0, stdout="")
+
+        with (
+            mock.patch("photos_backup.space.disk_usage", side_effect=capacity),
+            mock.patch("photos_backup.sd_card.backup.stream_command", side_effect=copy),
+        ):
+            SdCardBackup(
+                SdCardConfig(self.source, self.destination, None), True
+            ).backup()
+        self.assertFalse(self.destination.parent.exists())
 
     def test_sd_card_missing_inputs_stop_before_destination_creation(self):
         for dry_run in (False, True):

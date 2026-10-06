@@ -1,3 +1,4 @@
+import datetime
 import dataclasses
 import json
 from unittest import mock
@@ -6,6 +7,7 @@ from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan
 from photos_backup.archive import ArchiveStateStore, open_archive
 from photos_backup.cli.cli import cli
+from photos_backup.cli.status import _latest_export_at
 from tests.test_cli import ArchiveCommandTestCase
 from tests.test_export import ExportTestCase, FakeRunner, THURSDAY, row
 
@@ -35,13 +37,61 @@ class ExportAttemptTests(ExportTestCase):
         self.assertEqual(attempt["mode"], "recent")
         self.assertEqual(attempt["status"], "succeeded")
         self.assertFalse(attempt["baseline_advanced"])
+
+        self.assertIsNone(attempt["retry_arguments"])
         self.assertEqual(attempt["report_path"], str(recent.report_path))
         failed = self.run_export(FakeRunner([row("missing.mov", missing=1)]))
         attempt = self.read_attempt()
         self.assertEqual(attempt["status"], "failed")
         self.assertEqual(attempt["error"], failed.failure_reason())
+        self.assertEqual(attempt["missing_count"], 1)
+        self.assertEqual(attempt["error_count"], 0)
+        self.assertEqual(
+            attempt["download_report_path"],
+            str(failed.report_path.with_suffix(".downloads.json")),
+        )
         self.assertEqual(self.paths.state_file.read_bytes(), state)
         self.assertEqual(self.state.last_report_path, full.report_path)
+
+    def test_successful_recent_time_survives_failures_and_interruption(self):
+        self.run_export(FakeRunner())
+        later = THURSDAY + datetime.timedelta(days=1)
+        self.probes = dataclasses.replace(self.probes, now=lambda: later)
+        self.run_export(
+            FakeRunner(), plan=ExportPlan(ExportMode.RECENT, "recent", later)
+        )
+        self.run_export(FakeRunner([row("missing.mov", missing=1)]))
+        self.assertEqual(_latest_export_at(THURSDAY, self.read_attempt()), later)
+
+        # Inspect the receipt directly inside the writer lock, avoiding a second lock.
+        def stop(arguments):
+            raw = json.loads(
+                (self.paths.metadata / "last-export-attempt.json").read_text()
+            )
+            self.assertEqual(raw["last_successful_export_at"], later.isoformat())
+            raise KeyboardInterrupt()
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_export(stop)
+        self.assertEqual(_latest_export_at(THURSDAY, self.read_attempt()), later)
+
+    def test_older_success_receipt_seeds_retained_time(self):
+        self.run_export(FakeRunner())
+        path = self.paths.metadata / "last-export-attempt.json"
+        document = json.loads(path.read_text())
+        del document["last_successful_export_at"]
+        path.write_text(json.dumps(document))
+        self.run_export(FakeRunner([row("missing.mov", missing=1)]))
+        self.assertEqual(
+            self.read_attempt()["last_successful_export_at"], document["completed_at"]
+        )
+
+    def test_unreadable_export_report_does_not_record_zero_missing_files(self):
+        self.run_export(lambda arguments: 0)
+        attempt = self.read_attempt()
+        self.assertEqual(attempt["status"], "failed")
+        self.assertIsNone(attempt["missing_count"])
+        self.assertIsNone(attempt["error_count"])
 
     def test_exceptions_and_interruptions_are_recorded_then_reraised(self):
         self.run_export(FakeRunner())
@@ -112,6 +162,10 @@ class ExportAttemptTests(ExportTestCase):
         self.assertEqual(
             self.read_attempt()["report_path"], str(relocated / raw["report_path"])
         )
+        self.assertEqual(
+            self.read_attempt()["download_report_path"],
+            str(relocated / raw["download_report_path"]),
+        )
 
 
 class ExportAttemptStatusTests(ArchiveCommandTestCase):
@@ -165,6 +219,10 @@ class ExportAttemptStatusTests(ArchiveCommandTestCase):
             json.dumps({**receipt, "version": 7}),
             json.dumps({**receipt, "report_path": "../escape"}),
             json.dumps({**receipt, "started_at": "yesterday"}),
+            json.dumps({**receipt, "missing_count": -1}),
+            json.dumps({**receipt, "error_count": True}),
+            json.dumps({**receipt, "download_report_path": "../escape"}),
+            json.dumps({**receipt, "retry_arguments": "recent --days 7"}),
         ):
             with self.subTest(invalid=invalid):
                 path.write_text(invalid)

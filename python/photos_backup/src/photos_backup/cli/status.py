@@ -21,7 +21,12 @@ from photos_backup.summary import (
     print_export_attempt,
     print_transfer_history,
 )
-from photos_backup.transfers import TransferHistory, classify_transfers
+from photos_backup.transfers import (
+    TransferHistory,
+    classify_transfers,
+    annotate_archive_freshness,
+    annotate_upstream_freshness,
+)
 
 
 def _configured_transfers(config_path: Path | None) -> list[dict]:
@@ -80,6 +85,10 @@ def status(ctx: click.Context, as_json: bool) -> None:
     configured = _configured_transfers(config_path)
     receipts, errors = TransferHistory(config_path).read()
     current, historical = classify_transfers(configured, receipts)
+    current = annotate_upstream_freshness(current)
+    current = annotate_archive_freshness(
+        current, config.archive if config else None, None
+    )
     now = datetime.datetime.now(datetime.UTC)
     document = {
         "version": 1,
@@ -109,6 +118,13 @@ def status(ctx: click.Context, as_json: bool) -> None:
                     last_export_attempt=attempt, export_attempt_error=attempt_error
                 )
                 state = archive.state_store.load()
+                exported_at = _latest_export_at(
+                    state.last_successful_export_at, attempt
+                )
+                current = annotate_archive_freshness(
+                    current, config.archive, exported_at
+                )
+                document["configured_transfers"] = current
                 now = archive.now()
                 plan = plan_export(config, state, now)
                 state_document = asdict(state)
@@ -138,3 +154,16 @@ def status(ctx: click.Context, as_json: bool) -> None:
         print_transfer_history(current, errors, now=now, historical_receipts=historical)
     if archive_error is not None:
         raise archive_error
+
+
+def _latest_export_at(
+    baseline: datetime.datetime | None, attempt: dict | None
+) -> datetime.datetime | None:
+    candidates = [baseline] if baseline else []
+    if attempt:
+        recorded = attempt.get("last_successful_export_at")
+        if recorded:
+            candidates.append(datetime.datetime.fromisoformat(recorded))
+        if attempt["status"] == "succeeded":
+            candidates.append(datetime.datetime.fromisoformat(attempt["completed_at"]))
+    return max(candidates) if candidates else None

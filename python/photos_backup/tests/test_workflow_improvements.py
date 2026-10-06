@@ -18,7 +18,7 @@ from photos_backup.config import SdCardConfig, SsdConfig
 from photos_backup.errors import ActionRequired
 from photos_backup.ssd.backup import Backup as SsdBackup
 from photos_backup.summary import BackupSummary
-from photos_backup.transfers import TransferHistory
+from photos_backup.transfers import TransferHistory, annotate_archive_freshness
 from tests import isolate_transfer_history
 from tests.test_cli import ArchiveCommandTestCase
 from tests.test_verify import MONDAY, THURSDAY, VerifyTestCase, write_export_db
@@ -179,6 +179,17 @@ class SsdSafetyTests(unittest.TestCase):
 
 
 class PipelinePreflightTests(ArchiveCommandTestCase):
+    def test_missing_apple_photos_suggests_copy_only_without_starting_work(self):
+        self.config_path.write_text("")
+        with mock.patch("photos_backup.cli.backup_all._check_executables") as check:
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "backup-all"]
+            )
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("backup-all --skip-apple-photos", result.output)
+        self.assertIn(str(self.config_path), result.output)
+        check.assert_not_called()
+
     def test_skip_reasons_distinguish_explicit_flags_from_missing_sections(self):
         self.config_path.write_text("")
         for explicit in (False, True):
@@ -498,7 +509,77 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertEqual(paths.state_file.read_text(), "invalid")
 
 
+class ArchiveFreshnessTests(ArchiveCommandTestCase):
+    def test_status_compares_exact_archive_sources_without_probing_destinations(self):
+        paths = self.initialized_archive(last_successful_export_at=THURSDAY)
+        with self.config_path.open("a") as config:
+            config.write(
+                f'\n[ssd]\nsource = "{paths.archive}"\ndestination = "{self.root}/offline"\n'
+                f'\n[rclone]\nsource = "{paths.archive.parent}"\nremote = "b2:photos"\n'
+            )
+        older = THURSDAY - datetime.timedelta(days=1)
+        newer = THURSDAY + datetime.timedelta(days=1)
+        history = TransferHistory(self.config_path)
+        for copied_at, expected in ((older, True), (newer, False)):
+            with mock.patch(
+                "photos_backup.transfers._now", return_value=copied_at.isoformat()
+            ):
+                history.run(
+                    "SSD: All Photos",
+                    paths.archive,
+                    self.root / "offline" / paths.archive.name,
+                    lambda: BackupSummary(step_name="SSD: All Photos"),
+                    dry_run=False,
+                )
+                history.run(
+                    "Remote",
+                    paths.archive.parent,
+                    "b2:photos",
+                    lambda: BackupSummary(step_name="Remote"),
+                    dry_run=False,
+                )
+            with mock.patch(
+                "pathlib.Path.resolve",
+                side_effect=AssertionError("no filesystem resolution"),
+            ):
+                rows, errors = history.read()
+                annotated = annotate_archive_freshness(rows, paths.archive, THURSDAY)
+            self.assertEqual(errors, [])
+            by_step = {row["step"]: row for row in annotated}
+            self.assertIs(
+                by_step["SSD: All Photos"]["archive_exported_since_copy"], expected
+            )
+            self.assertIsNone(by_step["Remote"]["archive_exported_since_copy"])
+            with self.mounted():
+                result = self.runner.invoke(
+                    cli, ["--config", str(self.config_path), "status", "--json"]
+                )
+                text = self.runner.invoke(
+                    cli, ["--config", str(self.config_path), "status"]
+                )
+            self.assertEqual(result.exit_code, 0, result.output)
+            rows = {
+                row["step"]: row
+                for row in json.loads(result.stdout)["configured_transfers"]
+            }
+            self.assertIs(
+                rows["SSD: All Photos"]["archive_exported_since_copy"], expected
+            )
+            self.assertEqual(
+                "Archive exported since this copy" in text.stdout, expected
+            )
+            self.assertFalse((self.root / "offline").exists())
+
+
 class VerificationReportTests(VerifyTestCase):
+    def assert_timing(self, document):
+        started = datetime.datetime.fromisoformat(document["started_at"])
+        completed = datetime.datetime.fromisoformat(document["completed_at"])
+        self.assertEqual(started.utcoffset(), datetime.timedelta(0))
+        self.assertEqual(completed.utcoffset(), datetime.timedelta(0))
+        self.assertGreaterEqual(completed, started)
+        self.assertGreaterEqual(document["elapsed_seconds"], 0)
+
     def test_json_archive_open_errors_preserve_exit_codes_without_scanning(self):
         before = self.paths.state_file.read_bytes()
         for error in (
@@ -514,6 +595,7 @@ class VerificationReportTests(VerifyTestCase):
                 result = self.invoke_verify(None, "--json")
             self.assertEqual(result.exit_code, getattr(error, "exit_code", 1))
             document = json.loads(result.stdout)
+            self.assert_timing(document)
             self.assertEqual(document["archive"], str(self.archive_root))
             self.assertFalse(document["passed"])
             self.assertEqual(document["checks"], [])
@@ -542,6 +624,7 @@ class VerificationReportTests(VerifyTestCase):
                     result = self.invoke_verify(destination, "--json")
                     self.assertEqual(result.exit_code, expected_code, result.output)
                     document = json.loads(result.stdout)
+                    self.assert_timing(document)
                     self.assertEqual(document["passed"], expected_code == 0)
                     self.assertIsNone(document["archive_error"])
                     self.assertEqual(len(document["checks"]), 6)

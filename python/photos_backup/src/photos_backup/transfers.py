@@ -95,6 +95,58 @@ def classify_transfers(
     return current, historical
 
 
+def annotate_archive_freshness(
+    receipts: list[dict],
+    archive: Path | None,
+    exported_at: datetime.datetime | None,
+) -> list[dict]:
+    """Compare recorded times for exact sources without probing mounted paths.
+
+    A copy's start is the conservative boundary: its completion time alone
+    cannot establish that it included an export which happened during the copy.
+    """
+    return [
+        {
+            **row,
+            "archive_exported_since_copy": (
+                exported_at
+                > datetime.datetime.fromisoformat(row["last_success"]["started_at"])
+                if row["source"] == str(archive)
+                and exported_at is not None
+                and row["last_success"] is not None
+                else None
+            ),
+        }
+        for row in receipts
+    ]
+
+
+def annotate_upstream_freshness(receipts: list[dict]) -> list[dict]:
+    """Compare current SSD routes with cloud uploads, using lexical paths only."""
+    result = []
+    for row in receipts:
+        upstream = [
+            source["last_success"]["completed_at"]
+            for source in receipts
+            if row["step"] == "Remote"
+            and source["step"].startswith("SSD:")
+            and source["last_success"] is not None
+            and Path(source["destination"]).is_relative_to(Path(row["source"]))
+        ]
+        result.append(
+            {
+                **row,
+                "ssd_copied_since_upload": (
+                    max(datetime.datetime.fromisoformat(value) for value in upstream)
+                    > datetime.datetime.fromisoformat(row["last_success"]["started_at"])
+                    if upstream and row["last_success"] is not None
+                    else None
+                ),
+            }
+        )
+    return result
+
+
 class TransferHistory:
     def __init__(self, config_path: Path | None, *, root: Path | None = None):
         self.directory = (root if root is not None else history_root()) / _key(

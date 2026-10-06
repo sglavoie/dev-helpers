@@ -15,7 +15,11 @@ from photos_backup.apple_photos.export import ApplePhotosExport
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import ensure_writer
 from photos_backup.archive import open_archive
-from photos_backup.cli.context import apple_photos_config_from, config_path_from
+from photos_backup.cli.context import (
+    apple_photos_config_from,
+    config_path_from,
+    suggested_command,
+)
 from photos_backup.config import (
     ApplePhotosConfig,
     MissingSection,
@@ -85,7 +89,13 @@ def backup_all(
     # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
     # Resolve enabled configurations and their dependencies before any effects.
-    config = None if skip_apple_photos else apple_photos_config_from(ctx)
+    try:
+        config = None if skip_apple_photos else apple_photos_config_from(ctx)
+    except MissingSection as error:
+        raise MissingSection(
+            f"{error}. For a copy-only run, use "
+            f"`{suggested_command('backup-all', '--skip-apple-photos')}`."
+        ) from error
     ssd_config = _load_optional(skip_ssd, lambda: load_ssd_config(config_path))
     sd_config = _load_optional(
         skip_sd_card and ssd_config is None, lambda: load_sd_card_config(config_path)

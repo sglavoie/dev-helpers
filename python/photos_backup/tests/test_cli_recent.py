@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import json
+import shlex
 import unittest
 from unittest import mock
 
@@ -71,6 +73,46 @@ class RecentTests(ArchiveCommandTestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("backup is incomplete", result.output)
         self.assertIn("Export report:", result.output)
+
+    def test_status_can_retry_recent_export_with_recorded_options(self):
+        self.run_recent(
+            FakeRunner([row("missing.mov", missing=1)]),
+            "--days",
+            "7",
+            "--download-timeout",
+            "19",
+        )
+        with self.mounted():
+            status = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "status"]
+            )
+            document = json.loads(
+                self.runner.invoke(
+                    cli, ["--config", str(self.config_path), "status", "--json"]
+                ).stdout
+            )
+        self.assertEqual(status.exit_code, 0, status.output)
+        hint = next(
+            line.split("Retry export: ")[1]
+            for line in status.stdout.splitlines()
+            if "Retry export:" in line
+        )
+        self.assertEqual(
+            shlex.split(hint),
+            [
+                "photos-backup",
+                "--config",
+                str(self.config_path),
+                "recent",
+                "--days",
+                "7",
+                "--download-timeout",
+                "19",
+            ],
+        )
+        self.assertIn("Missing files: 1", status.stdout)
+        self.assertIn(".downloads.json", status.stdout)
+        self.assertEqual(document["last_export_attempt"]["missing_count"], 1)
 
     def test_dry_run_does_not_export_or_create_archive(self):
         runner = FakeRunner()

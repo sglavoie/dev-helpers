@@ -27,6 +27,7 @@ from photos_backup.apple_photos.plan import (
 )
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import read_export_report
+from photos_backup.space import print_destination_space
 
 if TYPE_CHECKING:
     from photos_backup.archive import Archive
@@ -103,6 +104,7 @@ class ApplePhotosExport:
         plan = self.plan or plan_export(
             self.config, self.archive.state_store.load(), now
         )
+        print_destination_space(self.archive.paths.archive)
         if self.plan_only:
             return ExportResult(plan=plan, exit_code=0, performed=False)
         if self.archive.dry_run:

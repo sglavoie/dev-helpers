@@ -422,9 +422,14 @@ class DirectExportTests(ExportTestCase):
                         self.assertEqual(len(warnings), 1)
                         warning = warnings[0]
                     else:
-                        echo.assert_called_once()
-                        self.assertTrue(echo.call_args.kwargs["err"])
-                        warning = echo.call_args.args[0]
+                        warnings = [
+                            call
+                            for call in echo.call_args_list
+                            if "Warning:" in call.args[0]
+                        ]
+                        self.assertEqual(len(warnings), 1)
+                        self.assertTrue(warnings[0].kwargs["err"])
+                        warning = warnings[0].args[0]
                     self.assertIn("may be partial", warning)
                     self.assertIn(str(error), warning)
                     self.assertIn(str(result.report_path.parent), warning)

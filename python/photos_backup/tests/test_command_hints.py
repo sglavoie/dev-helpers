@@ -6,8 +6,10 @@ from unittest import mock
 
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
+from photos_backup.cli.backup_all import backup_all
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import suggested_command
+from photos_backup.cli.context import export_retry_arguments
 from tests.test_cli import ArchiveCommandTestCase
 
 
@@ -20,6 +22,23 @@ class CommandHintTests(ArchiveCommandTestCase):
         self.volume = self.root / "my photos' volume"
         self.volume.mkdir()
         self.options = ["--config", str(self.config_path), "--volume", str(self.volume)]
+
+    def test_pipeline_retry_only_repeats_export_and_preserves_timeout(self):
+        with backup_all.make_context(
+            "backup-all", ["--download-timeout", "19", "--delete-remote"]
+        ):
+            arguments = export_retry_arguments()
+        self.assertEqual(
+            arguments,
+            [
+                "backup-all",
+                "--skip-sd-card",
+                "--skip-ssd",
+                "--skip-remote",
+                "--download-timeout",
+                "19",
+            ],
+        )
 
     def test_status_bootstrap_hint_preserves_quoted_archive_options(self):
         result = self.runner.invoke(cli, [*self.options, "status"])

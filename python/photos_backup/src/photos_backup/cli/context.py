@@ -32,6 +32,26 @@ def config_path_from(ctx: click.Context) -> Path | None:
     return ctx.ensure_object(CliContext).config_path
 
 
+def export_retry_arguments() -> list[str] | None:
+    """Capture the export options, excluding unrelated pipeline transfers."""
+    ctx = click.get_current_context(silent=True)
+    if ctx is None or ctx.command.name not in (
+        "daily",
+        "bootstrap",
+        "recent",
+        "apple-photos",
+        "backup-all",
+    ):
+        return None
+    arguments = [ctx.command.name]
+    if ctx.command.name == "backup-all":
+        arguments.extend(["--skip-sd-card", "--skip-ssd", "--skip-remote"])
+    for key in ("days", "download_timeout"):
+        if key in ctx.params:
+            arguments.extend(["--" + key.replace("_", "-"), str(ctx.params[key])])
+    return arguments
+
+
 def apple_photos_config_from(ctx: click.Context) -> ApplePhotosConfig:
     """Load the Apple Photos section with any `--volume` override applied."""
     cli_context = ctx.ensure_object(CliContext)

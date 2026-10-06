@@ -8,6 +8,7 @@ from photos_backup.cli.backup_all import backup_all
 from photos_backup.cli.bootstrap import bootstrap
 from photos_backup.cli.cleanup_local_export import cleanup_local_export
 from photos_backup.cli.daily import daily
+from photos_backup.cli.doctor import doctor
 from photos_backup.cli.remote import remote
 from photos_backup.cli.recent import recent
 from photos_backup.cli.sd_card import sd_card
@@ -25,6 +26,7 @@ def _volume_override(
 
 
 @click.group()
+@click.version_option(package_name="photos_backup", prog_name="photos-backup")
 @click.option(
     "--config",
     "config_path",
@@ -53,6 +55,7 @@ cli.add_command(backup_all)
 cli.add_command(bootstrap)
 cli.add_command(cleanup_local_export)
 cli.add_command(daily)
+cli.add_command(doctor)
 cli.add_command(remote)
 cli.add_command(recent)
 cli.add_command(sd_card)

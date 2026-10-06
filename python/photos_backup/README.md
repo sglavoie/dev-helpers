@@ -71,10 +71,21 @@ cleanup; use `daily` for that. SSD and cloud deletions require separate explicit
 flags (`--delete` and `--delete-remote` on `backup-all`). `verify` checks the
 primary archive, not the SSD/cloud copies, and does not checksum file contents.
 
+## Reference guides
+
+- [Archive safety and cleanup](docs/archive-safety.md): locking, state layout,
+  deletion approval, retiring the legacy export, and cross-Mac takeover.
+- [Deployment and migration](docs/deployment.md): stow, goback, a new Mac,
+  and migrating the old environment configuration.
+- [Restore rehearsal](docs/restore.md): recover sample media from SSD and cloud.
+- [Development](docs/development.md): tests, dependency compatibility, and profiling.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `photos-backup doctor` | Check configuration, local paths, exclusions, and installed tools without running backups |
+| `photos-backup --version` | Show the installed application version |
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
 | `photos-backup verify --json` | Print all verification findings as one JSON document |
@@ -139,7 +150,8 @@ Only the sections a command needs are read, so an Apple Photos export works on a
 machine that has no SD card, SSD, or rclone configuration. `backup-all` and `ssd`
 report a workflow whose section is absent as skipped instead of failing.
 Pipeline summaries distinguish `Skipped by request` from
-`Not configured: [section]`.
+`Not configured: [section]`. Apple Photos is the exception: `backup-all` requires
+`[apple_photos]` unless you pass `--skip-apple-photos` for a copy-only run.
 Before `backup-all` starts any export or transfer, it validates every enabled
 section and any configuration it depends on. Invalid configuration exits 2
 immediately. Skipped sections are not loaded unless another enabled step needs
@@ -191,49 +203,25 @@ rsync dry runs retain itemized proposed changes even when redirected.
 The rclone log mode explicitly enables statistics at `NOTICE` level so they remain
 visible without `--progress` ([rclone logging options](https://rclone.org/docs/#stats-log-level-string)).
 
-### Archive layout and safety
+Local export, SD-card, and SSD workflows print available destination filesystem
+space after their path checks, including previews. For a destination not yet
+created, this uses the nearest existing ancestor. This is informational: the tool
+does not estimate incremental backup size or promise that the run will fit. If
+space cannot be read, it prints that fact and continues. No remote capacity query
+is performed.
 
-Everything the archive owns lives under one hidden directory inside
-`apple_photos.archive`:
+### Checking setup
 
-| Path | Contents |
-|------|----------|
-| `.photos-backup/export.db` | osxphotos export database |
-| `.photos-backup/state.json` | versioned run state |
-| `.photos-backup/last-export-attempt.json` | latest export attempt, separate from successful baseline state |
-| `.photos-backup/archive.lock` | `flock` held for the duration of a run |
-| `.photos-backup/reports/` | per-host export and late-additions reports |
-| `.photos-backup/migrations/` | last-known-good export-database backup |
-| `.photos-backup/cleanup/` | pending cleanup manifests |
-
-Before any write, `apple_photos.volume` must exist, be a real mount point, not be
-a symlink, and resolve to itself; the archive must descend from it through real
-directories only. A missing volume is never created, and only the archive subtree
-is. Paths containing `..`, symlinked components, or a component that is not a
-directory fail closed with an error naming the offending path.
-
-A volume named with `--volume` waives the mount-point requirement only, so an
-ordinary directory such as `~/Pictures/archive` is accepted. Every other check
-still applies, including having to exist already: a mistyped `--volume` fails
-instead of quietly exporting into a new tree.
-
-One run at a time holds an exclusive `flock` on `archive.lock`, released when the
-run ends or the process dies, so runs cannot overlap. State is replaced
-atomically and rejects an unrecognized version, an unknown key, a naive
-timestamp, or unparseable JSON rather than guessing.
-
-State version 2 stores report paths beneath the archive relative to its root,
-so `status` and `verify` find them after a mount name or archive location changes.
-Version 1 remains readable: absolute paths to managed `.photos-backup/reports/`
-files are interpreted beneath the current archive. Other historical absolute
-report references retain their original location. Read-only commands do not
-rewrite state; the next state write saves version 2. Update photos-backup on
-every Mac sharing the archive before a newer writer saves state: older builds
-reject version 2. This change concerns report references, not relocation of
-other archive metadata such as pending cleanup manifests.
-
-A `--dry-run` persists nothing: it creates no directory, no lock file, and no
-state, and takes only a read lock when a lock file already exists.
+`photos-backup doctor` collects configuration, local path, archive-access, and
+exclusion-file problems in one pass. It reports Python, application, and dependency
+versions, plus paths and versions of tools needed by configured workflows. Version
+queries have a five-second timeout. It creates no directories, receipts, or archive
+state, does not load the Photos library, and does not contact cloud storage.
+A missing optional section is skipped; an uninitialized archive is identified with
+a bootstrap hint. This is setup diagnosis, not file verification or a guarantee
+that a subsequent backup will succeed. Exit codes are 2 for configuration errors,
+1 for tool/I/O failures, and 3 for paths or exclusions requiring attention, in that
+priority order; otherwise 0. Configured but disconnected SD cards are reported.
 
 ### Bootstrapping an archive
 
@@ -276,6 +264,13 @@ Status also shows the latest Apple Photos export attempt: mode, outcome, times,
 Mac, report path (if the exporter wrote it), error, and whether it advanced the
 baseline. This receipt travels with the archive and includes failed, interrupted,
 recent, and custom exports without changing cadence or cleanup decisions.
+New receipts also record missing-file and export-error counts when a usable
+export report exists. A failed or interrupted attempt shows the download report
+path (if written) and a copyable retry command when the original options are
+known. Recent retries retain `--days` and the download timeout; their rolling
+date window is recalculated when rerun. Pipeline export retries skip the SD-card,
+SSD, and remote steps. Custom/limited manual exports ask you to reuse the original
+options instead of guessing. Older receipts remain readable without these fields.
 It describes the export step, not subsequent bootstrap coverage or cleanup.
 Attempts start when the exporter is invoked; earlier configuration, mount, and
 takeover refusals do not replace the receipt. A process killed before it records
@@ -283,6 +278,17 @@ completion leaves an explicit "completion not recorded (running or interrupted)"
 status. Dry runs never update it, and existing archives show "not recorded" until
 their next real export. Receipt write failures warn without masking export results;
 an unreadable receipt is reported without repairing it or hiding baseline state.
+
+Status retains the last successful export time across subsequent failed or
+interrupted exports, including successful recent and custom runs. Older receipts
+fall back to the success they still record and the baseline; lost history cannot
+be reconstructed. Direct archive copies get a recorded-time freshness hint.
+Cloud routes also show when a currently configured SSD copy into their source
+completed after the last successful upload started. Matching is lexical and never
+probes disconnected copy drives; symlink aliases are not inferred. These hints do
+not verify destination contents. Failed/interrupted current transfer routes show
+copyable retry commands; mirrors suggest `--delete --dry-run` first. An SSD retry
+runs its configured SSD routes together. Historical routes have no retry hint.
 
 Transfer history records the mode of both the latest attempt and the last
 successful copy: `copy` preserves destination-only files, while `mirror` enables
@@ -322,6 +328,15 @@ The additive `configured_transfers` field lists every current transfer route,
 including routes with no receipt (`last_attempt` and `last_success` are null).
 `historical_transfers` contains receipts whose step, source, or destination no
 longer matches the configuration. `transfers` still contains all recorded receipts.
+Each configured route also has `archive_exported_since_copy`: true when a known
+successful archive export is newer than the last successful copy's start, false
+when the compared export is no newer, or null when comparison is unavailable.
+This uses the baseline export timestamp and, when successful, the latest export
+attempt's completion (including recent/custom exports). Only an exact configured
+archive source is compared; parent directories, descendants, symlink aliases,
+and indirect SSD-to-cloud routes are not inferred. The text view highlights true
+values. This is a recorded-time hint, not destination verification or a guarantee
+that a false value means everything is current. Status still performs no file scan.
 
 ### Transfer history
 
@@ -380,7 +395,7 @@ findings only; an archive-open error does not create a report file.
 Verification prints its current phase and file-check count to stderr, with
 periodic updates during long scans. Progress counts inspected records, including
 missing or invalid files; the final findings determine whether verification
-passed. JSON reports retain their existing format.
+passed. JSON reports retain their existing fields and add timing information.
 
 | Check | Fails when |
 |-------|------------|
@@ -409,9 +424,12 @@ file path rather than just the terminal's three-path sample:
 photos-backup verify --report ~/Desktop/photos-verification.json
 ```
 
-The JSON contains `version`, `archive`, `passed`, and a `checks` array; each check
-has `name`, `passed`, `detail`, and `paths`. It is saved even when verification
-fails, and verification keeps its usual exit code. Choose a new file outside the
+The JSON contains `version`, `archive`, `passed`, `archive_error`, and a `checks`
+array, plus UTC `started_at` and `completed_at` timestamps and `elapsed_seconds`
+measured with a monotonic clock. Timing covers archive opening and verification,
+not report writing; archive-open errors also include timing in `--json` output.
+Each check has `name`, `passed`, `detail`, and `paths`. The report is saved even
+when verification fails, and verification keeps its usual exit code. Choose a new file outside the
 archive in an existing directory: invalid parent directories are rejected before
 the scan starts. Reports never overwrite existing files or modify archive contents.
 A report write failure exits 1.
@@ -420,8 +438,8 @@ Use `photos-backup verify --json` to print the same document directly to stdout,
 including failed findings, with the same exit codes. Progress and diagnostics stay
 on stderr. It can be combined with `--report` to save an identical document while
 also printing JSON; the saved-report notice then goes to stderr. Configuration or
-archive-opening errors that prevent verification from starting produce CLI errors
-on stderr without a findings document.
+argument errors produce CLI diagnostics without a JSON document; archive-opening
+errors produce the error document described above.
 
 ### Daily export
 
@@ -591,273 +609,6 @@ timestamps, or mirrors deletions. Finish bootstrap separately when a complete
 library backup is wanted. Stop an existing bootstrap with Ctrl+C and wait for
 it to exit before starting `recent`; both use the same archive lock.
 
-### Mirroring deletions
-
-Before approving a pending run, preview its current effect:
-
-```sh
-photos-backup approve-cleanup RUN_ID --dry-run
-```
-
-The preview applies the same owner, manifest, and library revalidation checks as
-approval. It lists the paths and total bytes that would be deleted, plus changed,
-restored, or unreviewed candidates that would be kept. It creates no lock file,
-changes no state, and leaves the cleanup pending. Approval revalidates again,
-so a preview does not authorize later changes. `--dry-run` cannot be combined
-with `--discard`.
-
-Once an export is done, `daily` reconciles the archive against the library so a
-photo deleted in Photos eventually leaves the archive too. Nothing is ever
-deleted by osxphotos itself: `--cleanup` is never passed, and every deletion goes
-through the check below.
-
-Reconciliation is skipped outright, leaving the archive untouched, when
-`apple_photos.mirror` is `false`, the run was incremental, the export was not
-clean, or assets are missing from iCloud — an export that does not describe the
-whole library may not decide what the library no longer has.
-
-Otherwise every export-database record absent from the library is mapped back to
-the files it wrote, and each file in the archive is classified:
-
-| Class | Meaning |
-|-------|---------|
-| candidate | Exactly one absent asset claims the file, and it still matches the recorded size and modification time |
-| changed | An absent asset claims it, but the file on disk no longer matches what osxphotos recorded |
-| ambiguous | More than one export-database asset claims the same path |
-| unknown | No export-database record claims the file at all |
-
-`.DS_Store`, `.localized`, and AppleDouble `._` files are ignored, so browsing
-the archive in the Finder never blocks a cleanup. Deletion happens automatically
-only when there is nothing changed, ambiguous, or unknown, and the absent assets
-stay within both `cleanup_max_assets` (default 10) and `cleanup_max_fraction`
-(default 0.1%). Emptied directories are then pruned, and
-`last_mirror_completed_at` advances only when the mirror is actually complete.
-
-Anything else is written to `.photos-backup/cleanup/RUN_ID.json`, recorded in
-`state.pending_cleanup_run_id`, and the run exits 3 naming the manifest. That
-manifest lists the exact candidates with their signatures alongside the changed,
-ambiguous, and unknown paths, and is never rewritten, so the set being approved
-is the set that was reviewed. While a run is pending, later `daily` runs still
-export normally but neither recompute nor replace it; they exit 3 until it is
-resolved.
-
-`photos-backup approve-cleanup RUN_ID` deletes those files, but only after
-recomputing the reconciliation from scratch. Invoking it with the run ID is the
-approval: it does not prompt or require a terminal, so review the manifest first.
-It refuses a run that is not the pending one, a manifest that is gone or
-malformed, and a Mac that does not own
-the archive. A file is deleted only when its path, UUID, size, and modification
-time still match the manifest exactly, so a replacement whose export-database
-signature was refreshed too is reported as kept rather than deleted. Any other
-candidate, including one that appeared after the manifest was written, is left
-for the next full export to propose, which keeps the mirror open until a person
-has seen every deletion.
-
-`photos-backup approve-cleanup RUN_ID --discard` is the other way out: it clears
-the pending run without deleting anything and leaves the manifest on disk as the
-record of what was rejected. Because it touches no file, any Mac that can read
-the archive may discard, while only the owning Mac may approve. A later full
-export proposes whatever is still deletable under a new run id.
-
-### Deleting the legacy local export
-
-`~/Pictures/export` predates the archive and is not imported into it. Once the
-archive holds everything, `photos-backup cleanup-local-export` empties that
-directory — and nothing else. It has no path argument: the target is always
-`apple_photos.legacy_export`, so no invocation can aim it elsewhere.
-
-Every one of these must hold before a single file is deleted:
-
-| Gate | Refused when |
-|------|--------------|
-| terminal | stdin is not a terminal, so a script, a scheduled job, or a test can never reach the deletion |
-| mount | `apple_photos.volume` is not a real, resolved mount point |
-| bootstrap | the archive has no `initialized_at` |
-| verification | `verify` fails any check in this same run |
-| target | the directory is the filesystem root, the home directory, the archive, the archive volume, a Photos library, or a parent of any of them |
-| contents | anything under it is a symlink, a Photos library, or a file an Apple Photos export does not write |
-| confirmation | the full directory path is not typed back at the prompt |
-
-Recognized contents are media and sidecar files (`.jpg`, `.heic`, `.dng`, `.mov`,
-`.aae`, `.json`, `.xmp`, and the rest), the `.osxphotos_export.db` files, and the
-`.DS_Store`, `.localized`, and AppleDouble `._` files macOS leaves behind. One
-unrecognized file refuses the whole run rather than being skipped, because a
-directory holding something unexplained is not the directory this command was
-built to delete.
-
-The prompt names the directory, the file count, and the total size before asking.
-Typing anything but the exact path cancels and exits 0 — a refused confirmation
-is not a failure. The directory itself is kept; only its contents and the
-directories they emptied are removed. `--dry-run` prints the same report,
-prompts for nothing, and deletes nothing.
-
-### Cross-Mac takeover
-
-The archive records the hostname that last wrote it in `state.writer_hostname`.
-On macOS this is the configured `LocalHostName` (read with
-`scutil --get LocalHostName`) plus `.local`, not the network-dependent hostname.
-Tailscale, DNS, and DHCP changes therefore do not trigger a takeover. If the
-local name cannot be read, the command stops instead of using a network name.
-When that name still matches, `daily` costs one state read and never opens the
-Photos library for a takeover check. When it differs — a second Mac, or a Mac
-whose configured local name changed —
-the run first proves that this Mac holds the same photos.
-
-Every export-database record is matched to a library asset on
-`original_filename` plus iCloud cloud GUID, which survives the per-library UUIDs
-that Photos assigns. The run stops with exit 3, having written nothing, when:
-
-| Situation | Reading |
-|-----------|---------|
-| No record carries a cloud GUID | the library cannot be identified |
-| Not one record exists in the library | this is a different library |
-| Absence exceeds `cleanup_max_assets` or `cleanup_max_fraction` | the library is incomplete |
-
-Below those limits the absent records become deletion candidates rather than a
-reason to stop. If matched assets carry new UUIDs, the export database is
-repointed at this library with `osxphotos exportdb --migrate-photos-library`.
-That runs only when a UUID actually changed, so an unchanged writer and a
-returning Mac both skip it.
-
-Before migrating, the live database is copied to
-`.photos-backup/migrations/export.db.last-known-good` through the SQLite backup
-API, so an uncheckpointed write-ahead log travels with it. The migration must
-leave no record still pointing at the previous library; a failure or a stale
-record restores that backup and exits 3. `state.writer_hostname` is only written
-after the migration succeeds, under the same archive lock, so an interrupted
-takeover is simply retried.
-
-A `--dry-run` reports the comparison and the migration it would run without
-copying, migrating, or claiming the archive.
-
-### Migrating from `~/.osxphotos.env`
-
-`~/.osxphotos.env` and `python-dotenv` are no longer used. Move the values into
-the TOML file as follows:
-
-| Environment variable | TOML key |
-|----------------------|----------|
-| `APPLE_PHOTOS_DST_PATH` | `apple_photos.legacy_export` |
-| `APPLE_PHOTOS_LIMIT_EXPORT` | `apple_photos.limit_export` |
-| `APPLE_PHOTOS_SPOUSE_DEVICE_MODELS` | `apple_photos.spouse_device_models` (array) |
-| `SD_CARD_SRC_PATH` | `sd_card.source` |
-| `SD_CARD_DST_PATH` | `sd_card.destination` |
-| `SD_CARD_EXCLUDE_FILE` | `sd_card.exclude_file` |
-| `ALL_PHOTOS_PATH` | `ssd.source` |
-| `ALL_PHOTOS_EXCLUDE_FILE` | `ssd.exclude_file` |
-| `SSD_DST_PATH` | `ssd.destination` |
-| `RCLONE_REMOTE` | `rclone.remote` |
-| `RCLONE_SRC_PATH` | `rclone.source` (defaults to `ssd.destination`) |
-
-`APPLE_PHOTOS_DST_PATH` and `ALL_PHOTOS_PATH` held the same export directory, so
-`ssd` now copies that directory once instead of twice. Any `ONE_DRIVE_*` values
-in the old file are unused credentials and must not be carried over. An exclude
-file that does not exist on disk is warned about and ignored for ordinary copies;
-SSD deletion-enabled runs refuse it instead.
-
-## Deployment
-
-### Stow-managed configuration
-
-The live configuration is not written by hand. It is a stow package in the
-dotfiles repository:
-
-```
-~/dotfiles/osxphotos-backup/.config/osxphotos-backup/photos-backup.toml
-```
-
-`osxphotos-backup` is listed in the dotfiles `justfile`, so `just all` and
-`just delete` cover it like every other package. To deploy it alone:
-
-```bash
-cd ~/dotfiles
-stow --no --verbose --target=$HOME osxphotos-backup   # simulate first
-stow --verbose --target=$HOME osxphotos-backup        # then link
-```
-
-`~/.config/osxphotos-backup` becomes a symlink into the repository, so editing
-the file in `~/dotfiles` is the same as editing the live configuration. Update
-it there, commit, and `git pull` on the other Mac; nothing needs to be restowed
-for a content change, only for a new package.
-
-Both Macs share `apple_photos.volume` and `apple_photos.archive` because the
-archive travels with the drive. `library`, `[sd_card]`, and `[ssd]` are the
-per-Mac lines: a Mac without an SD reader or a second drive simply omits those
-sections, and the commands that need them report themselves as skipped.
-
-### Running it from goback
-
-`goback run daily` runs this tool as a warning-only companion after its own
-rsync. Add one entry to the profile in `~/.goback.json`:
-
-```json
-"dailyCompanions": [
-  {
-    "id": "apple-photos",
-    "name": "Apple Photos",
-    "command": ["photos-backup", "daily"],
-    "dryRunArgs": ["--dry-run"]
-  }
-]
-```
-
-`command` is the program followed by each argument as a separate item; a single
-shell string is rejected, because companions are executed without a shell.
-`photos-backup` is resolved through `PATH`, so the editable install above is
-what makes the entry work — reinstall with `uv tool install --editable .` on a
-machine that only has the older `cli` entry point.
-
-The companion never changes the exit status of `goback run daily`: the rsync
-result alone decides it, while both outcomes are printed in one table and
-recorded in the goback history as `daily` and `companion/apple-photos`. A
-`goback run daily --dry-run` appends `--dry-run` here too, so a dry run can
-never export for real.
-
-### First run on a new Mac
-
-1. Install the tool, as above.
-2. Clone the dotfiles repository and stow `osxphotos-backup`, then check
-   `apple_photos.library` and the `[sd_card]`/`[ssd]` sections against what this
-   Mac actually has.
-3. Mount the archive drive.
-4. Run `photos-backup bootstrap --dry-run` to see the export it would run, then
-   `photos-backup bootstrap` until it prints `Archive initialized`. On a Mac that
-   joins an archive another Mac already initialized, run
-   `photos-backup daily --dry-run` instead and resolve the takeover it reports.
-5. Run `photos-backup verify` and fix anything that fails.
-6. Add the `dailyCompanions` entry above to that Mac's goback profile, or
-   schedule `photos-backup daily` directly, treating exit 3 as a notification
-   rather than an alarm.
-7. Only once all of that holds, run `photos-backup cleanup-local-export` to
-   retire `~/Pictures/export`.
-
-The two Macs write the same archive one at a time. Whoever mounts the drive next
-runs `daily`, which proves the library matches before writing and repoints the
-export database at it if needed; the other Mac does nothing until it has the
-drive. Deletions are the exception: only the Mac that currently owns the archive
-may run `approve-cleanup`, though either may `--discard` a pending run.
-
-### Manual acceptance
-
-These are the checks a person runs once, in this order, and they are deliberately
-not automated:
-
-| Step | What it proves |
-|------|----------------|
-| `photos-backup verify` with the drive mounted | The archive is readable, claimed, and has no pending cleanup |
-| `photos-backup daily --dry-run` | The cadence, the takeover, and the export are what you expect, with nothing written |
-| `goback preview daily` | The companion is configured and shows the exact real and dry-run argument vectors |
-| `goback run daily --dry-run` | Both steps run end to end, nothing is recorded, and the companion gets `--dry-run` |
-| `goback run daily` | The table reports both statuses and the shell exit status still follows rsync alone |
-| `goback usage last` | `daily` and `companion/apple-photos` appear as separate rows |
-
-`photos-backup bootstrap`, `approve-cleanup`, and `cleanup-local-export` are
-kept out of scheduled runs: bootstrap is a one-time decision, `approve-cleanup`
-applies the explicitly named manifest without a confirmation prompt, and
-`cleanup-local-export` requires confirmation at a terminal. `sd-card` and
-`remote` stay manual as well — the SD card is only ever plugged in by hand, and
-the remote sync is a separate cost and bandwidth decision.
-
 ## Finding late shared photos
 
 Apple Photos exports are organized by the photo's content creation date, so a
@@ -912,79 +663,3 @@ deletions to pass the appropriate flag.
 2. Configure a remote: `rclone config`
 3. Set `remote` in the `[rclone]` section (e.g. `b2:my-photos-bucket`)
 4. Optionally set `source` (defaults to `ssd.destination`)
-
-## Development
-
-```bash
-cd python/photos_backup
-uv sync                                  # create .venv and install the package
-uv run python3 -m unittest discover -v   # tests
-uv run ruff check .                      # lint
-uv run mypy                              # check Photos integration and report types
-uv run ruff format .                     # format
-uv run photos-backup --help              # run without installing
-```
-
-The package lives under `src/photos_backup/`:
-
-| Module | Responsibility |
-|--------|----------------|
-| `cli/` | One module per command; parsing, prompting, and exit codes only |
-| `config.py` | Load and validate the TOML file into frozen dataclasses |
-| `archive/` | Path resolution, mount and symlink safety, locking, versioned state |
-| `apple_photos/` | Export planning, identity and takeover, reconciliation, cleanup, verification |
-| `summary.py` | Every line the commands print |
-| `errors.py` | `ActionRequired`, the exit-code-3 exception |
-| `exclude.py` | The shared `--exclude-from` argument helper |
-| `sd_card/`, `ssd/`, `remote/` | rsync and rclone workflows |
-
-The pattern throughout is to classify first and act second: a pure function
-takes plain data and returns a decision plus the reason behind it, and a thin
-caller performs the effect. That is why the tests need neither a Photos library
-nor an external drive — the seams (`SystemProbes`, `PhotosProbes`) are injected,
-and deletion tests only ever touch temporary directories.
-
-Every test runs offline. Deletion tests use temporary fixtures or mocked effects;
-they must never target real photo libraries or backups. `cleanup-local-export`
-also refuses nonterminal stdin; `approve-cleanup` has no terminal requirement.
-
-### Dependency compatibility
-
-`osxphotos` is pinned to exactly `0.76.1` in both package requirements and the
-lockfile, including for `uv tool install`. The adapter depends on private export
-and PhotoKit staging hooks. Upgrade deliberately: update the pin and the supported
-version in `tests/test_osxphotos_compatibility.py`, refresh the lockfile, then run
-the full test suite and `uv run mypy`. The offline tests check upstream call
-signatures, staging serialization, and actual upstream staging with native Photos
-I/O mocked, including originals, edits, Live Photos, video, and RAW pairs. A real
-export on a disposable archive is still needed to validate native PhotoKit behavior
-before deploying an upgrade to both Macs.
-
-The type check covers the adapter, download worker, export argument builder, and
-late-additions report. It checks our code; upstream `osxphotos` internals remain
-outside static checking and are covered by the compatibility tests.
-
-### Profiling metadata reports
-
-Late-additions enrichment runs up to four `mdls` processes concurrently, each with
-the existing ten-second timeout. It schedules at most 32 changed rows per batch,
-preserves source CSV order, and reads metadata once per distinct path across the
-report. The per-path cache still grows with the number of distinct changed files.
-Missing metadata remains a warning and does not decide export success. Injected
-Python metadata readers must be thread-safe; callers can pass `metadata_workers=1`
-to `generate_late_photo_additions_report` for serial execution.
-
-Compare serial and concurrent enrichment without starting an export:
-
-```bash
-uv run python scripts/profile_reports.py                         # simulated I/O
-uv run python scripts/profile_reports.py --spotlight             # mdls on temporary files
-uv run python scripts/profile_reports.py --export-report /path/to/photos_export.csv
-```
-
-The last command reads an existing export report and queries Spotlight for its
-new or updated files. All generated CSVs and fixtures live in a temporary directory;
-the input report and exported files are not changed. Results describe only report
-enrichment, not total backup throughput. `--profile /tmp/photos-report.prof` also
-writes a cProfile file for the coordinator; worker time appears as waiting. Inspect
-it with `uv run python -m pstats /tmp/photos-report.prof`.

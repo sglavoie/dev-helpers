@@ -13,6 +13,7 @@ from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
 from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
+from photos_backup.space import print_destination_space
 
 if TYPE_CHECKING:
     from photos_backup.config import SdCardConfig, SsdConfig
@@ -93,6 +94,7 @@ class Backup:
                     )
                     for step_name, source, exclude_file in copies
                 ]
+                print_destination_space(self.destination)
                 if not self.dry_run:
                     self.destination.mkdir(parents=True, exist_ok=True)
             except BaseException as error:

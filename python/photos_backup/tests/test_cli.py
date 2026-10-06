@@ -33,6 +33,7 @@ COMMANDS = (
     "bootstrap",
     "cleanup-local-export",
     "daily",
+    "doctor",
     "remote",
     "recent",
     "sd-card",

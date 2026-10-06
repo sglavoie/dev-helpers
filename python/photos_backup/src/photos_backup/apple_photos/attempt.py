@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.cli.context import export_retry_arguments
+
 if TYPE_CHECKING:
     from photos_backup.apple_photos.plan import ExportPlan, ExportResult
     from photos_backup.archive import Archive
@@ -33,6 +35,10 @@ class ExportAttemptStore:
             document["report_path"] = str(
                 self.archive.paths.archive / document["report_path"]
             )
+            if document.get("download_report_path") is not None:
+                document["download_report_path"] = str(
+                    self.archive.paths.archive / document["download_report_path"]
+                )
             return document, None
         except FileNotFoundError:
             return None, None
@@ -49,7 +55,12 @@ class ExportAttemptStore:
     ) -> ExportResult:
         if self.archive.dry_run:
             return operation()
+        previous, _ = self.read()
+        last_success = previous.get("last_successful_export_at") if previous else None
+        if previous and previous["status"] == "succeeded":
+            last_success = previous["completed_at"]
         attempt = {
+            "last_successful_export_at": last_success,
             "version": 1,
             "started_at": self.archive.now().isoformat(),
             "completed_at": None,
@@ -60,6 +71,14 @@ class ExportAttemptStore:
             "status": "started",
             "error": None,
             "baseline_advanced": False,
+            "missing_count": None,
+            "error_count": None,
+            "download_report_path": str(
+                report_path.with_suffix(".downloads.json").relative_to(
+                    self.archive.paths.archive
+                )
+            ),
+            "retry_arguments": None if restricted else export_retry_arguments(),
         }
         self._save(attempt)
         try:
@@ -76,13 +95,23 @@ class ExportAttemptStore:
                 }
             )
             raise
+        completed_at = self.archive.now().isoformat()
         self._save(
             {
                 **attempt,
-                "completed_at": self.archive.now().isoformat(),
+                "last_successful_export_at": completed_at
+                if result.complete
+                else last_success,
+                "completed_at": completed_at,
                 "status": "succeeded" if result.complete else "failed",
                 "error": result.failure_reason(),
                 "baseline_advanced": result.state_advanced,
+                "missing_count": result.missing_count
+                if result.report_problem is None
+                else None,
+                "error_count": result.error_count
+                if result.report_problem is None
+                else None,
             }
         )
         return result
@@ -127,6 +156,7 @@ def _validate(document: object) -> None:
     report = Path(document["report_path"])
     if report.is_absolute() or ".." in report.parts or report == Path("."):
         raise ValueError("report path must be relative to the archive")
+    _validate_details(document)
     if any(
         type(document.get(field)) is not bool
         for field in ("restricted", "baseline_advanced")
@@ -144,3 +174,29 @@ def _validate(document: object) -> None:
             continue
         if not isinstance(value, str) or datetime.fromisoformat(value).tzinfo is None:
             raise ValueError(f"invalid {field}")
+
+
+def _validate_details(document: dict) -> None:
+    success = document.get("last_successful_export_at")
+    if success is not None and (
+        not isinstance(success, str) or datetime.fromisoformat(success).tzinfo is None
+    ):
+        raise ValueError("invalid last_successful_export_at")
+    download_report = document.get("download_report_path")
+    if download_report is not None:
+        if not isinstance(download_report, str):
+            raise ValueError("invalid download report path")
+        path = Path(download_report)
+        if path.is_absolute() or ".." in path.parts or path == Path("."):
+            raise ValueError("download report path must be relative to the archive")
+    for field in ("missing_count", "error_count"):
+        value = document.get(field)
+        if value is not None and (type(value) is not int or value < 0):
+            raise ValueError(f"invalid {field}")
+    retry = document.get("retry_arguments")
+    if retry is not None and (
+        not isinstance(retry, list)
+        or not retry
+        or any(not isinstance(argument, str) or not argument for argument in retry)
+    ):
+        raise ValueError("invalid retry arguments")

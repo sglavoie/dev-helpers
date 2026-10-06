@@ -1,4 +1,6 @@
+import datetime
 import json
+import time
 from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
@@ -27,6 +29,16 @@ from photos_backup.summary import print_verification_report
 @click.pass_context
 def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
     config = apple_photos_config_from(ctx)
+    started_at = datetime.datetime.now(datetime.UTC)
+    started = time.monotonic()
+
+    def timing() -> dict:
+        return {
+            "started_at": started_at.isoformat(),
+            "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            "elapsed_seconds": time.monotonic() - started,
+        }
+
     with ExitStack() as stack:
         try:
             archive = stack.enter_context(open_archive(config, dry_run=True))
@@ -40,6 +52,7 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
                             "passed": False,
                             "checks": [],
                             "archive_error": str(error),
+                            **timing(),
                         },
                         indent=2,
                     )
@@ -60,6 +73,7 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
         "passed": report.passed,
         "archive_error": None,
         "checks": [asdict(check) for check in report.checks],
+        **timing(),
     }
     if as_json:
         click.echo(json.dumps(document, indent=2, default=str))
