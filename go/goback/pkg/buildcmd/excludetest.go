@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
@@ -29,65 +31,71 @@ func effectiveSource(backupType models.BackupTypes) string {
 	}
 }
 
-// listFiles runs rsync --list-only to enumerate files under source, optionally
-// applying exclude patterns. It returns the list of relative file paths.
-func listFiles(source string, excludePatterns []string) ([]string, error) {
-	args := []string{"-r", "--list-only"}
-	for _, p := range excludePatterns {
-		args = append(args, fmt.Sprintf("--exclude=%s", p))
+// listFilteredFiles enumerates without changing the source. A partial listing
+// cannot safely select files for deletion.
+func listFilteredFiles(source string, filters []string) ([]string, error) {
+	source, err := filepath.Abs(source)
+	if err != nil {
+		return nil, err
 	}
-	// Trailing slash ensures rsync lists the contents, not the directory itself.
-	if !strings.HasSuffix(source, "/") {
-		source += "/"
-	}
-	args = append(args, source)
-
+	args := append([]string{"-r", "--list-only"}, filters...)
+	args = append(args, "--", strings.TrimSuffix(source, "/")+"/")
 	cmd := exec.Command("rsync", args...)
 	out, err := cmd.Output()
 	if err != nil {
-		// rsync exits with 23 (partial transfer due to error, e.g. permission
-		// denied on some files) or 24 (vanished source files) routinely when
-		// scanning a home directory. The output is still valid for everything
-		// it could access, so we tolerate these codes.
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			code := exitErr.ExitCode()
-			if code != 23 && code != 24 {
-				return nil, fmt.Errorf("rsync --list-only failed (exit %d): %s", code, exitErr.Stderr)
-			}
-		} else {
-			return nil, fmt.Errorf("rsync --list-only failed: %w", err)
+			return nil, fmt.Errorf("rsync scan incomplete (exit %d); cannot determine excluded entries: %s", exitErr.ExitCode(), exitErr.Stderr)
 		}
+		return nil, fmt.Errorf("rsync --list-only failed: %w", err)
 	}
-
-	return parseListOnly(string(out)), nil
+	return parseListOnly(string(out))
 }
 
-// parseListOnly extracts file paths from rsync --list-only output.
-// Each line has the format: "drwxr-xr-x       4,096 2024/01/15 10:30:00 path/to/file"
-// We take everything after the date+time columns.
-func parseListOnly(output string) []string {
+// Match only the metadata prefix; consume exactly one separator before the
+// filename. Whitespace within the filename is data, including leading spaces.
+var listingLine = regexp.MustCompile(`^([bcdlps-])[rwxStTs-]{9}\s+[\d,]+\s+\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} (.*)$`)
+
+func parseListOnly(output string) ([]string, error) {
 	var files []string
 	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		// rsync --list-only output has 5 whitespace-separated fields before the path:
-		// permissions, size, date, time, path
-		// However size can include commas and the date/time are fixed format.
-		// The safest approach: find the path after the date+time pattern.
-		parts := strings.Fields(line)
-		if len(parts) < 5 {
-			continue
+		match := listingLine.FindStringSubmatch(line)
+		if match == nil {
+			return nil, fmt.Errorf("unrecognized rsync listing line: %q", line)
 		}
-		// Rejoin from field index 4 onward (the filename may contain spaces)
-		path := strings.Join(parts[4:], " ")
+		path := decodeRsyncName(match[2])
 		if path == "." || path == "./" {
 			continue
 		}
+		if !filepath.IsLocal(path) || strings.ContainsRune(path, 0) {
+			return nil, fmt.Errorf("invalid path in rsync listing: %q", path)
+		}
+		if match[1] == "d" && !strings.HasSuffix(path, "/") {
+			path += "/"
+		}
 		files = append(files, path)
 	}
-	return files
+	return files, nil
+}
+
+// rsync escapes unsafe bytes as \#ooo and escapes a literal backslash when
+// it could otherwise be mistaken for that notation. Decode in one pass.
+func decodeRsyncName(name string) string {
+	var out strings.Builder
+	for i := 0; i < len(name); {
+		if i+5 <= len(name) && name[i:i+2] == `\#` {
+			if n, err := strconv.ParseUint(name[i+2:i+5], 8, 8); err == nil {
+				out.WriteByte(byte(n))
+				i += 5
+				continue
+			}
+		}
+		out.WriteByte(name[i])
+		i++
+	}
+	return out.String()
 }
 
 // depthExcludePattern returns an rsync exclude pattern that prevents descending
@@ -101,37 +109,11 @@ func depthExcludePattern(depth int) string {
 // and returns paths that are present in the unfiltered list but absent in the filtered one.
 // When depth > 0 both passes are limited to that many directory levels.
 func FindExcluded(source string, patterns []string, depth int) ([]string, error) {
-	var depthPatterns []string
-	if depth > 0 {
-		depthPatterns = []string{depthExcludePattern(depth)}
-	}
-
-	allFiles, err := listFiles(source, depthPatterns)
+	roots, err := FindExcludedWithFilters(source, filterArgs(nil, patterns), depth)
 	if err != nil {
 		return nil, err
 	}
-
-	filteredFiles, err := listFiles(source, append(depthPatterns, patterns...))
-	if err != nil {
-		return nil, err
-	}
-
-	filteredSet := make(map[string]struct{}, len(filteredFiles))
-	for _, f := range filteredFiles {
-		filteredSet[f] = struct{}{}
-	}
-
-	var excluded []string
-	for _, f := range allFiles {
-		if _, ok := filteredSet[f]; !ok {
-			if !isDSStore(f) {
-				excluded = append(excluded, f)
-			}
-		}
-	}
-
-	sort.Strings(excluded)
-	return collapseToTopLevel(excluded), nil
+	return collapseToTopLevel(roots), nil
 }
 
 // isDSStore reports whether path is a .DS_Store file: either exactly ".DS_Store"
@@ -204,21 +186,9 @@ func TestSinglePattern(backupType models.BackupTypes, pattern string, subdir str
 // TestAllExcluded tests all configured exclude patterns for the given backup type
 // and displays the combined list of excluded files/directories.
 func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
-	cfgPrefix := config.ActiveProfilePrefix() + "rsync." + backupType.String() + "."
-	patterns := viper.GetStringSlice(cfgPrefix + "excludedPatterns")
-
-	// Merge daily patterns into weekly/monthly so derived backups inherit
-	// the same exclusion rules.
-	switch backupType.(type) {
-	case models.Weekly, models.Monthly:
-		dailyPrefix := config.ActiveProfilePrefix() + "rsync.daily."
-		dailyPatterns := viper.GetStringSlice(dailyPrefix + "excludedPatterns")
-		patterns = MergeUnique(patterns, dailyPatterns)
-	}
-
-	if len(patterns) == 0 {
-		fmt.Printf("No exclude patterns configured for %s backups in profile %s\n",
-			backupType.String(), config.ActiveProfileName)
+	filters := FilterArgs(backupType)
+	if len(filters) == 0 {
+		fmt.Printf("No include/exclude patterns configured for %s backups in profile %s\n", backupType.String(), config.ActiveProfileName)
 		return
 	}
 
@@ -230,7 +200,7 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 		os.Exit(1)
 	}
 
-	excluded, err := FindExcluded(source, patterns, depth)
+	excluded, err := FindExcludedWithFilters(source, filters, depth)
 	if err != nil {
 		fmt.Printf("Error testing patterns: %v\n", err)
 		os.Exit(1)
@@ -238,12 +208,12 @@ func TestAllExcluded(backupType models.BackupTypes, subdir string, depth int) {
 
 	if len(excluded) == 0 {
 		fmt.Printf("The %d configured patterns do not exclude any files from %s\n",
-			len(patterns), source)
+			len(filters), source)
 		return
 	}
 
-	summary := fmt.Sprintf("%d top-level files/directories excluded by %d configured patterns from %s",
-		len(excluded), len(patterns), source)
+	summary := fmt.Sprintf("%d excluded entries under %d configured filters from %s",
+		len(excluded), len(filters), source)
 	content := strings.Join(excluded, "\n")
 
 	displayExcludedResults(summary, content, len(excluded))
@@ -267,35 +237,34 @@ func applySubdir(source, subdir string) string {
 // For example, if sglavoie/.cache/ and sglavoie/node_modules/ are excluded,
 // it returns those paths rather than collapsing both to sglavoie/.
 func FindExcludedRoots(source string, patterns []string, depth int) ([]string, error) {
-	var depthPatterns []string
+	return FindExcludedWithFilters(source, filterArgs(nil, patterns), depth)
+}
+
+// FindExcludedWithFilters returns exact roots omitted by the ordered backup
+// filters. Both scans must succeed before any candidates are returned.
+func FindExcludedWithFilters(source string, filters []string, depth int) ([]string, error) {
+	var depthArgs []string
 	if depth > 0 {
-		depthPatterns = []string{depthExcludePattern(depth)}
+		depthArgs = []string{"--exclude=" + depthExcludePattern(depth)}
 	}
-
-	allFiles, err := listFiles(source, depthPatterns)
+	allFiles, err := listFilteredFiles(source, depthArgs)
 	if err != nil {
 		return nil, err
 	}
-
-	filteredFiles, err := listFiles(source, append(depthPatterns, patterns...))
+	filteredFiles, err := listFilteredFiles(source, append(depthArgs, filters...))
 	if err != nil {
 		return nil, err
 	}
-
-	filteredSet := make(map[string]struct{}, len(filteredFiles))
+	kept := make(map[string]bool, len(filteredFiles))
 	for _, f := range filteredFiles {
-		filteredSet[f] = struct{}{}
+		kept[f] = true
 	}
-
 	var excluded []string
 	for _, f := range allFiles {
-		if _, ok := filteredSet[f]; !ok {
-			if !isDSStore(f) {
-				excluded = append(excluded, f)
-			}
+		if !kept[f] && !isDSStore(f) {
+			excluded = append(excluded, f)
 		}
 	}
-
 	sort.Strings(excluded)
 	return rootsOnly(excluded), nil
 }

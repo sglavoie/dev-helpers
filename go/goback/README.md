@@ -2,6 +2,77 @@
 
 Revamped version of [rsync backup](../../python/rsync_backup/README.md), ported to Go.
 
+## Quick start
+
+From this directory, build and install the CLI (requires Go and rsync):
+
+```bash
+mkdir -p ~/.local/bin
+go build -o ~/.local/bin/goback .
+```
+
+Make sure `~/.local/bin` is on your `PATH`. Save this complete example as
+`~/.goback.json`, replacing the source and destination with your own paths.
+The destination directory must already exist on the mounted backup drive.
+The source's trailing slash copies its contents into `daily/`.
+
+```json
+{
+  "confirmExec": true,
+  "ejectOnExit": false,
+  "showProgress": true,
+  "editor": "",
+  "profiles": {
+    "default": {
+      "source": "/Users/me/Documents/",
+      "destination": "/Volumes/Backup/Documents",
+      "rsync": {
+        "daily": {
+          "archive": true,
+          "hardLinks": true,
+          "delete": false,
+          "ignoreErrors": false,
+          "deleteExcluded": false,
+          "excludedPatterns": [".DS_Store", "*.tmp"]
+        },
+        "weekly": {
+          "archive": true,
+          "hardLinks": true,
+          "delete": false,
+          "ignoreErrors": false,
+          "deleteExcluded": false,
+          "excludedPatterns": []
+        },
+        "monthly": {
+          "archive": true,
+          "hardLinks": true,
+          "delete": false,
+          "ignoreErrors": false,
+          "deleteExcluded": false,
+          "excludedPatterns": []
+        }
+      }
+    }
+  }
+}
+```
+
+A single profile needs no hostname setting. This example leaves deletion off;
+review the preview and dry run before your first backup:
+
+```bash
+goback preview daily
+goback run daily --dry-run
+goback run daily
+goback usage last --summary
+goback run weekly
+```
+
+Weekly and monthly copy the existing `daily/` backup, so they also work when
+the original source is offline. These are three maintained directories, not a
+new dated snapshot for every invocation. The optional global `mirror` and daily
+companions can be added later using the examples below.
+
 ## Usage
 
 See available commands:
@@ -20,7 +91,7 @@ just
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
 | `config edit\|print\|reset` | Manage `~/.goback.json`. |
-| `clean db\|logs\|backup` | Remove old databases, logs, and snapshots. |
+| `clean db\|logs\|backup` | Remove a history entry, old log files, or excluded backup content. |
 
 `--config <path>` points any command at a different configuration file, which is
 read as-is and never rewritten when it already exists.
@@ -95,8 +166,38 @@ successful backup, the latest attempt, and its result (including a failure's
 exit code). A failed attempt does not replace the last successful backup.
 `Never recorded` means no success remains in the stored history. Use
 `--profile NAME` to narrow the report. Without `--summary`, `--entries` applies
-to each profile/type pair. Attempts with identical timestamps are ordered by
-history ID. Interrupted snapshot transfers are recorded with exit code `-1`.
+to each profile/type pair. The summary includes relative ages alongside exact timestamps and explanations
+for common rsync failures. Companion exit codes retain their own meaning.
+Timestamps in existing history have no timezone; ages use the current local
+timezone. Attempts with identical timestamps are ordered by history ID. Interrupted snapshot transfers are recorded with exit code `-1`.
+
+## Cleanup and terminal output
+
+```bash
+goback clean backup daily --dry-run       # review candidates without deleting
+goback clean backup daily                 # review, then confirm deletion
+goback usage reset --profile default --keep 20
+goback usage view --no-pager
+goback usage view > backup-history.txt
+```
+
+Cleanup uses the same ordered include/exclude rules as a backup, including
+inherited daily exclusions for weekly/monthly backups. Explicit includes take
+precedence; an include list also excludes everything it does not select.
+Filenames are preserved exactly and quoted in the cleanup list. A partial or
+unrecognized rsync listing stops cleanup before confirmation. Real cleanup
+reports deleted and failed entry counts and exits nonzero if any deletion fails.
+Counts refer to listed roots; deleting a directory also removes its contents.
+
+History reset applies both retention and deletion within `--profile` and any
+backup-type selector. Without `--profile`, it covers all profiles; `--keep`
+retains that many rows across the selected scope, with history ID breaking
+same-timestamp ties. History commands work even without a configuration file,
+and can filter profiles that are no longer configured. Shell completion also
+works without configuration or a matching hostname.
+
+The pager is automatically bypassed when input or output is not a terminal.
+Use the global `--no-pager` flag to bypass it interactively as well.
 
 ## `goback mirror`
 

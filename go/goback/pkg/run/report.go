@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 )
 
 // Report collects every command of the current run so the outcome of the main
@@ -43,7 +44,7 @@ func (r *Report) Print(w io.Writer) {
 	}
 
 	t := table.NewWriter()
-	t.SetAllowedRowLength(120)
+	t.SetColumnConfigs([]table.ColumnConfig{{Number: 1, WidthMax: 24}, {Number: 2, WidthMax: 20}, {Number: 3, WidthMax: 12}, {Number: 4, WidthMax: 48}})
 	t.SetOutputMirror(w)
 	t.SetStyle(table.StyleColoredYellowWhiteOnBlack)
 	t.AppendHeader(table.Row{"Step", "Result", "Duration", "Details"})
@@ -67,7 +68,11 @@ func (r *Report) Print(w io.Writer) {
 func mainDetails(main MainResult) string {
 	switch {
 	case main.Status == MainFailed:
-		return fmt.Sprintf("exit code %d", main.ExitCode)
+		detail := fmt.Sprintf("exit code %d", main.ExitCode)
+		if explanation := rsyncstatus.Explanation(main.ExitCode); explanation != "" {
+			detail += ": " + explanation
+		}
+		return detail
 	case main.Err != nil:
 		return main.Err.Error()
 	default:

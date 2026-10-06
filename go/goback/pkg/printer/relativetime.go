@@ -3,29 +3,43 @@ package printer
 import (
 	"fmt"
 	"time"
-
-	"github.com/spf13/cobra"
 )
 
-// RelativeTime converts a string like `2024-09-07 10:38:26` to
-// a relative time expressed in days, e.g. `2 days ago` or `today`.
-func RelativeTime(t string) string {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05", t)
+// RelativeTime reads history's local wall-clock timestamps. Older rows contain
+// no timezone, so their original timezone cannot be recovered after travel.
+func RelativeTime(timestamp string) string {
+	return relativeTime(timestamp, time.Now())
+}
+
+func relativeTime(timestamp string, now time.Time) string {
+	parsed, err := time.ParseInLocation("2006-01-02 15:04:05", timestamp, now.Location())
 	if err != nil {
-		cobra.CheckErr(fmt.Sprintf("invalid time format: %v", err))
+		return "unknown age"
 	}
-
-	duration := time.Since(parsedTime)
-
-	switch {
-	case duration.Hours() >= 24:
-		days := int(duration.Hours() / 24)
-		plural := "s"
-		if days == 1 {
-			plural = ""
-		}
-		return fmt.Sprintf("%d day%s ago", days, plural)
-	default:
-		return fmt.Sprintf("today")
+	elapsed := now.Sub(parsed)
+	future := elapsed < 0
+	if future {
+		elapsed = -elapsed
 	}
+	if elapsed < time.Minute {
+		return "just now"
+	}
+	value, unit := int(elapsed/time.Minute), "minute"
+	if elapsed >= 24*time.Hour {
+		value, unit = int(elapsed/(24*time.Hour)), "day"
+	} else if elapsed >= time.Hour {
+		value, unit = int(elapsed/time.Hour), "hour"
+	}
+	if value != 1 {
+		unit += "s"
+	}
+	if future {
+		return fmt.Sprintf("in %d %s", value, unit)
+	}
+	return fmt.Sprintf("%d %s ago", value, unit)
+}
+
+// TimestampWithAge preserves the exact recorded timestamp alongside its age.
+func TimestampWithAge(timestamp string) string {
+	return fmt.Sprintf("%s (%s)", timestamp, RelativeTime(timestamp))
 }

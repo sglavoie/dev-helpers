@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 )
 
 // InterruptedExitCode is the exit code an interrupted mirror is recorded with.
@@ -104,7 +106,7 @@ func (r Result) Summary() string {
 			r.Duration.Round(time.Second), PartialDir)
 	case StatusFailed:
 		return fmt.Sprintf("rsync exited with %d after %s. The destination was only partially updated, and its extra content was not deleted.",
-			r.ExitCode, r.Duration.Round(time.Second))
+			r.ExitCode, r.Duration.Round(time.Second)) + failureExplanation(r.ExitCode)
 	case StatusSucceeded:
 		return fmt.Sprintf("The mirror finished in %s: %d created, %d updated, %d deleted.",
 			r.Duration.Round(time.Second), r.Plan.Changes.Created, r.Plan.Changes.Updated, r.Plan.Changes.Deleted)
@@ -465,4 +467,11 @@ func firstFew(paths []string, n int) []string {
 
 func skipped(err error) (Result, error) {
 	return Result{Status: StatusSkipped, Err: err}, err
+}
+
+func failureExplanation(code int) string {
+	if explanation := rsyncstatus.Explanation(code); explanation != "" {
+		return " " + explanation + "."
+	}
+	return ""
 }

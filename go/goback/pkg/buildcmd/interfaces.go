@@ -6,14 +6,13 @@ import (
 
 // builder is a struct that implements the builder interface.
 type builder struct {
-	args               []string
-	dryRun             bool
-	executionTime      string
-	updatedDestDir     string
-	updatedSrc         string
-	builderType        models.BackupTypes
-	hasIncludePatterns bool
-	exitCode           int
+	args           []string
+	dryRun         bool
+	executionTime  string
+	updatedDestDir string
+	updatedSrc     string
+	builderType    models.BackupTypes
+	exitCode       int
 }
 
 // RsyncBuilder is a struct that implements the builder interface.

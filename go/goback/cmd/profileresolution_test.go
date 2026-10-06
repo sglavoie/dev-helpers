@@ -18,7 +18,7 @@ func withAllProfiles(t *testing.T, all bool) {
 func TestExistingCommandsResolveProfiles(t *testing.T) {
 	withAllProfiles(t, false)
 
-	for _, cmd := range []*cobra.Command{dailyCmdRun, weeklyCmdRun, monthlyCmdRun, allCmdRun, usageCmd, ejectCmd} {
+	for _, cmd := range []*cobra.Command{dailyCmdRun, weeklyCmdRun, monthlyCmdRun, allCmdRun, ejectCmd} {
 		if !needsProfileResolution(cmd) {
 			t.Fatalf("%q does not require profile resolution, want the existing behavior preserved", cmd.CommandPath())
 		}

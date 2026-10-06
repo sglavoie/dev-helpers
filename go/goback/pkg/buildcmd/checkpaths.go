@@ -14,9 +14,17 @@ func sourceAndDestination() (src, dest string) {
 }
 
 func validateSourceAndDestination() (string, string, error) {
+	return validatePaths(false)
+}
+
+func validateDerivedSourceAndDestination() (string, string, error) {
+	return validatePaths(true)
+}
+
+func validatePaths(derived bool) (string, string, error) {
 	prefix := config.ActiveProfilePrefix()
 	src := viper.GetString(prefix + "source")
-	if src == "" {
+	if src == "" && !derived {
 		return "", "", fmt.Errorf("source not set for profile %q", config.ActiveProfileName)
 	}
 	dest := viper.GetString(prefix + "destination")
@@ -24,6 +32,9 @@ func validateSourceAndDestination() (string, string, error) {
 		return "", "", fmt.Errorf("destination not set for profile %q", config.ActiveProfileName)
 	}
 
+	if derived {
+		src = dest + "/daily/"
+	}
 	srcIsDir, err := isDirectory(src)
 	if err != nil {
 		return "", "", err

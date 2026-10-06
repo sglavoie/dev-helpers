@@ -338,3 +338,15 @@ func TestEmptyReportPrintsNothing(t *testing.T) {
 		t.Fatalf("output = %q, want nothing for a run with no result", out.String())
 	}
 }
+
+func TestMainFailureExplainsRsyncExitCode(t *testing.T) {
+	detail := mainDetails(MainResult{Status: MainFailed, ExitCode: 23})
+	for _, want := range []string{"exit code 23", "partial transfer"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("missing %q in %q", want, detail)
+		}
+	}
+	if got := mainDetails(MainResult{Status: MainFailed, ExitCode: 99}); got != "exit code 99" {
+		t.Fatal(got)
+	}
+}

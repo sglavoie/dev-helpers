@@ -19,17 +19,17 @@ goback is a CLI backup tool that wraps `rsync` for incremental daily, weekly, an
 
 ### Command layer (`cmd/`)
 
-All commands are Cobra subcommands registered under `RootCmd`. The `PersistentPreRun` hook on the root command calls `config.MustInitConfig` before every subcommand, but skips config validation for `config` subcommands to avoid a chicken-and-egg problem.
+All commands are Cobra subcommands registered under `RootCmd`. The `PersistentPreRunE` hook loads backup configuration for operational commands. Completion and history commands bypass configuration entirely; history filters may name retired profiles. Config subcommands skip validation so a broken configuration can be repaired.
 
 The main commands are `run daily|weekly|monthly|all` (execute backups), `preview daily|weekly|monthly` (print the rsync command without running it), `mirror` (mirror one configured directory onto another), `config edit|print|reset`, `clean db|logs|backup`, `usage last|view|reset`, and `eject [--all|--volume NAME|--list]`. Preview supports `--test-pattern`, `--excluded`, `--subdir`, and `--depth` to try exclude patterns against the source.
 
-Commands declare whether they need an active profile through the `profileResolution` cobra annotation in `profileresolution.go`. The default is `profileRequired`; `mirror` is `profileNotRequired` because it reads a global configuration block, and `eject` is `profileUnlessAll` because `--all` acts on everything the configuration knows about and `--volume` and `--list` name what they act on without one. This is what keeps those two usable on a machine whose hostname matches no profile.
+Commands declare whether they need an active profile through the `profileResolution` cobra annotation in `profileresolution.go`. The default is `profileRequired`; `mirror`, `usage`, and `completion` are `profileNotRequired`; mirror reads a global configuration block, and `eject` is `profileUnlessAll` because `--all` acts on everything the configuration knows about and `--volume` and `--list` name what they act on without one. This keeps global operations usable on a machine whose hostname matches no profile.
 
 ### Backup flow
 
 Initialization and profile iteration share `config.SelectProfiles`, including the sole-profile fallback and the error for an empty selection. `config.ValidateCompanionPlacement` rejects top-level `dailyCompanions` on operational commands; config editing and printing skip this validation so the user can repair the file.
 
-The backup pipeline flows through three stages. First, `pkg/buildcmd` constructs the rsync command: `BuildDaily/Weekly/Monthly` factory functions read source/destination from Viper config, validate paths, and assemble an argument vector from per-type boolean flags and include/exclude patterns. Daily backups copy from the configured source to `<dest>/daily/`. Weekly and monthly copy from `<dest>/daily/` to `<dest>/weekly/` or `<dest>/monthly/`, treating the daily snapshot as input. Second, `pkg/run` orchestrates execution by calling the builder, checking that rsync exists, showing a confirmation prompt (if `confirmExec` is true), and running rsync directly under a signal context created once per `run` invocation. Destination creation happens only during real execution after confirmation. Validation resolves symlinks and checks directory boundaries without writing. Third, real attempted transfers are recorded in SQLite, including interruptions with exit code `-1`; both CLI and configuration dry runs record nothing. Command strings are shell-quoted for display only.
+The backup pipeline flows through three stages. First, `pkg/buildcmd` constructs the rsync command: `BuildDaily/Weekly/Monthly` factory functions read source/destination from Viper config, validate paths, and assemble an argument vector from per-type boolean flags and include/exclude patterns. Daily backups copy from the configured source to `<dest>/daily/`. Weekly and monthly validate their effective daily source independently of the original profile source, then copy from `<dest>/daily/` to `<dest>/weekly/` or `<dest>/monthly/`, treating the daily snapshot as input. Second, `pkg/run` orchestrates execution by calling the builder, checking that rsync exists, showing a confirmation prompt (if `confirmExec` is true), and running rsync directly under a signal context created once per `run` invocation. Destination creation happens only during real execution after confirmation. Validation resolves symlinks and checks directory boundaries without writing. Third, real attempted transfers are recorded in SQLite, including interruptions with exit code `-1`; both CLI and configuration dry runs record nothing. Command strings are shell-quoted for display only.
 
 `cmd/profiles.go` only iterates profiles and collects errors. `cmd/run.go` owns automatic ejection: it collects destinations whose reports contain successful real main transfers and successful companions, then calls `eject.EjectPaths` once after profile processing when `ejectOnExit` is true and the context has not been cancelled. Preview, cleanup, dry runs, and declined runs never automatically eject.
 
@@ -103,3 +103,23 @@ SQLite database at `~/.goback.db` with a single `backups` table storing id, crea
 ### Interactive UI
 
 Bubbletea is used for yes/no confirmation prompts (`pkg/inputs`), a full-screen scrollable pager (`pkg/printer`), and config display. The `go-pretty` library renders tabular backup history.
+
+### Cleanup and reporting
+
+`buildcmd.FilterArgs` owns ordered includes, inherited exclusions, and the
+implicit exclude-all following an include list. Backup execution, configured
+exclude previews, and cleanup use it. Cleanup's two rsync listings must both
+succeed, including refusing exit codes 23 and 24. The listing parser preserves
+filename whitespace, decodes rsync octal escapes once, rejects malformed output,
+and marks directory roots for subtree collapsing. `clean backup --dry-run`
+never prompts or deletes; real cleanup returns aggregated deletion failures and
+prints deleted/failed root counts.
+
+`usage reset` scopes both retention and deletion by the explicit profile and
+backup type, ordering by timestamp then ID. `usage last --summary` includes
+relative ages (history stores local timestamps without timezone). Common rsync
+failures are explained through `pkg/rsyncstatus` in run, mirror, and history
+summaries; companion exit codes are never interpreted as rsync codes.
+
+`printer.Pager` prints directly for redirected input/output and for the global
+`--no-pager` flag. History tables are rendered once and omit color when redirected.

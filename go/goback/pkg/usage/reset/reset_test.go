@@ -2,10 +2,12 @@ package reset
 
 import (
 	"database/sql"
+	"reflect"
 	"testing"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 )
@@ -72,5 +74,38 @@ func TestResetWithoutSelectorDeletesMirrorToo(t *testing.T) {
 
 	if got := remainingTypes(t); len(got) != 0 {
 		t.Fatalf("remaining rows = %v, want none", got)
+	}
+}
+
+func TestResetScopesRetentionAndDeletionToProfile(t *testing.T) {
+	for _, kind := range []models.BackupTypes{models.NoBackupType{}, models.Daily{}} {
+		t.Run(kind.String(), func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			previous := config.ProfileFlag
+			config.ProfileFlag = "alpha"
+			t.Cleanup(func() { config.ProfileFlag = previous })
+			now := time.Now()
+			for _, profile := range []string{"alpha", "alpha", "beta", db.MirrorProfile} {
+				db.RecordBackup(db.HistoryEntry{CreatedAt: now, BackupType: "daily", Profile: profile})
+			}
+			Reset(1, kind)
+			var ids []int
+			db.QueryRows("SELECT id FROM backups ORDER BY id", func(rows *sql.Rows) {
+				for rows.Next() {
+					var id int
+					if err := rows.Scan(&id); err != nil {
+						t.Fatal(err)
+					}
+					ids = append(ids, id)
+				}
+			})
+			if !reflect.DeepEqual(ids, []int{2, 3, 4}) {
+				t.Fatalf("remaining IDs = %v", ids)
+			}
+			Reset(0, kind)
+			if got := remainingTypes(t); len(got) != 2 {
+				t.Fatalf("other profiles were removed: %v", got)
+			}
+		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,6 +17,11 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Completion and history do not depend on backup configuration. History
+		// filters can also name profiles removed from the configuration.
+		if cmd.Name() == "completion" || cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" || cmd == usageCmd || cmd.Parent() == usageCmd {
+			return nil
+		}
 		if cmd.Parent().Name() == "config" {
 			return config.MustInitConfig(false, false)
 		}
@@ -43,6 +49,7 @@ func Execute() {
 
 func init() {
 	RootCmd.CompletionOptions.HiddenDefaultCmd = true
+	RootCmd.PersistentFlags().BoolVar(&printer.NoPager, "no-pager", false, "Print output directly instead of opening the pager")
 	RootCmd.PersistentFlags().StringVar(&config.CfgFile, "config", "", "config file (default is $HOME/.goback.json)")
 	RootCmd.PersistentFlags().StringVarP(&config.ProfileFlag, "profile", "p", "", "profile to use (e.g. macbook, media)")
 	RootCmd.PersistentFlags().BoolVar(&config.AllProfiles, "all", false, "run all profiles regardless of hostname")

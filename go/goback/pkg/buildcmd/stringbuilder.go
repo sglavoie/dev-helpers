@@ -43,21 +43,24 @@ func (r *builder) appendBooleanFlags() {
 	r.args = append(r.args, r.getFlags()...)
 }
 
-func (r *builder) appendIncludedPatterns() {
-	patterns := r.getIncludePatterns()
-	for _, pattern := range patterns {
-		r.args = append(r.args, "--include="+pattern)
-	}
-	r.hasIncludePatterns = len(patterns) > 0
+// FilterArgs is the ordered filter policy shared by backups, previews and cleanup.
+func FilterArgs(backupType models.BackupTypes) []string {
+	r := &builder{builderType: backupType}
+	return filterArgs(r.getIncludePatterns(), r.mergedExcludePatterns())
 }
 
-func (r *builder) appendExcludedPatterns() {
-	for _, pattern := range r.mergedExcludePatterns() {
-		r.args = append(r.args, "--exclude="+pattern)
+func filterArgs(includes, excludes []string) []string {
+	var args []string
+	for _, pattern := range includes {
+		args = append(args, "--include="+pattern)
 	}
-	if r.hasIncludePatterns {
-		r.args = append(r.args, "--exclude=*")
+	for _, pattern := range excludes {
+		args = append(args, "--exclude="+pattern)
 	}
+	if len(includes) > 0 {
+		args = append(args, "--exclude=*")
+	}
+	return args
 }
 
 // mergedExcludePatterns returns the exclude patterns for this backup type.

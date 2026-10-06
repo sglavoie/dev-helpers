@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-isatty"
 )
 
 var (
@@ -29,7 +30,14 @@ var (
 	}()
 )
 
+// NoPager is set by the global --no-pager flag.
+var NoPager bool
+
 func Pager(s string, t string) {
+	if NoPager || !isatty.IsTerminal(os.Stdout.Fd()) || !isatty.IsTerminal(os.Stdin.Fd()) {
+		fmt.Println(s)
+		return
+	}
 	title = t
 	p := tea.NewProgram(
 		model{content: s},

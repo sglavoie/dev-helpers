@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/cobra"
@@ -40,13 +41,20 @@ func Reset(k int, t models.BackupTypes) {
 }
 
 func queryAllBackupTypes(sqldb *sql.DB, k int) sql.Result {
-	rows, err := sqldb.Exec("DELETE FROM backups WHERE id NOT IN (SELECT id FROM backups ORDER BY created_at DESC LIMIT ?)", k)
-	cobra.CheckErr(err)
-	return rows
+	return deleteHistory(sqldb, k, "")
 }
 
 func queryBackupType(sqldb *sql.DB, k int, t models.BackupTypes) sql.Result {
-	rows, err := sqldb.Exec("DELETE FROM backups WHERE backup_type = ? AND id NOT IN (SELECT id FROM backups WHERE backup_type = ? ORDER BY created_at DESC LIMIT ?)", t.String(), t.String(), k)
+	return deleteHistory(sqldb, k, t.String())
+}
+
+func deleteHistory(sqldb *sql.DB, k int, backupType string) sql.Result {
+	// Apply the same scope to deletion and retention. ID breaks timestamp ties.
+	scope := "(? = '' OR profile = ?) AND (? = '' OR backup_type = ?)"
+	profile := config.ProfileFlag
+	rows, err := sqldb.Exec("DELETE FROM backups WHERE "+scope+
+		" AND id NOT IN (SELECT id FROM backups WHERE "+scope+" ORDER BY created_at DESC, id DESC LIMIT ?)",
+		profile, profile, backupType, backupType, profile, profile, backupType, backupType, k)
 	cobra.CheckErr(err)
 	return rows
 }

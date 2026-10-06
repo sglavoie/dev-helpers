@@ -12,8 +12,9 @@ import (
 )
 
 var usageCmd = &cobra.Command{
-	Use:   "usage",
-	Short: "Manage goback's usage",
+	Annotations: withProfileResolution(profileNotRequired),
+	Use:         "usage",
+	Short:       "Manage goback's usage",
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
 		cobra.CheckErr(err)

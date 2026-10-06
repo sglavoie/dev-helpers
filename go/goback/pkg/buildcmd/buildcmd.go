@@ -92,7 +92,7 @@ func commandToRunDaily(src, dest string) *RsyncBuilder {
 }
 
 func commandToRunWeeklyCheck() (*RsyncBuilder, error) {
-	src, dest, err := validateSourceAndDestination()
+	src, dest, err := validateDerivedSourceAndDestination()
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func commandToRunWeekly(src, dest string) *RsyncBuilder {
 }
 
 func commandToRunMonthlyCheck() (*RsyncBuilder, error) {
-	src, dest, err := validateSourceAndDestination()
+	src, dest, err := validateDerivedSourceAndDestination()
 	if err != nil {
 		return nil, err
 	}

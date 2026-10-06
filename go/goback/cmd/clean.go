@@ -62,15 +62,17 @@ var cleanBackupCmd = &cobra.Command{
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: []string{"daily", "weekly", "monthly"},
 	Run: func(cmd *cobra.Command, args []string) {
+		dryRun, err := cmd.Flags().GetBool("dry-run")
+		cobra.CheckErr(err)
 		cobra.CheckErr(forEachProfile(func() error {
 			if len(args) == 0 {
-				return cleanbackup.CleanAll()
+				return cleanbackup.CleanAll(dryRun)
 			}
 			bt, err := parseBackupType(args[0])
 			if err != nil {
 				return err
 			}
-			return cleanbackup.CleanType(bt)
+			return cleanbackup.CleanType(bt, dryRun)
 		}))
 	},
 }
@@ -89,6 +91,7 @@ func parseBackupType(s string) (models.BackupTypes, error) {
 }
 
 func init() {
+	cleanBackupCmd.Flags().Bool("dry-run", false, "List excluded entries without deleting or asking for confirmation")
 	cleanCmd.AddCommand(cleanDbCmd)
 	cleanCmd.AddCommand(cleanLogsCmd)
 	cleanCmd.AddCommand(cleanBackupCmd)

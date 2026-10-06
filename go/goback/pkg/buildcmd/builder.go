@@ -110,8 +110,7 @@ func (r *builder) build() {
 	r.args = []string{"rsync"}
 	r.dryRun = IsDryRun(r.builderType.String())
 	r.appendBooleanFlags()
-	r.appendIncludedPatterns()
-	r.appendExcludedPatterns()
+	r.args = append(r.args, FilterArgs(r.builderType)...)
 	r.appendSrcDest()
 }
 

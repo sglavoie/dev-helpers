@@ -157,9 +157,7 @@ func walkCommands(cmd *cobra.Command) []*cobra.Command {
 	return commands
 }
 
-// Only the mirror opts out of profile resolution outright, and only eject opts
-// out conditionally. Anything else silently opting out would make a snapshot
-// command run without the profile it reads its paths from.
+// Snapshot commands require profiles; global history and completion do not.
 func TestOnlyGlobalCommandsSkipProfileResolution(t *testing.T) {
 	for _, all := range []bool{false, true} {
 		withAllProfiles(t, all)
@@ -168,7 +166,7 @@ func TestOnlyGlobalCommandsSkipProfileResolution(t *testing.T) {
 			path := cmd.CommandPath()
 			want := true
 			switch {
-			case path == "goback mirror":
+			case path == "goback mirror" || path == "goback completion" || path == "goback usage" || strings.HasPrefix(path, "goback usage "):
 				want = false
 			case path == "goback eject":
 				want = !all

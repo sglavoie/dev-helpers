@@ -121,9 +121,10 @@ func TestCollapseToTopLevel(t *testing.T) {
 
 func TestParseListOnly(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		want []string
+		name    string
+		in      string
+		want    []string
+		wantErr bool
 	}{
 		{
 			name: "empty string",
@@ -148,7 +149,8 @@ func TestParseListOnly(t *testing.T) {
 			want: []string{"file.txt"},
 		},
 		{
-			name: "lines with fewer than 5 fields are skipped",
+			name:    "unrecognized lines fail closed",
+			wantErr: true,
 			in: "short line\n" +
 				"also too short\n" +
 				"-rw-r--r--       1,234 2024/01/15 10:30:00 valid.txt",
@@ -165,7 +167,16 @@ func TestParseListOnly(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parseListOnly(tc.in)
+			got, err := parseListOnly(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected invalid listing error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !slicesEqual(got, tc.want) {
 				t.Errorf("parseListOnly(%q)\n  got  %v\n  want %v", tc.in, got, tc.want)
 			}
