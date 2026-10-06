@@ -11,6 +11,10 @@ volume = "/Volumes/SanDisk"
 archive = "/Volumes/SanDisk/Media/Apple Photos"
 library = "~/Pictures/Photos Library.photoslibrary"
 
+# Skip hidden photos/videos, including in bootstrap's completeness check.
+# Existing archived copies are retained. Default: false (back up everything).
+exclude_hidden = false
+
 # Legacy local export directory. Nothing writes here any more; it is the only
 # directory `photos-backup cleanup-local-export` is allowed to delete.
 legacy_export = "~/Pictures/export"

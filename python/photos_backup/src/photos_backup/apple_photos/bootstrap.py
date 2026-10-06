@@ -38,6 +38,7 @@ class BootstrapResult:
     coverage: CoverageReport | None
     resumed: bool
     initialized_at: datetime.datetime | None = None
+    excluded_hidden: int = 0
 
     @property
     def initialized(self) -> bool:
@@ -93,14 +94,23 @@ def bootstrap_archive(
     ).export()
 
     coverage = None
+    excluded_hidden = 0
     if not archive.dry_run:
         with progress.phase("Checking library coverage") if progress else nullcontext():
+            library = active.read_library(config.library)
+            if config.exclude_hidden:
+                excluded_hidden = sum(asset.hidden for asset in library)
+                library = tuple(asset for asset in library if not asset.hidden)
             coverage = assess_coverage(
-                active.read_library(config.library),
+                library,
                 active.read_export_db(archive.paths.export_db),
             )
     result = BootstrapResult(
-        takeover=takeover, export=export, coverage=coverage, resumed=resumed
+        takeover=takeover,
+        export=export,
+        coverage=coverage,
+        resumed=resumed,
+        excluded_hidden=excluded_hidden,
     )
     if archive.dry_run or result.blocking_reason() is not None:
         return result
@@ -113,6 +123,7 @@ def bootstrap_archive(
         coverage=coverage,
         resumed=resumed,
         initialized_at=now,
+        excluded_hidden=excluded_hidden,
     )
 
 

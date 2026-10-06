@@ -271,6 +271,8 @@ def print_bootstrap_result(result: BootstrapResult, *, dry_run: bool = False) ->
     print_export_result(result.export, dry_run=dry_run)
 
     coverage = result.coverage
+    if result.excluded_hidden:
+        click.echo(f"Excluded from coverage: {result.excluded_hidden} hidden asset(s)")
     if coverage is None:
         click.echo("Coverage: deferred until the real export")
     else:

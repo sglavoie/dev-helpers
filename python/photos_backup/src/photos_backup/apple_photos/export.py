@@ -105,6 +105,10 @@ class ApplePhotosExport:
             self.config, self.archive.state_store.load(), now
         )
         print_destination_space(self.archive.paths.archive)
+        if self.config.exclude_hidden:
+            click.echo(
+                "Hidden photos and videos are excluded from this backup (exclude_hidden = true)."
+            )
         if self.plan_only:
             return ExportResult(plan=plan, exit_code=0, performed=False)
         if self.archive.dry_run:

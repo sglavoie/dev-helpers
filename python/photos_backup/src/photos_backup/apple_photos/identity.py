@@ -12,6 +12,7 @@ class AssetIdentity:
     uuid: str
     cloud_guid: str | None
     original_filename: str
+    hidden: bool = False
 
     @property
     def cloud_key(self) -> str | None:

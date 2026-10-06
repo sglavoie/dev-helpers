@@ -33,6 +33,7 @@ APPLE_PHOTOS_KEYS = (
     "mirror",
     "cleanup_max_assets",
     "cleanup_max_fraction",
+    "exclude_hidden",
 )
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
 SSD_KEYS = ("source", "destination", "exclude_file")
@@ -60,6 +61,7 @@ class ApplePhotosConfig:
     # False only when --volume re-pointed the run at a directory the user named
     # explicitly, which need not be a mount point.
     require_mounted_volume: bool = True
+    exclude_hidden: bool = False
 
 
 @dataclass(frozen=True)
@@ -138,6 +140,7 @@ def load_apple_photos_config(
         cleanup_max_assets=section.integer("cleanup_max_assets", default=10, minimum=0),
         cleanup_max_fraction=section.fraction("cleanup_max_fraction", default=0.001),
         require_mounted_volume=volume is None,
+        exclude_hidden=section.boolean("exclude_hidden", default=False),
     )
 
 

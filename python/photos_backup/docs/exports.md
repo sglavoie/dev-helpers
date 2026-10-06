@@ -20,6 +20,16 @@ archive that holds other content but no `.photos-backup` metadata is refused
 with exit 3, naming what it found, rather than exporting into someone else's
 directory.
 
+To leave the Hidden album locked and omit its photos/videos from backups, set
+`exclude_hidden = true` in `[apple_photos]` in your configuration. This applies
+to bootstrap, daily, recent, and manual exports. Bootstrap reports the excluded
+count and checks completeness only for non-hidden assets. The default is
+`false`, which includes hidden assets. Existing archived copies are retained;
+hidden assets remain visible to library identity and deletion checks, so hiding
+an asset does not make it a deletion candidate. Use the same setting on each
+Mac sharing the archive. If you later turn this off, older hidden assets will
+be included in the next full export.
+
 A `bootstrap --dry-run` validates the archive and prints the full export plan,
 but does not invoke osxphotos or scan the Photos library for coverage. Coverage
 is checked after the real export. It writes nothing and never initializes.
@@ -189,4 +199,3 @@ The same fields can be used in a Finder Smart Folder scoped to the export
 directory: `Date Added`, `Content created`, and, when Finder exposes it,
 `Device model`. Use the generated CSV when Finder cannot show `Device model` as
 a list column.
-

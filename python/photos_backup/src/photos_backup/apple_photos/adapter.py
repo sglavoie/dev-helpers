@@ -156,6 +156,7 @@ def read_photos_library(library: Path) -> tuple[AssetIdentity, ...]:
             uuid=photo.uuid,
             cloud_guid=photo.cloud_guid,
             original_filename=photo.original_filename,
+            hidden=photo.hidden,
         )
         for photo in photosdb.photos()
     )

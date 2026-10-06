@@ -207,6 +207,7 @@ class ArgumentTests(unittest.TestCase):
                 "skip_live": False,
                 "skip_original_if_edited": False,
                 "skip_raw": False,
+                "not_hidden": False,
                 "cleanup": False,
                 "from_date": None,
                 "dry_run": False,

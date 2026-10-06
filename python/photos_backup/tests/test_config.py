@@ -97,6 +97,19 @@ class ConfigPathTests(ConfigTestCase):
 
 
 class ApplePhotosConfigTests(ConfigTestCase):
+    def test_hidden_exclusion_is_opt_in_and_requires_a_boolean(self) -> None:
+        config = load_apple_photos_config(self.write_config(MINIMAL_APPLE_PHOTOS))
+        self.assertFalse(config.exclude_hidden)
+        config = load_apple_photos_config(
+            self.write_config(MINIMAL_APPLE_PHOTOS + "exclude_hidden = true\n")
+        )
+        self.assertTrue(config.exclude_hidden)
+        self.assert_usage_error(
+            MINIMAL_APPLE_PHOTOS + 'exclude_hidden = "true"\n',
+            "exclude_hidden",
+            "must be true or false",
+        )
+
     def test_full_section_is_parsed_and_expanded(self) -> None:
         config = load_apple_photos_config(self.write_config(FULL_CONFIG))
 

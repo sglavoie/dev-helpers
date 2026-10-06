@@ -43,6 +43,7 @@ class ManagedExportArguments(TypedDict):
     skip_live: bool
     skip_original_if_edited: bool
     skip_raw: bool
+    not_hidden: bool
     cleanup: bool
     from_date: datetime.datetime | None
     dry_run: bool
@@ -209,6 +210,7 @@ def export_arguments(
         "skip_live": False,
         "skip_original_if_edited": False,
         "skip_raw": False,
+        "not_hidden": config.exclude_hidden,
         "cleanup": False,
         "from_date": plan.from_date,
         "dry_run": dry_run,
