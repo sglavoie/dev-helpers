@@ -62,7 +62,7 @@ var cleanBackupCmd = &cobra.Command{
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: []string{"daily", "weekly", "monthly"},
 	Run: func(cmd *cobra.Command, args []string) {
-		forEachProfile(func() error {
+		cobra.CheckErr(forEachProfile(func() error {
 			if len(args) == 0 {
 				return cleanbackup.CleanAll()
 			}
@@ -71,7 +71,7 @@ var cleanBackupCmd = &cobra.Command{
 				return err
 			}
 			return cleanbackup.CleanType(bt)
-		})
+		}))
 	},
 }
 

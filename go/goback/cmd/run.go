@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/buildcmd"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/run"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,7 +26,7 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	runCmd.PersistentFlags().Bool("dry-run", false, "Show what would be transferred without actually running rsync")
+	runCmd.PersistentFlags().Bool("dry-run", false, "Ask rsync what would be transferred without changing backups or history")
 	if err := viper.BindPFlag("cliDryRun", runCmd.PersistentFlags().Lookup("dry-run")); err != nil {
 		panic(err)
 	}
@@ -41,11 +44,30 @@ func runBackups(action func(context.Context, *run.Report) error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	forEachProfile(func() error {
+	cobra.CheckErr(runBackupProfiles(ctx, action, func(paths []string) error {
+		return eject.EjectPaths(os.Stdout, paths, eject.OSDeps())
+	}))
+}
+
+func runBackupProfiles(ctx context.Context, action func(context.Context, *run.Report) error, ejectPaths func([]string) error) error {
+	var destinations []string
+	err := forEachProfile(func() error {
 		report := &run.Report{}
 		defer report.Print(os.Stdout)
-		return action(ctx, report)
+		if err := action(ctx, report); err != nil {
+			return err
+		}
+		if viper.GetBool("ejectOnExit") && report.CompletedBackup() {
+			if dest := viper.GetString(config.ActiveProfilePrefix() + "destination"); dest != "" {
+				destinations = append(destinations, dest)
+			}
+		}
+		return nil
 	})
+	if len(destinations) > 0 && ctx.Err() == nil {
+		err = errors.Join(err, ejectPaths(destinations))
+	}
+	return err
 }
 
 var dailyCmdRun = &cobra.Command{

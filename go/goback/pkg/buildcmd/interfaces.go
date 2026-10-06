@@ -1,14 +1,13 @@
 package buildcmd
 
 import (
-	"strings"
-
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 )
 
 // builder is a struct that implements the builder interface.
 type builder struct {
-	sb                 *strings.Builder
+	args               []string
+	dryRun             bool
 	executionTime      string
 	updatedDestDir     string
 	updatedSrc         string

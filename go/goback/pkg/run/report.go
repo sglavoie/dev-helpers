@@ -16,6 +16,25 @@ type Report struct {
 	Companions []CompanionResult
 }
 
+// CompletedBackup reports whether every requested main transfer and companion
+// succeeded and every main transfer was real. Declines and dry runs do not eject.
+func (r *Report) CompletedBackup() bool {
+	if len(r.Mains) == 0 {
+		return false
+	}
+	for _, main := range r.Mains {
+		if main.Status != MainSucceeded || main.DryRun {
+			return false
+		}
+	}
+	for _, companion := range r.Companions {
+		if !companion.Succeeded() {
+			return false
+		}
+	}
+	return true
+}
+
 // Print renders the results of the current run as one table. It prints
 // nothing when the run produced no result at all.
 func (r *Report) Print(w io.Writer) {
@@ -30,7 +49,11 @@ func (r *Report) Print(w io.Writer) {
 	t.AppendHeader(table.Row{"Step", "Result", "Duration", "Details"})
 
 	for _, main := range r.Mains {
-		t.AppendRow([]any{main.BackupType, main.Status.String(), duration(main.Duration), mainDetails(main)})
+		status := main.Status.String()
+		if main.DryRun {
+			status = "dry run: " + status
+		}
+		t.AppendRow([]any{main.BackupType, status, duration(main.Duration), mainDetails(main)})
 	}
 	for _, companion := range r.Companions {
 		name := "companion/" + companion.Companion.ID

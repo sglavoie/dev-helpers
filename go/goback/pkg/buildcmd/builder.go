@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
@@ -18,6 +17,7 @@ import (
 // reported separately from a failure because the two lead to different
 // decisions about what may run afterwards.
 type ExecutionResult struct {
+	NotStarted  bool // preparation or process startup failed before rsync ran
 	Interrupted bool
 	ExitCode    int
 	Duration    time.Duration
@@ -51,18 +51,39 @@ func (r *builder) BuildCheck() error {
 }
 
 func (r *builder) Execute(ctx context.Context) ExecutionResult {
-	cmd := exec.CommandContext(ctx, "bash", "-c", r.CommandString())
+	if ctx.Err() != nil {
+		return ExecutionResult{NotStarted: true, Interrupted: true, ExitCode: -1, Err: fmt.Errorf("backup interrupted")}
+	}
+	if err := r.validateBeforeRun(); err != nil {
+		return ExecutionResult{NotStarted: true, ExitCode: 1, Err: err}
+	}
+	if !r.dryRun {
+		if err := os.MkdirAll(r.updatedDestDir, 0755); err != nil {
+			return ExecutionResult{NotStarted: true, ExitCode: 1, Err: fmt.Errorf("create destination: %w", err)}
+		}
+	}
+	cmd := exec.CommandContext(ctx, r.args[0], r.args[1:]...)
+	r.exitCode = 0
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	start := time.Now()
-	err := cmd.Run()
+	err := cmd.Start()
+	started := err == nil
+	if started {
+		err = cmd.Wait()
+	}
 	duration := time.Since(start)
 	r.executionTime = duration.String()
 
 	if ctx.Err() != nil {
-		fmt.Println("\nBackup interrupted, cleaning up...")
+		fmt.Println("\nBackup interrupted.")
+		r.exitCode = -1
+		if started && !r.dryRun {
+			r.updateDBWithUsage()
+		}
 		return ExecutionResult{
+			NotStarted:  !started,
 			Interrupted: true,
 			ExitCode:    -1,
 			Duration:    duration,
@@ -79,14 +100,15 @@ func (r *builder) Execute(ctx context.Context) ExecutionResult {
 			r.exitCode = 1
 		}
 	}
-	if !viper.GetBool("cliDryRun") {
+	if started && !r.dryRun {
 		r.updateDBWithUsage()
 	}
-	return ExecutionResult{ExitCode: r.exitCode, Duration: duration, Err: err}
+	return ExecutionResult{NotStarted: !started, ExitCode: r.exitCode, Duration: duration, Err: err}
 }
 
 func (r *builder) build() {
-	r.initBuilder()
+	r.args = []string{"rsync"}
+	r.dryRun = IsDryRun(r.builderType.String())
 	r.appendBooleanFlags()
 	r.appendIncludedPatterns()
 	r.appendExcludedPatterns()
@@ -95,11 +117,6 @@ func (r *builder) build() {
 
 func (r *builder) builderSettingsPrefix() string {
 	return config.ActiveProfilePrefix() + "rsync." + r.builderType.String() + "."
-}
-
-func (r *builder) initBuilder() {
-	r.sb = &strings.Builder{}
-	r.sb.WriteString("rsync")
 }
 
 func (r *builder) updateDBWithUsage() {

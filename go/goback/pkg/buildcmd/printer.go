@@ -6,7 +6,6 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/inputs"
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
 	"github.com/spf13/viper"
 )
 
@@ -19,11 +18,7 @@ func (r *builder) PrintCommandToRunWithConfirmation() bool {
 	return true
 }
 func (r *builder) PrintString() {
-	fmt.Println(r.sb.String())
-}
-
-func (r *builder) WrapLongLinesWithBackslashes() {
-	printer.WrapLongLinesWithBackslashes(r.sb, 80)
+	fmt.Println(r.CommandString())
 }
 
 // getFlags returns the list of enabled rsync flag strings (e.g. "--archive").
@@ -102,9 +97,8 @@ func (r *builder) FormattedPreview() {
 	sb.WriteString(fmt.Sprintf("\nSource:      %s\n", r.updatedSrc))
 	sb.WriteString(fmt.Sprintf("Destination: %s\n", r.updatedDestDir))
 
-	// Full command at the bottom for copy-paste
-	r.WrapLongLinesWithBackslashes()
-	sb.WriteString(fmt.Sprintf("\nFull command:\n  %s\n", strings.ReplaceAll(r.sb.String(), "\n", "\n  ")))
+	// Keep quoted arguments intact, including whitespace inside filenames.
+	sb.WriteString(fmt.Sprintf("\nFull command:\n  %s\n", r.CommandString()))
 
 	fmt.Print(sb.String())
 }

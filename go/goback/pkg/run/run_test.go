@@ -102,6 +102,13 @@ func TestDailyOrchestrationMatrix(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "preparation failed after confirmation",
+			confirm:    true,
+			execution:  buildcmd.ExecutionResult{NotStarted: true, ExitCode: 1, Err: errors.New("destination changed")},
+			wantStatus: MainSkipped,
+			wantErr:    true,
+		},
+		{
 			name:       "declined confirmation",
 			wantStatus: MainDeclined,
 		},

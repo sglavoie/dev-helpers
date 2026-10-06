@@ -38,7 +38,7 @@ func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.Back
 	subdir, _ := cmd.Flags().GetString("subdir")
 	depth, _ := cmd.Flags().GetInt("depth")
 
-	forEachProfile(func() error {
+	cobra.CheckErr(forEachProfile(func() error {
 		switch {
 		case testPattern != "" && showExcluded:
 			return fmt.Errorf("--test-pattern and --excluded are mutually exclusive")
@@ -59,7 +59,7 @@ func runPreview(cmd *cobra.Command, buildFn func() error, backupType models.Back
 			}
 		}
 		return nil
-	})
+	}))
 }
 
 var dailyCmdPreview = &cobra.Command{

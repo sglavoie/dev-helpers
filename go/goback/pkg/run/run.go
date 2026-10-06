@@ -48,6 +48,7 @@ func (s MainStatus) String() string {
 // MainResult is the outcome of one main backup command.
 type MainResult struct {
 	BackupType string
+	DryRun     bool
 	Status     MainStatus
 	ExitCode   int
 	Duration   time.Duration
@@ -129,7 +130,7 @@ func runBackup(ctx context.Context, report *Report, steps backupSteps, withCompa
 }
 
 func runMain(ctx context.Context, steps backupSteps) MainResult {
-	result := MainResult{BackupType: steps.backupType}
+	result := MainResult{BackupType: steps.backupType, DryRun: buildcmd.IsDryRun(steps.backupType)}
 
 	if ctx.Err() != nil {
 		result.Status = MainInterrupted
@@ -162,6 +163,8 @@ func runMain(ctx context.Context, steps backupSteps) MainResult {
 	switch {
 	case execution.Interrupted:
 		result.Status = MainInterrupted
+	case execution.NotStarted:
+		result.Status = MainSkipped
 	case execution.Err != nil:
 		result.Status = MainFailed
 	default:

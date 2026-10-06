@@ -2,6 +2,9 @@ package view
 
 import (
 	"database/sql"
+	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 	"testing"
 	"time"
 
@@ -112,4 +115,24 @@ func TestProfileFilteringLeavesMirrorOutOfAProfile(t *testing.T) {
 	if len(*mirrorRows) != 1 {
 		t.Fatalf("selected %d rows for the global profile, want the mirror row: %+v", len(*mirrorRows), *mirrorRows)
 	}
+}
+
+func TestSummaryDisplaysFailureInterruptionAndNoSuccess(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	db.QueryRows(`
+SELECT 'macbook', 'daily', '2026-08-11 10:30:00', 23, '2026-08-10 09:00:00'
+UNION ALL SELECT 'media', 'daily', '2026-08-11 10:30:00', -1, NULL
+UNION ALL SELECT 'global', 'mirror', '2026-08-11 10:30:00', 0, '2026-08-11 10:30:00'
+`, func(rows *sql.Rows) {
+		writer := table.NewWriter()
+		if !appendSummaryRows(rows, writer) {
+			t.Fatal("summary is empty")
+		}
+		rendered := writer.Render()
+		for _, want := range []string{"macbook", "media", "global", "failed (exit 23)", "interrupted", "Never recorded", "succeeded", "2026-08-10 09:00:00"} {
+			if !strings.Contains(rendered, want) {
+				t.Fatalf("missing %q:\n%s", want, rendered)
+			}
+		}
+	})
 }

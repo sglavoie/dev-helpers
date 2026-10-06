@@ -22,7 +22,7 @@ var usageCmd = &cobra.Command{
 
 var lastUsageCmd = &cobra.Command{
 	Use:   "last",
-	Short: "Show last goback's usage for each backup type",
+	Short: "Show the latest attempts for each profile and backup type",
 	Run: func(cmd *cobra.Command, args []string) {
 		e, err := cmd.Flags().GetInt("entries")
 		cobra.CheckErr(err)
@@ -81,8 +81,8 @@ func init() {
 	usageCmd.AddCommand(resetUsageCmd)
 	RootCmd.AddCommand(usageCmd)
 
-	lastUsageCmd.Flags().IntP("entries", "e", 3, "Number of entries to show for each backup type")
-	lastUsageCmd.Flags().BoolP("summary", "s", false, "Show when the last backup by type was done")
+	lastUsageCmd.Flags().IntP("entries", "e", 3, "Number of entries to show for each profile and backup type")
+	lastUsageCmd.Flags().BoolP("summary", "s", false, "Show the last success and latest attempt result for each profile and backup type")
 
 	resetUsageCmd.Flags().BoolP("all", "a", false, "Reset all usage (set --keep=0)")
 	resetUsageCmd.Flags().IntP("keep", "k", 20, "Number of entries to keep")

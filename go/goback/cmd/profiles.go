@@ -1,30 +1,20 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
-	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
-	"github.com/spf13/viper"
 )
 
-// forEachProfile runs the given action for each profile that should be processed
-// based on the --profile, --all, or auto-detected profiles. It prints a header
-// before each profile when running multiple profiles, and handles eject once
-// after all profiles complete. If any profile fails, it prints the error and
-// continues to the next profile. After all profiles complete, it exits with
-// code 1 if any profile failed or any volume could not be ejected.
-func forEachProfile(action func() error) {
+// forEachProfile selects and visits profiles without performing backup side
+// effects. It collects failures so one profile does not prevent the others.
+func forEachProfile(action func() error) error {
 	profiles, err := config.SelectProfiles()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
-	ejectOnExit := viper.GetBool("ejectOnExit")
-
-	var destinations []string
-	anyFailed := false
+	var failures []error
 	for i, name := range profiles {
 		config.ActiveProfileName = name
 		if len(profiles) > 1 {
@@ -34,26 +24,8 @@ func forEachProfile(action func() error) {
 			fmt.Printf("=== Profile: %s ===\n", name)
 		}
 		if err := action(); err != nil {
-			fmt.Fprintf(os.Stderr, "error: profile %q: %v\n", name, err)
-			anyFailed = true
-			continue
-		}
-		if ejectOnExit {
-			dest := viper.GetString(config.ActiveProfilePrefix() + "destination")
-			if dest != "" {
-				destinations = append(destinations, dest)
-			}
+			failures = append(failures, fmt.Errorf("profile %q: %w", name, err))
 		}
 	}
-
-	if ejectOnExit && len(destinations) > 0 {
-		if err := eject.EjectPaths(os.Stdout, destinations, eject.OSDeps()); err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			anyFailed = true
-		}
-	}
-
-	if anyFailed {
-		os.Exit(1)
-	}
+	return errors.Join(failures...)
 }

@@ -65,6 +65,39 @@ default; the paths shown above are only what a generated configuration starts
 with. Because the mirror belongs to no profile, `goback mirror` needs no profile
 at all and rejects `--profile` and `--all` rather than ignoring them.
 
+## Snapshot previews, dry runs, and history
+
+```bash
+goback preview daily          # print the command and configured companions
+goback run daily --dry-run    # ask rsync what would change
+goback run daily              # perform the backup
+goback usage last --summary   # last success and latest attempt per profile/type
+```
+
+Preview never creates a backup directory or ejects a drive. Snapshot dry runs,
+from either `--dry-run` or the profile's `rsync.<type>.dryRun`, create no backup
+directories, record no backup history, and never automatically eject a drive.
+Companions run only with their configured `dryRunArgs`; those without them are
+skipped during a dry run. The result table labels dry runs explicitly.
+
+A real snapshot creates its destination directory only after validation and
+confirmation. Paths and include/exclude patterns are passed literally to rsync,
+so spaces, apostrophes, and shell characters are preserved. Source/destination
+overlap checks resolve symlinks and compare directory boundaries.
+
+`ejectOnExit` applies only to snapshot runs whose requested transfers and
+companions all succeeded, with no dry runs or declined steps. Preview and
+cleanup commands never automatically eject drives.
+
+`usage last --summary` shows one row for each profile and backup type found in
+history, including companions and the global mirror. Each row shows the last
+successful backup, the latest attempt, and its result (including a failure's
+exit code). A failed attempt does not replace the last successful backup.
+`Never recorded` means no success remains in the stored history. Use
+`--profile NAME` to narrow the report. Without `--summary`, `--entries` applies
+to each profile/type pair. Attempts with identical timestamps are ordered by
+history ID. Interrupted snapshot transfers are recorded with exit code `-1`.
+
 ## `goback mirror`
 
 `goback mirror` makes the destination an exact copy of the source. It has

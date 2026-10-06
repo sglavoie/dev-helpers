@@ -1,8 +1,6 @@
 package buildcmd
 
 import (
-	"strings"
-
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/viper"
@@ -85,7 +83,6 @@ func commandToRunDaily(src, dest string) *RsyncBuilder {
 	dest = dest + "/daily"
 	b := &RsyncBuilder{
 		builder: builder{
-			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
 			builderType:    models.Daily{},
@@ -112,7 +109,6 @@ func commandToRunWeekly(src, dest string) *RsyncBuilder {
 	dest = dest + "/weekly"
 	b := &RsyncBuilder{
 		builder: builder{
-			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
 			builderType:    models.Weekly{},
@@ -139,7 +135,6 @@ func commandToRunMonthly(src, dest string) *RsyncBuilder {
 	dest = dest + "/monthly"
 	b := &RsyncBuilder{
 		builder: builder{
-			sb:             &strings.Builder{},
 			updatedSrc:     src,
 			updatedDestDir: dest,
 			builderType:    models.Monthly{},

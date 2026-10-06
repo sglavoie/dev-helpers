@@ -26,7 +26,7 @@ func SqlToText(rows *sql.Rows) {
 func SqlToTextSummary(rows *sql.Rows) {
 	t := table.NewWriter()
 	setTableProperties(t)
-	t.AppendHeader(table.Row{"ID", "Created at", "Relative time", "Backup type", "Profile"})
+	t.AppendHeader(table.Row{"Profile", "Backup type", "Last successful backup", "Latest attempt", "Result"})
 
 	if !appendSummaryRows(rows, t) {
 		fmt.Println("No backups data found")
@@ -52,16 +52,26 @@ func appendRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 
 func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 	for rows.Next() {
-		var id, exitCode int
-		var createdAt, backupType, executionTime, command, profile string
-		err := rows.Scan(&id, &createdAt, &backupType, &executionTime, &command, &profile, &exitCode)
+		var profile, backupType, latestAttempt string
+		var exitCode int
+		var lastSuccess sql.NullString
+		err := rows.Scan(&profile, &backupType, &latestAttempt, &exitCode, &lastSuccess)
 		cobra.CheckErr(err)
-
-		relTime := printer.RelativeTime(createdAt)
-		t.AppendRow([]interface{}{id, createdAt, relTime, backupType, profile})
+		success := "Never recorded"
+		if lastSuccess.Valid {
+			success = lastSuccess.String
+		}
+		result := "succeeded"
+		if exitCode == -1 {
+			result = "interrupted"
+		} else if exitCode != 0 {
+			result = fmt.Sprintf("failed (exit %d)", exitCode)
+		}
+		t.AppendRow(table.Row{profile, backupType, success, latestAttempt, result})
 		t.AppendSeparator()
 		hasData = true
 	}
+	cobra.CheckErr(rows.Err())
 	return
 }
 

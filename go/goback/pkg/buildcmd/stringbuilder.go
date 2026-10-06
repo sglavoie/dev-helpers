@@ -1,6 +1,8 @@
 package buildcmd
 
 import (
+	"strings"
+
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/viper"
@@ -21,61 +23,40 @@ var booleanFlags = []struct {
 	{"pruneEmptyDirs", "--prune-empty-dirs"},
 }
 
-func isDryRun() bool {
-	return viper.GetBool("cliDryRun")
-}
-
+// CommandString is a shell-safe representation for display and copy/paste only.
+// Execution uses args directly and never asks a shell to interpret configuration.
 func (r *builder) CommandString() string {
-	return r.sb.String()
+	quoted := make([]string, len(r.args))
+	for i, arg := range r.args {
+		if arg != "" && strings.IndexFunc(arg, func(c rune) bool {
+			return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("_@%+=:,./-", c))
+		}) == -1 {
+			quoted[i] = arg
+		} else {
+			quoted[i] = "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
+		}
+	}
+	return strings.Join(quoted, " ")
 }
 
 func (r *builder) appendBooleanFlags() {
-	cfgPrefix := r.builderSettingsPrefix()
-
-	for _, f := range booleanFlags {
-		if viper.GetBool(cfgPrefix + f.configKey) {
-			r.sb.WriteString(" " + f.flag)
-		}
-	}
-
-	if viper.GetBool(cfgPrefix+"dryRun") || isDryRun() {
-		r.sb.WriteString(" --dry-run")
-	}
-	if viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose") {
-		r.sb.WriteString(" --verbose")
-	}
-
-	quiet := viper.GetBool("cliQuiet")
-	if viper.GetBool("showProgress") && !quiet {
-		r.sb.WriteString(" --progress")
-	}
-
-	verbose := viper.GetBool(cfgPrefix+"verbose") || viper.GetBool("cliVerbose")
-	if !quiet && (verbose || isDryRun()) {
-		r.sb.WriteString(" --stats")
-	}
+	r.args = append(r.args, r.getFlags()...)
 }
 
 func (r *builder) appendIncludedPatterns() {
-	cfgPrefix := r.builderSettingsPrefix()
-	patterns := viper.GetStringSlice(cfgPrefix + "includedPatterns")
+	patterns := r.getIncludePatterns()
 	for _, pattern := range patterns {
-		r.sb.WriteString(" --include=\"")
-		r.sb.WriteString(pattern)
-		r.sb.WriteString("\"")
+		r.args = append(r.args, "--include="+pattern)
 	}
 	r.hasIncludePatterns = len(patterns) > 0
 }
 
 func (r *builder) appendExcludedPatterns() {
 	for _, pattern := range r.mergedExcludePatterns() {
-		r.sb.WriteString(" --exclude=\"")
-		r.sb.WriteString(pattern)
-		r.sb.WriteString("\"")
+		r.args = append(r.args, "--exclude="+pattern)
 	}
-	// When include patterns are used, add a final --exclude="*" to exclude everything else
 	if r.hasIncludePatterns {
-		r.sb.WriteString(" --exclude=\"*\"")
+		r.args = append(r.args, "--exclude=*")
 	}
 }
 
@@ -113,9 +94,5 @@ func MergeUnique(base, extra []string) []string {
 }
 
 func (r *builder) appendSrcDest() {
-	r.sb.WriteString(" '")
-	r.sb.WriteString(r.updatedSrc)
-	r.sb.WriteString("' '")
-	r.sb.WriteString(r.updatedDestDir)
-	r.sb.WriteString("'")
+	r.args = append(r.args, "--", r.updatedSrc, r.updatedDestDir)
 }
