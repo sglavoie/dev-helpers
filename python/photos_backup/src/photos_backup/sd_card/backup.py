@@ -35,6 +35,7 @@ class Backup:
                 self.dst_path / self.src_path.name,
                 self._copy,
                 dry_run=self.dry_run,
+                delete_at_destination=False,
             )
         return self._copy()
 

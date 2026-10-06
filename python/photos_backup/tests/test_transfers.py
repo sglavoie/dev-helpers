@@ -3,6 +3,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+from itertools import product
 from pathlib import Path
 from unittest import mock
 
@@ -184,8 +185,8 @@ class TransferHistoryTests(unittest.TestCase):
 
     def test_cli_records_ssd_and_remote_results_in_standalone_and_pipeline_runs(self):
         self.source.mkdir()
-        for command in ("ssd", "remote", "backup-all"):
-            with self.subTest(command=command):
+        for command, delete in product(("ssd", "remote", "backup-all"), (False, True)):
+            with self.subTest(command=command, delete=delete):
                 config = self.root / f"{command}.toml"
                 config.write_text(
                     f'[ssd]\nsource = "{self.source}"\ndestination = "{self.root / "backup"}"\n'
@@ -215,6 +216,10 @@ class TransferHistoryTests(unittest.TestCase):
                     args = ["--config", str(config), command]
                     if command == "backup-all":
                         args += ["--skip-apple-photos", "--skip-sd-card"]
+                    if delete:
+                        args.append("--delete")
+                        if command == "backup-all":
+                            args.append("--delete-remote")
                     result = CliRunner().invoke(cli, args)
                 self.assertEqual(result.exit_code, 0, result.output)
                 receipts, errors = TransferHistory(config).read()
@@ -223,6 +228,61 @@ class TransferHistoryTests(unittest.TestCase):
                 for receipt in receipts:
                     self.assertEqual(receipt["last_success"]["files_transferred"], 4)
                     self.assertEqual(receipt["last_attempt"]["status"], "succeeded")
+                    self.assertEqual(
+                        receipt["last_success"]["mode"], "mirror" if delete else "copy"
+                    )
+
+    def test_failed_mirror_retains_successful_copy_mode_and_legacy_is_unknown(self):
+        self.history.run(
+            "Remote",
+            self.source,
+            "b2:photos",
+            lambda: BackupSummary("Remote"),
+            dry_run=False,
+            delete_at_destination=False,
+        )
+        self.history.run(
+            "Remote",
+            self.source,
+            "b2:photos",
+            lambda: BackupSummary("Remote", error="offline"),
+            dry_run=False,
+            delete_at_destination=True,
+        )
+        receipt = self.receipt()
+        self.assertEqual(receipt["last_success"]["mode"], "copy")
+        self.assertEqual(receipt["last_attempt"]["mode"], "mirror")
+        with mock.patch("photos_backup.summary.click.echo") as echo:
+            print_transfer_history([receipt], [])
+        output = "\n".join(str(call.args[0]) for call in echo.call_args_list)
+        self.assertIn("Attempt mode: mirror (deletions enabled)", output)
+        self.assertIn(
+            "Successful copy mode: copy (preserves destination-only files)", output
+        )
+        path = next(self.history.directory.glob("*.json"))
+        for field in ("last_attempt", "last_success"):
+            receipt[field].pop("mode")
+        path.write_text(json.dumps(receipt))
+        with mock.patch("photos_backup.summary.click.echo") as echo:
+            print_transfer_history([self.receipt()], [])
+        self.assertEqual(
+            sum(
+                "mode not recorded" in str(call.args[0]) for call in echo.call_args_list
+            ),
+            2,
+        )
+
+    def test_preflight_failure_records_requested_mode(self):
+        self.history.record_preflight_failure(
+            "SSD: All Photos",
+            self.source,
+            self.destination,
+            ActionRequired("offline"),
+            started_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            dry_run=False,
+            delete_at_destination=True,
+        )
+        self.assertEqual(self.receipt()["last_attempt"]["mode"], "mirror")
 
     def test_ssd_preflight_failures_preserve_success_and_dry_run_history(self):
         self.source.mkdir()
@@ -319,6 +379,7 @@ class TransferHistoryTests(unittest.TestCase):
                 self.assertEqual(receipt["step"], "SD Card")
                 self.assertEqual(receipt["destination"], str(self.destination))
                 self.assertEqual(receipt["last_success"]["files_transferred"], 4)
+                self.assertEqual(receipt["last_success"]["mode"], "copy")
                 before = {p: p.read_bytes() for p in history.directory.iterdir()}
                 CliRunner().invoke(cli, [*args, "--dry-run"])
                 self.assertEqual(

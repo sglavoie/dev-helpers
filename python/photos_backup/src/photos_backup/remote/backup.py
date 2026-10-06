@@ -50,7 +50,12 @@ class Backup:
     def backup(self) -> BackupSummary:
         if self.history is not None:
             return self.history.run(
-                "Remote", self.src_path, self.remote, self._copy, dry_run=self.dry_run
+                "Remote",
+                self.src_path,
+                self.remote,
+                self._copy,
+                dry_run=self.dry_run,
+                delete_at_destination=self.delete_at_destination,
             )
         return self._copy()
 

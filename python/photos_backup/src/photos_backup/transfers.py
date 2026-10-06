@@ -61,6 +61,8 @@ def _validate_attempt(attempt: object, field: str) -> None:
         raise ValueError(f"invalid {field} in transfer receipt")
     if attempt.get("status") not in ("started", "succeeded", "failed", "interrupted"):
         raise ValueError(f"invalid status in {field}")
+    if attempt.get("mode") not in (None, "copy", "mirror"):
+        raise ValueError(f"invalid mode in {field}")
     if attempt["status"] != "started" and attempt.get("completed_at") is None:
         raise ValueError(f"missing completion time in {field}")
     for timestamp in ("started_at", "completed_at"):
@@ -128,6 +130,7 @@ class TransferHistory:
         operation: Callable[[], BackupSummary],
         *,
         dry_run: bool,
+        delete_at_destination: bool | None = None,
     ) -> BackupSummary:
         if dry_run:
             return operation()
@@ -137,6 +140,8 @@ class TransferHistory:
             "destination": str(destination),
         }
         attempt = {"started_at": _now(), "completed_at": None, "status": "started"}
+        if delete_at_destination is not None:
+            attempt["mode"] = "mirror" if delete_at_destination else "copy"
         self._record(identity, attempt)
         try:
             result = operation()
@@ -176,6 +181,7 @@ class TransferHistory:
         *,
         started_at: str,
         dry_run: bool,
+        delete_at_destination: bool | None = None,
     ) -> None:
         """Record a refused copy without losing its last successful transfer."""
         if dry_run:
@@ -187,6 +193,11 @@ class TransferHistory:
                 "completed_at": _now(),
                 "status": "failed" if isinstance(error, Exception) else "interrupted",
                 "error": f"Preflight: {str(error) or type(error).__name__}",
+                "mode": None
+                if delete_at_destination is None
+                else "mirror"
+                if delete_at_destination
+                else "copy",
             },
         )
 

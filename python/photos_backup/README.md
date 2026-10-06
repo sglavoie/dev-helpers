@@ -55,6 +55,8 @@ cleanup needs approval, its export has still completed; you can continue the
 copies while deciding what to delete. For other errors, follow the printed
 recovery instructions before continuing. Connect the configured copy drives;
 add `--skip-sd-card` when no card is attached. Unconfigured copy steps are skipped.
+`daily` prints its export result before reconciling cleanup, so a cleanup error
+still leaves the export outcome and report path visible.
 
 When cleanup is pending, preview the run ID printed by `status`:
 
@@ -198,6 +200,7 @@ Everything the archive owns lives under one hidden directory inside
 |------|----------|
 | `.photos-backup/export.db` | osxphotos export database |
 | `.photos-backup/state.json` | versioned run state |
+| `.photos-backup/last-export-attempt.json` | latest export attempt, separate from successful baseline state |
 | `.photos-backup/archive.lock` | `flock` held for the duration of a run |
 | `.photos-backup/reports/` | per-host export and late-additions reports |
 | `.photos-backup/migrations/` | last-known-good export-database backup |
@@ -269,6 +272,24 @@ An uninitialized archive suggests `photos-backup bootstrap`.
 The baseline report belongs to the last successful full or incremental export;
 it does not describe newer failed, recent, or custom manual exports.
 
+Status also shows the latest Apple Photos export attempt: mode, outcome, times,
+Mac, report path (if the exporter wrote it), error, and whether it advanced the
+baseline. This receipt travels with the archive and includes failed, interrupted,
+recent, and custom exports without changing cadence or cleanup decisions.
+It describes the export step, not subsequent bootstrap coverage or cleanup.
+Attempts start when the exporter is invoked; earlier configuration, mount, and
+takeover refusals do not replace the receipt. A process killed before it records
+completion leaves an explicit "completion not recorded (running or interrupted)"
+status. Dry runs never update it, and existing archives show "not recorded" until
+their next real export. Receipt write failures warn without masking export results;
+an unreadable receipt is reported without repairing it or hiding baseline state.
+
+Transfer history records the mode of both the latest attempt and the last
+successful copy: `copy` preserves destination-only files, while `mirror` enables
+deletions subject to the transfer's exclusions. A failed mirror therefore does
+not relabel an earlier successful copy. Older receipts remain readable and show
+"mode not recorded"; the current configuration is never used to guess their mode.
+
 Suggested recovery and cleanup commands preserve any explicit `--config` and
 `--volume` options and quote paths for pasting into a shell, so they target the
 same archive as the command that printed them.
@@ -289,6 +310,9 @@ remote-source dependencies; invalid configuration exits 2.
 state values are null. It preserves the normal status exit codes, including exit
 0 for pending cleanup or an uninitialized archive. Errors reading local receipts
 are included in `transfer_history_errors` rather than mixed into JSON output.
+The additive `last_export_attempt` and `export_attempt_error` fields contain the
+latest export receipt and any read error, respectively, or null when unavailable.
+Transfer attempts expose `mode` when recorded; older attempts may omit it.
 If the archive cannot be read, `state` and `next_export` are null and
 `archive_error` contains the reason; otherwise `archive_error` is null. The JSON
 is still printed on archive errors, with CLI diagnostics on stderr.

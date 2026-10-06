@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from photos_backup.apple_photos.plan import plan_export
+from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.archive import ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.config import (
@@ -15,7 +16,11 @@ from photos_backup.config import (
     load_rclone_config,
     resolve_rclone_source,
 )
-from photos_backup.summary import print_archive_status, print_transfer_history
+from photos_backup.summary import (
+    print_archive_status,
+    print_export_attempt,
+    print_transfer_history,
+)
 from photos_backup.transfers import TransferHistory, classify_transfers
 
 
@@ -85,6 +90,8 @@ def status(ctx: click.Context, as_json: bool) -> None:
         "state": None,
         "next_export": None,
         "archive_error": None,
+        "last_export_attempt": None,
+        "export_attempt_error": None,
         "transfers": receipts,
         "configured_transfers": current,
         "historical_transfers": historical,
@@ -97,6 +104,10 @@ def status(ctx: click.Context, as_json: bool) -> None:
     else:
         try:
             with open_archive(config, dry_run=True) as archive:
+                attempt, attempt_error = ExportAttemptStore(archive).read()
+                document.update(
+                    last_export_attempt=attempt, export_attempt_error=attempt_error
+                )
                 state = archive.state_store.load()
                 now = archive.now()
                 plan = plan_export(config, state, now)
@@ -111,6 +122,7 @@ def status(ctx: click.Context, as_json: bool) -> None:
                 )
                 if not as_json:
                     print_archive_status(archive, state, plan, now=now)
+                    print_export_attempt(attempt, attempt_error, now=now)
         except (ArchiveError, OSError) as error:
             archive_error = (
                 error

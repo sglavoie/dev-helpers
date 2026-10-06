@@ -105,6 +105,7 @@ class Backup:
                             error,
                             started_at=started_at,
                             dry_run=self.dry_run,
+                            delete_at_destination=self.delete_at_destination,
                         )
                 raise
             return self._copy_sources(prepared)
@@ -133,6 +134,7 @@ class Backup:
                         self.destination / source.name,
                         operation,
                         dry_run=self.dry_run,
+                        delete_at_destination=self.delete_at_destination,
                     )
                     if self.history is not None
                     else operation()

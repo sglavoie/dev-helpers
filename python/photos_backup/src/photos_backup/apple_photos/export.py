@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import click
 
 from photos_backup.apple_photos.adapter import ExportRunner, run_osxphotos_export
+from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.late_additions import (
     MetadataReader,
     generate_late_photo_additions_report,
@@ -112,11 +113,17 @@ class ApplePhotosExport:
         hostname = self.archive.hostname
         day = now.date()
         sequence = paths.next_report_sequence(hostname, day)
-        return self._run(
+        report_path = paths.export_report(hostname, day, sequence)
+        return ExportAttemptStore(self.archive).run(
             plan,
-            now,
-            paths.export_report(hostname, day, sequence),
-            paths.late_additions_report(hostname, day, sequence),
+            report_path,
+            lambda: self._run(
+                plan,
+                now,
+                report_path,
+                paths.late_additions_report(hostname, day, sequence),
+            ),
+            restricted=bool(self.extra_arguments or self.limit),
         )
 
     def _run(

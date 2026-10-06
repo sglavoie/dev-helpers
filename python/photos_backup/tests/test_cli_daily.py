@@ -17,6 +17,33 @@ UNCHANGED_WRITER = mock.Mock(status=WriterStatus.UNCHANGED)
 
 
 class DailyTests(ArchiveCommandTestCase):
+    def test_export_summary_survives_a_cleanup_exception(self):
+        self.initialized_archive()
+        with (
+            self.mounted(),
+            mock.patch(
+                "photos_backup.cli.daily.ensure_writer", return_value=UNCHANGED_WRITER
+            ),
+            mock.patch(
+                "photos_backup.cli.daily.run_osxphotos_export",
+                side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
+            ),
+            mock.patch(
+                "photos_backup.cli.daily.reconcile_mirror",
+                side_effect=ActionRequired("Cleanup needs attention"),
+            ),
+        ):
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "daily"]
+            )
+        self.assertEqual(result.exit_code, 3, result.output)
+        self.assertEqual(result.output.count("Exported ("), 1)
+        self.assertIn("Status: OK", result.output)
+        self.assertLess(
+            result.output.index("Export report:"),
+            result.output.index("Cleanup needs attention"),
+        )
+
     def test_missing_downloads_fail_daily_without_advancing_or_cleaning(self):
         paths = self.initialized_archive()
         before = ArchiveStateStore(paths).load()

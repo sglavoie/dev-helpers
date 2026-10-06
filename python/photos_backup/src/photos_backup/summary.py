@@ -429,6 +429,32 @@ def print_archive_status(
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
 
 
+def print_export_attempt(
+    attempt: dict | None, error: str | None, *, now: datetime.datetime
+) -> None:
+    if error:
+        click.echo(f"Warning: {error}", err=True)
+    if attempt is None:
+        click.echo("Latest Apple Photos export attempt: (not recorded)")
+        return
+    status = attempt["status"]
+    if status == "started":
+        status = "completion not recorded (running or interrupted)"
+    mode = attempt["mode"] + ("; custom options/limit" if attempt["restricted"] else "")
+    click.echo(f"Latest Apple Photos export attempt: {mode} — {status}")
+    started = datetime.datetime.fromisoformat(attempt["started_at"])
+    click.echo(f"  Started: {started.isoformat()} ({_relative_age(started, now)})")
+    if attempt["completed_at"]:
+        click.echo(f"  Completed: {attempt['completed_at']}")
+    click.echo(f"  Mac: {attempt['hostname']}")
+    click.echo(f"  Export report (if written): {attempt['report_path']}")
+    click.echo(
+        f"  Baseline advanced: {'yes' if attempt['baseline_advanced'] else 'no'}"
+    )
+    if attempt["error"]:
+        click.echo(f"  Error: {attempt['error']}")
+
+
 def _transfer_attention(receipts: list[dict]) -> list[str]:
     attention = []
     for status, label in (
@@ -492,6 +518,7 @@ def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
     if outcome == "started":
         outcome = "completion not recorded (running or interrupted)"
     click.echo(f"    Last attempt: {timestamp(attempt['started_at'])} — {outcome}")
+    click.echo(f"    Attempt mode: {_transfer_mode(attempt)}")
     if attempt.get("error"):
         click.echo(f"    Error: {attempt['error']}")
     success = receipt["last_success"]
@@ -499,6 +526,7 @@ def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
         f"    Last successful copy: {timestamp(success['completed_at']) if success else '(never)'}"
     )
     if success:
+        click.echo(f"    Successful copy mode: {_transfer_mode(success)}")
         details = []
         count = success.get("files_transferred")
         if type(count) is int and count >= 0:
@@ -511,6 +539,13 @@ def _print_transfer_receipt(receipt: dict, *, now: datetime.datetime) -> None:
             details.append(f"{elapsed:.1f}s")
         if details:
             click.echo(f"    Successful copy details: {', '.join(details)}")
+
+
+def _transfer_mode(attempt: dict) -> str:
+    return {
+        "copy": "copy (preserves destination-only files)",
+        "mirror": "mirror (deletions enabled)",
+    }.get(attempt.get("mode"), "mode not recorded")
 
 
 def print_verification_report(report: VerificationReport) -> None:

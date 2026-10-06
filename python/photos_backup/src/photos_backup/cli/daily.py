@@ -66,14 +66,14 @@ def daily(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
                     progress=progress,
                 ),
             ).export()
+            if takeover.status is not WriterStatus.UNCHANGED:
+                print_takeover_check(takeover, dry_run=dry_run)
+            print_export_result(result, dry_run=dry_run)
             with progress.phase("Reconciling archive cleanup"):
                 mirror = reconcile_mirror(config, archive, result)
     finally:
         click.echo(f"Total command time: {time.monotonic() - started:.1f}s")
 
-    if takeover.status is not WriterStatus.UNCHANGED:
-        print_takeover_check(takeover, dry_run=dry_run)
-    print_export_result(result, dry_run=dry_run)
     print_mirror_outcome(mirror, dry_run=dry_run)
     if not result.complete:
         raise click.ClickException(str(result.failure_reason()))
