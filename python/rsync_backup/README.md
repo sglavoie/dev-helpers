@@ -1,5 +1,8 @@
 # rsync backup
 
+> **Note:** This script has been superseded by [`goback`](../../go/goback/README.md),
+> a Go rewrite that is actively maintained. New features and fixes go there.
+
 ### Table of contents
 
 - [Introduction](#introduction)
