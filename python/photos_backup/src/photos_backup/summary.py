@@ -496,6 +496,16 @@ def _transfer_attention(receipts: list[dict]) -> list[str]:
     newer_ssd = sum(row.get("ssd_copied_since_upload") is True for row in receipts)
     if newer_ssd:
         attention.append(f"{newer_ssd} with an SSD copy since the cloud upload started")
+    for field, label in (
+        ("sd_imported_since_copy", "an SD-card import since the SSD copy started"),
+        (
+            "archive_may_have_changed_since_copy",
+            "possible archive changes since the copy started",
+        ),
+    ):
+        count = sum(row.get(field) is True for row in receipts)
+        if count:
+            attention.append(f"{count} with {label}")
     return attention
 
 
@@ -537,16 +547,7 @@ def _print_transfer_receipt(
         return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
 
     click.echo(f"  {receipt['step']}: {receipt['source']} → {receipt['destination']}")
-    if receipt.get("archive_exported_since_copy"):
-        click.echo(
-            "    Archive exported since this copy started (recorded-time hint; "
-            "destination files have not been checked)"
-        )
-    if receipt.get("ssd_copied_since_upload"):
-        click.echo(
-            "    SSD copy completed since the last cloud upload started "
-            "(recorded-time hint; destination files have not been checked)"
-        )
+    _print_transfer_freshness(receipt)
     attempt = receipt["last_attempt"]
     if attempt is None:
         click.echo("    No transfer receipts recorded; no successful copy recorded")
@@ -580,6 +581,27 @@ def _print_transfer_receipt(
             click.echo(f"    Successful copy details: {', '.join(details)}")
 
 
+def _print_transfer_freshness(receipt: dict) -> None:
+    if receipt.get("archive_exported_since_copy"):
+        click.echo(
+            "    Archive exported since this copy started (recorded-time hint; "
+            "destination files have not been checked)"
+        )
+    if receipt.get("ssd_copied_since_upload"):
+        click.echo(
+            "    SSD copy completed since the last cloud upload started "
+            "(recorded-time hint; destination files have not been checked)"
+        )
+    if receipt.get("sd_imported_since_copy"):
+        click.echo(
+            "    SD-card import completed since this SSD copy started (recorded-time hint; destination files have not been checked)"
+        )
+    if receipt.get("archive_may_have_changed_since_copy"):
+        click.echo(
+            "    Archive may have changed since this copy started: an incomplete export can retain new files"
+        )
+
+
 def _print_transfer_retry(receipt: dict) -> None:
     attempt = receipt["last_attempt"]
     if attempt["status"] in ("failed", "interrupted"):
@@ -604,6 +626,180 @@ def _transfer_mode(attempt: dict) -> str:
         "copy": "copy (preserves destination-only files)",
         "mirror": "mirror (deletions enabled)",
     }.get(attempt.get("mode"), "mode not recorded")
+
+
+def print_download_summary(summary: dict | None, error: str | None) -> None:
+    if error:
+        click.echo(f"Warning: {error}", err=True)
+    if summary is None:
+        return
+    reasons = "; ".join(
+        f"{count} {reason}" for reason, count in summary["reasons"].items()
+    )
+    click.echo(
+        f"  Unresolved downloads in latest report: {summary['count']}"
+        + (f" ({reasons})" if reasons else "")
+    )
+    for row in summary["samples"]:
+        filename = " ".join(row["filename"].split())[:120]
+        reason = " ".join(row["reason"].split())[:180]
+        click.echo(f"    {filename}: {reason}")
+    if summary["count"] > len(summary["samples"]):
+        click.echo(
+            f"    and {summary['count'] - len(summary['samples'])} more; see {summary['report_path']}"
+        )
+
+
+def print_verification_history(
+    receipt: dict | None, error: str | None, *, now: datetime.datetime
+) -> None:
+    if error:
+        click.echo(f"Warning: {error}", err=True)
+    if receipt is None:
+        click.echo("Last verification (this Mac): not recorded")
+        return
+    age = _relative_age(datetime.datetime.fromisoformat(receipt["completed_at"]), now)
+    details = ["passed" if receipt["passed"] else "failed", age]
+    if receipt.get("archive_error"):
+        details.append(receipt["archive_error"])
+    elif receipt["failed_checks"]:
+        details.append(", ".join(receipt["failed_checks"]))
+    if not receipt["archive_state_available"]:
+        details.append("archive freshness unknown")
+    elif receipt["archive_exported_since_verification"]:
+        details.append("archive exported since then")
+    elif receipt["archive_may_have_changed_since_verification"]:
+        details.append("archive may have changed since then")
+    click.echo(f"Last verification (this Mac): {'; '.join(details)}")
+
+
+def print_short_status(document: dict, *, now: datetime.datetime) -> None:
+    click.echo("Recorded status — files have not been verified by this command")
+    commands: list[str] = []
+    _print_short_archive(document, now, commands)
+    if document["export_attempt_error"]:
+        click.echo(f"Warning: {document['export_attempt_error']}", err=True)
+    print_download_summary(
+        document["download_summary"], document["download_report_error"]
+    )
+    for row in document["configured_transfers"]:
+        _print_short_transfer(row, now, commands)
+    for error in document["transfer_history_errors"]:
+        click.echo(f"Warning: {error}", err=True)
+    if document["archive_configured"]:
+        receipt = document["last_verification"]
+        print_verification_history(
+            receipt, document["verification_history_error"], now=now
+        )
+        if (
+            receipt is None
+            or not receipt["passed"]
+            or receipt["archive_exported_since_verification"]
+            or receipt["archive_may_have_changed_since_verification"]
+        ):
+            commands.append(suggested_command("verify", "--record"))
+    if commands:
+        click.echo("Suggested next commands (mirror retries are previews):")
+        for command in dict.fromkeys(commands):
+            click.echo(f"  {command}")
+
+
+def _print_short_archive(
+    document: dict, now: datetime.datetime, commands: list[str]
+) -> None:
+    state, attempt = document["state"], document["last_export_attempt"]
+    if not document["archive_configured"]:
+        click.echo("Apple Photos: not configured")
+    elif document["archive_error"]:
+        click.echo(f"Apple Photos: unavailable — {document['archive_error']}")
+    else:
+        if not state["initialized_at"]:
+            export_status = "bootstrap incomplete"
+            commands.append(suggested_command("bootstrap"))
+        elif attempt and attempt["status"] != "succeeded":
+            export_status = {
+                "failed": "latest export incomplete",
+                "interrupted": "latest export interrupted",
+                "started": "completion not recorded (running or interrupted)",
+            }[attempt["status"]]
+            if attempt.get("retry_arguments"):
+                commands.append(suggested_command(*attempt["retry_arguments"]))
+            elif attempt["restricted"]:
+                export_status += "; retry with original manual options/limit"
+            else:
+                commands.append(suggested_command("daily"))
+        else:
+            timestamp = state["last_successful_export_at"]
+            export_status = (
+                "baseline "
+                + _relative_age(datetime.datetime.fromisoformat(timestamp), now)
+                if timestamp
+                else "no successful baseline recorded"
+            )
+            if attempt and not attempt["baseline_advanced"]:
+                export_status += (
+                    f"; latest {attempt['mode']} export succeeded (baseline unchanged)"
+                )
+        click.echo(
+            f"Apple Photos: {export_status}; next export {document['next_export']['mode']}"
+        )
+        pending = state["pending_cleanup_run_id"]
+        click.echo(f"Cleanup: {'pending ' + pending if pending else 'none pending'}")
+        if pending:
+            commands.append(suggested_command("approve-cleanup", pending, "--dry-run"))
+
+
+def _print_short_transfer(
+    row: dict, now: datetime.datetime, commands: list[str]
+) -> None:
+    latest, success = row["last_attempt"], row["last_success"]
+    hints = [
+        row.get(field)
+        for field in (
+            "archive_exported_since_copy",
+            "ssd_copied_since_upload",
+            "sd_imported_since_copy",
+            "archive_may_have_changed_since_copy",
+        )
+    ]
+    needs_action = (
+        success is None or True in hints or (latest and latest["status"] != "succeeded")
+    )
+    if latest and latest["status"] != "succeeded":
+        detail = (
+            "completion not recorded (running or interrupted)"
+            if latest["status"] == "started"
+            else "latest attempt " + latest["status"]
+        )
+    elif success is None:
+        detail = "no successful copy recorded; freshness unknown"
+    elif True in hints:
+        detail = (
+            "may need updating"
+            if row.get("archive_may_have_changed_since_copy")
+            else "needs updating"
+        )
+    else:
+        age = _relative_age(
+            datetime.datetime.fromisoformat(success["completed_at"]), now
+        )
+        detail = f"copied {age}; " + (
+            "no newer upstream success recorded"
+            if False in hints
+            else "freshness unknown"
+        )
+    click.echo(f"{row['step']}: {detail}")
+    if needs_action:
+        command = {
+            "SD Card": "sd-card",
+            "SSD: All Photos": "ssd",
+            "SSD: SD Card": "ssd",
+            "Remote": "remote",
+        }[row["step"]]
+        arguments = [command]
+        if latest and latest.get("mode") == "mirror":
+            arguments += ["--delete", "--dry-run"]
+        commands.append(suggested_command(*arguments))
 
 
 def print_verification_report(report: VerificationReport) -> None:

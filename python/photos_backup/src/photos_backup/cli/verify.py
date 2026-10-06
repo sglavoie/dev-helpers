@@ -9,10 +9,11 @@ import click
 
 from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
 from photos_backup.archive import ArchiveError, open_archive
-from photos_backup.cli.context import apple_photos_config_from
+from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import print_verification_report
+from photos_backup.verification_history import VerificationHistory
 
 
 @click.command(
@@ -26,8 +27,15 @@ from photos_backup.summary import print_verification_report
     help="Save all findings as JSON to a new file outside the archive.",
 )
 @click.option("--json", "as_json", is_flag=True, help="Print all findings as JSON.")
+@click.option(
+    "--record",
+    is_flag=True,
+    help="Remember this result locally for status; never write to the archive.",
+)
 @click.pass_context
-def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
+def verify(
+    ctx: click.Context, report_path: Path | None, as_json: bool, record: bool
+) -> None:
     config = apple_photos_config_from(ctx)
     started_at = datetime.datetime.now(datetime.UTC)
     started = time.monotonic()
@@ -43,20 +51,20 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
         try:
             archive = stack.enter_context(open_archive(config, dry_run=True))
         except (ArchiveError, OSError) as error:
-            if as_json:
-                click.echo(
-                    json.dumps(
-                        {
-                            "version": 1,
-                            "archive": str(config.archive),
-                            "passed": False,
-                            "checks": [],
-                            "archive_error": str(error),
-                            **timing(),
-                        },
-                        indent=2,
-                    )
+            document = {
+                "version": 1,
+                "archive": str(config.archive),
+                "passed": False,
+                "checks": [],
+                "archive_error": str(error),
+                **timing(),
+            }
+            if record:
+                VerificationHistory(config_path_from(ctx), config.archive).record(
+                    document
                 )
+            if as_json:
+                click.echo(json.dumps(document, indent=2))
             if isinstance(error, ArchiveError):
                 raise
             raise click.ClickException(str(error)) from error
@@ -75,6 +83,8 @@ def verify(ctx: click.Context, report_path: Path | None, as_json: bool) -> None:
         "checks": [asdict(check) for check in report.checks],
         **timing(),
     }
+    if record:
+        VerificationHistory(config_path_from(ctx), config.archive).record(document)
     if as_json:
         click.echo(json.dumps(document, indent=2, default=str))
     else:

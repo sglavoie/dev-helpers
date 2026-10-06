@@ -99,6 +99,7 @@ def annotate_archive_freshness(
     receipts: list[dict],
     archive: Path | None,
     exported_at: datetime.datetime | None,
+    attempt: dict | None = None,
 ) -> list[dict]:
     """Compare recorded times for exact sources without probing mounted paths.
 
@@ -116,13 +117,24 @@ def annotate_archive_freshness(
                 and row["last_success"] is not None
                 else None
             ),
+            "archive_may_have_changed_since_copy": (
+                datetime.datetime.fromisoformat(
+                    attempt["completed_at"] or attempt["started_at"]
+                )
+                > datetime.datetime.fromisoformat(row["last_success"]["started_at"])
+                if row["source"] == str(archive)
+                and attempt is not None
+                and attempt["status"] != "succeeded"
+                and row["last_success"] is not None
+                else None
+            ),
         }
         for row in receipts
     ]
 
 
 def annotate_upstream_freshness(receipts: list[dict]) -> list[dict]:
-    """Compare current SSD routes with cloud uploads, using lexical paths only."""
+    """Compare current SD/SSD/cloud routes, using lexical paths only."""
     result = []
     for row in receipts:
         upstream = [
@@ -133,6 +145,14 @@ def annotate_upstream_freshness(receipts: list[dict]) -> list[dict]:
             and source["last_success"] is not None
             and Path(source["destination"]).is_relative_to(Path(row["source"]))
         ]
+        imported = [
+            source["last_success"]["completed_at"]
+            for source in receipts
+            if row["step"] == "SSD: SD Card"
+            and source["step"] == "SD Card"
+            and source["last_success"] is not None
+            and Path(source["destination"]).is_relative_to(Path(row["source"]))
+        ]
         result.append(
             {
                 **row,
@@ -140,6 +160,12 @@ def annotate_upstream_freshness(receipts: list[dict]) -> list[dict]:
                     max(datetime.datetime.fromisoformat(value) for value in upstream)
                     > datetime.datetime.fromisoformat(row["last_success"]["started_at"])
                     if upstream and row["last_success"] is not None
+                    else None
+                ),
+                "sd_imported_since_copy": (
+                    max(datetime.datetime.fromisoformat(value) for value in imported)
+                    > datetime.datetime.fromisoformat(row["last_success"]["started_at"])
+                    if imported and row["last_success"] is not None
                     else None
                 ),
             }
