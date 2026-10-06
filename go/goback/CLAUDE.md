@@ -130,17 +130,23 @@ checking whether paths are mounted. Commands reject surplus positional
 arguments. Profile completion reads a separate Viper instance without prompting,
 creating configuration, or resolving a hostname.
 
-### Profile overview, status, and snapshot diagnostics
+### Profile overview, status, and diagnostics
 
 `profiles` and `status` use `config.LoadReadOnly`, which validates and reads the
 configuration without prompting or creating it. Neither requires profile
 resolution or mounted paths. `profiles` uses `DefaultProfiles` to mark the same
 selection an unqualified run would make. `status` joins configured snapshot
-types and the global mirror with `db.ReadSummary`; it reads SQLite with
+types, daily companions, and the global mirror with `db.ReadSummary`; it reads SQLite with
 `mode=ro`, supports legacy columns without migrating, and shows missing attempts.
 `--older-than` assesses last-success age in the current local timezone;
 `--json` returns nulls for absent timestamps and exit codes. Status is
-informational, including when stale. Companion history remains in `usage`.
+informational by default. `--check` returns an error for failed/interrupted
+latest attempts, missing successes, stale successes, or an empty selection,
+while preserving JSON stdout. Mutually exclusive `--daily`, `--weekly`,
+`--monthly`, `--mirror`, and `--companions` flags filter the report.
+Weekly/monthly previews and confirmations also use read-only daily history to
+show the last recorded success and warn about a failed/interrupted latest attempt.
+Unavailable history never blocks these copies.
 
 `pkg/destinationlock` coordinates snapshot, cleanup, and mirror writers on
 this machine. Snapshot and cleanup operations lock the whole profile destination;
@@ -151,7 +157,15 @@ writers. Snapshot/cleanup endpoints resolving outside the locked root are
 refused. Locks are nonblocking; dry runs create none. Declining any `run all`
 step appends explained skipped results for the remaining steps of that profile.
 
-Snapshot execution tees stdout/stderr into a mutex-protected 64 KiB tail.
+Snapshot, mirror, and companion execution tee stdout/stderr into a mutex-protected 64 KiB tail.
 Failures/interruption save private, self-describing files under `~/.goback/logs`,
-retaining the latest 20; the report prints their paths. Successes and dry runs
+retaining the latest 20 across all profiles/types; the report prints their paths. Successes and dry runs
 write no diagnostic files. Logging errors warn without replacing transfer errors.
+Mirror capture is wired at the command layer to the transfer streamer only.
+Companions save their captured output in the orchestration layer once the profile
+is known; interrupted companions use exit code `-1` in diagnostics and history.
+`clean logs` bypasses configuration and profile resolution, uses the same
+diagnostic listing for `--keep`, and retains legacy per-type retention flags.
+It scans candidates before deleting, supports `--dry-run`, and rejects profile
+selectors because retention is global. Confirmation prompts support direct
+`y`/`n` answers and Escape to decline, retaining the existing Enter defaults.

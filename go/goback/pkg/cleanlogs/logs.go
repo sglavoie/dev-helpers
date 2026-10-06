@@ -1,76 +1,100 @@
 package cleanlogs
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/spf13/cobra"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
 )
 
-// KeepLatestOf removes the oldest logs, keeping the n most recent ones for the given backup type.
-func KeepLatestOf(n int, t string) {
+// Clean trims current diagnostics and legacy home-directory logs. Candidates
+// are collected before any deletion, so a scan error leaves every log intact.
+func Clean(w io.Writer, keep, daily, weekly, monthly int, dryRun bool) error {
+	for _, n := range []int{keep, daily, weekly, monthly} {
+		if n < 0 {
+			return fmt.Errorf("log retention counts must be greater than or equal to 0")
+		}
+	}
+	paths, err := diagnostics.LogPaths()
+	if err != nil {
+		return err
+	}
+	candidates := append([]string(nil), paths[min(keep, len(paths)):]...)
 	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-
-	f, err := os.ReadDir(home)
-	cobra.CheckErr(err)
-
-	files := filterLogs(f, t)
-	sortLogs(home, files)
-	removeLogs(n, home, files, t)
-}
-
-// filterLogs filters the files to keep only the logs of the given backup type.
-func filterLogs(files []os.DirEntry, t string) []string {
-	prefixPattern := ".goback"
-	var filtered []string
-	prefixLength := len(prefixPattern)
-	for _, file := range files {
-		if file.IsDir() {
+	if err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(home)
+	if err != nil {
+		return err
+	}
+	for _, group := range []struct {
+		kind string
+		keep int
+	}{{"daily", daily}, {"weekly", weekly}, {"monthly", monthly}} {
+		legacy, err := legacyPaths(home, entries, group.kind)
+		if err != nil {
+			return err
+		}
+		candidates = append(candidates, legacy[min(group.keep, len(legacy)):]...)
+	}
+	if len(candidates) == 0 {
+		fmt.Fprintln(w, "No logs to remove.")
+		return nil
+	}
+	var failures []error
+	seen := make(map[string]bool)
+	for _, path := range candidates {
+		if seen[path] {
 			continue
 		}
-		fn := file.Name()
-
-		if len(fn) < prefixLength {
+		seen[path] = true
+		if dryRun {
+			fmt.Fprintf(w, "Would remove %q\n", path)
 			continue
 		}
-
-		if fn[:7] == prefixPattern && !strings.Contains(fn[7:], ".") && strings.Contains(fn, t) {
-			filtered = append(filtered, file.Name())
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			failures = append(failures, fmt.Errorf("remove log %q: %w", path, err))
+			continue
 		}
+		fmt.Fprintf(w, "Removed %q\n", path)
 	}
-
-	return filtered
+	return errors.Join(failures...)
 }
 
-// removeLogs removes the oldest logs, keeping the n most recent ones for the given backup type.
-func removeLogs(n int, home string, files []string, t string) {
-	var toRemove []string
-	if n < len(files) {
-		toRemove = files[n:]
-	} else {
-		fmt.Printf("[%s] Nothing to remove: keeping %d\n", t, len(files))
-		return
+func legacyPaths(home string, entries []os.DirEntry, kind string) ([]string, error) {
+	type logFile struct {
+		path     string
+		modified time.Time
 	}
-
-	for _, file := range toRemove {
-		fp := home + "/" + file
-		fmt.Println("Removing", fp)
-		err := os.Remove(fp)
-		cobra.CheckErr(err)
+	var files []logFile
+	for _, entry := range entries {
+		name := entry.Name()
+		suffix, match := strings.CutPrefix(name, ".goback")
+		if !entry.Type().IsRegular() || !match || strings.Contains(suffix, ".") || !strings.Contains(suffix, kind) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, logFile{filepath.Join(home, name), info.ModTime()})
 	}
-}
-
-// sortLogs sorts the files by modification time in descending order.
-func sortLogs(home string, files []string) {
 	sort.Slice(files, func(i, j int) bool {
-		fi, err := os.Stat(home + "/" + files[i])
-		cobra.CheckErr(err)
-		fj, err := os.Stat(home + "/" + files[j])
-		cobra.CheckErr(err)
-
-		return fi.ModTime().After(fj.ModTime())
+		if files[i].modified.Equal(files[j].modified) {
+			return files[i].path > files[j].path
+		}
+		return files[i].modified.After(files[j].modified)
 	})
+	var paths []string
+	for _, file := range files {
+		paths = append(paths, file.path)
+	}
+	return paths, nil
 }

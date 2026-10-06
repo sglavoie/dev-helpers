@@ -190,6 +190,7 @@ func runMain(ctx context.Context, steps backupSteps) MainResult {
 func runCompanions(ctx context.Context, report *Report, companions []config.Companion, dryRun bool) {
 	for _, companion := range companions {
 		result := RunCompanion(ctx, companion, CompanionOptions{DryRun: dryRun})
+		result.SaveDiagnostics(config.ActiveProfileName)
 		RecordCompanion(result, config.ActiveProfileName)
 		report.Companions = append(report.Companions, result)
 		if ctx.Err() != nil {

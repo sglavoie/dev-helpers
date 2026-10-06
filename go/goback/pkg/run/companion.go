@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/shellquote"
 )
 
@@ -30,16 +32,18 @@ type CompanionOptions struct {
 // never fails the backup it accompanies, so every outcome is reported here
 // instead of being returned as an error.
 type CompanionResult struct {
-	Companion   config.Companion
-	Argv        []string
-	DryRun      bool
-	Started     bool
-	PID         int
-	Start       time.Time
-	Duration    time.Duration
-	ExitCode    int
-	Interrupted bool
-	Err         error
+	Companion     config.Companion
+	Argv          []string
+	DryRun        bool
+	Started       bool
+	PID           int
+	Start         time.Time
+	Duration      time.Duration
+	ExitCode      int
+	Interrupted   bool
+	Err           error
+	DiagnosticLog string
+	tail          *diagnostics.Tail
 }
 
 // Succeeded reports whether the companion ran to completion with exit code 0.
@@ -110,6 +114,11 @@ func RunCompanion(ctx context.Context, companion config.Companion, opts Companio
 	cmd := exec.CommandContext(ctx, result.Argv[0], result.Argv[1:]...)
 	cmd.Stdout = writerOrDefault(opts.Stdout, os.Stdout)
 	cmd.Stderr = writerOrDefault(opts.Stderr, os.Stderr)
+	if !opts.DryRun {
+		result.tail = &diagnostics.Tail{}
+		cmd.Stdout = io.MultiWriter(cmd.Stdout, result.tail)
+		cmd.Stderr = io.MultiWriter(cmd.Stderr, result.tail)
+	}
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
 	cmd.WaitDelay = companionKillGrace
 
@@ -129,6 +138,9 @@ func RunCompanion(ctx context.Context, companion config.Companion, opts Companio
 
 	var exitErr *exec.ExitError
 	switch {
+	case result.Interrupted:
+		result.ExitCode = -1
+		result.Err = fmt.Errorf("companion interrupted: %w", ctx.Err())
 	case err == nil:
 		result.ExitCode = 0
 	case errors.As(err, &exitErr):
@@ -139,6 +151,20 @@ func RunCompanion(ctx context.Context, companion config.Companion, opts Companio
 		result.Err = err
 	}
 	return result
+}
+
+// SaveDiagnostics retains failed output once the owning profile is known.
+// Logging is best effort and cannot change the companion's outcome.
+func (r *CompanionResult) SaveDiagnostics(profile string) {
+	if r.DryRun || !r.Started || r.Succeeded() || r.tail == nil {
+		return
+	}
+	fmt.Fprintf(r.tail, "\ngoback: %v\n", r.Err)
+	path, err := r.tail.Save(profile, db.CompanionBackupType(r.Companion.ID), r.CommandString(), r.ExitCode)
+	r.DiagnosticLog = path
+	if err != nil {
+		log.Printf("warning: could not save or trim companion diagnostic logs: %v", err)
+	}
 }
 
 // RecordCompanion appends a completed companion run to the backup history.

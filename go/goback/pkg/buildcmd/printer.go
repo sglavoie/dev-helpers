@@ -10,6 +10,7 @@ import (
 )
 
 func (r *builder) PrintCommandToRunWithConfirmation() bool {
+	fmt.Print(r.dailySourceHistory())
 	fmt.Println("The following command will be executed:", "\n", r.CommandString())
 
 	if viper.GetBool("confirmExec") {
@@ -96,6 +97,7 @@ func (r *builder) FormattedPreview() {
 
 	sb.WriteString(fmt.Sprintf("\nSource:      %s\n", r.updatedSrc))
 	sb.WriteString(fmt.Sprintf("Destination: %s\n", r.updatedDestDir))
+	sb.WriteString(r.dailySourceHistory())
 
 	// Keep quoted arguments intact, including whitespace inside filenames.
 	sb.WriteString(fmt.Sprintf("\nFull command:\n  %s\n", r.CommandString()))

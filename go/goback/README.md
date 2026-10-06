@@ -94,7 +94,7 @@ just
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
 | `profiles` | List configured profiles, their paths, and automatic selection. |
-| `status [--older-than 48h] [--json]` | Show configured backups, including those with no recorded attempts. |
+| `status [--daily] [--older-than 48h] [--check] [--json]` | Show configured backups and companions, including those with no recorded attempts. |
 | `config check\|edit\|print\|reset` | Check or manage `~/.goback.json`. |
 | `clean db\|logs\|backup` | Remove a history entry, old log files, or excluded backup content. |
 
@@ -159,16 +159,20 @@ hostname matches, and which profiles a run without `--profile` or `--all` would
 select. It works with offline drives and unmatched hostnames. `--profile NAME`
 narrows the listing without changing the meaning of the auto-selected column.
 
-`goback status` lists every configured daily, weekly, and monthly backup and the
-global mirror, even when no history exists. Use `--profile NAME` to narrow it;
-the global mirror is omitted when a profile is selected. Companion and retired
-profile history remains available through `usage last --summary`.
+`goback status` lists every configured daily, weekly, and monthly backup, daily
+companion, and the global mirror, even when no history exists. Use `--profile
+NAME` to narrow it; the global mirror is omitted when a profile is selected.
+Use one of `--daily`, `--weekly`, `--monthly`, `--mirror`, or `--companions` to
+select a backup type. Retired profile and companion history remains available
+through `usage last --summary`.
 
 ```bash
 goback profiles
 goback status
 goback status --older-than 48h
 goback status --profile default --older-than 168h --json
+goback status --daily --older-than 48h --check
+goback status --companions --profile default
 ```
 
 `--older-than` marks a last success as `stale` when it is older than the supplied
@@ -177,8 +181,14 @@ assessed. A recent failed attempt does not make an older success fresh. `never
 run` means there is no retained attempt for that configured profile/type; history
 trimming can also produce this label. A failed-only history has `no recorded
 success`. Timestamps are interpreted in the current local timezone, matching
-existing history. Status is informational: stale and never-run rows do not change
-its exit code. `--json` emits an array with `profile`, `backup_type`, `last_success`,
+existing history. Status is informational by default: stale and never-run rows
+do not change its exit code. Add `--check` to exit nonzero when any selected
+backup's latest attempt failed or was interrupted, has no recorded success, or
+is stale. An empty selection also fails a check. Without `--older-than`, a check
+assesses recorded outcomes only, not age. Filters let daily and weekly backups
+use different thresholds in separate checks. `--json --check` still emits its
+JSON array on stdout when unhealthy; the error is written to stderr.
+`--json` emits an array with `profile`, `backup_type`, `last_success`,
 `latest_attempt`, `exit_code`, `result`, and `freshness`; missing timestamps and
 exit codes are `null`.
 
@@ -216,6 +226,17 @@ to be on mounted drives; leftover directories and symlinks escaping the named
 volume are refused. These checks run again after confirmation. Weekly and
 monthly check their actual source, `daily/`, so the original source can remain
 offline. Command previews do not require mounted drives.
+
+Weekly and monthly previews and run confirmations show daily's last recorded
+success with its age. If the latest daily attempt failed or was interrupted,
+they warn that `daily/` may be partially updated. This describes retained history,
+not an inspection of file contents; missing or unreadable history is reported
+without preventing the copy. A new weekly/monthly success does not establish
+that the daily source contained recent data.
+
+Confirmation prompts accept `y`/`Y` for Yes and `n`/`N` or Escape for No.
+Arrow keys and Enter still select the displayed answer; mirror confirmation
+continues to default to No.
 
 Real snapshot runs lock the entire profile destination before confirmation.
 `run all` retains that lock through daily companions and the weekly/monthly
@@ -272,14 +293,17 @@ requires `--summary` and emits no table or terminal colors.
 
 ## Failed-run diagnostics
 
-Failed or interrupted snapshot transfers save the last 64 KiB of combined
+Failed or interrupted snapshot transfers, mirror transfers, and daily companions
+save the last 64 KiB of combined
 stdout/stderr in `~/.goback/logs/`. The result report prints the full log path.
 Each log includes the profile, backup type, exit code, and executed command;
 filenames include the UTC timestamp. Files are private (mode 0600). Only the
-newest 20 failure logs are retained, separately from SQLite history. Successes
-and dry runs create no diagnostic logs. Failure to save a log produces a warning
-and preserves the transfer's original result. Mirror and companion output is
-not captured by this snapshot logging feature.
+newest 20 failure logs are retained across all profiles and backup types,
+separately from SQLite history. Successes and dry runs create no diagnostic logs.
+Mirror preflight failures and companions that never start create no log.
+Failure to save a log produces a warning and preserves the original result.
+Companion exit codes retain their own meaning and are not interpreted as rsync
+errors; interruptions are recorded with exit code `-1`.
 
 ```bash
 ls -lt ~/.goback/logs/
@@ -322,6 +346,8 @@ cp -ip "$recovery_dir/notes.txt" "$HOME/Documents/notes.txt"
 ```bash
 goback clean backup daily --dry-run       # review candidates without deleting
 goback clean backup daily                 # review, then confirm deletion
+goback clean logs --keep 5 --dry-run       # preview log cleanup
+goback clean logs --keep 5                 # retain the newest five failure logs
 goback usage reset --profile default --keep 20
 goback usage view --no-pager
 goback usage view > backup-history.txt
@@ -334,6 +360,13 @@ Filenames are preserved exactly and quoted in the cleanup list. A partial or
 unrecognized rsync listing stops cleanup before confirmation. Real cleanup
 reports deleted and failed entry counts and exits nonzero if any deletion fails.
 Counts refer to listed roots; deleting a directory also removes its contents.
+
+`clean logs` works without a configuration file or matching hostname. `--keep`
+controls current failure logs in `~/.goback/logs/` (default 20, zero removes all).
+The existing `--keep-daily`, `--keep-weekly`, and `--keep-monthly` flags apply only
+to legacy logs directly in the home directory, retaining 14, 12, and 6 by default.
+`--dry-run` previews both groups without deleting anything. Log cleanup covers
+all profiles, so `--profile` and `--all` are rejected.
 
 History reset applies both retention and deletion within `--profile` and any
 backup-type selector. Without `--profile`, it covers all profiles; `--keep`

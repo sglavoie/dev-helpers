@@ -47,6 +47,8 @@ func TestCompanionHelperProcess(t *testing.T) {
 		if err != nil {
 			os.Exit(70)
 		}
+		fmt.Fprintln(os.Stdout, "helper output before exit")
+		fmt.Fprintln(os.Stderr, "helper diagnostic before exit")
 		os.Exit(code)
 	case "sleep":
 		ms, err := strconv.Atoi(args[1])
@@ -280,5 +282,49 @@ func TestRecordCompanionSkipsDryRunAndUnstartedCompanions(t *testing.T) {
 	})
 	if count != 0 {
 		t.Fatalf("recorded %d rows, want none", count)
+	}
+}
+
+func TestCompanionDiagnosticsOnlyForRealFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		dry     bool
+		args    []string
+		wantLog bool
+	}{
+		{"success", false, []string{"echo", "ok"}, false},
+		{"failure", false, []string{"exit", "3"}, true},
+		{"failed dry run", true, []string{"exit", "3"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			companion := helperCompanion(t, tc.args...)
+			companion.DryRunArgs = []string{"--dry-run"}
+			var stdout, stderr bytes.Buffer
+			result := RunCompanion(context.Background(), companion, CompanionOptions{DryRun: tc.dry, Stdout: &stdout, Stderr: &stderr})
+			result.SaveDiagnostics("test")
+			if (result.DiagnosticLog != "") != tc.wantLog {
+				t.Fatalf("result: %+v", result)
+			}
+			if !tc.wantLog {
+				if _, err := os.Stat(filepath.Join(home, ".goback")); !os.IsNotExist(err) {
+					t.Fatal("nonfailure wrote diagnostics")
+				}
+			}
+		})
+	}
+}
+
+func TestCompanionDiagnosticWriteFailurePreservesExitCode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.WriteFile(filepath.Join(home, ".goback"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	result := RunCompanion(context.Background(), helperCompanion(t, "exit", "3"), CompanionOptions{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
+	result.SaveDiagnostics("test")
+	if result.ExitCode != 3 || result.Err == nil || result.DiagnosticLog != "" {
+		t.Fatalf("result: %+v", result)
 	}
 }

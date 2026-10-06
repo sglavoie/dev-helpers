@@ -76,6 +76,11 @@ func (r *Report) Print(w io.Writer) {
 			fmt.Fprintf(w, "%s diagnostic log: %s\n", main.BackupType, main.DiagnosticLog)
 		}
 	}
+	for _, companion := range r.Companions {
+		if companion.DiagnosticLog != "" {
+			fmt.Fprintf(w, "companion/%s diagnostic log: %s\n", companion.Companion.ID, companion.DiagnosticLog)
+		}
+	}
 }
 
 func mainDetails(main MainResult) string {

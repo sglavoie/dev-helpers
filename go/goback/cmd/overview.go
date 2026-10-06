@@ -27,12 +27,19 @@ var profilesCmd = &cobra.Command{
 var statusCmd = &cobra.Command{
 	Use: "status", Args: cobra.NoArgs,
 	Short:       "Show configured backups, including those never recorded in history",
-	Long:        "Show configured snapshot backups and the global mirror, including backups with no retained history. By default all profiles are shown; --profile narrows the report. --older-than marks last successes older than a duration such as 48h or 168h. This command does not change configuration or history and does not require mounted drives.",
+	Long:        "Show configured snapshot backups, daily companions, and the global mirror, including backups with no retained history. By default all profiles are shown; --profile narrows the report. Select one of --daily, --weekly, --monthly, --mirror, or --companions to filter backup types. --older-than marks last successes older than a duration such as 48h or 168h. --check exits nonzero for unhealthy or empty results; without --older-than it assesses outcomes only, not age. This command does not change configuration or history and does not require mounted drives.",
 	Annotations: withProfileResolution(profileNotRequired),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		older, _ := cmd.Flags().GetDuration("older-than")
 		if older < 0 || (cmd.Flags().Changed("older-than") && older == 0) {
 			return fmt.Errorf("--older-than must be a positive duration, such as 48h")
+		}
+		kind := ""
+		for _, name := range statusSelectors {
+			selected, _ := cmd.Flags().GetBool(name)
+			if selected {
+				kind = name
+			}
 		}
 		names, err := overviewProfiles()
 		if err != nil {
@@ -46,20 +53,37 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		rows = filterStatus(rows, kind)
 		asJSON, _ := cmd.Flags().GetBool("json")
 		if asJSON {
 			encoder := json.NewEncoder(cmd.OutOrStdout())
 			encoder.SetIndent("", "  ")
-			return encoder.Encode(rows)
+			if err := encoder.Encode(rows); err != nil {
+				return err
+			}
+		} else {
+			printStatus(cmd.OutOrStdout(), rows)
 		}
-		printStatus(cmd.OutOrStdout(), rows)
+		check, _ := cmd.Flags().GetBool("check")
+		if check {
+			// Keep stdout valid JSON even when a health check fails.
+			cmd.SilenceUsage = true
+			return checkStatus(rows)
+		}
 		return nil
 	},
 }
 
+var statusSelectors = []string{"daily", "weekly", "monthly", "mirror", "companions"}
+
 func init() {
 	statusCmd.Flags().Duration("older-than", 0, "Mark last successes older than this duration (e.g. 48h, 168h)")
 	statusCmd.Flags().Bool("json", false, "Output configured backup status as JSON")
+	statusCmd.Flags().Bool("check", false, "Exit nonzero for failed, interrupted, stale, never-successful, or empty results")
+	for _, name := range statusSelectors {
+		statusCmd.Flags().Bool(name, false, "Show only "+name+" backups")
+	}
+	statusCmd.MarkFlagsMutuallyExclusive(statusSelectors...)
 	RootCmd.AddCommand(profilesCmd, statusCmd)
 }
 
@@ -168,6 +192,16 @@ func configuredStatus(names []string, history []db.SummaryRow, now time.Time, ol
 				return nil, err
 			}
 		}
+		companions, err := config.ProfileCompanions(name)
+		if err != nil {
+			return nil, err
+		}
+		slices.SortFunc(companions, func(a, b config.Companion) int { return strings.Compare(a.ID, b.ID) })
+		for _, companion := range companions {
+			if err := appendStatus(name, db.CompanionBackupType(companion.ID)); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if config.ProfileFlag == "" && viper.IsSet("mirror") {
 		if err := appendStatus(db.MirrorProfile, "mirror"); err != nil {
@@ -175,6 +209,35 @@ func configuredStatus(names []string, history []db.SummaryRow, now time.Time, ol
 		}
 	}
 	return rows, nil
+}
+
+func filterStatus(rows []statusRow, kind string) []statusRow {
+	if kind == "" {
+		return rows
+	}
+	filtered := []statusRow{}
+	for _, row := range rows {
+		if row.BackupType == kind || (kind == "companions" && strings.HasPrefix(row.BackupType, "companion/")) {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+func checkStatus(rows []statusRow) error {
+	if len(rows) == 0 {
+		return fmt.Errorf("no configured backups match the requested status check")
+	}
+	var unhealthy []string
+	for _, row := range rows {
+		if row.LastSuccess == nil || row.ExitCode == nil || *row.ExitCode != 0 || row.Freshness == "stale" {
+			unhealthy = append(unhealthy, row.Profile+"/"+row.BackupType)
+		}
+	}
+	if len(unhealthy) > 0 {
+		return fmt.Errorf("backup status check failed: %s", strings.Join(unhealthy, ", "))
+	}
+	return nil
 }
 
 func printStatus(w io.Writer, rows []statusRow) {

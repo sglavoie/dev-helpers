@@ -1,4 +1,4 @@
-// Package diagnostics retains bounded output from failed snapshot transfers.
+// Package diagnostics retains bounded output from failed backup commands.
 package diagnostics
 
 import (
@@ -71,22 +71,42 @@ func (t *Tail) Save(profile, kind, command string, exitCode int) (string, error)
 		}
 		return "", closeErr
 	}
-	entries, err := os.ReadDir(dir)
+	names, err := logPaths(dir)
 	if err != nil {
 		return file.Name(), err
 	}
-	var names []string
-	for _, entry := range entries {
-		if entry.Type().IsRegular() && strings.HasPrefix(entry.Name(), "failure-") && strings.HasSuffix(entry.Name(), ".log") {
-			names = append(names, entry.Name())
-		}
-	}
-	sort.Strings(names)
-	for len(names) > KeepLogs {
-		if err := os.Remove(filepath.Join(dir, names[0])); err != nil && !os.IsNotExist(err) {
+	for _, name := range names[min(KeepLogs, len(names)):] {
+		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
 			return file.Name(), fmt.Errorf("trim old diagnostic log: %w", err)
 		}
-		names = names[1:]
 	}
 	return file.Name(), nil
+}
+
+// LogPaths returns regular failure logs newest first. An absent log directory
+// is an empty listing; listing never creates it or follows log symlinks.
+func LogPaths() ([]string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	return logPaths(filepath.Join(home, ".goback", "logs"))
+}
+
+func logPaths(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, entry := range entries {
+		if entry.Type().IsRegular() && strings.HasPrefix(entry.Name(), "failure-") && strings.HasSuffix(entry.Name(), ".log") {
+			paths = append(paths, filepath.Join(dir, entry.Name()))
+		}
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(paths)))
+	return paths, nil
 }

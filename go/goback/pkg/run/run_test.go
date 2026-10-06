@@ -185,6 +185,21 @@ func TestCompanionFailureDoesNotFailTheBackup(t *testing.T) {
 	if report.Companions[0].Status() != "failed" {
 		t.Fatalf("Status() = %q, want failed", report.Companions[0].Status())
 	}
+	path := report.Companions[0].DiagnosticLog
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	for _, want := range []string{"helper output before exit", "helper diagnostic before exit", "Exit code: 3", "Backup type: companion/helper"} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("missing %q in %s", want, data)
+		}
+	}
+	var out bytes.Buffer
+	report.Print(&out)
+	if !strings.Contains(out.String(), path) {
+		t.Fatal("companion diagnostic path missing from report")
+	}
 }
 
 func TestUnreadableCompanionsFailBeforeTheBackupStarts(t *testing.T) {

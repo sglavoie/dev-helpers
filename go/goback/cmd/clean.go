@@ -6,6 +6,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleanbackup"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleandb"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/cleanlogs"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
 	"github.com/spf13/cobra"
 )
@@ -35,26 +36,19 @@ var cleanDbCmd = &cobra.Command{
 var cleanLogsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Use:   "logs",
-	Short: "Remove logs",
-	Run: func(cmd *cobra.Command, args []string) {
-		d, err := cmd.Flags().GetInt("keep-daily")
-		cobra.CheckErr(err)
-		if d < 0 {
-			cobra.CheckErr("Number of daily logs to keep must be greater than or equal to 0")
+	Short: "Trim diagnostic and legacy logs without requiring configuration",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		for _, name := range []string{"profile", "all"} {
+			if cmd.Flags().Changed(name) {
+				return fmt.Errorf("--%s does not apply to clean logs: log retention covers all profiles", name)
+			}
 		}
-		w, err := cmd.Flags().GetInt("keep-weekly")
-		cobra.CheckErr(err)
-		if w < 0 {
-			cobra.CheckErr("Number of weekly logs to keep must be greater than or equal to 0")
-		}
-		m, err := cmd.Flags().GetInt("keep-monthly")
-		cobra.CheckErr(err)
-		if m < 0 {
-			cobra.CheckErr("Number of monthly logs to keep must be greater than or equal to 0")
-		}
-		cleanlogs.KeepLatestOf(d, "daily")
-		cleanlogs.KeepLatestOf(w, "weekly")
-		cleanlogs.KeepLatestOf(m, "monthly")
+		keep, _ := cmd.Flags().GetInt("keep")
+		d, _ := cmd.Flags().GetInt("keep-daily")
+		w, _ := cmd.Flags().GetInt("keep-weekly")
+		m, _ := cmd.Flags().GetInt("keep-monthly")
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		return cleanlogs.Clean(cmd.OutOrStdout(), keep, d, w, m, dryRun)
 	},
 }
 
@@ -99,7 +93,9 @@ func init() {
 	cleanCmd.AddCommand(cleanBackupCmd)
 	RootCmd.AddCommand(cleanCmd)
 
-	cleanLogsCmd.Flags().IntP("keep-daily", "d", 14, "Number of daily logs to keep")
-	cleanLogsCmd.Flags().IntP("keep-weekly", "w", 12, "Number of weekly logs to keep")
-	cleanLogsCmd.Flags().IntP("keep-monthly", "m", 6, "Number of monthly logs to keep")
+	cleanLogsCmd.Flags().Int("keep", diagnostics.KeepLogs, "Number of current failure logs to keep across all profiles and backup types")
+	cleanLogsCmd.Flags().Bool("dry-run", false, "List logs that would be removed without deleting them")
+	cleanLogsCmd.Flags().IntP("keep-daily", "d", 14, "Number of legacy daily logs in the home directory to keep")
+	cleanLogsCmd.Flags().IntP("keep-weekly", "w", 12, "Number of legacy weekly logs in the home directory to keep")
+	cleanLogsCmd.Flags().IntP("keep-monthly", "m", 6, "Number of legacy monthly logs in the home directory to keep")
 }

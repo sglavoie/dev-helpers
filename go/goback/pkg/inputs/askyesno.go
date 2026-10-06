@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,7 +22,6 @@ var (
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(0)
 )
-var selection bool
 
 type item string
 
@@ -46,28 +46,31 @@ func AskYesNoQuestion(q string) bool {
 }
 
 func askQuestion(items []list.Item, q string) bool {
-	selection = false
 	const defaultWidth = 5
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = q
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.AdditionalShortHelpKeys = func() []key.Binding {
+		return []key.Binding{
+			key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "yes")),
+			key.NewBinding(key.WithKeys("n", "esc"), key.WithHelp("n/esc", "no")),
+		}
+	}
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
 	m := model{list: l}
 
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	final, err := tea.NewProgram(m).Run()
+	if err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
 
-	if selection {
-		return true
-	}
-	return false
+	return final.(model).choice == "Yes"
 }
 
 func (d itemDelegate) Height() int                             { return 1 }
@@ -112,19 +115,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
+		case "q", "ctrl+c", "esc", "n", "N":
+			m.choice = "No"
 			m.quitting = true
+			return m, tea.Quit
+		case "y", "Y":
+			m.choice = "Yes"
 			return m, tea.Quit
 
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				m.choice = string(i)
-			}
-			if m.choice == "Yes" {
-				selection = true
-			} else {
-				selection = false
 			}
 			return m, tea.Quit
 		}

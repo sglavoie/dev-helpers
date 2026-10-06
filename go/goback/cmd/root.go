@@ -18,6 +18,9 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd == cleanLogsCmd {
+			return nil
+		}
 		if cmd == profilesCmd || cmd == statusCmd {
 			return config.LoadReadOnly()
 		}

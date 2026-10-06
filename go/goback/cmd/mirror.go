@@ -3,12 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/inputs"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/mirror"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/models"
@@ -67,14 +69,30 @@ func runMirror(cmd *cobra.Command) error {
 	// The approval is asked here whatever confirmExec says: that setting
 	// governs repeatable snapshot backups, while a mirror deletes whatever
 	// the destination holds that the source does not.
-	execDeps := mirror.OSExecDeps(mirror.ApproverFunc(approveMirror), out, cmd.ErrOrStderr())
+	tail := &diagnostics.Tail{}
+	execDeps := mirror.OSExecDeps(mirror.ApproverFunc(approveMirror), io.MultiWriter(out, tail), io.MultiWriter(cmd.ErrOrStderr(), tail))
 
 	result, err := mirror.Mirror(ctx, cfg, mirror.OSDeps(), execDeps, out)
 	recordMirror(result)
 	if result.Status != mirror.StatusSkipped {
 		fmt.Fprintln(out, result.Summary())
 	}
+	saveMirrorDiagnostics(result, tail, out, cmd.ErrOrStderr())
 	return err
+}
+
+func saveMirrorDiagnostics(result mirror.Result, tail *diagnostics.Tail, out, warnings io.Writer) {
+	if !result.Attempted() || (result.Status != mirror.StatusFailed && result.Status != mirror.StatusInterrupted) {
+		return
+	}
+	fmt.Fprintf(tail, "\ngoback: %v\n", result.Err)
+	path, err := tail.Save(db.MirrorProfile, "mirror", result.CommandString(), result.ExitCode)
+	if path != "" {
+		fmt.Fprintf(out, "mirror diagnostic log: %s\n", path)
+	}
+	if err != nil {
+		fmt.Fprintf(warnings, "warning: could not save or trim mirror diagnostic logs: %v\n", err)
+	}
 }
 
 // recordMirror appends an attempted mirror to the backup history. Only a real
