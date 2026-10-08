@@ -1,6 +1,6 @@
 [project]
 name = "photos_backup"
-version = "0.1.0"
+version = "0.2.0"
 description = "Opinionated backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
@@ -25,7 +25,6 @@ dev = [
 
 [project.scripts]
 photos-backup = "photos_backup.cli.cli:cli"
-cli = "photos_backup.cli.cli:cli"
 
 [tool.hatch.metadata]
 allow-direct-references = true

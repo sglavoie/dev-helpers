@@ -62,6 +62,12 @@ disallowed, so new code needs annotations to pass. It checks our code; upstream
 `osxphotos` internals remain outside static checking and are covered by the
 compatibility tests.
 
+## Versions
+
+Bump `version` in `pyproject.toml` whenever a change is deployed to both Macs,
+then reinstall on each. `photos-backup --version` then shows at a glance whether
+the two Macs sharing the archive run the same code.
+
 ## Profiling metadata reports
 
 Late-additions enrichment runs up to four `mdls` processes concurrently, each with

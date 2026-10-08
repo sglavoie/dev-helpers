@@ -49,8 +49,8 @@ rsync. Add one entry to the profile in `~/.goback.json`:
 `command` is the program followed by each argument as a separate item; a single
 shell string is rejected, because companions are executed without a shell.
 `photos-backup` is resolved through `PATH`, so the editable install above is
-what makes the entry work — reinstall with `uv tool install --editable .` on a
-machine that only has the older `cli` entry point.
+what makes the entry work — reinstall with `uv tool install --force --editable .`
+on a machine that only has the older `cli` entry point.
 
 The companion never changes the exit status of `goback run daily`: the rsync
 result alone decides it, while both outcomes are printed in one table and

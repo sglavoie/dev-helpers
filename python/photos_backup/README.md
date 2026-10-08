@@ -40,8 +40,8 @@ immediately, but do not automatically install new dependencies. For development,
 `uv run photos-backup --help` from `python/photos_backup` uses the project's
 environment; outside that directory it may find the installed tool on `PATH`.
 
-`photos-backup` is the entry point; `cli` remains as an alias for it and exposes
-the same commands. Configuration is not installed by this repository: it is
+`photos-backup` is the only entry point; the older `cli` alias was removed, so
+reinstall with `uv tool install --force --editable .` to drop it from `PATH`. Configuration is not installed by this repository: it is
 stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 
 ## Everyday workflow

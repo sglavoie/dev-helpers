@@ -4,7 +4,6 @@ import datetime
 import tempfile
 import tomllib
 import unittest
-from importlib import metadata
 from pathlib import Path
 from unittest import mock
 
@@ -101,21 +100,11 @@ class HelpTests(unittest.TestCase):
                 result = self.runner.invoke(cli, [command, "--help"])
                 self.assertEqual(result.exit_code, 0)
 
-    def test_entry_point_aliases_expose_the_same_group(self) -> None:
+    def test_photos_backup_is_the_only_entry_point(self) -> None:
         pyproject = Path(__file__).parents[1] / "pyproject.toml"
         scripts = tomllib.loads(pyproject.read_text())["project"]["scripts"]
 
-        self.assertEqual(scripts["photos-backup"], scripts["cli"])
-        self.assertEqual(scripts["photos-backup"], "photos_backup.cli.cli:cli")
-
-    def test_installed_entry_points_resolve_to_the_same_group(self) -> None:
-        entry_points = {
-            entry.name: entry
-            for entry in metadata.distribution("photos_backup").entry_points
-            if entry.group == "console_scripts"
-        }
-        self.assertEqual(set(entry_points), {"photos-backup", "cli"})
-        self.assertIs(entry_points["photos-backup"].load(), entry_points["cli"].load())
+        self.assertEqual(scripts, {"photos-backup": "photos_backup.cli.cli:cli"})
 
 
 class ConstructionTests(unittest.TestCase):
