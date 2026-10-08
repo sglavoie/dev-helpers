@@ -1,3 +1,8 @@
+import importlib
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
+
 import rich_click as click
 
 from photos_backup.apple_photos.export import (
@@ -27,7 +32,6 @@ from photos_backup.summary import print_export_result, print_takeover_check
 @click.pass_context
 def apple_photos(ctx: click.Context, testing: bool, dry_run: bool) -> None:
     extra_arguments = _parse_extra_args(ctx.args)
-    validate_export_overrides(extra_arguments)
     config = apple_photos_config_from(ctx)
     readonly = testing or dry_run
     with open_archive(config, dry_run=readonly) as archive:
@@ -49,29 +53,44 @@ def apple_photos(ctx: click.Context, testing: bool, dry_run: bool) -> None:
         raise click.ClickException(str(result.failure_reason()))
 
 
-def _parse_extra_args(args: list[str]) -> dict:
-    """Parse CLI-style args (e.g. --use-photokit --limit 10) into kwargs."""
-    kwargs: dict = {}
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if not arg.startswith("--"):
-            raise click.BadParameter(f"Unexpected argument: {arg}")
-        option, separator, inline_value = arg.partition("=")
-        key = option.lstrip("-").replace("-", "_")
-        # Check if next arg is a value (not another flag)
-        if separator or (i + 1 < len(args) and not args[i + 1].startswith("--")):
-            value = inline_value if separator else args[i + 1]
-            try:
-                value = int(value)
-            except ValueError:
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            kwargs[key] = value
-            i += 1 if separator else 2
-        else:
-            kwargs[key] = True
-            i += 1
-    return kwargs
+def _parse_extra_args(args: list[str]) -> dict[str, Any]:
+    """Parse forwarded flags with osxphotos's own export options.
+
+    The result holds only the options given, typed as `export_cli` expects:
+    repeated options become tuples, dates become datetimes, and `--album 2024`
+    stays a string. Archive-managed spellings are refused before parsing so a
+    flag osxphotos does not define still gets the archive explanation.
+    """
+    validate_export_overrides(
+        {
+            arg[2:].partition("=")[0].replace("-", "_"): None
+            for arg in args
+            if arg.startswith("--")
+        }
+    )
+    command = importlib.import_module("osxphotos.cli.export").export
+    parse_context = click.Context(command, info_name="osxphotos export")
+    with _osxphotos_usage():
+        values, _, order = command.make_parser(parse_context).parse_args(list(args))
+    # Skip osxphotos's own --help; it is never an export_cli argument.
+    given = [param for param in dict.fromkeys(order) if param in command.params]
+    for param in given:
+        if not isinstance(param, click.Option) and isinstance(values[param.name], str):
+            # osxphotos's only positional is the archive-managed DEST.
+            raise click.UsageError(f"Unexpected argument: {values[param.name]}")
+    options = [param for param in given if isinstance(param, click.Option)]
+    # Aliases such as --library resolve to archive-managed names only now.
+    validate_export_overrides({param.name: None for param in options})
+    with _osxphotos_usage():
+        return {
+            param.name: param.type_cast_value(parse_context, values[param.name])
+            for param in options
+        }
+
+
+@contextmanager
+def _osxphotos_usage() -> Iterator[None]:
+    try:
+        yield
+    except click.UsageError as error:
+        raise click.UsageError(f"osxphotos export: {error.format_message()}") from error
