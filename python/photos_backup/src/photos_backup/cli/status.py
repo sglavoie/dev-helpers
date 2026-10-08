@@ -6,7 +6,12 @@ from typing import Any
 
 import rich_click as click
 
-from photos_backup.apple_photos.plan import full_export_overdue, plan_export
+from photos_backup.apple_photos.plan import (
+    ExportMode,
+    full_export_overdue,
+    next_full_export_at,
+    plan_export,
+)
 from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.download_report import summarize_downloads
 from photos_backup.archive import Archive, ArchiveError, open_archive
@@ -226,6 +231,11 @@ def _read_archive_status(
     document["configured_transfers"] = current
     now = archive.now()
     plan = plan_export(config, state, now)
+    next_full = (
+        next_full_export_at(config, state)
+        if plan.mode is ExportMode.INCREMENTAL
+        else None
+    )
     state_document = asdict(state)
     for name, value in state_document.items():
         if hasattr(value, "isoformat"):
@@ -237,10 +247,11 @@ def _read_archive_status(
             "mode": plan.mode.value,
             "reason": plan.reason,
             "overdue": state.initialized and full_export_overdue(config, state, now),
+            "full_due_at": next_full.isoformat() if next_full else None,
         },
     )
     if detailed:
-        print_archive_status(archive, state, plan, now=now)
+        print_archive_status(archive, state, plan, next_full, now=now)
         print_export_attempt(attempt, attempt_error, now=now)
         print_download_summary(downloads, download_error)
     return now

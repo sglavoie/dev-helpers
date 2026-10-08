@@ -44,8 +44,17 @@ def _when(value: datetime.datetime | str, now: datetime.datetime) -> str:
     return f"{local:%Y-%m-%d %H:%M} ({_relative_age(value, now)})"
 
 
+def _weekday_when(value: datetime.datetime, now: datetime.datetime) -> str:
+    return f"{value.astimezone():%a} {_when(value, now)}"
+
+
 def print_archive_status(
-    archive: Archive, state: ArchiveState, plan: ExportPlan, *, now: datetime.datetime
+    archive: Archive,
+    state: ArchiveState,
+    plan: ExportPlan,
+    next_full: datetime.datetime | None,
+    *,
+    now: datetime.datetime,
 ) -> None:
     """Display durable state only; this is not a verification of archive files."""
     click.echo(f"Archive: {archive.paths.archive}")
@@ -78,6 +87,8 @@ def print_archive_status(
     if not state.initialized:
         click.echo(f"  Next step: {suggested_command('bootstrap')}")
     click.echo(f"  Next export: {plan.mode.value} — {plan.reason}")
+    if next_full is not None:
+        click.echo(f"  Next full export: {_weekday_when(next_full, now)}")
 
 
 def print_export_attempt(
@@ -407,27 +418,43 @@ def _print_short_archive(
             else:
                 commands.append(suggested_command("daily"))
         else:
-            timestamp = state["last_successful_export_at"]
-            export_status = (
-                "baseline "
-                + _relative_age(datetime.datetime.fromisoformat(timestamp), now)
-                if timestamp
-                else "no successful baseline recorded"
-            )
-            if attempt and not attempt["baseline_advanced"]:
-                export_status += (
-                    f"; latest {attempt['mode']} export succeeded (baseline unchanged)"
-                )
-            if document["next_export"]["overdue"]:
-                export_status += "; daily export overdue"
-                commands.append(suggested_command("daily"))
+            export_status = _short_baseline(document, now, commands)
         click.echo(
-            f"Apple Photos: {export_status}; next export {document['next_export']['mode']}"
+            f"Apple Photos: {export_status}; next export "
+            + _short_next_export(document["next_export"])
         )
         pending = state["pending_cleanup_run_id"]
         click.echo(f"Cleanup: {'pending ' + pending if pending else 'none pending'}")
         if pending:
             commands.append(suggested_command("approve-cleanup", pending, "--dry-run"))
+
+
+def _short_baseline(
+    document: dict[str, Any], now: datetime.datetime, commands: list[str]
+) -> str:
+    """Describe a successful export baseline, suggesting daily once it is overdue."""
+    timestamp = document["state"]["last_successful_export_at"]
+    attempt = document["last_export_attempt"]
+    export_status = (
+        "baseline " + _relative_age(datetime.datetime.fromisoformat(timestamp), now)
+        if timestamp
+        else "no successful baseline recorded"
+    )
+    if attempt and not attempt["baseline_advanced"]:
+        export_status += (
+            f"; latest {attempt['mode']} export succeeded (baseline unchanged)"
+        )
+    if document["next_export"]["overdue"]:
+        export_status += "; daily export overdue"
+        commands.append(suggested_command("daily"))
+    return export_status
+
+
+def _short_next_export(next_export: dict[str, Any]) -> str:
+    if not next_export["full_due_at"]:
+        return str(next_export["mode"])
+    due = datetime.datetime.fromisoformat(next_export["full_due_at"])
+    return f"{next_export['mode']} (full {due.astimezone():%a %Y-%m-%d})"
 
 
 def _print_short_transfer(

@@ -72,7 +72,10 @@ files. See [verification](verification.md) for storage and recording behavior.
 
 `photos-backup status` shows the archive writer, initialization and export
 timestamps, last successful baseline report, last archive cleanup reconciliation, pending
-cleanup, and the next export mode with its cadence reason. Timestamps include relative ages; pending
+cleanup, and the next export mode with its cadence reason. When the next export
+is incremental, it also shows when the next full export is due: the configured
+weekday or `full_export_max_age_days`, whichever comes first; `--short` shows
+its date beside the mode. Timestamps include relative ages; pending
 cleanup includes commands to approve or discard it. It reads state without
 scanning exported files, opening the Photos library, taking over ownership, or
 writing anything.
@@ -145,8 +148,10 @@ are included in `transfer_history_errors` rather than mixed into JSON output.
 The additive `last_export_attempt` and `export_attempt_error` fields contain the
 latest export receipt and any read error, respectively, or null when unavailable.
 Transfer attempts expose `mode` when recorded; older attempts may omit it.
-`next_export` holds the `mode`, its cadence `reason`, and `overdue`, which is true
-when the last full export is older than `full_export_max_age_days`.
+`next_export` holds the `mode`, its cadence `reason`, `full_due_at` (when the
+next full export is due, or null when the next export is already full), and
+`overdue`, which is true when the last full export is older than
+`full_export_max_age_days`.
 If the archive cannot be read, `state` and `next_export` are null and
 `archive_error` contains the reason; otherwise `archive_error` is null. The JSON
 is still printed on archive errors, with CLI diagnostics on stderr.

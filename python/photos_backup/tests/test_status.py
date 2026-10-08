@@ -636,6 +636,16 @@ class StatusTests(ArchiveCommandTestCase):
             result = self.invoke_status()
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("Next export: incremental", result.output)
+        self.assertIn(
+            "Next full export: Mon 2026-08-17 00:00 (in 3 days)", result.output
+        )
+        with mock.patch("photos_backup.archive.Archive.now", return_value=THURSDAY):
+            short = self.invoke_status("--short").stdout
+            document = json.loads(self.invoke_status("--json").stdout)
+        self.assertIn("next export incremental (full Mon 2026-08-17)", short)
+        self.assertEqual(
+            document["next_export"]["full_due_at"], "2026-08-17T00:00:00+00:00"
+        )
         self.assertIn(str(report), result.output)
         self.assertIn(
             f"{THURSDAY.astimezone():%Y-%m-%d %H:%M} (just now)", result.output

@@ -21,6 +21,7 @@ from photos_backup.apple_photos.plan import (
     ExportPlan,
     cadence_start,
     export_arguments,
+    next_full_export_at,
     plan_export,
 )
 from photos_backup.archive import ArchiveState, SystemProbes, open_archive
@@ -136,6 +137,27 @@ class PlanTests(unittest.TestCase):
             now=sunday_evening.astimezone(datetime.UTC),
         )
         self.assertIs(plan.mode, ExportMode.INCREMENTAL)
+
+    def test_next_full_export_is_where_the_plan_turns_full(self) -> None:
+        tuesday = datetime.datetime(2026, 8, 11, 14, 0, tzinfo=datetime.UTC)
+        state = ArchiveState(
+            last_full_export_at=tuesday, last_successful_export_at=tuesday
+        )
+        next_monday = LAST_MONDAY + datetime.timedelta(days=7)
+        for max_age, expected in (
+            (7, next_monday),
+            (3, tuesday + datetime.timedelta(days=3)),
+        ):
+            self.config = dataclasses.replace(
+                self.config, full_export_max_age_days=max_age
+            )
+            due = next_full_export_at(self.config, state)
+            self.assertEqual(due, expected)
+            assert due is not None
+            before = due - datetime.timedelta(seconds=1)
+            self.assertIs(self.plan(state, before).mode, ExportMode.INCREMENTAL)
+            self.assertIs(self.plan(state, due).mode, ExportMode.FULL)
+        self.assertIsNone(next_full_export_at(self.config, ArchiveState()))
 
     def test_a_never_exported_archive_runs_a_full_export(self) -> None:
         plan = self.plan(ArchiveState())
