@@ -94,7 +94,8 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 - [Scheduling](docs/scheduling.md): a launchd `status --check` watchdog, and launchd gotchas.
 - [Deployment and migration](docs/deployment.md): stow, goback, a new Mac,
   and migrating the old environment configuration.
-- [Restore rehearsal](docs/restore.md): recover sample media from SSD and cloud.
+- [Restore rehearsal](docs/restore.md): recover sample media from SSD and cloud,
+  or rebuild a lost primary drive from the SSD copy.
 - [Development](docs/development.md): tests, dependency compatibility, and profiling.
 
 ## Commands
@@ -143,9 +144,10 @@ for plain summary output even in a terminal.
 
 Exit 3 is deliberately not a failure: it means the tool stopped on purpose and a
 person, not a retry, resolves it. Scheduled runs should treat 3 as "notify me"
-rather than "page me". `--notify` on `daily`, `backup-all`, `verify`, `sd-card`,
-`ssd`, `remote`, and `status --check` posts a macOS notification when a run fails, needs you, or is stopped (Ctrl-C, `kill`,
-launchd), and stay silent on success. Mistyped options exit 2 before the command
+rather than "page me". `--notify` on `daily`, `backup-all`, `recent`, `bootstrap`,
+`verify`, `sd-card`, `ssd`, `remote`, and `status --check` posts a macOS
+notification when a run fails, needs you, or is stopped (Ctrl-C, `kill`,
+launchd), and stays silent on success. Mistyped options exit 2 before the command
 starts, so run a new schedule once by hand. `photos-backup daily` still exports before reporting
 a pending cleanup, so backups never stop over a deletion question.
 

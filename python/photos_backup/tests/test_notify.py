@@ -97,7 +97,16 @@ class PostNotificationTests(unittest.TestCase):
 
 class NotifyOptionTests(unittest.TestCase):
     def test_every_schedulable_command_accepts_notify(self):
-        for name in ("daily", "backup-all", "verify", "sd-card", "ssd", "remote"):
+        for name in (
+            "daily",
+            "backup-all",
+            "verify",
+            "sd-card",
+            "ssd",
+            "remote",
+            "bootstrap",
+            "recent",
+        ):
             with self.subTest(name):
                 options = {param.name for param in cli.commands[name].params}
                 self.assertIn("notify", options)

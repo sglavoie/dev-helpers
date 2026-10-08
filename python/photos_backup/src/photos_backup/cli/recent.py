@@ -14,6 +14,7 @@ from photos_backup.cli.exporting import (
     export_into_archive,
     print_export_outcome,
 )
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.progress import ExportProgress
 
 
@@ -35,6 +36,7 @@ from photos_backup.progress import ExportProgress
 @click.option(
     "--dry-run", is_flag=True, help="Show the plan without exporting or downloading."
 )
+@notify_on_problems
 @click.pass_context
 def recent(ctx: click.Context, days: int, download_timeout: int, dry_run: bool) -> None:
     def since(archive: Archive) -> ExportPlan:

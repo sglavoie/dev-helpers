@@ -9,6 +9,7 @@ from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, suggested_command
 from photos_backup.cli.exporting import command_timer
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.summary import print_bootstrap_result
 from photos_backup.progress import ExportProgress
 
@@ -29,6 +30,7 @@ from photos_backup.progress import ExportProgress
     is_flag=True,
     help="Explain the bootstrap without writing or initializing anything.",
 )
+@notify_on_problems
 @click.pass_context
 def bootstrap(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
     with command_timer(), ExportProgress() as progress, ExitStack() as stack:
