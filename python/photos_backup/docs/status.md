@@ -118,6 +118,11 @@ command, and routes made stale by a newer upstream run show an update command,
 in both detailed and `--short` status; mirrors suggest `--delete --dry-run`
 first. An SSD retry runs its configured SSD routes together. Historical routes
 have no retry hint.
+When a route's source or destination is under a `/Volumes` drive that is not
+mounted, its suggestion ends with a shell comment such as
+`# connect /Volumes/Data first`, and its `configured_transfers` row in JSON
+carries that drive as `disconnected_drive` (null otherwise). Only the mount point
+is checked; status still never reads the copies themselves.
 
 Transfer history records the mode of both the latest attempt and the last
 successful copy: `copy` preserves destination-only files, while `mirror` enables

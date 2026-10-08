@@ -14,6 +14,7 @@ from photos_backup.archive import ArchiveLocked, ArchiveUnavailable
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
+from photos_backup.copy_safety import disconnected_volume
 from photos_backup.status_report import print_transfer_history
 from photos_backup.summary import BackupSummary
 from photos_backup.transfers import (
@@ -855,3 +856,56 @@ class DetailedTransferRetryTests(unittest.TestCase):
 
     def test_started_attempt_suggests_a_retry(self):
         self.assertIn("Retry copy: photos-backup ssd", self.render(status="started"))
+
+    def test_unplugged_drive_is_named_beside_the_retry(self):
+        text = self.render(status="started", disconnected_drive="/Volumes/Data")
+        self.assertIn(
+            "Retry copy: photos-backup ssd  # connect /Volumes/Data first", text
+        )
+
+
+class DisconnectedDriveTests(ArchiveCommandTestCase):
+    def test_only_unmounted_volumes_are_reported_without_resolving_paths(self):
+        mounted = {"/Volumes/SanDisk"}
+        with (
+            mock.patch(
+                "photos_backup.copy_safety.os.path.ismount",
+                side_effect=lambda path: path in mounted,
+            ),
+            mock.patch(
+                "pathlib.Path.resolve",
+                side_effect=AssertionError("no filesystem resolution"),
+            ),
+        ):
+            for path, expected in (
+                ("/Volumes/Data/Pictures", "/Volumes/Data"),
+                ("/volumes/Data", "/volumes/Data"),
+                ("/Volumes/SanDisk/Media", None),
+                ("/Volumes", None),
+                ("/", None),
+                ("", None),
+                ("/Users/tester/Pictures", None),
+                ("b2:photos", None),
+            ):
+                with self.subTest(path=path):
+                    self.assertEqual(disconnected_volume(path), expected)
+
+    def test_status_names_the_drive_to_connect(self):
+        self.config_path.write_text(
+            '[ssd]\nsource = "/Volumes/NoSuchSource/Media"\n'
+            f'destination = "{self.root}/ssd"\n'
+        )
+        with mock.patch(
+            "photos_backup.copy_safety.os.path.ismount", return_value=False
+        ):
+            short = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "status", "--short"]
+            )
+            document = json.loads(
+                self.runner.invoke(
+                    cli, ["--config", str(self.config_path), "status", "--json"]
+                ).stdout
+            )
+        self.assertIn("ssd  # connect /Volumes/NoSuchSource first", short.stdout)
+        (row,) = document["configured_transfers"]
+        self.assertEqual(row["disconnected_drive"], "/Volumes/NoSuchSource")

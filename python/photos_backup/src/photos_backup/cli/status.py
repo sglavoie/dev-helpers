@@ -25,6 +25,7 @@ from photos_backup.config import (
     load_rclone_config,
     resolve_rclone_source,
 )
+from photos_backup.copy_safety import disconnected_volume
 from photos_backup.errors import ActionRequired
 from photos_backup.status_report import (
     print_archive_status,
@@ -87,6 +88,18 @@ def _configured_transfers(config_path: Path | None) -> list[dict[str, Any]]:
     ]
 
 
+def _annotate_disconnected_drives(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Note an unplugged copy drive, so status can say to connect it first."""
+    return [
+        {
+            **row,
+            "disconnected_drive": disconnected_volume(row["source"])
+            or disconnected_volume(row["destination"]),
+        }
+        for row in rows
+    ]
+
+
 @click.command(
     name="status",
     help="Show recorded backup state and the next export, without scanning files.",
@@ -118,6 +131,7 @@ def status(ctx: click.Context, as_json: bool, short: bool, check: bool) -> None:
     configured = _configured_transfers(config_path)
     receipts, errors = TransferHistory(config_path).read()
     current, historical = classify_transfers(configured, receipts)
+    current = _annotate_disconnected_drives(current)
     current = annotate_upstream_freshness(current)
     current = annotate_archive_freshness(
         current, config.archive if config else None, None

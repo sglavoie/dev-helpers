@@ -1,3 +1,4 @@
+import os
 from pathlib import Path, PurePath
 
 from photos_backup.errors import ActionRequired
@@ -73,6 +74,19 @@ def check_copy_path(path: Path, *, workflow: str, source: bool = False) -> None:
             f"{workflow} source '{path}' is not an available directory; "
             "connect the source drive or correct the configured path"
         )
+
+
+def disconnected_volume(path: str) -> str | None:
+    """The /Volumes drive `path` lives on when it is not mounted, else None.
+
+    Lexical and cheap: it never resolves symlinks or reads the path itself, so
+    status can use it as a hint without probing copy contents.
+    """
+    root, volumes, name, *_ = (*PurePath(path).parts, "", "", "")
+    if root != "/" or volumes.casefold() != "volumes" or not name:
+        return None
+    volume = str(PurePath(root, volumes, name))
+    return None if os.path.ismount(volume) else volume
 
 
 def check_mirror_source(path: Path, *, workflow: str) -> None:

@@ -292,10 +292,15 @@ def _transfer_retry(row: dict[str, Any]) -> tuple[str, str] | None:
         return None
     action = "retry" if unfinished or row["last_success"] is None else "update"
     if latest is not None and latest.get("mode") == "mirror":
-        return f"Preview mirror {action}", suggested_command(
-            command, "--delete", "--dry-run"
-        )
-    return f"{action.capitalize()} copy", suggested_command(command)
+        label = f"Preview mirror {action}"
+        suggestion = suggested_command(command, "--delete", "--dry-run")
+    else:
+        label = f"{action.capitalize()} copy"
+        suggestion = suggested_command(command)
+    if drive := row.get("disconnected_drive"):
+        # A shell comment keeps the suggestion pasteable.
+        suggestion += f"  # connect {drive} first"
+    return label, suggestion
 
 
 def _print_transfer_retry(receipt: dict[str, Any]) -> None:
