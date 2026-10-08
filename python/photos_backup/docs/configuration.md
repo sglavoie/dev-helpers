@@ -38,7 +38,10 @@ Pipeline summaries distinguish `Skipped by request` from
 `[apple_photos]` unless you pass `--skip-apple-photos` for a copy-only run.
 Before `backup-all` starts any export or transfer, it validates every enabled
 section and any configuration it depends on. Invalid configuration exits 2
-immediately. Skipped sections are not loaded unless another enabled step needs
+immediately. `[rclone] remote` must be an rclone remote such as
+`b2:my-photos-bucket` (or an on-the-fly `:backend:path`); a value without
+`name:` is refused because rclone would treat it as a local path. Skipped
+sections are not loaded unless another enabled step needs
 them (for example, remote backup's default source uses `ssd.destination`).
 After configuration validation, `backup-all` checks all required executables
 before starting any step: ExifTool for a real Apple Photos export, rsync for

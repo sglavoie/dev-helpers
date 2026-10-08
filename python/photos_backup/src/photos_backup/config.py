@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,9 @@ APPLE_PHOTOS_KEYS = (
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
 SSD_KEYS = ("source", "destination", "exclude_file")
 RCLONE_KEYS = ("remote", "source")
+# rclone reads `name:path` as a remote and anything else as a local path; a
+# name holds no '/', which keeps `/Volumes/a:b` a (refused) local path.
+RCLONE_REMOTE = re.compile(r":?[^/:]+:")
 
 
 class MissingSection(click.UsageError):
@@ -172,8 +176,16 @@ def load_ssd_config(config_path: Path | None = None) -> SsdConfig:
 
 def load_rclone_config(config_path: Path | None = None) -> RcloneConfig:
     section = _read_section(config_path, "rclone", RCLONE_KEYS)
+    remote = section.required_string("remote")
+    if not RCLONE_REMOTE.match(remote):
+        section.fail(
+            "remote",
+            f"must name an rclone remote, such as 'b2:my-photos-bucket' (got "
+            f"'{remote}'); without 'name:', rclone copies to a local path. "
+            "List configured remotes with `rclone listremotes`.",
+        )
     return RcloneConfig(
-        remote=section.required_string("remote"),
+        remote=remote,
         source=section.optional_path("source"),
     )
 
