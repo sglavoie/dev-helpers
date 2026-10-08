@@ -10,6 +10,7 @@ from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
 from photos_backup.archive import ArchivePaths, ArchiveState, ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
+from photos_backup.progress import ExportProgress
 from tests.test_cli import ArchiveCommandTestCase
 from tests.test_export import FakeRunner, row
 
@@ -42,6 +43,69 @@ class DailyTests(ArchiveCommandTestCase):
         self.assertLess(
             result.output.index("Export report:"),
             result.output.index("Cleanup needs attention"),
+        )
+
+    def test_results_print_only_while_no_progress_line_is_live(self):
+        self.initialized_archive()
+        events: list[str] = []
+        enter, exit_ = ExportProgress.__enter__, ExportProgress.__exit__
+
+        def record(name):
+            return lambda *args, **kwargs: events.append(name)
+
+        def entering(progress):
+            events.append("progress open")
+            return enter(progress)
+
+        def exiting(progress, *exc):
+            exit_(progress, *exc)
+            events.append("progress closed")
+
+        with (
+            self.mounted(),
+            mock.patch(
+                "photos_backup.cli.daily.ensure_writer",
+                return_value=mock.Mock(status=WriterStatus.CLAIMED),
+            ),
+            mock.patch(
+                "photos_backup.cli.daily.run_osxphotos_export",
+                side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
+            ),
+            mock.patch.object(ExportProgress, "__enter__", entering),
+            mock.patch.object(ExportProgress, "__exit__", exiting),
+            mock.patch(
+                "photos_backup.cli.daily.print_takeover_check",
+                side_effect=record("takeover"),
+            ),
+            mock.patch(
+                "photos_backup.cli.daily.print_export_result",
+                side_effect=record("export result"),
+            ),
+            mock.patch(
+                "photos_backup.cli.daily.reconcile_mirror",
+                side_effect=lambda *args: (
+                    events.append("reconcile") or mock.Mock(pending=False)
+                ),
+            ),
+            mock.patch("photos_backup.cli.daily.print_mirror_outcome"),
+        ):
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "daily"]
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        self.assertEqual(
+            events,
+            [
+                "progress open",
+                "progress closed",
+                "takeover",
+                "export result",
+                "progress open",
+                "reconcile",
+                "progress closed",
+            ],
         )
 
     def test_missing_downloads_fail_daily_without_advancing_or_cleaning(self):
