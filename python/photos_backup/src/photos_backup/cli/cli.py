@@ -1,4 +1,8 @@
+import signal
+import threading
 from pathlib import Path
+from types import FrameType
+from typing import NoReturn
 
 import rich_click as click
 
@@ -18,6 +22,22 @@ from photos_backup.cli.status import status
 from photos_backup.cli.verify import verify
 from photos_backup.config import DEFAULT_CONFIG_PATH, normalize_volume_override
 from photos_backup.presentation import TerminalGroup
+
+
+def _interrupt(signum: int, frame: FrameType | None) -> NoReturn:
+    raise KeyboardInterrupt(signal.Signals(signum).name)
+
+
+def install_termination_handlers() -> None:
+    """Stop like Ctrl-C on SIGTERM or SIGHUP.
+
+    The default action would end Python without cleanup, leaving an rsync or
+    rclone child running unlocked and its transfer receipt stuck at started.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, _interrupt)
 
 
 def _volume_override(
@@ -82,6 +102,7 @@ def _volume_override(
 @click.pass_context
 def cli(ctx: click.Context, config_path: Path | None, volume: Path | None) -> None:
     """Back up Apple Photos, SD cards, and archives to local and cloud storage."""
+    install_termination_handlers()
     ctx.obj = CliContext(config_path=config_path, volume=volume)
 
 

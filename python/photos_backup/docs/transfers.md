@@ -58,6 +58,10 @@ Mirroring deletions (`ssd --delete`, `backup-all --delete-ssd`, `remote --delete
 but Finder's `.DS_Store` and `._*` files: an empty folder or bare mount point would
 otherwise empty the destination. Copies without deletions are unaffected.
 
+`SIGTERM` and `SIGHUP` (for example from `kill`, launchd, or a closed terminal)
+stop a run like Ctrl-C: the running rsync or rclone is stopped, archive locks are
+released, and the transfer is recorded as interrupted.
+
 If an SSD step fails or requires action, `backup-all` skips remote backup when
 its source overlaps the SSD destination (including symlink aliases, subdirectories,
 and parent directories). An independent remote source can still run. Explicitly
