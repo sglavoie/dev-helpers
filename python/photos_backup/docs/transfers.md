@@ -17,8 +17,12 @@ source to the `DCIM` directory to copy every folder; the copy then lands at
 
 SD-card copies never overwrite a file that already exists at the destination
 (`rsync --ignore-existing`). After a camera's file counter resets, a new
-`DSC00001.ARW` is skipped instead of replacing the archived original; move or
-rename the archived files first if you want the new ones copied beside them.
+`DSC00001.ARW` is skipped instead of replacing the archived original. The copy
+detects this: a card file whose archived namesake differs in size or
+modification time is listed, every other file is still copied, and `sd-card`
+(or `backup-all`) exits 3. Move or rename the archived files, then copy again
+to bring the new ones in beside them. `--dry-run` lists the same files as a
+warning. Dot files such as `.DS_Store` are ignored for this check.
 
 ## Progress, previews, and failures
 

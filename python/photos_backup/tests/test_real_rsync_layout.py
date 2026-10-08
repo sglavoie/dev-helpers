@@ -31,7 +31,8 @@ class RealRsyncLayoutTests(TransferTestCase):
             SdCardConfig(card, self.destination, None), False
         ).backup()
 
-        self.assertIsNone(summary.error)
+        self.assertTrue(summary.action_required)
+        self.assertIn("100MSDCF/DSC00001.ARW", summary.error or "")
         self.assertEqual(archived.read_text(), "original from before the counter reset")
         self.assertEqual((archived.parent / "DSC00002.ARW").read_text(), "second")
         self.assertEqual(sorted(p.name for p in self.destination.iterdir()), ["DCIM"])

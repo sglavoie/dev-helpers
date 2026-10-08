@@ -9,6 +9,10 @@ from photos_backup.exclude import exclude_from_arg
 from photos_backup.copy_safety import check_copy_paths
 from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
+from photos_backup.sd_card.conflicts import (
+    conflicting_files,
+    conflicting_files_message,
+)
 from photos_backup.sd_card.folders import (
     uncovered_camera_folders,
     uncovered_camera_folders_message,
@@ -53,6 +57,8 @@ class Backup:
                 "Warning: " + uncovered_camera_folders_message(self.src_path, folders),
                 err=True,
             )
+        target = self.dst_path / self.src_path.name
+        conflicts = conflicting_files(self.src_path, target)
         print_destination_space(self.dst_path)
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)
@@ -74,10 +80,19 @@ class Backup:
         elapsed = time.monotonic() - start
 
         stats = parse_rsync_stats(result.stdout)
-        return BackupSummary(
+        summary = BackupSummary(
             step_name="SD Card",
             files_transferred=stats["files_transferred"],
             total_size=stats["total_size"],
             elapsed_seconds=elapsed,
             dry_run=self.dry_run,
         )
+        if conflicts:
+            message = conflicting_files_message(target, conflicts, dry_run=self.dry_run)
+            if self.dry_run:
+                click.echo(f"Warning: {message}", err=True)
+            else:
+                # The other files are copied; these new photos still need a person.
+                summary.error = message
+                summary.action_required = True
+        return summary
