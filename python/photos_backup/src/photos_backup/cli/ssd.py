@@ -13,7 +13,8 @@ from photos_backup.transfers import TransferHistory
 
 @click.command(
     name="ssd",
-    help="Copy the archive and the SD card copy to the second on-site drive.",
+    help="Copy the archive and the SD card copy to the second on-site drive; "
+    "keeps SSD-only files unless --delete.",
 )
 @click.option(
     "--delete",

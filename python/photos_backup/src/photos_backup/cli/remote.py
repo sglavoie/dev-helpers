@@ -9,7 +9,10 @@ from photos_backup.summary import print_summary
 from photos_backup.transfers import TransferHistory
 
 
-@click.command(name="remote", help="Copy backup to cloud via rclone.")
+@click.command(
+    name="remote",
+    help="Copy backup to cloud via rclone; keeps remote-only files unless --delete.",
+)
 @click.option("--dry-run", is_flag=True, help="Preview without transferring files.")
 @click.option(
     "--delete", is_flag=True, help="Delete remote files absent from the source."
