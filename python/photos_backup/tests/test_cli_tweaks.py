@@ -137,13 +137,11 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 3, result.output)
         self.assertIn("set RCLONE_CONFIG_PASS", result.output)
 
-    def test_on_the_fly_and_local_remotes_need_no_configuration(self):
-        for remote in (":b2:photos", "/Volumes/Backup/photos"):
-            with self.subTest(remote=remote):
-                result, runner = self.doctor(remote, AssertionError("not called"))
-                self.assertEqual(result.exit_code, 0, result.output)
-                self.assertIn("SKIP rclone remote", result.output)
-                self.assertEqual(runner.call_count, 1)
+    def test_on_the_fly_remote_needs_no_configuration(self):
+        result, runner = self.doctor(":b2:photos", AssertionError("not called"))
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("SKIP rclone remote", result.output)
+        self.assertEqual(runner.call_count, 1)
 
     def test_missing_rclone_skips_remote_lookup(self):
         self.config.write_text('[rclone]\nremote = "b2:photos"\n')

@@ -121,4 +121,8 @@ skipped while its own source or destination is unavailable, and the SSD copy of
 the SD card folder is skipped until `sd-card` has created it. The export database
 check reports its schema version and needs action when a newer osxphotos wrote it
 than this installation pins. In a terminal, results appear as a table.
+When `[rclone]` is configured, doctor also runs `rclone listremotes` (local
+configuration only, never prompting for a password) and needs action if the
+remote's name is missing. `doctor --json` prints the versions, every check, and
+the exit code as one JSON document, with the same exit code.
 

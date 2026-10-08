@@ -284,10 +284,10 @@ def _check_exclusion(path):
 def _rclone_remote_name(remote: str) -> str | None:
     """Return the config-file remote a destination like `b2:photos` uses.
 
-    Local paths and on-the-fly `:backend:` remotes need no rclone.conf entry.
+    On-the-fly `:backend:` remotes need no rclone.conf entry.
     """
-    name, separator, _ = remote.partition(":")
-    if not separator or not name:
+    name, _, _ = remote.partition(":")
+    if not name:
         return None
     # Connection-string overrides follow a comma: `b2,hard_delete=true:photos`.
     return name.split(",", 1)[0]
