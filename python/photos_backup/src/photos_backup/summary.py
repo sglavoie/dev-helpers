@@ -634,23 +634,45 @@ def _print_transfer_freshness(receipt: dict) -> None:
         )
 
 
+_TRANSFER_COMMANDS = {
+    "SD Card": "sd-card",
+    "SSD: All Photos": "ssd",
+    "SSD: SD Card": "ssd",
+    "Remote": "remote",
+}
+_FRESHNESS_HINTS = (
+    "archive_exported_since_copy",
+    "ssd_copied_since_upload",
+    "sd_imported_since_copy",
+    "archive_may_have_changed_since_copy",
+)
+
+
+def _transfer_retry(row: dict) -> tuple[str, str] | None:
+    """Return the label and command that bring one transfer row up to date.
+
+    Unfinished attempts (including ones whose completion was never recorded)
+    are retried; successful copies made stale by a newer upstream run are
+    updated. Mirror commands are always previews.
+    """
+    latest = row["last_attempt"]
+    unfinished = latest is not None and latest["status"] != "succeeded"
+    stale = any(row.get(field) is True for field in _FRESHNESS_HINTS)
+    command = _TRANSFER_COMMANDS.get(row["step"])
+    if command is None or not (unfinished or stale or row["last_success"] is None):
+        return None
+    action = "retry" if unfinished or row["last_success"] is None else "update"
+    if latest is not None and latest.get("mode") == "mirror":
+        return f"Preview mirror {action}", suggested_command(
+            command, "--delete", "--dry-run"
+        )
+    return f"{action.capitalize()} copy", suggested_command(command)
+
+
 def _print_transfer_retry(receipt: dict) -> None:
-    attempt = receipt["last_attempt"]
-    if attempt["status"] in ("failed", "interrupted"):
-        command = {
-            "SD Card": "sd-card",
-            "SSD: All Photos": "ssd",
-            "SSD: SD Card": "ssd",
-            "Remote": "remote",
-        }.get(receipt["step"])
-        if command:
-            arguments = [command]
-            if attempt.get("mode") == "mirror":
-                arguments.extend(["--delete", "--dry-run"])
-                label = "Preview mirror retry"
-            else:
-                label = "Retry copy"
-            click.echo(f"    {label}: {suggested_command(*arguments)}")
+    if retry := _transfer_retry(receipt):
+        label, command = retry
+        click.echo(f"    {label}: {command}")
 
 
 def _transfer_mode(attempt: dict) -> str:
@@ -785,18 +807,7 @@ def _print_short_transfer(
     row: dict, now: datetime.datetime, commands: list[str]
 ) -> None:
     latest, success = row["last_attempt"], row["last_success"]
-    hints = [
-        row.get(field)
-        for field in (
-            "archive_exported_since_copy",
-            "ssd_copied_since_upload",
-            "sd_imported_since_copy",
-            "archive_may_have_changed_since_copy",
-        )
-    ]
-    needs_action = (
-        success is None or True in hints or (latest and latest["status"] != "succeeded")
-    )
+    hints = [row.get(field) for field in _FRESHNESS_HINTS]
     if latest and latest["status"] != "succeeded":
         detail = (
             "completion not recorded (running or interrupted)"
@@ -821,17 +832,8 @@ def _print_short_transfer(
             else "freshness unknown"
         )
     click.echo(f"{row['step']}: {detail}")
-    if needs_action:
-        command = {
-            "SD Card": "sd-card",
-            "SSD: All Photos": "ssd",
-            "SSD: SD Card": "ssd",
-            "Remote": "remote",
-        }[row["step"]]
-        arguments = [command]
-        if latest and latest.get("mode") == "mirror":
-            arguments += ["--delete", "--dry-run"]
-        commands.append(suggested_command(*arguments))
+    if retry := _transfer_retry(row):
+        commands.append(retry[1])
 
 
 def print_verification_report(report: VerificationReport) -> None:

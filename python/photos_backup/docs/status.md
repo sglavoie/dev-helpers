@@ -101,9 +101,12 @@ be reconstructed. Direct archive copies get a recorded-time freshness hint.
 Cloud routes also show when a currently configured SSD copy into their source
 completed after the last successful upload started. Matching is lexical and never
 probes disconnected copy drives; symlink aliases are not inferred. These hints do
-not verify destination contents. Failed/interrupted current transfer routes show
-copyable retry commands; mirrors suggest `--delete --dry-run` first. An SSD retry
-runs its configured SSD routes together. Historical routes have no retry hint.
+not verify destination contents. Current transfer routes whose latest attempt
+failed, was interrupted, or never recorded completion show a copyable retry
+command, and routes made stale by a newer upstream run show an update command,
+in both detailed and `--short` status; mirrors suggest `--delete --dry-run`
+first. An SSD retry runs its configured SSD routes together. Historical routes
+have no retry hint.
 
 Transfer history records the mode of both the latest attempt and the last
 successful copy: `copy` preserves destination-only files, while `mirror` enables

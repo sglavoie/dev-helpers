@@ -160,7 +160,7 @@ See [configuration and setup](docs/configuration.md) for the full behavior.
   grouped reasons, and the retry command. Increase `--download-timeout` when
   needed. `recent --days N` selects capture dates; older imports may need a larger
   window or a full export.
-- **Copy needs updating or failed:** `status --short` shows suggested commands.
+- **Copy needs updating or failed:** `status` and `status --short` show suggested commands.
   Mirror retries include `--dry-run`; review the preview before enabling deletions.
 - **Drive disconnected or archive busy:** reconnect it or wait for the active
   operation to finish, then rerun. `status` still shows local copy and verification

@@ -1,3 +1,5 @@
+import datetime
+import io
 import json
 import subprocess
 import tempfile
@@ -8,7 +10,8 @@ from unittest import mock
 from click.testing import CliRunner
 
 from photos_backup.cli.cli import cli
-from photos_backup.summary import parse_rsync_stats
+from photos_backup.cli.context import CliContext
+from photos_backup.summary import parse_rsync_stats, print_transfer_history
 
 # Captured from macOS /usr/bin/rsync (openrsync, protocol 29) with -ah --stats.
 OPENRSYNC_STATS = """\
@@ -178,6 +181,57 @@ class DoctorTests(unittest.TestCase):
             result = CliRunner().invoke(cli, ["--config", str(self.config), "doctor"])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("macOS built-in openrsync, not GNU rsync", result.output)
+
+
+class DetailedTransferRetryTests(unittest.TestCase):
+    TIMESTAMP = "2026-01-01T00:00:00+00:00"
+
+    def render(self, **changes):
+        attempt = {"started_at": self.TIMESTAMP, "status": "succeeded", "mode": "copy"}
+        row = {
+            "step": "SSD: All Photos",
+            "source": "/archive",
+            "destination": "/ssd",
+            "last_attempt": attempt,
+            "last_success": {**attempt, "completed_at": self.TIMESTAMP},
+        }
+        for key, value in changes.items():
+            if key in ("status", "mode"):
+                attempt[key] = value
+            else:
+                row[key] = value
+        with cli.make_context("photos-backup", [], resilient_parsing=True) as ctx:
+            ctx.obj = CliContext(config_path=None)
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+                print_transfer_history(
+                    [row], [], now=datetime.datetime.fromisoformat(self.TIMESTAMP)
+                )
+        return output.getvalue()
+
+    def test_fresh_copy_suggests_nothing(self):
+        text = self.render(archive_exported_since_copy=False)
+        self.assertNotIn("copy:", text.replace("Last successful copy:", ""))
+        self.assertNotIn("Preview mirror", text)
+
+    def test_stale_rows_suggest_an_update(self):
+        for hint in (
+            "archive_exported_since_copy",
+            "ssd_copied_since_upload",
+            "sd_imported_since_copy",
+        ):
+            with self.subTest(hint=hint):
+                self.assertIn(
+                    "Update copy: photos-backup ssd", self.render(**{hint: True})
+                )
+
+    def test_stale_mirror_suggests_a_preview(self):
+        text = self.render(mode="mirror", archive_exported_since_copy=True)
+        self.assertIn(
+            "Preview mirror update: photos-backup ssd --delete --dry-run", text
+        )
+
+    def test_started_attempt_suggests_a_retry(self):
+        self.assertIn("Retry copy: photos-backup ssd", self.render(status="started"))
 
 
 if __name__ == "__main__":
