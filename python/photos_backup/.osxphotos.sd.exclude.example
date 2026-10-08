@@ -1,0 +1,5 @@
+# rsync exclude patterns for [sd_card] exclude_file, one per line.
+# Copy to ~/.osxphotos.sd.exclude. The file must exist for SSD mirror deletions
+# (`ssd --delete`); an empty file excludes nothing.
+.DS_Store
+._*

@@ -246,7 +246,11 @@ def _check_local_copies(
                 "SD Card camera folders", lambda: _check_camera_folders(config.source)
             )
         if config.exclude_file is not None:
-            check(f"{name} exclusions", partial(_check_exclusion, config.exclude_file))
+            section = "sd_card" if name == "SD Card" else "ssd"
+            check(
+                f"{name} exclusions",
+                partial(_check_exclusion, config.exclude_file, section=section),
+            )
 
 
 def _check_destination(path: Path, *, workflow: str) -> str:
@@ -296,11 +300,12 @@ def _check_camera_folders(source: Path) -> str:
     return ""
 
 
-def _check_exclusion(path: Path) -> str:
+def _check_exclusion(path: Path, *, section: str) -> str:
     if not path.is_file():
         raise ActionRequired(
             f"'{path}' is missing or not a regular file; copies omit these exclusions "
-            "and SSD mirror deletions are blocked"
+            "and SSD mirror deletions are blocked. Create it (an empty file excludes "
+            f"nothing) or remove exclude_file from [{section}]"
         )
     return str(path)
 

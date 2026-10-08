@@ -38,6 +38,7 @@ class SetupImprovementsTests(unittest.TestCase):
                 "FAIL [apple_photos]",
                 "missing-card",
                 "missing-exclude",
+                "remove exclude_file from [sd_card]",
                 "missing-cloud-source",
                 "FAIL rsync",
                 "FAIL rclone",

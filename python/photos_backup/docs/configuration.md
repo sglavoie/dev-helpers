@@ -80,6 +80,9 @@ configured SSD and SD-card exclusion file must exist and be a regular file.
 Otherwise the SSD step exits 3 before creating its destination or starting either
 copy. The same refusal applies to previews. Restore the exclusion file or rerun
 without `--delete`; omitting an exclusion file from configuration remains supported.
+`.osxphotos.exclude.example` and `.osxphotos.sd.exclude.example` in this
+directory are starting points for the SSD and SD-card files; an empty file is
+also valid and excludes nothing.
 SSD and remote deletions also refuse (exit 3) a source that is empty apart from
 Finder's `.DS_Store` and `._*` files; see [transfers](transfers.md).
 
