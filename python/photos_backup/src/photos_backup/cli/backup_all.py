@@ -19,6 +19,7 @@ from photos_backup.cli.exporting import (
     export_into_archive,
     print_export_outcome,
 )
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.cli.outcome import raise_for_summaries
 from photos_backup.config import (
     ApplePhotosConfig,
@@ -79,6 +80,7 @@ T = TypeVar("T")
 @click.option("--skip-sd-card", is_flag=True, help="Skip SD card backup.")
 @click.option("--skip-ssd", is_flag=True, help="Skip SSD backup.")
 @click.option("--skip-remote", is_flag=True, help="Skip remote backup.")
+@notify_on_problems
 @click.pass_context
 def backup_all(
     ctx: click.Context,

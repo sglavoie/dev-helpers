@@ -71,8 +71,8 @@ never export for real.
    `photos-backup daily --dry-run` instead and resolve the takeover it reports.
 5. Run `photos-backup verify` and fix anything that fails.
 6. Add the `dailyCompanions` entry above to that Mac's goback profile, or
-   schedule `photos-backup daily` directly, treating exit 3 as a notification
-   rather than an alarm.
+   schedule `photos-backup daily --notify` directly, which posts a macOS
+   notification for exit 3 (or a failure) rather than an alarm.
 7. Only once all of that holds, run `photos-backup cleanup-local-export` to
    retire `~/Pictures/export`.
 

@@ -135,7 +135,8 @@ for plain summary output even in a terminal.
 
 Exit 3 is deliberately not a failure: it means the tool stopped on purpose and a
 person, not a retry, resolves it. Scheduled runs should treat 3 as "notify me"
-rather than "page me", and `photos-backup daily` still exports before reporting
+rather than "page me"; `daily --notify` and `backup-all --notify` post a macOS
+notification for exit 1, 2, or 3 and stay silent on success. `photos-backup daily` still exports before reporting
 a pending cleanup, so backups never stop over a deletion question.
 
 ## Configuration

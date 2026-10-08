@@ -10,6 +10,7 @@ from photos_backup.cli.exporting import (
     export_into_archive,
     print_export_outcome,
 )
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import print_mirror_outcome
@@ -31,6 +32,7 @@ from photos_backup.summary import print_mirror_outcome
     is_flag=True,
     help="Report the export that would run without writing anything.",
 )
+@notify_on_problems
 @click.pass_context
 def daily(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
     with command_timer(), ExitStack() as stack:
