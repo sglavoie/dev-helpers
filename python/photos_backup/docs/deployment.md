@@ -28,7 +28,7 @@ for a content change, only for a new package.
 Both Macs share `apple_photos.volume` and `apple_photos.archive` because the
 archive travels with the drive. `library`, `[sd_card]`, and `[ssd]` are the
 per-Mac lines: a Mac without an SD reader or a second drive simply omits those
-sections, and the commands that need them report themselves as skipped.
+sections; `backup-all` then reports those steps as skipped.
 
 ## Running it from goback
 

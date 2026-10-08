@@ -55,6 +55,39 @@ class RealRsyncLayoutTests(TransferTestCase):
             (self.destination / "card-copies" / "DCIM" / "DSC00001.ARW").is_file()
         )
 
+    def test_ssd_mirror_deletes_only_stale_files_under_the_source_name(self):
+        self.add_photo(self.source)
+        stale = self.destination / "photos" / "stale.ARW"
+        unrelated = self.destination / "unrelated" / "keep.ARW"
+        for path in (stale, unrelated):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("old")
+
+        summaries = SsdBackup(
+            SsdConfig(self.source, self.destination, None), True, False
+        ).backup()
+
+        self.assertIsNone(summaries[0].error)
+        self.assertFalse(stale.exists())
+        self.assertTrue(unrelated.is_file())
+        self.assertTrue((self.destination / "photos" / "DSC00001.ARW").is_file())
+
+    def test_ssd_mirror_stops_at_max_delete_with_a_hint(self):
+        self.add_photo(self.source)
+        stale = self.destination / "photos"
+        stale.mkdir(parents=True)
+        for index in range(3):
+            (stale / f"stale{index}.ARW").write_text("old")
+
+        summaries = SsdBackup(
+            SsdConfig(self.source, self.destination, None, max_delete=1),
+            True,
+            False,
+        ).backup()
+
+        self.assertIn("raise [ssd] max_delete", summaries[0].error or "")
+        self.assertGreaterEqual(len(list(stale.glob("stale*.ARW"))), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

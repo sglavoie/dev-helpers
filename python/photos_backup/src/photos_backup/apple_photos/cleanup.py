@@ -125,12 +125,17 @@ class CleanupApproval:
 
 @dataclass(frozen=True)
 class CleanupDiscard:
-    """One pending run a person rejected, and the manifest kept as the record."""
+    """One pending run a person rejected, and the manifest kept as the record.
+
+    `manifest` is None when it was missing or unreadable; `manifest_problem`
+    then says why, because a broken manifest must not leave the run stuck.
+    """
 
     run_id: str
-    manifest: CleanupManifest
+    manifest: CleanupManifest | None
     manifest_path: Path
     discarded_at: datetime.datetime
+    manifest_problem: str | None = None
 
 
 def reconcile_mirror(
@@ -278,15 +283,24 @@ def discard_cleanup(archive: Archive, run_id: str) -> CleanupDiscard:
 
     Nothing is deleted and the manifest stays on disk as the record of what was
     rejected, so this needs no library and no proof that this Mac owns the archive.
+    A missing or malformed manifest still lets the run be discarded; otherwise
+    neither approval nor discard could clear it and every export would stop.
     """
     state = archive.state_store.load()
-    manifest = _require_pending(archive, state, run_id, require_owner=False)
+    _require_pending_run(archive, state, run_id, require_owner=False)
+    manifest: CleanupManifest | None = None
+    problem: str | None = None
+    try:
+        manifest = _read_pending_manifest(archive, run_id)
+    except (ActionRequired, ArchiveUnsafe) as error:
+        problem = error.format_message()
     archive.state_store.update(pending_cleanup_run_id=None)
     return CleanupDiscard(
         run_id=run_id,
         manifest=manifest,
         manifest_path=archive.paths.cleanup_manifest(run_id),
         discarded_at=archive.now(),
+        manifest_problem=problem,
     )
 
 
@@ -424,9 +438,15 @@ def _unused_run_id(archive: Archive, base: str) -> str:
 def _require_pending(
     archive: Archive, state: ArchiveState, run_id: str, *, require_owner: bool
 ) -> CleanupManifest:
-    """Refuse to resolve anything but the one pending run, on the owning Mac.
+    """Refuse to resolve anything but the one pending run, on the owning Mac."""
+    _require_pending_run(archive, state, run_id, require_owner=require_owner)
+    return _read_pending_manifest(archive, run_id)
 
-    Ownership is only required when the caller is about to delete: rejecting a
+
+def _require_pending_run(
+    archive: Archive, state: ArchiveState, run_id: str, *, require_owner: bool
+) -> None:
+    """Ownership is only required when the caller is about to delete: rejecting a
     manifest touches no file and is safe from any Mac that can read the archive.
     """
     pending = state.pending_cleanup_run_id
@@ -447,6 +467,8 @@ def _require_pending(
             "proves it holds the same library before it deletes anything"
         )
 
+
+def _read_pending_manifest(archive: Archive, run_id: str) -> CleanupManifest:
     manifest = read_manifest(archive.paths.cleanup_manifest(run_id))
     if manifest.run_id != run_id or manifest.archive != archive.paths.archive:
         raise ArchiveUnsafe(

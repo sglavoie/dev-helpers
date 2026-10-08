@@ -47,6 +47,8 @@ exclude_file = "~/.osxphotos.sd.exclude"
 source = "/Volumes/SanDisk/Media/Apple Photos"
 destination = "/Volumes/Data/Pictures"
 # exclude_file = "~/.osxphotos.exclude"
+# Mirroring (`--delete`) stops once rsync would delete this many files.
+# max_delete = 1000
 
 [rclone]
 # Remote name as configured with `rclone config`, plus the directory to copy.

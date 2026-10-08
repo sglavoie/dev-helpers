@@ -38,9 +38,10 @@ APPLE_PHOTOS_KEYS = (
     "exclude_hidden",
 )
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
-SSD_KEYS = ("source", "destination", "exclude_file")
+SSD_KEYS = ("source", "destination", "exclude_file", "max_delete")
 RCLONE_KEYS = ("remote", "source", "max_delete")
-DEFAULT_RCLONE_MAX_DELETE = 1000
+DEFAULT_MAX_DELETE = 1000
+DEFAULT_RCLONE_MAX_DELETE = DEFAULT_MAX_DELETE
 # rclone reads `name:path` as a remote and anything else as a local path; a
 # name holds no '/', which keeps `/Volumes/a:b` a (refused) local path.
 RCLONE_REMOTE = re.compile(r":?[^/:]+:")
@@ -96,6 +97,8 @@ class SsdConfig:
     source: Path
     destination: Path
     exclude_file: Path | None
+    # Passed to `rsync --max-delete` so a mistaken mirror stops early.
+    max_delete: int = DEFAULT_MAX_DELETE
 
 
 @dataclass(frozen=True)
@@ -189,6 +192,7 @@ def load_ssd_config(config_path: Path | None = None) -> SsdConfig:
         source=section.required_path("source"),
         destination=section.required_path("destination"),
         exclude_file=section.optional_path("exclude_file"),
+        max_delete=section.integer("max_delete", default=DEFAULT_MAX_DELETE, minimum=0),
     )
 
 
@@ -322,6 +326,15 @@ def _read_section(
         raise click.UsageError(f"{path} is not valid TOML: {error}") from error
     except OSError as error:
         raise click.UsageError(f"Could not read {path}: {error}") from error
+
+    sections = ("apple_photos", "sd_card", "ssd", "rclone")
+    unknown_sections = sorted(set(document) - set(sections))
+    if unknown_sections:
+        # A misspelled [rlcone] would otherwise make backup-all skip that step.
+        raise click.UsageError(
+            f"{path}: unknown section(s) {', '.join(unknown_sections)}; "
+            f"expected {', '.join(sections)}"
+        )
 
     values = document.get(name)
     if values is None:

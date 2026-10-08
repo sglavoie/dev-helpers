@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import datetime
+import subprocess
 import time
 from contextlib import ExitStack
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import click
 
 from photos_backup.copy_safety import (
     check_copy_path,
@@ -16,13 +19,22 @@ from photos_backup.archive.lock import copy_source_lock
 from photos_backup.cli.context import suggested_command
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
-from photos_backup.process import interactive_transfers, stream_command, transfer_errors
+from photos_backup.process import (
+    interactive_transfers,
+    stream_command,
+    transfer_errors,
+    transfer_failure,
+)
 from photos_backup.summary import BackupSummary, parse_rsync_stats
 from photos_backup.space import print_destination_space
 
 if TYPE_CHECKING:
     from photos_backup.config import SdCardConfig, SsdConfig
     from photos_backup.transfers import TransferHistory
+
+
+# rsync stopped deleting because --max-delete was reached.
+RSYNC_MAX_DELETE_EXIT_CODE = 25
 
 
 class Backup:
@@ -40,6 +52,7 @@ class Backup:
         self.source = config.source
         self.exclude_file = config.exclude_file
         self.destination = config.destination
+        self.max_delete = config.max_delete
         self.sd_card = sd_card
         self.history = history
 
@@ -54,7 +67,7 @@ class Backup:
         if interactive_transfers():
             cmd.extend(["--verbose", "--progress"])
         if self.delete_at_destination:
-            cmd.append("--delete")
+            cmd.extend(["--delete", f"--max-delete={self.max_delete}"])
         if self.dry_run:
             cmd.extend(["--dry-run", "--itemize-changes"])
         if exclude:
@@ -63,7 +76,17 @@ class Backup:
 
         start = time.monotonic()
         with transfer_errors(step_name, "rsync"):
-            result = stream_command(cmd, check=True)
+            try:
+                result = stream_command(cmd, check=True)
+            except subprocess.CalledProcessError as error:
+                if error.returncode != RSYNC_MAX_DELETE_EXIT_CODE:
+                    raise
+                raise click.ClickException(
+                    f"{step_name}: "
+                    f"{transfer_failure('rsync', error.returncode, error.output)}"
+                    f" SSD deletions stop after {self.max_delete} files; review "
+                    "them with a --dry-run and raise [ssd] max_delete if intended."
+                ) from error
         elapsed = time.monotonic() - start
 
         stats = parse_rsync_stats(result.stdout)

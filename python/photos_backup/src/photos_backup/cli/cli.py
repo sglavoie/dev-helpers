@@ -88,6 +88,8 @@ def _volume_override(
     "config_path",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
+    envvar="PHOTOS_BACKUP_CONFIG",
+    show_envvar=True,
     help=f"TOML configuration file (default: {DEFAULT_CONFIG_PATH}).",
 )
 @click.option(

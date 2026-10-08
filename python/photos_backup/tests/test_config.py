@@ -6,7 +6,9 @@ from pathlib import Path
 from unittest import mock
 
 import click
+from click.testing import CliRunner
 
+from photos_backup.cli.cli import cli
 from photos_backup.config import (
     DEFAULT_CONFIG_PATH,
     load_apple_photos_config,
@@ -92,6 +94,14 @@ class ConfigPathTests(ConfigTestCase):
         self.assertIn(str(missing), str(raised.exception))
         self.assertIn("--config", str(raised.exception))
 
+    def test_environment_variable_selects_the_file(self) -> None:
+        missing = self.tmp_path / "from-env.toml"
+        result = CliRunner().invoke(
+            cli, ["status"], env={"PHOTOS_BACKUP_CONFIG": str(missing)}
+        )
+
+        self.assertIn(str(missing), result.output)
+
     def test_invalid_toml_is_reported(self) -> None:
         self.assert_usage_error("[apple_photos", "not valid TOML")
 
@@ -170,6 +180,12 @@ class ApplePhotosConfigTests(ConfigTestCase):
         self.assert_usage_error(
             MINIMAL_APPLE_PHOTOS + 'archive_path = "/Volumes/Test/Other"\n',
             "unknown key(s) archive_path",
+        )
+
+    def test_misspelled_section_is_rejected(self) -> None:
+        self.assert_usage_error(
+            MINIMAL_APPLE_PHOTOS + '[rlcone]\nremote = "b2:bucket"\n',
+            "unknown section(s) rlcone",
         )
 
     def test_relative_path_is_rejected(self) -> None:

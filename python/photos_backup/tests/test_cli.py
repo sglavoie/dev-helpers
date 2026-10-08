@@ -258,8 +258,9 @@ class VolumeOverrideCommandTests(ArchiveCommandTestCase):
     def test_an_unmounted_configured_volume_still_fails_closed(self) -> None:
         result = self.run_verify()
 
-        self.assertEqual(result.exit_code, 2)
+        self.assertEqual(result.exit_code, 3)
         self.assertIn("is not a mount point", result.output)
+        self.assertNotIn("Usage:", result.output)
 
     def test_override_accepts_a_local_directory(self) -> None:
         local = self.root / "some" / "path"
@@ -276,7 +277,7 @@ class VolumeOverrideCommandTests(ArchiveCommandTestCase):
     def test_override_reports_a_missing_directory(self) -> None:
         result = self.run_verify("--volume", str(self.root / "absent"))
 
-        self.assertEqual(result.exit_code, 2)
+        self.assertEqual(result.exit_code, 3)
         self.assertIn("create it and retry", result.output)
 
     def test_override_rejects_a_relative_path(self) -> None:

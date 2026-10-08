@@ -438,9 +438,13 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("Next export: incremental", result.output)
         self.assertIn(str(report), result.output)
-        self.assertIn(THURSDAY.isoformat(), result.output)
-        self.assertIn(f"{THURSDAY.isoformat()} (just now)", result.output)
-        self.assertIn(f"{MONDAY.isoformat()} (3 days ago)", result.output)
+        self.assertIn(
+            f"{THURSDAY.astimezone():%Y-%m-%d %H:%M} (just now)", result.output
+        )
+        self.assertIn(
+            f"{MONDAY.astimezone():%Y-%m-%d %H:%M} (3 days ago)", result.output
+        )
+        self.assertNotIn(THURSDAY.isoformat(), result.output)
         self.assertIn("Last archive cleanup reconciliation:", result.output)
 
     def test_status_relative_ages_handle_units_and_future_timestamps(self):
@@ -463,7 +467,7 @@ class StatusTests(ArchiveCommandTestCase):
                     result = self.invoke_status()
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertIn(
-                    f"Last successful export: {timestamp.isoformat()} ({expected})",
+                    f"Last successful export: {timestamp.astimezone():%Y-%m-%d %H:%M} ({expected})",
                     result.output,
                 )
 

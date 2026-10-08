@@ -33,6 +33,17 @@ def _relative_age(value: datetime.datetime, now: datetime.datetime) -> str:
     raise AssertionError("unreachable age")
 
 
+def _when(value: datetime.datetime | str, now: datetime.datetime) -> str:
+    """A local, minute-precision time plus its age, e.g. '2026-10-06 15:58 (1 day ago)'.
+
+    JSON output keeps the full ISO timestamps; this is only for people reading.
+    """
+    if isinstance(value, str):
+        value = datetime.datetime.fromisoformat(value)
+    local = value.astimezone() if value.tzinfo else value
+    return f"{local:%Y-%m-%d %H:%M} ({_relative_age(value, now)})"
+
+
 def print_archive_status(
     archive: Archive, state: ArchiveState, plan: ExportPlan, *, now: datetime.datetime
 ) -> None:
@@ -46,10 +57,7 @@ def print_archive_status(
         ("Last full export", state.last_full_export_at),
         ("Last archive cleanup reconciliation", state.last_mirror_completed_at),
     ):
-        timestamp = (
-            f"{value.isoformat()} ({_relative_age(value, now)})" if value else "(never)"
-        )
-        click.echo(f"  {label}: {timestamp}")
+        click.echo(f"  {label}: {_when(value, now) if value else '(never)'}")
     click.echo(
         f"  Last successful baseline report: {state.last_report_path or '(none)'}"
     )
@@ -85,10 +93,9 @@ def print_export_attempt(
         status = "completion not recorded (running or interrupted)"
     mode = attempt["mode"] + ("; custom options/limit" if attempt["restricted"] else "")
     click.echo(f"Latest Apple Photos export attempt: {mode} — {status}")
-    started = datetime.datetime.fromisoformat(attempt["started_at"])
-    click.echo(f"  Started: {started.isoformat()} ({_relative_age(started, now)})")
+    click.echo(f"  Started: {_when(attempt['started_at'], now)}")
     if attempt["completed_at"]:
-        click.echo(f"  Completed: {attempt['completed_at']}")
+        click.echo(f"  Completed: {_when(attempt['completed_at'], now)}")
     click.echo(f"  Mac: {attempt['hostname']}")
     click.echo(f"  Export report (if written): {attempt['report_path']}")
     click.echo(
@@ -187,7 +194,7 @@ def _print_transfer_receipt(
     receipt: dict[str, Any], *, now: datetime.datetime, retry: bool = False
 ) -> None:
     def timestamp(value: str) -> str:
-        return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
+        return _when(value, now)
 
     click.echo(f"  {receipt['step']}: {receipt['source']} → {receipt['destination']}")
     _print_transfer_freshness(receipt)

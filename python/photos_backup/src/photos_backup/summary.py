@@ -367,6 +367,9 @@ def print_cleanup_approval(approval: CleanupApproval) -> None:
 def print_cleanup_discard(discard: CleanupDiscard) -> None:
     """Print that a pending run was rejected, and where the record of it stayed."""
     click.echo(f"Discarded cleanup run '{discard.run_id}'; nothing was deleted")
+    if discard.manifest is None:
+        click.echo(f"  Manifest unavailable: {discard.manifest_problem}")
+        return
     click.echo(f"  Reviewed: {len(discard.manifest.candidates)} archive file(s)")
     click.echo(f"  Manifest kept at: {discard.manifest_path}")
     click.echo(

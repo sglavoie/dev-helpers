@@ -153,7 +153,25 @@ class DiscardTests(MirrorTestCase):
         discarded = self.discard(self.run_id)
 
         self.assertTrue(discarded.manifest_path.is_file())
+        assert discarded.manifest is not None
         self.assertEqual(discarded.manifest.run_id, self.run_id)
+
+    def test_a_missing_or_malformed_manifest_can_still_be_discarded(self) -> None:
+        for name, damage in (
+            ("missing", lambda path: path.unlink()),
+            ("malformed", lambda path: path.write_text("{")),
+        ):
+            with self.subTest(name):
+                self.save_state(pending_cleanup_run_id=self.run_id)
+                manifest = self.paths.cleanup_manifest(self.run_id)
+                damage(manifest)
+
+                discarded = self.discard(self.run_id)
+
+                self.assertIsNone(discarded.manifest)
+                self.assertIsNotNone(discarded.manifest_problem)
+                self.assertIsNone(self.state.pending_cleanup_run_id)
+                self.assertTrue(self.gone.is_file())
 
     def test_a_later_full_export_may_propose_the_deletions_again(self) -> None:
         self.discard(self.run_id)

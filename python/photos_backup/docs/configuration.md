@@ -5,7 +5,8 @@
 ## Configuration
 
 Settings live in `~/.config/osxphotos-backup/photos-backup.toml`. Pass
-`--config PATH` before a command to use another file. Copy
+`--config PATH` before a command, or set `PHOTOS_BACKUP_CONFIG`, to use another
+file. Copy
 [`photos-backup.example.toml`](../photos-backup.example.toml) as a starting point; it holds no secrets and none
 should be added to it.
 
@@ -28,11 +29,13 @@ Each section maps to one workflow and is loaded only by the commands that need
 it: `[apple_photos]`, `[sd_card]`, `[ssd]`, and `[rclone]`. Paths accept `~` and
 environment variables and must be absolute once expanded. Invalid values (wrong
 type, out-of-range cadence or cleanup limit, an archive outside its volume, an
-unknown key) fail with an error naming the file, section, and key.
+unknown key or section) fail with an error naming the file, section, and key.
 
 Only the sections a command needs are read, so an Apple Photos export works on a
-machine that has no SD card, SSD, or rclone configuration. `backup-all` and `ssd`
-report a workflow whose section is absent as skipped instead of failing.
+machine that has no SD card, SSD, or rclone configuration. `backup-all` reports
+a workflow whose section is absent as skipped instead of failing, and `ssd`
+skips its SD-card step without `[sd_card]`; the standalone `sd-card`, `ssd`, and
+`remote` commands exit 2 when their own section is missing.
 Pipeline summaries distinguish `Skipped by request` from
 `Not configured: [section]`. Apple Photos is the exception: `backup-all` requires
 `[apple_photos]` unless you pass `--skip-apple-photos` for a copy-only run.

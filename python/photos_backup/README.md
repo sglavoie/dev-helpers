@@ -131,12 +131,14 @@ for plain summary output even in a terminal.
 | 0 | The run did what it was asked, including doing nothing | a clean export, a refused confirmation, a dry run |
 | 1 | The run failed | osxphotos reported errors, a verification check failed, a pipeline step raised |
 | 2 | The command line or configuration is wrong | unknown option, missing or invalid TOML |
-| 3 | A person has to act before this can succeed | archive not initialized, cleanup awaiting approval, a blocked takeover, an unmounted drive |
+| 3 | A person has to act before this can succeed | archive not initialized, cleanup awaiting approval, a blocked takeover, an unmounted drive, an archive locked by another run |
 
 Exit 3 is deliberately not a failure: it means the tool stopped on purpose and a
 person, not a retry, resolves it. Scheduled runs should treat 3 as "notify me"
 rather than "page me"; `daily --notify` and `backup-all --notify` post a macOS
-notification for exit 1, 2, or 3 and stay silent on success. `photos-backup daily` still exports before reporting
+notification when a run fails, needs you, or is stopped (Ctrl-C, `kill`,
+launchd), and stay silent on success. Mistyped options exit 2 before the command
+starts, so run a new schedule once by hand. `photos-backup daily` still exports before reporting
 a pending cleanup, so backups never stop over a deletion question.
 
 ## Configuration

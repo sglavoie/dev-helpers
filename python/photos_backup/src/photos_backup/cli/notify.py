@@ -23,7 +23,7 @@ _SCRIPT = (
 
 
 def notify_on_problems(command: F) -> F:
-    """Add `--notify` and post a notification when the command exits 1, 2, or 3.
+    """Add `--notify` and post a notification when the command fails or is stopped.
 
     Success stays silent: a scheduled run only interrupts a person when they
     have something to fix or decide. The exit status is never changed.
@@ -43,6 +43,12 @@ def notify_on_problems(command: F) -> F:
             post_notification(f"photos-backup {name} failed", error.format_message())
             raise
         except (click.exceptions.Exit, click.Abort):
+            raise
+        except KeyboardInterrupt:
+            # SIGTERM and SIGHUP arrive here too, so a stopped launchd job notifies.
+            post_notification(
+                f"photos-backup {name} interrupted", "Stopped before finishing."
+            )
             raise
         except Exception as error:
             post_notification(f"photos-backup {name} failed", str(error))

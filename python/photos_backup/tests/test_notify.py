@@ -53,6 +53,14 @@ class NotifyOnProblemsTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 1)
         self.post.assert_called_once_with("photos-backup daily failed", "disk vanished")
 
+    def test_an_interrupted_run_notifies(self):
+        result = self.invoke(KeyboardInterrupt(), "--notify")
+
+        self.assertEqual(result.exit_code, 1)
+        self.post.assert_called_once_with(
+            "photos-backup daily interrupted", "Stopped before finishing."
+        )
+
     def test_success_and_runs_without_the_flag_stay_silent(self):
         self.assertEqual(self.invoke(None, "--notify").exit_code, 0)
         self.assertEqual(self.invoke(ActionRequired("x")).exit_code, 3)

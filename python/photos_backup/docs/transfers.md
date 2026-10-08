@@ -61,6 +61,9 @@ Mirroring deletions (`ssd --delete`, `backup-all --delete-ssd`, `remote --delete
 `backup-all --delete-remote`) refuses, with exit 3, a source that holds nothing
 but Finder's `.DS_Store` and `._*` files: an empty folder or bare mount point would
 otherwise empty the destination. Copies without deletions are unaffected.
+SSD mirroring also passes rsync `--max-delete` (default 1000, set `[ssd]
+max_delete` to change it), so a folder that vanished from the archive cannot wipe
+thousands of SSD copies in one run; the step fails with a hint instead.
 
 `SIGTERM` and `SIGHUP` (for example from `kill`, launchd, or a closed terminal)
 stop a run like Ctrl-C: the running rsync or rclone is stopped, archive locks are
