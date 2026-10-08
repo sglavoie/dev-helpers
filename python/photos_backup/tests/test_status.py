@@ -17,7 +17,7 @@ from photos_backup.cli.context import CliContext
 from photos_backup.cli.status import _require_nothing_suggested
 from photos_backup.copy_safety import disconnected_volume
 from photos_backup.errors import ActionRequired
-from photos_backup.status_report import print_transfer_history
+from photos_backup.status_report import _transfer_suggestions, print_transfer_history
 from photos_backup.summary import BackupSummary
 from photos_backup.transfers import (
     TransferHistory,
@@ -880,6 +880,61 @@ class ArchiveFreshnessTests(ArchiveCommandTestCase):
                 "Archive exported since this copy" in text.stdout, expected
             )
             self.assertFalse((self.root / "offline").exists())
+
+
+class TransferSuggestionTests(unittest.TestCase):
+    TIMESTAMP = "2026-01-01T00:00:00+00:00"
+
+    def row(self, step, *, stale=True, mode="copy", drive=None, grace=False):
+        attempt = {"started_at": self.TIMESTAMP, "status": "succeeded", "mode": mode}
+        return {
+            "step": step,
+            "last_attempt": attempt,
+            "last_success": {**attempt, "completed_at": self.TIMESTAMP},
+            "archive_exported_since_copy": stale,
+            "disconnected_drive": drive,
+            "within_grace": grace,
+        }
+
+    def test_one_copy_keeps_its_own_command(self):
+        rows = [self.row("SD Card", stale=False), self.row("SSD: All Photos")]
+        self.assertEqual(_transfer_suggestions(rows), [("photos-backup ssd", False)])
+
+    def test_several_copies_collapse_into_backup_all_skipping_current_steps(self):
+        rows = [
+            self.row("SD Card", stale=False),
+            self.row("SSD: All Photos", drive="/Volumes/Data", grace=True),
+            self.row("SSD: SD Card", drive="/Volumes/Data"),
+            self.row("Remote", drive="/Volumes/Data", grace=True),
+        ]
+        self.assertEqual(
+            _transfer_suggestions(rows),
+            [
+                (
+                    "photos-backup backup-all --skip-apple-photos --skip-sd-card"
+                    "  # connect /Volumes/Data first",
+                    False,
+                )
+            ],
+        )
+
+    def test_mirror_previews_stay_separate_and_grace_applies_per_command(self):
+        rows = [
+            self.row("SD Card", drive="/Volumes/SDSONY", grace=True),
+            self.row("SSD: All Photos", grace=True),
+            self.row("Remote", mode="mirror"),
+        ]
+        self.assertEqual(
+            _transfer_suggestions(rows),
+            [
+                (
+                    "photos-backup backup-all --skip-apple-photos --skip-remote"
+                    "  # connect /Volumes/SDSONY first",
+                    True,
+                ),
+                ("photos-backup remote --delete --dry-run", False),
+            ],
+        )
 
 
 class DetailedTransferRetryTests(unittest.TestCase):

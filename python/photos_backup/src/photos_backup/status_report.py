@@ -277,8 +277,8 @@ _FRESHNESS_HINTS = (
 )
 
 
-def _transfer_retry(row: dict[str, Any]) -> tuple[str, str] | None:
-    """Return the label and command that bring one transfer row up to date.
+def _retry_action(row: dict[str, Any]) -> tuple[str, str, bool] | None:
+    """Return the action, command, and mirror mode that update one transfer row.
 
     Unfinished attempts (including ones whose completion was never recorded)
     are retried; successful copies made stale by a newer upstream run are
@@ -291,16 +291,70 @@ def _transfer_retry(row: dict[str, Any]) -> tuple[str, str] | None:
     if command is None or not (unfinished or stale or row["last_success"] is None):
         return None
     action = "retry" if unfinished or row["last_success"] is None else "update"
-    if latest is not None and latest.get("mode") == "mirror":
+    mirror = latest is not None and latest.get("mode") == "mirror"
+    return action, command, mirror
+
+
+def _transfer_retry(row: dict[str, Any]) -> tuple[str, str] | None:
+    """Return the label and command that bring one transfer row up to date."""
+    if (retry := _retry_action(row)) is None:
+        return None
+    action, command, mirror = retry
+    if mirror:
         label = f"Preview mirror {action}"
         suggestion = suggested_command(command, "--delete", "--dry-run")
     else:
         label = f"{action.capitalize()} copy"
         suggestion = suggested_command(command)
-    if drive := row.get("disconnected_drive"):
-        # A shell comment keeps the suggestion pasteable.
-        suggestion += f"  # connect {drive} first"
-    return label, suggestion
+    return label, suggestion + _connect_note([row])
+
+
+def _connect_note(rows: list[dict[str, Any]]) -> str:
+    """A shell comment naming unplugged drives keeps a suggestion pasteable."""
+    drives: list[str] = list(
+        dict.fromkeys(
+            row["disconnected_drive"] for row in rows if row.get("disconnected_drive")
+        )
+    )
+    if not drives:
+        return ""
+    listed = " and ".join(filter(None, [", ".join(drives[:-1]), drives[-1]]))
+    return f"  # connect {listed} first"
+
+
+def _transfer_suggestions(rows: list[dict[str, Any]]) -> list[tuple[str, bool]]:
+    """Return each suggested copy command and whether `--check` may let it wait.
+
+    Two or more plain copies collapse into one copy-only `backup-all`, which
+    skips the configured steps that are already current. Mirror previews stay
+    separate, since `backup-all` would not preview them.
+    """
+    copies: dict[str, list[dict[str, Any]]] = {}
+    previews: list[tuple[str, list[dict[str, Any]]]] = []
+    for row in rows:
+        if (retry := _retry_action(row)) is None:
+            continue
+        _, step, mirror = retry
+        if mirror:
+            command = suggested_command(step, "--delete", "--dry-run")
+            previews.append((command, [row]))
+        else:
+            copies.setdefault(step, []).append(row)
+    groups: list[tuple[str, list[dict[str, Any]]]] = []
+    if len(copies) > 1:
+        configured = dict.fromkeys(_TRANSFER_COMMANDS[row["step"]] for row in rows)
+        skips = [f"--skip-{step}" for step in configured if step not in copies]
+        merged = [row for group in copies.values() for row in group]
+        command = suggested_command("backup-all", "--skip-apple-photos", *skips)
+        groups.append((command, merged))
+    else:
+        groups.extend(
+            (suggested_command(step), group) for step, group in copies.items()
+        )
+    return [
+        (command + _connect_note(group), all(row.get("within_grace") for row in group))
+        for command, group in groups + previews
+    ]
 
 
 def _print_transfer_retry(receipt: dict[str, Any]) -> None:
@@ -374,7 +428,9 @@ def print_short_status(
         document["download_summary"], document["download_report_error"]
     )
     for row in document["configured_transfers"]:
-        _print_short_transfer(row, now, commands)
+        _print_short_transfer(row, now)
+    transfers = _transfer_suggestions(document["configured_transfers"])
+    commands.extend(command for command, _ in transfers)
     for error in document["transfer_history_errors"]:
         click.echo(f"Warning: {error}", err=True)
     if document["archive_configured"]:
@@ -395,17 +451,8 @@ def print_short_status(
         click.echo("Suggested next commands (mirror retries are previews):")
         for command in commands:
             click.echo(f"  {command}")
-    waiting = _copies_within_grace(document["configured_transfers"])
+    waiting = {command for command, within_grace in transfers if within_grace}
     return [command for command in commands if command not in waiting]
-
-
-def _copies_within_grace(rows: list[dict[str, Any]]) -> set[str]:
-    """Copy commands only recently fresh copies suggest, which `--check` lets wait."""
-    retries: dict[bool, set[str]] = {True: set(), False: set()}
-    for row in rows:
-        if retry := _transfer_retry(row):
-            retries[bool(row.get("within_grace"))].add(retry[1])
-    return retries[True] - retries[False]
 
 
 def _print_short_archive(
@@ -472,9 +519,7 @@ def _short_next_export(next_export: dict[str, Any]) -> str:
     return f"{next_export['mode']} (full {due.astimezone():%a %Y-%m-%d})"
 
 
-def _print_short_transfer(
-    row: dict[str, Any], now: datetime.datetime, commands: list[str]
-) -> None:
+def _print_short_transfer(row: dict[str, Any], now: datetime.datetime) -> None:
     latest, success = row["last_attempt"], row["last_success"]
     hints = [row.get(field) for field in _FRESHNESS_HINTS]
     if latest and latest["status"] != "succeeded":
@@ -507,5 +552,3 @@ def _print_short_transfer(
             else "freshness unknown"
         )
     click.echo(f"{row['step']}: {detail}")
-    if retry := _transfer_retry(row):
-        commands.append(retry[1])

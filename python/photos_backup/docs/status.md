@@ -126,7 +126,10 @@ failed, was interrupted, or never recorded completion show a copyable retry
 command, and routes made stale by a newer upstream run show an update command,
 in both detailed and `--short` status; mirrors suggest `--delete --dry-run`
 first. An SSD retry runs its configured SSD routes together. Historical routes
-have no retry hint.
+have no retry hint. When `--short` would suggest two or more of `sd-card`, `ssd`,
+and `remote` as plain copies, it suggests one
+`backup-all --skip-apple-photos` instead, adding `--skip-...` for configured
+steps that are already current. Mirror previews stay separate commands.
 When a route's source or destination is under a `/Volumes` drive that is not
 mounted, its suggestion ends with a shell comment such as
 `# connect /Volumes/Data first`, and its `configured_transfers` row in JSON
