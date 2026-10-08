@@ -232,7 +232,7 @@ def _check_signatures(
     unsigned = sum(record.size is None or record.mtime is None for record in files)
     unavailable = len(files) - unsigned - len(comparable)
     coverage = (
-        f"Signature coverage: {len(comparable) - len(mismatched)} matched, "
+        f"{len(comparable) - len(mismatched)} matched, "
         f"{len(mismatched)} changed, {unsigned} missing signatures, "
         f"{unavailable} unavailable for comparison. "
         "Size and modification time only; file contents were not checksummed."

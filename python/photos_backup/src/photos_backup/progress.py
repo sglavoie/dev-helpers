@@ -80,10 +80,8 @@ class ExportProgress:
                 if self.show_downloads
                 else ""
             )
-            line = (
-                f"{self._phase}: {self._detail} | elapsed {elapsed:.1f}s"
-                f"{count}{budget}{failures}"
-            )
+            label = f"{self._phase}: {self._detail}" if self._detail else self._phase
+            line = f"{label} | elapsed {elapsed:.1f}s{count}{budget}{failures}"
             if self.terminal:
                 line = "\r\033[2K" + line
             self.sink(line)
@@ -115,7 +113,9 @@ class ExportProgress:
                 started,
                 budget,
             )
-            self.tick(force=announce)
+            # Logs get the closing line with its duration; the heartbeat
+            # reports a long phase, so a zero-elapsed opening line is noise.
+            self.tick(force=announce and self.terminal)
         try:
             yield
         finally:

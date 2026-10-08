@@ -24,7 +24,7 @@ class ProgressTests(unittest.TestCase):
         with progress.phase("Retrieving missing files", "video.mov", budget=12):
             self.now = 9
             progress.tick()
-            self.assertEqual(len(self.lines), 1)
+            self.assertEqual(self.lines, [])
             self.now = 10
             progress.tick()
             self.assertIn("budget remaining 2s", self.lines[-1])
@@ -33,6 +33,14 @@ class ProgressTests(unittest.TestCase):
             self.now = 15
         self.assertIn("budget remaining 0s", self.lines[-1])
         self.assertEqual(progress.timings["Retrieving missing files"], 15)
+
+    def test_redirected_phase_prints_one_closing_line(self):
+        progress = self.reporter()
+        with progress.phase("Checking archive"):
+            self.now = 2
+        self.assertEqual(
+            self.lines, ["Checking archive | elapsed 2.0s | unresolved downloads 0"]
+        )
 
     def test_terminal_updates_each_second_and_does_not_claim_completion(self):
         progress = self.reporter(terminal=True)
