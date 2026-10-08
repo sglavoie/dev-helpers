@@ -50,7 +50,10 @@ and PhotoKit staging hooks. Upgrade deliberately: update the pin and the support
 version in `tests/test_osxphotos_compatibility.py`, refresh the lockfile, then run
 the full test suite and `uv run mypy`. The offline tests check upstream call
 signatures, staging serialization, and actual upstream staging with native Photos
-I/O mocked, including originals, edits, Live Photos, video, and RAW pairs. A real
+I/O mocked, including originals, edits, Live Photos, video, and RAW pairs.
+`apple-photos` parses forwarded flags with the upstream `export` command's own
+Click parser and parameter types, so an upgrade that renames or retypes an export
+option changes what those flags accept. A real
 export on a disposable archive is still needed to validate native PhotoKit behavior
 before deploying an upgrade to both Macs.
 
