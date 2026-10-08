@@ -300,6 +300,61 @@ class StatusPolishTests(ArchiveCommandTestCase):
         self.assertTrue(rows["SSD: All Photos"]["archive_may_have_changed_since_copy"])
         self.assertTrue(rows["SSD: SD Card"]["sd_imported_since_copy"])
 
+    def test_check_lets_a_recently_copied_stale_route_wait(self):
+        now = datetime.datetime.now(datetime.UTC)
+        routes = (
+            f'[sd_card]\nsource = "{self.root}/card"\n'
+            f'destination = "{self.root}/raw"\n'
+            f'[ssd]\nsource = "{self.root}/archive"\n'
+            f'destination = "{self.root}/ssd"\n'
+        )
+        self.config_path.write_text(routes)
+        history = TransferHistory(self.config_path)
+        for name, source, destination, days_ago in (
+            ("SSD: All Photos", "archive", "ssd/archive", 0),
+            ("SSD: SD Card", "raw", "ssd/raw", 2),
+            ("SD Card", "card", "raw/card", 1),
+        ):
+            when = now - datetime.timedelta(days=days_ago)
+            with mock.patch(
+                "photos_backup.transfers._now", return_value=when.isoformat()
+            ):
+                history.run(
+                    name,
+                    self.root / source,
+                    self.root / destination,
+                    lambda: BackupSummary(name),
+                    dry_run=False,
+                )
+        for status_section, code in (
+            ("", 0),
+            ("[status]\ncopy_max_age_days = 2\n", 3),
+            ("[status]\ncopy_max_age_days = 0\n", 3),
+        ):
+            with self.subTest(status_section=status_section):
+                self.config_path.write_text(routes + status_section)
+                result = self.invoke("status", "--check")
+                self.assertEqual(result.exit_code, code, result.output)
+                self.assertIn(
+                    "SSD: SD Card: needs updating; copied 2 days ago", result.stdout
+                )
+                self.assertIn(
+                    shlex.join(
+                        ["photos-backup", "--config", str(self.config_path), "ssd"]
+                    ),
+                    result.stdout,
+                )
+                rows = json.loads(self.invoke("status", "--json").stdout)[
+                    "configured_transfers"
+                ]
+                grace = {row["step"]: row["within_grace"] for row in rows}
+                self.assertEqual(grace["SSD: SD Card"], code == 0)
+
+        self.config_path.write_text(routes + "[status]\ncopy_max_age_days = -1\n")
+        result = self.invoke("status", "--check")
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("copy_max_age_days", result.output)
+
     def test_short_bootstrap_unknown_routes_and_successful_recent_are_explicit(self):
         result = self.invoke("status", "--short")
         self.assertIn("bootstrap incomplete", result.stdout)

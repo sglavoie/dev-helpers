@@ -40,7 +40,9 @@ APPLE_PHOTOS_KEYS = (
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
 SSD_KEYS = ("source", "destination", "exclude_file", "max_delete")
 RCLONE_KEYS = ("remote", "source", "max_delete")
+STATUS_KEYS = ("copy_max_age_days",)
 DEFAULT_MAX_DELETE = 1000
+DEFAULT_COPY_MAX_AGE_DAYS = 7
 DEFAULT_RCLONE_MAX_DELETE = DEFAULT_MAX_DELETE
 # rclone reads `name:path` as a remote and anything else as a local path; a
 # name holds no '/', which keeps `/Volumes/a:b` a (refused) local path.
@@ -107,6 +109,12 @@ class RcloneConfig:
     source: Path | None
     # Passed to `rclone sync --max-delete` so a mistaken mirror stops early.
     max_delete: int = DEFAULT_RCLONE_MAX_DELETE
+
+
+@dataclass(frozen=True)
+class StatusConfig:
+    # `status --check` lets a stale copy wait this long before it needs you.
+    copy_max_age_days: int = DEFAULT_COPY_MAX_AGE_DAYS
 
 
 def resolve_config_path(config_path: Path | None = None) -> Path:
@@ -212,6 +220,19 @@ def load_rclone_config(config_path: Path | None = None) -> RcloneConfig:
         max_delete=section.integer(
             "max_delete", default=DEFAULT_RCLONE_MAX_DELETE, minimum=0
         ),
+    )
+
+
+def load_status_config(config_path: Path | None = None) -> StatusConfig:
+    """Load [status], falling back to the defaults when the section is absent."""
+    try:
+        section = _read_section(config_path, "status", STATUS_KEYS)
+    except MissingSection:
+        return StatusConfig()
+    return StatusConfig(
+        copy_max_age_days=section.integer(
+            "copy_max_age_days", default=DEFAULT_COPY_MAX_AGE_DAYS, minimum=0
+        )
     )
 
 
@@ -327,7 +348,7 @@ def _read_section(
     except OSError as error:
         raise click.UsageError(f"Could not read {path}: {error}") from error
 
-    sections = ("apple_photos", "sd_card", "ssd", "rclone")
+    sections = ("apple_photos", "sd_card", "ssd", "rclone", "status")
     unknown_sections = sorted(set(document) - set(sections))
     if unknown_sections:
         # A misspelled [rlcone] would otherwise make backup-all skip that step.

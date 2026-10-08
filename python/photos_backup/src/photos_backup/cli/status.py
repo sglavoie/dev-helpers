@@ -23,6 +23,7 @@ from photos_backup.config import (
     load_sd_card_config,
     load_ssd_config,
     load_rclone_config,
+    load_status_config,
     resolve_rclone_source,
 )
 from photos_backup.copy_safety import disconnected_volume
@@ -43,6 +44,7 @@ from photos_backup.transfers import (
     TransferHistory,
     classify_transfers,
     annotate_archive_freshness,
+    annotate_copy_grace,
     annotate_upstream_freshness,
 )
 
@@ -137,6 +139,9 @@ def status(ctx: click.Context, as_json: bool, short: bool, check: bool) -> None:
         current, config.archive if config else None, None
     )
     now = datetime.datetime.now(datetime.UTC)
+    current = annotate_copy_grace(
+        current, load_status_config(config_path).copy_max_age_days, now
+    )
     verification, verification_error = (
         VerificationHistory(config_path, config.archive).read()
         if config

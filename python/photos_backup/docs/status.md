@@ -21,6 +21,15 @@ It also suggests `photos-backup daily` once the last full export is
 `full_export_max_age_days` old or older: a full export on cadence never gets that
 old, so this catches a schedule that has quietly stopped running `daily`.
 
+A copy that is out of date but last succeeded fewer than
+`[status] copy_max_age_days` (default 7) days ago is still listed with its
+age, as in `SSD: All Photos: needs updating; copied 2 days ago`, but does not
+make `--check` exit 3 on its own. That lets an SSD you connect weekly fall
+behind each day without a daily notification. A failed, interrupted, or
+never-recorded copy always counts, and `copy_max_age_days = 0` makes every
+stale copy count. `status --json` shows the decision as `within_grace` on each
+configured transfer.
+
 ## Latest download failures
 
 Both text views summarize the latest incomplete export's `.downloads.json` report:

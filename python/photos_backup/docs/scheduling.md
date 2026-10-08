@@ -51,8 +51,11 @@ Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sglavo
 and try it once with `launchctl kickstart gui/$(id -u)/com.sglavoie.photos-backup-check`.
 
 `status --check` exits 3, and notifies, whenever it suggests a command: an
-overdue `daily`, a pending cleanup, a stale or never-recorded copy, a missing
-verification, or an archive drive that is not connected. Copy suggestions for a
+overdue `daily`, a pending cleanup, a failed or never-recorded copy, a copy
+stale for longer than `[status] copy_max_age_days` (default 7), a missing
+verification, or an archive drive that is not connected. Scheduling
+`daily --verify` keeps the verification suggestion from returning after every
+export. Copy suggestions for a
 drive that is not mounted end with `# connect /Volumes/... first`. Run
 `photos-backup status --short` by hand to see the full list.
 

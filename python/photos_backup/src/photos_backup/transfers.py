@@ -178,6 +178,31 @@ def annotate_upstream_freshness(receipts: list[Receipt]) -> list[Receipt]:
     return result
 
 
+def annotate_copy_grace(
+    receipts: list[Receipt], max_age_days: int, now: datetime.datetime
+) -> list[Receipt]:
+    """Mark copies whose last success is recent enough for `status --check` to wait.
+
+    A failed, unfinished, or never-recorded copy is never within the grace period.
+    """
+    limit = datetime.timedelta(days=max_age_days)
+    result = []
+    for row in receipts:
+        latest, success = row["last_attempt"], row["last_success"]
+        result.append(
+            {
+                **row,
+                "within_grace": (
+                    success is not None
+                    and (latest is None or latest["status"] == "succeeded")
+                    and now - datetime.datetime.fromisoformat(success["completed_at"])
+                    < limit
+                ),
+            }
+        )
+    return result
+
+
 class TransferHistory:
     def __init__(self, config_path: Path | None, *, root: Path | None = None):
         self.directory = (root if root is not None else history_root()) / _key(

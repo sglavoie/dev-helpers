@@ -395,7 +395,17 @@ def print_short_status(
         click.echo("Suggested next commands (mirror retries are previews):")
         for command in commands:
             click.echo(f"  {command}")
-    return commands
+    waiting = _copies_within_grace(document["configured_transfers"])
+    return [command for command in commands if command not in waiting]
+
+
+def _copies_within_grace(rows: list[dict[str, Any]]) -> set[str]:
+    """Copy commands only recently fresh copies suggest, which `--check` lets wait."""
+    retries: dict[bool, set[str]] = {True: set(), False: set()}
+    for row in rows:
+        if retry := _transfer_retry(row):
+            retries[bool(row.get("within_grace"))].add(retry[1])
+    return retries[True] - retries[False]
 
 
 def _print_short_archive(
@@ -477,9 +487,15 @@ def _print_short_transfer(
         detail = "no successful copy recorded; freshness unknown"
     elif True in hints:
         detail = (
-            "may need updating"
-            if row.get("archive_may_have_changed_since_copy")
-            else "needs updating"
+            (
+                "may need updating"
+                if row.get("archive_may_have_changed_since_copy")
+                else "needs updating"
+            )
+            + "; copied "
+            + _relative_age(
+                datetime.datetime.fromisoformat(success["completed_at"]), now
+            )
         )
     else:
         age = _relative_age(

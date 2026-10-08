@@ -58,3 +58,9 @@ remote = "b2:my-photos-bucket"
 # Mirroring (`--delete`) stops once rclone would delete this many files.
 # max_delete = 1000
 source = "/Volumes/Data/Pictures"
+
+[status]
+# `status --check` lets a copy that last succeeded fewer than this many days
+# ago fall behind without exiting 3. Failed or never-recorded copies always
+# count; 0 makes every stale copy count. Default: 7.
+# copy_max_age_days = 7

@@ -26,7 +26,9 @@ workflow is re-pointed: under `backup-all`, the `[ssd]` and `[rclone]` steps
 keep reading their own configured sources.
 
 Each section maps to one workflow and is loaded only by the commands that need
-it: `[apple_photos]`, `[sd_card]`, `[ssd]`, and `[rclone]`. Paths accept `~` and
+it: `[apple_photos]`, `[sd_card]`, `[ssd]`, and `[rclone]`. The optional
+`[status]` section only tunes `status --check`; see
+[status](status.md#compact-status). Paths accept `~` and
 environment variables and must be absolute once expanded. Invalid values (wrong
 type, out-of-range cadence or cleanup limit, an archive outside its volume, an
 unknown key or section) fail with an error naming the file, section, and key.
