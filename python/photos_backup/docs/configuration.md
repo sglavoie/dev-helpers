@@ -56,11 +56,13 @@ SSD and SD-card copies check configured sources before creating the destination.
 A missing source requires attention (exit 3), including a configured SD-card
 backup directory. For copy source and destination paths under `/Volumes/<drive>`, the
 drive must be mounted, even during previews; an absent mount is never created.
+The check ignores letter case, so `/volumes/<drive>` is held to the same rule.
 Remote uploads apply the same mount and source-directory checks before starting
 rclone. Ordinary local paths remain supported without adding configuration keys.
 
 SD-card and SSD copies also reject overlapping source and destination paths,
-including symlink aliases, before creating directories or starting rsync. Each
+including symlink aliases, before creating directories or starting rsync. Paths
+are compared without letter case, as on a default macOS volume. Each
 source is copied into `destination/source-name`; SSD inputs must map to distinct,
 non-overlapping directories. An omitted `exclude_file` is optional. An explicitly
 configured file that is missing or is not a regular file prints a warning to

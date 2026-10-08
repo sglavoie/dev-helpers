@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from photos_backup.errors import ActionRequired
 
@@ -10,17 +10,19 @@ def check_copy_paths(
 
     Sources have no trailing slash, so each lands at destination/source.name.
     Resolve aliases on both sides, including an existing symlink at that target.
+    Compare without letter case, as macOS volumes usually do: a false overlap
+    only refuses a copy, while a missed one could overwrite a source.
     """
     for source in sources:
         check_copy_path(source, workflow=workflow, source=True)
     check_copy_path(destination, workflow=workflow)
-    resolved_sources = [source.resolve() for source in sources]
-    resolved_destination = destination.resolve()
+    resolved_sources = [_folded(source.resolve()) for source in sources]
+    resolved_destination = _folded(destination.resolve())
     targets = [destination / source.name for source in sources]
     resolved_targets = []
     for target in targets:
         check_copy_path(target, workflow=workflow)
-        resolved_targets.append(target.resolve())
+        resolved_targets.append(_folded(target.resolve()))
 
     for source, resolved_source in zip(sources, resolved_sources):
         if resolved_destination.is_relative_to(resolved_source):
@@ -37,9 +39,11 @@ def check_copy_paths(
                     "choose a separate destination"
                 )
 
-    for index, target in enumerate(resolved_targets):
+    for index, resolved_target in enumerate(resolved_targets):
         for other in resolved_targets[:index]:
-            if target.is_relative_to(other) or other.is_relative_to(target):
+            if resolved_target.is_relative_to(other) or other.is_relative_to(
+                resolved_target
+            ):
                 raise ActionRequired(
                     f"{workflow} sources map to overlapping copy targets beneath "
                     f"'{destination}': {', '.join(str(source) for source in sources)}; "
@@ -51,15 +55,15 @@ def check_copy_path(path: Path, *, workflow: str, source: bool = False) -> None:
     """Never create a missing macOS volume while preparing a copy destination."""
     if ".." in path.parts:
         raise ActionRequired(f"{workflow} path '{path}' must not contain '..'")
-    volumes = Path("/Volumes")
-    # Check both spellings so a local symlink into /Volumes cannot bypass this.
+    # Check both spellings so a local symlink into /Volumes cannot bypass this,
+    # and ignore letter case, since /volumes names the same directory on macOS.
     for candidate in (path, path.resolve()):
-        if not candidate.is_relative_to(volumes):
+        if _folded(candidate).parts[:2] != ("/", "volumes"):
             continue
-        parts = candidate.relative_to(volumes).parts
-        if not parts:
+        _, volumes, *names = candidate.parts
+        if not names:
             raise ActionRequired(f"Configure a {workflow} path beneath a mounted drive")
-        volume = volumes / parts[0]
+        volume = Path("/", volumes, names[0])
         if volume.is_symlink() or not volume.is_dir() or not volume.is_mount():
             raise ActionRequired(
                 f"{workflow} volume '{volume}' is not a mounted drive; connect it and retry"
@@ -69,3 +73,7 @@ def check_copy_path(path: Path, *, workflow: str, source: bool = False) -> None:
             f"{workflow} source '{path}' is not an available directory; "
             "connect the source drive or correct the configured path"
         )
+
+
+def _folded(path: PurePath) -> PurePath:
+    return PurePath(str(path).casefold())
