@@ -12,6 +12,7 @@ from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.bootstrap import (
     FRESH_REASON,
     RESUME_REASON,
+    _foreign_entries,
     bootstrap_archive,
 )
 from photos_backup.apple_photos.identity import (
@@ -21,6 +22,8 @@ from photos_backup.apple_photos.identity import (
 )
 from photos_backup.apple_photos.plan import ExportMode
 from photos_backup.archive import ArchiveState, SystemProbes, open_archive
+from photos_backup.archive.errors import ArchiveUnavailable
+from photos_backup.archive.paths import ArchivePaths
 from photos_backup.archive.probes import real_hostname
 from photos_backup.errors import ActionRequired
 from tests.test_export import HOSTNAME, THURSDAY, FakeRunner, make_config, row
@@ -260,6 +263,25 @@ class ResumeBootstrapTests(BootstrapTestCase):
         self.assertIn("no photos-backup metadata", str(raised.exception))
         self.assertIn("'2019'", str(raised.exception))
         self.assertIsNone(runner.arguments)
+
+    def test_finder_clutter_does_not_count_as_foreign_content(self) -> None:
+        self.archive_root.mkdir(parents=True)
+        for name in (".DS_Store", "._Apple Photos", ".localized"):
+            (self.archive_root / name).write_bytes(b"")
+        runner = FakeRunner([row("a.jpg", new=1)])
+
+        result = self.bootstrap(runner, library=(asset("a"),))
+
+        self.assertTrue(result.initialized)
+
+    def test_an_unlistable_archive_is_unavailable_rather_than_empty(self) -> None:
+        paths = ArchivePaths(self.volume, self.archive_root)
+
+        with (
+            patch.object(Path, "iterdir", side_effect=PermissionError("denied")),
+            self.assertRaisesRegex(ArchiveUnavailable, "denied"),
+        ):
+            _foreign_entries(paths)
 
 
 class DryRunBootstrapTests(BootstrapTestCase):

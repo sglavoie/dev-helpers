@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING
 from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.export import ApplePhotosExport
+from photos_backup.apple_photos.files import is_ignored
 from photos_backup.apple_photos.identity import CoverageReport, assess_coverage
 from photos_backup.apple_photos.late_additions import MetadataReader
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
 from photos_backup.apple_photos.takeover import TakeoverCheck, ensure_writer
+from photos_backup.archive.errors import ArchiveUnavailable
 from photos_backup.archive.paths import METADATA_DIR_NAME, ArchivePaths
 from photos_backup.errors import ActionRequired
 
@@ -157,6 +159,15 @@ def _foreign_entries(paths: ArchivePaths) -> tuple[str, ...]:
     """Archive entries photos-backup does not own, in a stable order."""
     try:
         entries = sorted(paths.archive.iterdir())
-    except OSError:
+    except FileNotFoundError:
         return ()
-    return tuple(entry.name for entry in entries if entry.name != METADATA_DIR_NAME)
+    except OSError as error:
+        # An unreadable archive must not pass for an empty one.
+        raise ArchiveUnavailable(
+            f"Could not list archive '{paths.archive}': {error}"
+        ) from error
+    return tuple(
+        entry.name
+        for entry in entries
+        if entry.name != METADATA_DIR_NAME and not is_ignored(entry)
+    )

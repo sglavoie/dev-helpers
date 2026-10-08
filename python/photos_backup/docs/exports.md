@@ -18,7 +18,9 @@ behind, runs another full export, and picks up where the first stopped.
 Bootstrap accepts only an empty archive or one it left incomplete itself. An
 archive that holds other content but no `.photos-backup` metadata is refused
 with exit 3, naming what it found, rather than exporting into someone else's
-directory.
+directory. Finder clutter (`.DS_Store`, `.localized`, AppleDouble `._` files)
+does not count as content, and an archive that cannot be listed is refused
+rather than treated as empty.
 
 To leave the Hidden album locked and omit its photos/videos from backups, set
 `exclude_hidden = true` in `[apple_photos]` in your configuration. This applies
