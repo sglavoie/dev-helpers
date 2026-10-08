@@ -1,5 +1,6 @@
 """Read-only setup diagnostics; never start an export or transfer."""
 
+import json
 import platform
 import shutil
 import subprocess
@@ -44,8 +45,11 @@ STATUS_STYLES = {
 @click.command(
     help="Check configuration, local paths, and tools without running backups."
 )
+@click.option(
+    "--json", "as_json", is_flag=True, help="Print versions and checks as JSON."
+)
 @click.pass_context
-def doctor(ctx: click.Context) -> None:
+def doctor(ctx: click.Context, as_json: bool) -> None:
     failures: list[int] = []
     results: list[tuple[str, str, str]] = []
 
@@ -70,11 +74,12 @@ def doctor(ctx: click.Context) -> None:
         report("PASS", label, detail or "")
         return True
 
-    click.echo(f"Python: {platform.python_version()}")
+    versions: dict[str, str | None] = {"python": platform.python_version()}
     for package in ("photos_backup", "click", "osxphotos"):
         try:
-            click.echo(f"{package}: {version(package)}")
+            versions[package] = version(package)
         except PackageNotFoundError:
+            versions[package] = None
             failures.append(1)
             report("FAIL", package, "package metadata unavailable")
 
@@ -106,17 +111,19 @@ def doctor(ctx: click.Context) -> None:
         required.append("rsync")
     if remote:
         required.append("rclone")
-    for executable in required:
-        check(executable, lambda executable=executable: _tool_version(executable))
+    installed = {
+        executable: check(
+            executable, lambda executable=executable: _tool_version(executable)
+        )
+        for executable in required
+    }
     _check_local_copies(sd, ssd, check, report)
     if remote:
-        _check_remote(remote, path, check, report)
-    _print_results(results)
-    click.echo(
-        "Setup diagnostics only; media contents and destination copies were not verified."
-    )
-    if failures:
-        ctx.exit(next(code for code in (2, 1, 3) if code in failures))
+        _check_remote(remote, path, check, report, rclone_installed=installed["rclone"])
+    exit_code = next((code for code in (2, 1, 3) if code in failures), 0)
+    _print_results(versions, results, exit_code, as_json=as_json)
+    if exit_code:
+        ctx.exit(exit_code)
 
 
 def _check_apple_photos(apple, check):
@@ -149,13 +156,20 @@ def _check_apple_photos(apple, check):
     )
 
 
-def _check_remote(remote, config_path, check, report):
+def _check_remote(remote, config_path, check, report, *, rclone_installed):
     def remote_source_check():
         source = resolve_rclone_source(remote, config_path)
         check_copy_path(source, workflow="Remote", source=True)
         return str(source)
 
     check("Remote source", remote_source_check)
+    name = _rclone_remote_name(remote.remote)
+    if name is None:
+        report("SKIP", "rclone remote", f"'{remote.remote}' names no configured remote")
+    elif not rclone_installed:
+        report("SKIP", "rclone remote", "needs rclone above")
+    else:
+        check("rclone remote", lambda: _check_rclone_remote(name))
     report(
         "SKIP", "Cloud connectivity and credentials", "no remote connection attempted"
     )
@@ -216,16 +230,40 @@ def _check_destination(path, *, workflow):
     return "" if path.exists() else "created on the first copy"
 
 
-def _print_results(results: list[tuple[str, str, str]]) -> None:
-    if print_terminal_table(
+def _print_results(
+    versions: dict[str, str | None],
+    results: list[tuple[str, str, str]],
+    exit_code: int,
+    *,
+    as_json: bool,
+) -> None:
+    if as_json:
+        document = {
+            "versions": versions,
+            "checks": [
+                {"status": status, "check": label, "detail": detail}
+                for status, label, detail in results
+            ],
+            "exit_code": exit_code,
+        }
+        click.echo(json.dumps(document, indent=2))
+        return
+    click.echo(f"Python: {versions['python']}")
+    for package, package_version in versions.items():
+        if package != "python" and package_version is not None:
+            click.echo(f"{package}: {package_version}")
+    if not print_terminal_table(
         "Setup check",
         ("Status", "Check", "Detail"),
         results,
         styles=[STATUS_STYLES[status] for status, _, _ in results],
     ):
-        return
-    for status, label, detail in results:
-        click.echo(f"{status} {label}" + (f": {detail}" if detail else ""))
+        for status, label, detail in results:
+            click.echo(f"{status} {label}" + (f": {detail}" if detail else ""))
+    click.echo(
+        "Setup diagnostics only; media contents and destination copies were not "
+        "verified."
+    )
 
 
 def _check_camera_folders(source):
@@ -243,13 +281,56 @@ def _check_exclusion(path):
     return str(path)
 
 
+def _rclone_remote_name(remote: str) -> str | None:
+    """Return the config-file remote a destination like `b2:photos` uses.
+
+    Local paths and on-the-fly `:backend:` remotes need no rclone.conf entry.
+    """
+    name, separator, _ = remote.partition(":")
+    if not separator or not name:
+        return None
+    # Connection-string overrides follow a comma: `b2,hard_delete=true:photos`.
+    return name.split(",", 1)[0]
+
+
+def _check_rclone_remote(name: str) -> str:
+    # Reads the local rclone.conf only; never prompt for its password.
+    try:
+        _, output = _run_tool("rclone", ["listremotes", "--ask-password=false"])
+    except click.ClickException as error:
+        raise ActionRequired(
+            f"{error.message}; if the rclone configuration is encrypted, "
+            "set RCLONE_CONFIG_PASS"
+        ) from error
+    remotes = {line.strip().rstrip(":") for line in output.splitlines()}
+    if name not in remotes:
+        raise ActionRequired(
+            f"'{name}:' is not in the rclone configuration; add it with "
+            "`rclone config` or fix [rclone] remote"
+        )
+    return f"'{name}:' is configured; credentials were not checked"
+
+
 def _tool_version(executable: str) -> str:
+    path, output = _run_tool(
+        executable, ["-ver" if executable == "exiftool" else "--version"]
+    )
+    lines = output.strip().splitlines()
+    detail = f"{path} — {lines[0] if lines else 'version not reported'}"
+    if executable == "rsync" and lines and lines[0].startswith("openrsync"):
+        # Copies work with it, but people often expect Homebrew's GNU rsync.
+        detail += " (macOS built-in openrsync, not GNU rsync, is first on PATH)"
+    return detail
+
+
+def _run_tool(executable: str, arguments: list[str]) -> tuple[str, str]:
     path = shutil.which(executable)
     if path is None:
         raise click.ClickException("not found on PATH; install it before backing up")
     try:
         result = subprocess.run(
-            [path, "-ver" if executable == "exiftool" else "--version"],
+            [path, *arguments],
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             errors="replace",
@@ -258,7 +339,6 @@ def _tool_version(executable: str) -> str:
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise click.ClickException(
-            f"could not read version from {path}: {error}"
+            f"could not run {path} {' '.join(arguments)}: {error}"
         ) from error
-    lines = result.stdout.strip().splitlines()
-    return f"{path} — {lines[0] if lines else 'version not reported'}"
+    return path, result.stdout

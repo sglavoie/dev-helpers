@@ -95,13 +95,14 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 
 Help groups commands by task using rich-click. In a terminal, backup summaries
 and verification results use Rich tables with labeled, colored outcomes.
-Redirected summaries and errors stay plain for logs; `status --json` and
-`verify --json` still emit JSON. Set `NO_COLOR=1` to disable color, or `TERM=dumb`
+Redirected summaries and errors stay plain for logs; `status --json`,
+`verify --json`, and `doctor --json` still emit JSON. Set `NO_COLOR=1` to disable color, or `TERM=dumb`
 for plain summary output even in a terminal.
 
 | Command | Description |
 |---------|-------------|
 | `photos-backup doctor` | Check configuration, local paths, exclusions, and installed tools without running backups |
+| `photos-backup doctor --json` | Print the same versions and checks as one JSON document, with the same exit code |
 | `photos-backup --version` | Show the installed application version |
 | `photos-backup bootstrap` | Fill a fresh archive with one complete export, then initialize it |
 | `photos-backup verify` | Report the health of the shared archive without changing anything |
