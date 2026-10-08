@@ -85,7 +85,8 @@ the files it wrote, and each file in the archive is classified:
 the archive in the Finder never blocks a cleanup. Deletion happens automatically
 only when there is nothing changed, ambiguous, or unknown, and the absent assets
 stay within both `cleanup_max_assets` (default 10) and `cleanup_max_fraction`
-(default 0.1%). Emptied directories are then pruned, and
+(default 0.1%). Directories those deletions emptied are then pruned (other
+empty directories are left alone), and
 `last_mirror_completed_at` advances only when the mirror is actually complete.
 
 Anything else is written to `.photos-backup/cleanup/RUN_ID.json`, recorded in

@@ -7,6 +7,7 @@ from unittest import mock
 
 from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.downloads import DownloadBudget
+from photos_backup.apple_photos.files import prune_emptied_parents
 from photos_backup.archive import ArchivePaths, SystemProbes
 from photos_backup.archive.errors import ArchiveUnavailable
 from photos_backup.archive.lock import archive_lock
@@ -86,6 +87,34 @@ class DownloadFailureRecordTests(unittest.TestCase):
             self.assertRaisesRegex(RuntimeError, "osxphotos crashed"),
         ):
             run_osxphotos_export({"report": str(self.missing)}, download_timeout=1)
+
+
+class PruneEmptiedParentsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory())) / "archive"
+
+    def test_the_root_and_kept_subtrees_survive_even_when_emptied(self) -> None:
+        kept = self.root / ".photos-backup" / "reports"
+        kept.mkdir(parents=True)
+        deleted = (self.root / "a.jpg", kept / "old.csv", self.root / "2019/07/b.jpg")
+        (self.root / "2019" / "07").mkdir(parents=True)
+
+        removed = prune_emptied_parents(deleted, self.root, keep=(kept.parent,))
+
+        self.assertEqual(removed, (self.root / "2019/07", self.root / "2019"))
+        self.assertTrue(kept.is_dir())
+        self.assertTrue(self.root.is_dir())
+
+    def test_a_symlinked_parent_is_never_followed(self) -> None:
+        target = self.root.parent / "elsewhere"
+        target.mkdir()
+        self.root.mkdir()
+        (self.root / "link").symlink_to(target)
+
+        prune_emptied_parents((self.root / "link" / "a.jpg",), self.root)
+
+        self.assertTrue((self.root / "link").is_symlink())
+        self.assertTrue(target.is_dir())
 
 
 if __name__ == "__main__":

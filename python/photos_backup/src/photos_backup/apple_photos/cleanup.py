@@ -13,7 +13,7 @@ from photos_backup.apple_photos.adapter import PhotosProbes, resolve_export_file
 from photos_backup.apple_photos.files import (
     delete_files,
     is_ignored,
-    prune_empty_directories,
+    prune_emptied_parents,
 )
 from photos_backup.apple_photos.identity import AssetIdentity, compare_library
 from photos_backup.apple_photos.reconcile import (
@@ -460,7 +460,10 @@ def _delete(
     archive: Archive, candidates: tuple[CandidateFile, ...]
 ) -> tuple[tuple[Path, ...], datetime.datetime]:
     deleted = delete_files(candidate.path for candidate in candidates)
-    prune_empty_directories(archive.paths.archive, keep=(archive.paths.metadata,))
+    if deleted:
+        prune_emptied_parents(
+            deleted, archive.paths.archive, keep=(archive.paths.metadata,)
+        )
     return deleted, archive.now()
 
 

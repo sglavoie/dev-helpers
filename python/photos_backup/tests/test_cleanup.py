@@ -166,6 +166,29 @@ class AutomaticMirrorTests(MirrorTestCase):
         self.assertTrue((self.archive_root / "2026" / "08").is_dir())
         self.assertTrue(self.paths.reports.is_dir())
 
+    def test_only_directories_this_deletion_emptied_are_pruned(self) -> None:
+        unrelated = self.archive_root / "2020" / "01"
+        unrelated.mkdir(parents=True)
+
+        self.reconcile()
+
+        self.assertFalse((self.archive_root / "2019").exists())
+        self.assertTrue(unrelated.is_dir())
+
+    def test_a_reconciliation_without_deletions_prunes_nothing(self) -> None:
+        unrelated = self.archive_root / "2020" / "01"
+        unrelated.mkdir(parents=True)
+
+        self.reconcile(
+            probes=self.probes(
+                library=(asset("kept"), asset("gone")),
+                recorded=(asset("kept"), asset("gone")),
+                files=self.records,
+            )
+        )
+
+        self.assertTrue(unrelated.is_dir())
+
     def test_an_archive_that_already_mirrors_the_library_advances_the_mirror(
         self,
     ) -> None:

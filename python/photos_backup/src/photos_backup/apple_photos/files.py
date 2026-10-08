@@ -33,9 +33,33 @@ def prune_empty_directories(
     root: Path, *, keep: Iterable[Path] = ()
 ) -> tuple[Path, ...]:
     """Remove the directories a deletion emptied, never the root or a kept subtree."""
+    return _remove_empty(sorted(root.rglob("*"), reverse=True), keep)
+
+
+def prune_emptied_parents(
+    deleted: Iterable[Path], root: Path, *, keep: Iterable[Path] = ()
+) -> tuple[Path, ...]:
+    """Remove only the ancestors of `deleted` files left empty, below `root`.
+
+    Unlike `prune_empty_directories`, this never walks the whole tree, so a
+    directory that was already empty before this run is left as it was.
+    """
+    ancestors = {
+        parent for path in deleted for parent in path.parents if root in parent.parents
+    }
+    # Deepest first, so a directory emptied by removing its child goes too.
+    ordered = sorted(
+        ancestors, key=lambda directory: len(directory.parts), reverse=True
+    )
+    return _remove_empty(ordered, keep)
+
+
+def _remove_empty(
+    directories: Iterable[Path], keep: Iterable[Path]
+) -> tuple[Path, ...]:
     protected = tuple(keep)
     removed: list[Path] = []
-    for directory in sorted(root.rglob("*"), reverse=True):
+    for directory in directories:
         if any(
             directory == subtree or subtree in directory.parents
             for subtree in protected
