@@ -59,6 +59,9 @@ The cadence comes from durable state and the clock:
 | The last full export is at least `full_export_max_age_days` old | full |
 | Otherwise | incremental from `last_successful_export_at` minus `incremental_overlap_days` |
 
+The weekday boundary is local midnight on this Mac, not UTC midnight, and report
+file names carry the local date.
+
 A run advances `last_successful_export_at` (and `last_full_export_at` for a full
 run) only when osxphotos exits 0 and its report contains no error or missing
 rows. An incomplete export exits 1 and keeps completed files and reports. The

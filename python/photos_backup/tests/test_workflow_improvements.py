@@ -21,6 +21,7 @@ from photos_backup.summary import BackupSummary
 from photos_backup.transfers import TransferHistory, annotate_archive_freshness
 from tests import isolate_transfer_history
 from tests.test_cli import ArchiveCommandTestCase
+from tests.timezones import pin_timezone
 from tests.test_verify import MONDAY, THURSDAY, VerifyTestCase, write_export_db
 
 
@@ -321,6 +322,11 @@ class PreviewSummaryTests(unittest.TestCase):
 
 
 class StatusTests(ArchiveCommandTestCase):
+    def setUp(self):
+        super().setUp()
+        # The full-export cadence follows local midnight; fixtures are in UTC.
+        pin_timezone(self, "UTC")
+
     def test_unavailable_archive_still_shows_history_without_writes(self):
         history = TransferHistory(self.config_path)
         history.run(

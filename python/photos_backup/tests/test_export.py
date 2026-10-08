@@ -26,6 +26,7 @@ from photos_backup.apple_photos.plan import (
 from photos_backup.archive import ArchiveState, SystemProbes, open_archive
 from photos_backup.config import ApplePhotosConfig
 from photos_backup.progress import ExportProgress
+from tests.timezones import pin_timezone
 
 HOSTNAME = "Sebastiens MacBook.local"
 SAFE_HOSTNAME = "Sebastiens-MacBook-local"
@@ -100,6 +101,8 @@ def row(filename: str, **flags: int) -> dict[str, str]:
 
 class PlanTests(unittest.TestCase):
     def setUp(self) -> None:
+        # The cadence follows local midnight; these fixtures are written in UTC.
+        pin_timezone(self, "UTC")
         self.config = make_config(Path("/Volumes/Test"), Path("/Volumes/Test/Media"))
 
     def plan(self, state: ArchiveState, now: datetime.datetime = THURSDAY):
@@ -111,6 +114,28 @@ class PlanTests(unittest.TestCase):
     def test_cadence_start_on_the_weekday_itself_is_that_midnight(self) -> None:
         monday = datetime.datetime(2026, 8, 10, 23, 59, tzinfo=datetime.UTC)
         self.assertEqual(cadence_start(monday, 0), LAST_MONDAY)
+
+    def test_the_cadence_turns_over_at_local_not_utc_midnight(self) -> None:
+        pin_timezone(self, "America/New_York")
+        # Sunday 21:00 in UTC-4 is already Monday 01:00 in UTC.
+        sunday_evening = datetime.datetime(
+            2026, 8, 9, 21, 0, tzinfo=datetime.timezone(-datetime.timedelta(hours=4))
+        )
+        saturday = datetime.datetime(2026, 8, 8, 12, 0, tzinfo=datetime.UTC)
+
+        self.assertEqual(
+            cadence_start(sunday_evening, 0),
+            datetime.datetime(
+                2026, 8, 3, tzinfo=datetime.timezone(-datetime.timedelta(hours=4))
+            ),
+        )
+        plan = self.plan(
+            ArchiveState(
+                last_full_export_at=saturday, last_successful_export_at=saturday
+            ),
+            now=sunday_evening.astimezone(datetime.UTC),
+        )
+        self.assertIs(plan.mode, ExportMode.INCREMENTAL)
 
     def test_a_never_exported_archive_runs_a_full_export(self) -> None:
         plan = self.plan(ArchiveState())
@@ -243,6 +268,7 @@ class ArgumentTests(unittest.TestCase):
 
 class ExportTestCase(unittest.TestCase):
     def setUp(self) -> None:
+        pin_timezone(self, "UTC")
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)
         # Resolved because macOS temporary directories live under symlinks.
@@ -352,6 +378,19 @@ class DirectExportTests(ExportTestCase):
         self.assertTrue(expected.is_file())
         self.assertEqual(runner.arguments["exportdb"], str(self.paths.export_db))
         self.assertEqual(runner.arguments["dest"], str(self.archive))
+
+    def test_report_names_carry_the_local_date(self) -> None:
+        pin_timezone(self, "Asia/Tokyo")
+        # 18:00 UTC on Thursday is already Friday morning in Tokyo.
+        evening = datetime.datetime(2026, 8, 13, 18, 0, tzinfo=datetime.UTC)
+        self.probes = dataclasses.replace(self.probes, now=lambda: evening)
+
+        result = self.run_export(FakeRunner([row("a.jpg", new=1)]))
+
+        self.assertEqual(
+            result.report_path,
+            self.paths.export_report(HOSTNAME, datetime.date(2026, 8, 14)),
+        )
 
     def test_the_late_additions_report_is_written_next_to_the_export_report(
         self,

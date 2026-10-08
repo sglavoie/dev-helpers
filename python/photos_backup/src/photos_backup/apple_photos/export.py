@@ -117,7 +117,7 @@ class ApplePhotosExport:
 
         paths = self.archive.paths
         hostname = self.archive.hostname
-        day = now.date()
+        day = now.astimezone().date()  # Report names carry the local date.
         sequence = paths.next_report_sequence(hostname, day)
         report_path = paths.export_report(hostname, day, sequence)
         return ExportAttemptStore(self.archive).run(

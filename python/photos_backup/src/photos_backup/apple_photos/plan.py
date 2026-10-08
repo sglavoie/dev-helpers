@@ -141,9 +141,14 @@ def is_clean(exit_code: int, counts: dict[str, int]) -> bool:
 
 
 def cadence_start(now: datetime.datetime, weekday: int) -> datetime.datetime:
-    """Midnight of the most recent `weekday` on or before `now`."""
-    day = now.date() - datetime.timedelta(days=(now.weekday() - weekday) % 7)
-    return datetime.datetime.combine(day, datetime.time.min, tzinfo=now.tzinfo)
+    """Local midnight of the most recent `weekday` on or before `now`.
+
+    The cadence follows the Mac's wall clock, not UTC, so a Monday full export
+    starts at the user's Monday midnight.
+    """
+    local = now.astimezone()
+    day = local.date() - datetime.timedelta(days=(local.weekday() - weekday) % 7)
+    return datetime.datetime.combine(day, datetime.time.min).astimezone()
 
 
 def plan_export(
