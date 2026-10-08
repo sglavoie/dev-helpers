@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var agentActions = AgentActions(monitor: monitor)
     private lazy var piJournalWindow = PiJournalWindowController()
     private let notifier = Notifier()
+    private let devicesClient = LanDevicesClient()
+    /// "Approving…" by MAC while a decision is on its way to the Pi.
+    private var deviceActivity: [String: String] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         menu.delegate = self
@@ -52,11 +55,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let overall = snapshot?.overall.including(pi)
             StatusIcon.apply(StatusIcon.appearance(overall, failing: snapshot?.count(.failing) ?? 0), to: button)
             let formatter = menuBuilder.formatter
-            button.toolTip = snapshot.map { "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) + "\n" + formatter.piJournalRow(pi) } ?? "Heartbeat"
+            let devices = piMonitor.devices
+            button.toolTip = snapshot.map {
+                "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) + "\n" + formatter.piJournalRow(pi)
+                    + "\n" + formatter.lanDevicesRow(devices)
+            } ?? "Heartbeat"
         }
         menuBuilder.populate(
             menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking,
-                                                                 host: piMonitor.host),
+                                                                 host: piMonitor.host, devices: piMonitor.devices,
+                                                                 deviceActivity: deviceActivity),
             stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
             notifications: notificationsItem(snapshot), isRefreshing: monitor.isPolling || piMonitor.isChecking,
             actions: StatusMenuBuilder.Actions(
@@ -64,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)),
                 toggleNotifications: #selector(toggleNotifications(_:)), checkPi: #selector(checkPiNow(_:)),
                 openKuma: #selector(openUptimeKuma(_:)), viewPiJournal: #selector(viewPiJournal(_:)),
+                decideDevice: #selector(decideDevice(_:)),
                 agent: agentActions))
     }
 
@@ -103,6 +112,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func viewPiJournal(_ sender: Any?) {
         guard let host = piMonitor.host else { return }
         piJournalWindow.show(host: host)
+    }
+
+    /// Asks for the name (approve) or note (reject), or confirms a forget, then runs it on the Pi and checks again.
+    @objc private func decideDevice(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? LanDeviceRequest, let host = piMonitor.host,
+              deviceActivity[request.device.mac] == nil else { return }
+        let device = request.device, decision = request.decision
+        guard let text = Self.askDecision(decision, device: device) else { return }
+        let titles: [LanDeviceDecision: String] = [.approve: "Approving…", .reject: "Rejecting…", .forget: "Forgetting…"]
+        deviceActivity[device.mac] = titles[decision]
+        render()
+        let client = devicesClient
+        Task { [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                client.decide(host: host, mac: device.mac, decision, text: text)
+            }.value
+            guard let self else { return }
+            self.deviceActivity[device.mac] = nil
+            if case .failure(let error) = outcome {
+                self.showAlert("Cannot \(decision.rawValue) \(device.mac)",
+                               "\(error.description)\n\nssh \(host) "
+                                   + LanDevicesClient.decisionCommand(decision, mac: device.mac, text: text))
+            }
+            self.piMonitor.refresh()
+            self.render()
+        }
+    }
+
+    /// The name or note to send (possibly empty), or nil when cancelled.
+    private static func askDecision(_ decision: LanDeviceDecision, device: LanDevice) -> String? {
+        NSApp.activate()
+        let alert = NSAlert()
+        let where_ = [device.ip, device.mac].compactMap { $0 }.joined(separator: " · ")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        switch decision {
+        case .approve:
+            alert.messageText = device.status == .approved ? "Rename this device?" : "Approve this device?"
+            alert.informativeText = "\(where_)\n\nThe Pi stops alerting about it. Give it a name you'll recognise."
+            field.placeholderString = "Name, e.g. My iPhone"
+            field.stringValue = device.name ?? ""
+            alert.addButton(withTitle: device.status == .approved ? "Rename" : "Approve")
+        case .reject:
+            alert.messageText = "Reject this device?"
+            alert.informativeText = "\(where_)\n\nThe Pi keeps alerting, at high priority, while it is on the LAN. "
+                + "Rejecting doesn't block it: change the Wi-Fi password or block it on the router."
+            field.placeholderString = "Note (optional)"
+            field.stringValue = device.note ?? ""
+            alert.addButton(withTitle: "Reject")
+        case .forget:
+            alert.messageText = "Forget this device?"
+            alert.informativeText = "\(where_)\n\nIt is dropped from the list, and alerts as new if it comes back."
+            alert.addButton(withTitle: "Forget")
+        }
+        alert.addButton(withTitle: "Cancel")
+        if decision != .forget {
+            alert.accessoryView = field
+            alert.window.initialFirstResponder = field
+        }
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @objc private func openUptimeKuma(_ sender: Any?) {

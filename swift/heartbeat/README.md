@@ -284,6 +284,24 @@ window with the full lines from `ssh <piHost> journalctl -p err --since -1h -n
 30 s while it stays open, and on Refresh (⌘R). It also has Follow and Copy.
 If the output reaches the 64 KB limit, the oldest lines are the ones dropped.
 
+Below that, the **LAN devices row** shows the Pi's lan-devices list, read with
+every Pi check by `ssh <piHost> python3 pi-monitoring/lan_devices.py list
+--json`: "LAN devices — 1 pending · 4 approved", "LAN devices — all 5
+approved", or "LAN devices — unknown" when the Pi or the list couldn't be read.
+Its submenu groups the devices under Rejected, Pending and Approved, each as
+"192.168.1.66  My iPhone · 3 min ago" (the MAC when there is no name). Each
+device's submenu has its status, MAC (marked private when randomized), IP and
+first and last sighting, then **Approve…** (**Rename…** once approved), which
+asks for a name, **Reject…** (**Edit Note…** once rejected), which asks for an
+optional note, and **Forget…**, which confirms. The decision runs
+`lan_devices.py approve|reject|forget MAC [TEXT]` over the same ssh, every word
+single-quoted for the remote shell, shows "Approving…" on the device while it
+runs, and checks the Pi again when it's done; a failure shows the script's
+message and the command. The dot is red while a rejected device has been seen
+in the last hour, amber with any pending, and green when all are approved. Like
+the journal row, it never colors the icon and never counts toward `overall`:
+the Pi already sends the phone alert.
+
 When launchctl fails, an alert shows its stderr and the command. After every
 action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
 under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a

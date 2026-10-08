@@ -15,6 +15,8 @@ struct StatusMenuBuilder {
         var checkPi: Selector
         var openKuma: Selector
         var viewPiJournal: Selector
+        /// Approve…, Reject… and Forget… on a LAN device; the item's representedObject is a `LanDeviceRequest`.
+        var decideDevice: Selector
         /// Implements the per-agent items.
         var agent: AgentActions
     }
@@ -32,6 +34,10 @@ struct StatusMenuBuilder {
         var isChecking: Bool
         /// The configured `piHost`, which View Journal… asks.
         var host: String?
+        /// The lan-devices list read with the last check.
+        var devices: LanDevicesCheck? = nil
+        /// "Approving…" by MAC while a decision is being sent.
+        var deviceActivity: [String: String] = [:]
     }
 
     var formatter = StatusFormatter()
@@ -57,6 +63,7 @@ struct StatusMenuBuilder {
         menu.addItem(.separator())
         menu.addItem(piRow(pi, now: Date(), actions: actions))
         menu.addItem(piJournalRow(pi, now: Date(), actions: actions))
+        menu.addItem(lanDevicesRow(pi, now: Date(), actions: actions))
 
         let problems = problemLines(snapshot, stateProblem: stateProblem)
         if !problems.isEmpty {
@@ -152,6 +159,59 @@ struct StatusMenuBuilder {
         view.isEnabled = pi.host != nil
         view.toolTip = pi.host.map { "ssh \($0) \(PiStatusClient.journalCommand)" }
         submenu.addItem(view)
+        item.submenu = submenu
+        return item
+    }
+
+    /// Dot + "LAN devices — 1 pending · 4 approved"; one submenu per device with its facts and the decisions that
+    /// change it. Like the journal row, it never colors the icon: the Pi already alerts the phone.
+    private func lanDevicesRow(_ pi: PiItem, now: Date, actions: Actions) -> NSMenuItem {
+        let item = NSMenuItem(title: formatter.lanDevicesRow(pi.devices), action: nil, keyEquivalent: "")
+        item.image = dot(pi.devices?.severity(now: now).map(Self.color) ?? .systemGray)
+        item.toolTip = pi.host.map { "ssh \($0) \(LanDevicesClient.listCommand)" }
+        let submenu = NSMenu(title: "LAN devices")
+        submenu.autoenablesItems = false
+        var section: LanDevice.Status?
+        for device in pi.devices?.devices ?? [] {
+            if device.status != section {
+                if section != nil { submenu.addItem(.separator()) }
+                submenu.addItem(.sectionHeader(title: device.status.rawValue.capitalized))
+                section = device.status
+            }
+            submenu.addItem(lanDeviceRow(device, pi: pi, now: now, actions: actions))
+        }
+        if !(pi.devices?.devices.isEmpty ?? true) { submenu.addItem(.separator()) }
+        formatter.lanDevicesMenuInfo(pi.devices, now: now).forEach { submenu.addItem(disabled($0)) }
+        submenu.addItem(.separator())
+        let check = command(pi.isChecking ? "Checking Pi…" : "Check Pi Now", actions.checkPi, target: actions.target)
+        check.isEnabled = !pi.isChecking
+        submenu.addItem(check)
+        item.submenu = submenu
+        return item
+    }
+
+    private func lanDeviceRow(_ device: LanDevice, pi: PiItem, now: Date, actions: Actions) -> NSMenuItem {
+        let activity = pi.deviceActivity[device.mac]
+        let item = NSMenuItem(title: formatter.lanDeviceTitle(device, now: now), action: nil, keyEquivalent: "")
+        let colors: [LanDevice.Status: NSColor] = [.pending: .systemOrange, .rejected: .systemRed, .approved: .systemGreen]
+        item.image = dot(colors[device.status] ?? .systemGray)
+        item.toolTip = device.mac
+        let submenu = NSMenu(title: device.mac)
+        submenu.autoenablesItems = false
+        formatter.lanDeviceInfo(device, now: now).forEach { submenu.addItem(disabled($0)) }
+        submenu.addItem(.separator())
+        if let activity { submenu.addItem(disabled(activity)) }
+        let decisions: [(String, LanDeviceDecision)] = [
+            (device.status == .approved ? "Rename…" : "Approve…", .approve),
+            (device.status == .rejected ? "Edit Note…" : "Reject…", .reject),
+            ("Forget…", .forget),
+        ]
+        for (title, decision) in decisions {
+            let action = command(title, actions.decideDevice, target: actions.target)
+            action.representedObject = LanDeviceRequest(device: device, decision: decision)
+            action.isEnabled = activity == nil && pi.host != nil
+            submenu.addItem(action)
+        }
         item.submenu = submenu
         return item
     }
@@ -256,5 +316,16 @@ struct StatusMenuBuilder {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = target
         return item
+    }
+}
+
+/// A LAN device decision carried by its menu item.
+final class LanDeviceRequest: NSObject {
+    let device: LanDevice
+    let decision: LanDeviceDecision
+
+    init(device: LanDevice, decision: LanDeviceDecision) {
+        self.device = device
+        self.decision = decision
     }
 }
