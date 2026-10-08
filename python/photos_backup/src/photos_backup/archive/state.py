@@ -84,7 +84,7 @@ class ArchiveStateStore:
         payload = (
             json.dumps(_encode(state, self._paths), indent=2, sort_keys=True) + "\n"
         )
-        _write_atomic(self.path, payload)
+        write_atomic(self.path, payload)
         return state
 
     def update(self, **changes: Any) -> ArchiveState:
@@ -176,7 +176,8 @@ def _decode_text(raw: Any, name: str, path: Path) -> str | None:
     return raw
 
 
-def _write_atomic(path: Path, payload: str) -> None:
+def write_atomic(path: Path, payload: str) -> None:
+    """Replace `path` with `payload` durably, never leaving a partial file."""
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
         with temporary.open("w", encoding="utf-8") as handle:

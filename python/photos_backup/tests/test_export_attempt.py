@@ -134,7 +134,7 @@ class ExportAttemptTests(ExportTestCase):
     def test_receipt_write_failure_does_not_mask_success_or_export_exception(self):
         with (
             mock.patch(
-                "photos_backup.apple_photos.attempt.os.replace",
+                "photos_backup.archive.state.os.replace",
                 side_effect=OSError("receipt unavailable"),
             ),
             mock.patch("photos_backup.apple_photos.attempt.click.echo") as echo,
@@ -148,7 +148,7 @@ class ExportAttemptTests(ExportTestCase):
             with self.assertRaisesRegex(RuntimeError, "export error"):
                 self.run_export(mock.Mock(side_effect=RuntimeError("export error")))
         self.assertIn("could not save export attempt", echo.call_args.args[0])
-        self.assertEqual(list(self.paths.metadata.glob("tmp*")), [])
+        self.assertEqual(list(self.paths.metadata.glob(".*.tmp")), [])
 
     def test_relative_report_path_survives_archive_relocation(self):
         result = self.run_export(FakeRunner())

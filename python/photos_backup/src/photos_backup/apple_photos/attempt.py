@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +10,8 @@ from typing import TYPE_CHECKING
 
 import click
 
+from photos_backup.archive.errors import ArchiveUnavailable
+from photos_backup.archive.state import write_atomic
 from photos_backup.cli.context import export_retry_arguments
 
 if TYPE_CHECKING:
@@ -118,27 +118,10 @@ class ExportAttemptStore:
 
     def _save(self, document: dict) -> None:
         """Receipt I/O must not change or hide the export's outcome."""
-        temporary = None
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", dir=self.path.parent, delete=False
-            ) as handle:
-                temporary = Path(handle.name)
-                handle.write(json.dumps(document, indent=2) + "\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.path)
-        except OSError as error:
-            click.echo(
-                f"Warning: could not save export attempt '{self.path}': {error}",
-                err=True,
-            )
-        finally:
-            if temporary is not None:
-                try:
-                    temporary.unlink(missing_ok=True)
-                except OSError:
-                    pass
+            write_atomic(self.path, json.dumps(document, indent=2) + "\n")
+        except ArchiveUnavailable as error:
+            click.echo(f"Warning: could not save export attempt: {error}", err=True)
 
 
 def _validate(document: object) -> None:
