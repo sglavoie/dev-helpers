@@ -58,7 +58,7 @@ def transfer_failure(
 
 def stream_command(
     command: list[str], *, check: bool = False
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[str]:
     """Show output as it arrives, retaining a bounded tail for transfer statistics.
 
     Merge stderr into stdout so neither pipe can fill while reading the other.

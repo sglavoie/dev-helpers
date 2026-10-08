@@ -40,6 +40,15 @@ files = [
     "src/photos_backup/apple_photos/downloads.py",
     "src/photos_backup/apple_photos/plan.py",
     "src/photos_backup/apple_photos/late_additions.py",
+    "src/photos_backup/cli/context.py",
+    "src/photos_backup/config.py",
+    "src/photos_backup/copy_safety.py",
+    "src/photos_backup/errors.py",
+    "src/photos_backup/exclude.py",
+    "src/photos_backup/process.py",
+    "src/photos_backup/sd_card/folders.py",
+    "src/photos_backup/space.py",
+    "src/photos_backup/transfers.py",
 ]
 # Introduce checks at the integration boundary without requiring a whole-project port.
 follow_imports = "silent"

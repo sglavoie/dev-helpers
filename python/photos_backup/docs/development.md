@@ -54,8 +54,10 @@ I/O mocked, including originals, edits, Live Photos, video, and RAW pairs. A rea
 export on a disposable archive is still needed to validate native PhotoKit behavior
 before deploying an upgrade to both Macs.
 
-The type check covers the adapter, download worker, export argument builder, and
-late-additions report. It checks our code; upstream `osxphotos` internals remain
+The type check covers the adapter, download worker, export argument builder,
+late-additions report, configuration, copy safety, subprocess helpers, transfer
+receipts, and SD card folder detection; add modules to `[tool.mypy] files` as
+they are annotated. It checks our code; upstream `osxphotos` internals remain
 outside static checking and are covered by the compatibility tests.
 
 ## Profiling metadata reports

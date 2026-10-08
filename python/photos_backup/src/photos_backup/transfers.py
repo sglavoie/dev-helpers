@@ -10,11 +10,15 @@ import os
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 
 from photos_backup.config import resolve_config_path
 from photos_backup.summary import BackupSummary
+
+# One JSON receipt or attempt document, as read from or written to disk.
+Receipt = dict[str, Any]
 
 
 def history_root() -> Path:
@@ -33,7 +37,7 @@ def _now() -> str:
     return datetime.datetime.now(datetime.UTC).isoformat()
 
 
-def _read(path: Path) -> dict:
+def _read(path: Path) -> Receipt:
     document = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(document, dict)
@@ -50,13 +54,13 @@ def _read(path: Path) -> dict:
         attempt = document.get(field)
         if attempt is None and field == "last_success":
             continue
-        _validate_attempt(attempt, field)
+        attempt = _validate_attempt(attempt, field)
         if field == "last_success" and attempt["status"] != "succeeded":
             raise ValueError("invalid last successful transfer")
     return document
 
 
-def _validate_attempt(attempt: object, field: str) -> None:
+def _validate_attempt(attempt: object, field: str) -> Receipt:
     if not isinstance(attempt, dict):
         raise ValueError(f"invalid {field} in transfer receipt")
     if attempt.get("status") not in ("started", "succeeded", "failed", "interrupted"):
@@ -73,14 +77,15 @@ def _validate_attempt(attempt: object, field: str) -> None:
             raise ValueError(f"invalid {timestamp} in {field}")
         if datetime.datetime.fromisoformat(value).tzinfo is None:
             raise ValueError(f"timestamp without timezone in {field}")
+    return attempt
 
 
 def classify_transfers(
-    configured: list[dict], receipts: list[dict]
-) -> tuple[list[dict], list[dict]]:
+    configured: list[Receipt], receipts: list[Receipt]
+) -> tuple[list[Receipt], list[Receipt]]:
     """Match exact receipt identities without probing potentially unmounted paths."""
 
-    def identity(row: dict) -> tuple[str, str, str]:
+    def identity(row: Receipt) -> tuple[str, str, str]:
         return row["step"], row["source"], row["destination"]
 
     by_identity = {identity(row): row for row in receipts}
@@ -96,11 +101,11 @@ def classify_transfers(
 
 
 def annotate_archive_freshness(
-    receipts: list[dict],
+    receipts: list[Receipt],
     archive: Path | None,
     exported_at: datetime.datetime | None,
-    attempt: dict | None = None,
-) -> list[dict]:
+    attempt: Receipt | None = None,
+) -> list[Receipt]:
     """Compare recorded times for exact sources without probing mounted paths.
 
     A copy's start is the conservative boundary: its completion time alone
@@ -133,7 +138,7 @@ def annotate_archive_freshness(
     ]
 
 
-def annotate_upstream_freshness(receipts: list[dict]) -> list[dict]:
+def annotate_upstream_freshness(receipts: list[Receipt]) -> list[Receipt]:
     """Compare current SD/SSD/cloud routes, using lexical paths only."""
     result = []
     for row in receipts:
@@ -179,10 +184,10 @@ class TransferHistory:
             str(resolve_config_path(config_path).absolute())
         )
 
-    def read(self) -> tuple[list[dict], list[str]]:
+    def read(self) -> tuple[list[Receipt], list[str]]:
         """Reading status never creates a directory or a lock file."""
-        receipts = []
-        errors = []
+        receipts: list[Receipt] = []
+        errors: list[str] = []
         try:
             paths = sorted(self.directory.iterdir())
         except FileNotFoundError:
@@ -279,7 +284,7 @@ class TransferHistory:
             },
         )
 
-    def _record(self, identity: dict, attempt: dict) -> None:
+    def _record(self, identity: Receipt, attempt: Receipt) -> None:
         """Merge under a short lock; a receipt failure never masks a transfer."""
         path = self.directory / f"{_key(identity)}.json"
         temporary = None

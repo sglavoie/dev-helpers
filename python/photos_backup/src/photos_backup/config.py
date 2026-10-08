@@ -4,7 +4,7 @@ import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import click
 
@@ -190,7 +190,7 @@ def resolve_rclone_source(
 class _Section:
     path: Path
     name: str
-    values: dict
+    values: dict[str, Any]
 
     def fail(self, key: str, message: str) -> NoReturn:
         raise click.UsageError(f"{self.path} [{self.name}] {key}: {message}")
