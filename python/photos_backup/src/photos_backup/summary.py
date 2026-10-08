@@ -320,6 +320,9 @@ def print_mirror_outcome(outcome: MirrorOutcome, *, dry_run: bool = False) -> No
         click.echo(
             f"  Approve with: {suggested_command('approve-cleanup', outcome.run_id)}"
         )
+        click.echo(
+            f"  Discard with: {suggested_command('approve-cleanup', outcome.run_id, '--discard')}"
+        )
 
 
 def print_cleanup_preview(preview: CleanupPreview) -> None:

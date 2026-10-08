@@ -11,7 +11,11 @@ from click.testing import CliRunner
 
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
-from photos_backup.summary import parse_rsync_stats, print_transfer_history
+from photos_backup.summary import (
+    parse_rsync_stats,
+    print_mirror_outcome,
+    print_transfer_history,
+)
 
 # Captured from macOS /usr/bin/rsync (openrsync, protocol 29) with -ah --stats.
 OPENRSYNC_STATS = """\
@@ -232,6 +236,30 @@ class DetailedTransferRetryTests(unittest.TestCase):
 
     def test_started_attempt_suggests_a_retry(self):
         self.assertIn("Retry copy: photos-backup ssd", self.render(status="started"))
+
+
+class MirrorOutcomeTests(unittest.TestCase):
+    def test_pending_cleanup_offers_preview_approve_and_discard(self):
+        outcome = mock.Mock(
+            reason="awaiting approval",
+            reconciliation=None,
+            manifest_path=Path("/archive/cleanup/run-7.json"),
+            run_id="run-7",
+        )
+        outcome.status.value = "pending"
+        with cli.make_context("photos-backup", [], resilient_parsing=True) as ctx:
+            ctx.obj = CliContext(config_path=None)
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+                print_mirror_outcome(outcome)
+        lines = output.getvalue().splitlines()
+        self.assertEqual(
+            lines[-3:],
+            [
+                "  Preview with: photos-backup approve-cleanup run-7 --dry-run",
+                "  Approve with: photos-backup approve-cleanup run-7",
+                "  Discard with: photos-backup approve-cleanup run-7 --discard",
+            ],
+        )
 
 
 if __name__ == "__main__":
