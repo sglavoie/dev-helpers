@@ -31,6 +31,7 @@ class CopyWorkflowTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.source = self.root / "Apple Photos' originals"
         self.source.mkdir()
+        (self.source / "IMG_0001.JPG").write_text("photo")
         self.destination = self.root / "new parent" / "Backup Photos"
         self.exclude = self.root / "exclude photos.txt"
         self.exclude.write_text("*.tmp\n")

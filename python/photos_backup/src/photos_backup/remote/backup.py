@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import click
 
 from photos_backup.archive.lock import copy_source_lock
-from photos_backup.copy_safety import check_copy_path
+from photos_backup.copy_safety import check_copy_path, check_mirror_source
 from photos_backup.process import (
     interactive_transfers,
     stream_command,
@@ -37,6 +37,7 @@ class Backup:
         history: TransferHistory | None = None,
     ) -> None:
         self.remote = config.remote
+        self.max_delete = config.max_delete
         self.src_path = source
         self.dry_run = dry_run
         self.delete_at_destination = delete_at_destination
@@ -72,6 +73,9 @@ class Backup:
             "--stats-one-line",
             *FINDER_CLUTTER_EXCLUDES,
         ]
+        if self.delete_at_destination:
+            check_mirror_source(self.src_path, workflow="Remote")
+            cmd.extend(["--max-delete", str(self.max_delete)])
         if interactive_transfers():
             cmd.extend(["--progress", "--stats", "5s"])
         else:
@@ -88,10 +92,16 @@ class Backup:
         elapsed = time.monotonic() - start
 
         if result.returncode != 0:
+            error = transfer_failure("rclone", result.returncode, result.stdout)
+            if self.delete_at_destination and "max-delete" in result.stdout:
+                error += (
+                    f" Remote deletions stop after {self.max_delete} files; review "
+                    "them with a --dry-run and raise [rclone] max_delete if intended."
+                )
             return BackupSummary(
                 step_name="Remote",
                 elapsed_seconds=elapsed,
-                error=transfer_failure("rclone", result.returncode, result.stdout),
+                error=error,
                 dry_run=self.dry_run,
             )
 

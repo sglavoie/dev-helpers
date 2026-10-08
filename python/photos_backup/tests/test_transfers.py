@@ -185,6 +185,7 @@ class TransferHistoryTests(unittest.TestCase):
 
     def test_cli_records_ssd_and_remote_results_in_standalone_and_pipeline_runs(self):
         self.source.mkdir()
+        (self.source / "IMG_0001.JPG").write_text("photo")
         for command, delete in product(("ssd", "remote", "backup-all"), (False, True)):
             with self.subTest(command=command, delete=delete):
                 config = self.root / f"{command}.toml"

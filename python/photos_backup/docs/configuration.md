@@ -75,6 +75,8 @@ configured SSD and SD-card exclusion file must exist and be a regular file.
 Otherwise the SSD step exits 3 before creating its destination or starting either
 copy. The same refusal applies to previews. Restore the exclusion file or rerun
 without `--delete`; omitting an exclusion file from configuration remains supported.
+SSD and remote deletions also refuse (exit 3) a source that is empty apart from
+Finder's `.DS_Store` and `._*` files; see [transfers](transfers.md).
 
 When an SSD or remote source is the managed archive or a directory within it, the copy
 holds the archive's read lock for the transfer. A running export or cleanup

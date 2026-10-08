@@ -7,7 +7,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from photos_backup.copy_safety import check_copy_paths
+from photos_backup.copy_safety import (
+    check_copy_paths,
+    check_mirror_source,
+)
 from photos_backup.archive.lock import copy_source_lock
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
@@ -42,6 +45,8 @@ class Backup:
         self, step_name: str, src_path: Path, exclude: str = ""
     ) -> BackupSummary:
         check_copy_paths((src_path,), self.destination, workflow="SSD")
+        if self.delete_at_destination:
+            check_mirror_source(src_path, workflow="SSD")
 
         cmd = ["rsync", "-ah", "--stats"]
         if interactive_transfers():
@@ -94,6 +99,9 @@ class Backup:
                     )
                     for step_name, source, exclude_file in copies
                 ]
+                if self.delete_at_destination:
+                    for source in sources:
+                        check_mirror_source(source, workflow="SSD")
                 print_destination_space(self.destination)
                 if not self.dry_run:
                     self.destination.mkdir(parents=True, exist_ok=True)

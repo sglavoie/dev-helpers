@@ -48,6 +48,11 @@ and `backup-all`. The failed copy is named, and any remaining SSD copy is
 reported as skipped because the previous copy did not complete. SSD source
 and destination checks still run before any copying starts.
 
+Mirroring deletions (`ssd --delete`, `backup-all --delete-ssd`, `remote --delete`,
+`backup-all --delete-remote`) refuses, with exit 3, a source that holds nothing
+but Finder's `.DS_Store` and `._*` files: an empty folder or bare mount point would
+otherwise empty the destination. Copies without deletions are unaffected.
+
 If an SSD step fails or requires action, `backup-all` skips remote backup when
 its source overlaps the SSD destination (including symlink aliases, subdirectories,
 and parent directories). An independent remote source can still run. Explicitly
@@ -79,4 +84,7 @@ deletions to pass the appropriate flag.
 3. Set `remote` in the `[rclone]` section (e.g. `b2:my-photos-bucket`)
 4. Optionally set `source` (defaults to `ssd.destination`)
 
-Uploads skip Finder's `.DS_Store` and `._*` files.
+Uploads skip Finder's `.DS_Store` and `._*` files. Mirroring with `rclone sync`
+passes `--max-delete` (default 1000, set `[rclone] max_delete` to change it): rclone
+stops deleting at that many files and the step fails with a hint. Preview the
+deletions with `--dry-run` before raising the limit.

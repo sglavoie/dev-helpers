@@ -53,4 +53,6 @@ destination = "/Volumes/Data/Pictures"
 # Remote-only files are preserved unless `remote --delete` or
 # `backup-all --delete-remote` is requested.
 remote = "b2:my-photos-bucket"
+# Mirroring (`--delete`) stops once rclone would delete this many files.
+# max_delete = 1000
 source = "/Volumes/Data/Pictures"

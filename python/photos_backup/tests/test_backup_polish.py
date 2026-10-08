@@ -186,6 +186,9 @@ class RemoteBehaviorTests(unittest.TestCase):
 
     def test_remote_deletion_is_explicit_and_independent_of_ssd_deletion(self):
         self.configure(self.destination)
+        # Deletions refuse to mirror an empty source.
+        for directory in (self.source, self.destination):
+            (directory / "IMG_0001.JPG").write_text("photo")
         for command, flags, verb, ssd_delete in (
             ("remote", [], "copy", False),
             ("remote", ["--delete"], "sync", False),

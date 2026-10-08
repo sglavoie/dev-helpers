@@ -38,7 +38,8 @@ APPLE_PHOTOS_KEYS = (
 )
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
 SSD_KEYS = ("source", "destination", "exclude_file")
-RCLONE_KEYS = ("remote", "source")
+RCLONE_KEYS = ("remote", "source", "max_delete")
+DEFAULT_RCLONE_MAX_DELETE = 1000
 # rclone reads `name:path` as a remote and anything else as a local path; a
 # name holds no '/', which keeps `/Volumes/a:b` a (refused) local path.
 RCLONE_REMOTE = re.compile(r":?[^/:]+:")
@@ -86,6 +87,8 @@ class SsdConfig:
 class RcloneConfig:
     remote: str
     source: Path | None
+    # Passed to `rclone sync --max-delete` so a mistaken mirror stops early.
+    max_delete: int = DEFAULT_RCLONE_MAX_DELETE
 
 
 def resolve_config_path(config_path: Path | None = None) -> Path:
@@ -187,6 +190,9 @@ def load_rclone_config(config_path: Path | None = None) -> RcloneConfig:
     return RcloneConfig(
         remote=remote,
         source=section.optional_path("source"),
+        max_delete=section.integer(
+            "max_delete", default=DEFAULT_RCLONE_MAX_DELETE, minimum=0
+        ),
     )
 
 

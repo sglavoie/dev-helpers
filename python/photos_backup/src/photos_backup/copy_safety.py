@@ -75,5 +75,29 @@ def check_copy_path(path: Path, *, workflow: str, source: bool = False) -> None:
         )
 
 
+def check_mirror_source(path: Path, *, workflow: str) -> None:
+    """Refuse to mirror deletions from a source holding only Finder clutter.
+
+    An emptied folder or a bare mount point directory would otherwise delete
+    every copy at the destination.
+    """
+    try:
+        has_content = any(not _finder_clutter(entry.name) for entry in path.iterdir())
+    except OSError as error:
+        raise ActionRequired(
+            f"{workflow} source '{path}' could not be listed: {error}"
+        ) from error
+    if not has_content:
+        raise ActionRequired(
+            f"{workflow} source '{path}' is empty; refusing to mirror deletions, "
+            "which would empty the destination. Check that the right drive is "
+            "connected, or rerun without deleting at the destination."
+        )
+
+
+def _finder_clutter(name: str) -> bool:
+    return name == ".DS_Store" or name.startswith("._")
+
+
 def _folded(path: PurePath) -> PurePath:
     return PurePath(str(path).casefold())
