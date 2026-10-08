@@ -15,6 +15,10 @@ library = "~/Pictures/Photos Library.photoslibrary"
 # Existing archived copies are retained. Default: false (back up everything).
 exclude_hidden = false
 
+# Keep the reports of only this many recent export runs under
+# `.photos-backup/reports/`; the baseline report is always kept. 0 keeps all.
+# keep_reports = 30
+
 # Legacy local export directory. Nothing writes here any more; it is the only
 # directory `photos-backup cleanup-local-export` is allowed to delete.
 legacy_export = "~/Pictures/export"

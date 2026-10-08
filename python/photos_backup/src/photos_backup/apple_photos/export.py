@@ -25,6 +25,7 @@ from photos_backup.apple_photos.plan import (
     export_arguments,
     plan_export,
 )
+from photos_backup.apple_photos.reports import prune_reports
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import read_export_report
 from photos_backup.space import print_destination_space
@@ -120,7 +121,7 @@ class ApplePhotosExport:
         day = now.astimezone().date()  # Report names carry the local date.
         sequence = paths.next_report_sequence(hostname, day)
         report_path = paths.export_report(hostname, day, sequence)
-        return ExportAttemptStore(self.archive).run(
+        result = ExportAttemptStore(self.archive).run(
             plan,
             report_path,
             lambda: self._run(
@@ -131,6 +132,25 @@ class ApplePhotosExport:
             ),
             restricted=bool(self.extra_arguments or self.limit),
         )
+        if result.state_advanced and self.config.keep_reports:
+            self._prune_reports(report_path)
+        return result
+
+    def _prune_reports(self, report_path: Path) -> None:
+        """Only after the baseline advanced, so the reports kept describe it."""
+        removed, warnings = prune_reports(
+            self.archive.paths.reports,
+            self.config.keep_reports,
+            (report_path, self.archive.state_store.load().last_report_path),
+        )
+        say = self.progress.message if self.progress else click.echo
+        for warning in warnings:
+            say(f"Warning: {warning}")
+        if removed:
+            say(
+                f"Removed {len(removed)} old report file(s); keeping the "
+                f"{self.config.keep_reports} most recent export run(s)."
+            )
 
     def _run(
         self,

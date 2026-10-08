@@ -17,6 +17,15 @@ Everything the archive owns lives under one hidden directory inside
 | `.photos-backup/migrations/` | last-known-good export-database backup |
 | `.photos-backup/cleanup/` | pending cleanup manifests |
 
+Reports accumulate by default, about 4 MB per full export of a 50,000-asset
+library, and every copy of the archive carries them. Set
+`[apple_photos] keep_reports = N` to keep only the files of the N most recent
+export runs (an export report, its late-additions report, and any download-failure
+report). Pruning happens only after an export that advanced the baseline, under
+the archive lock. It never removes the baseline report or the current run's
+files, and only removes regular files named the way this tool writes them. A file
+that cannot be removed prints a warning; the export result stays the same.
+
 Before any write, `apple_photos.volume` must exist, be a real mount point, not be
 a symlink, and resolve to itself; the archive must descend from it through real
 directories only. A missing volume is never created, and only the archive subtree

@@ -36,6 +36,7 @@ APPLE_PHOTOS_KEYS = (
     "cleanup_max_assets",
     "cleanup_max_fraction",
     "exclude_hidden",
+    "keep_reports",
 )
 SD_CARD_KEYS = ("source", "destination", "exclude_file")
 SSD_KEYS = ("source", "destination", "exclude_file", "max_delete")
@@ -85,6 +86,8 @@ class ApplePhotosConfig:
     # explicitly, which need not be a mount point.
     require_mounted_volume: bool = True
     exclude_hidden: bool = False
+    # Export report runs kept in the archive; 0 keeps every one.
+    keep_reports: int = 0
 
 
 @dataclass(frozen=True)
@@ -174,6 +177,7 @@ def load_apple_photos_config(
         cleanup_max_fraction=section.fraction("cleanup_max_fraction", default=0.001),
         require_mounted_volume=volume is None,
         exclude_hidden=section.boolean("exclude_hidden", default=False),
+        keep_reports=section.integer("keep_reports", default=0, minimum=0),
     )
 
 
