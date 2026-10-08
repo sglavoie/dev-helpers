@@ -418,6 +418,9 @@ def _print_short_archive(
                 export_status += (
                     f"; latest {attempt['mode']} export succeeded (baseline unchanged)"
                 )
+            if document["next_export"]["overdue"]:
+                export_status += "; daily export overdue"
+                commands.append(suggested_command("daily"))
         click.echo(
             f"Apple Photos: {export_status}; next export {document['next_export']['mode']}"
         )

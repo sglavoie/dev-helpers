@@ -182,6 +182,35 @@ def plan_export(
     )
 
 
+def next_full_export_at(
+    config: ApplePhotosConfig, state: ArchiveState
+) -> datetime.datetime | None:
+    """When `plan_export` will next choose a full export; None when one is due now."""
+    if state.last_full_export_at is None or state.last_successful_export_at is None:
+        return None
+    start = cadence_start(state.last_full_export_at, config.full_export_weekday)
+    next_weekday = datetime.datetime.combine(
+        start.date() + datetime.timedelta(days=7), datetime.time.min
+    ).astimezone()
+    return min(
+        next_weekday,
+        state.last_full_export_at
+        + datetime.timedelta(days=config.full_export_max_age_days),
+    )
+
+
+def full_export_overdue(
+    config: ApplePhotosConfig, state: ArchiveState, now: datetime.datetime
+) -> bool:
+    """The last full export is older than the configured maximum age.
+
+    A full export on cadence never gets this old, so `daily` has stopped running.
+    """
+    return state.last_full_export_at is None or now - state.last_full_export_at >= (
+        datetime.timedelta(days=config.full_export_max_age_days)
+    )
+
+
 def export_arguments(
     config: ApplePhotosConfig,
     plan: ExportPlan,

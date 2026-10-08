@@ -646,6 +646,22 @@ class StatusTests(ArchiveCommandTestCase):
         self.assertNotIn(THURSDAY.isoformat(), result.output)
         self.assertIn("Last archive cleanup reconciliation:", result.output)
 
+    def test_check_suggests_daily_once_the_last_full_export_is_too_old(self):
+        self.initialized_archive(
+            last_full_export_at=MONDAY, last_successful_export_at=MONDAY
+        )
+        for days, overdue in ((6, False), (7, True)):
+            now = MONDAY + datetime.timedelta(days=days)
+            with mock.patch("photos_backup.archive.Archive.now", return_value=now):
+                result = self.invoke_status("--check")
+                document = json.loads(self.invoke_status("--json").stdout)
+            self.assertIs(document["next_export"]["overdue"], overdue)
+            self.assertEqual("daily export overdue" in result.stdout, overdue)
+            daily = shlex.join(
+                ["photos-backup", "--config", str(self.config_path), "daily"]
+            )
+            self.assertEqual(f"  {daily}\n" in result.stdout, overdue)
+
     def test_status_relative_ages_handle_units_and_future_timestamps(self):
         store = ArchiveStateStore(self.initialized_archive())
         for offset, expected in (

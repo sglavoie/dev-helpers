@@ -6,7 +6,7 @@ from typing import Any
 
 import rich_click as click
 
-from photos_backup.apple_photos.plan import plan_export
+from photos_backup.apple_photos.plan import full_export_overdue, plan_export
 from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.download_report import summarize_downloads
 from photos_backup.archive import Archive, ArchiveError, open_archive
@@ -233,7 +233,11 @@ def _read_archive_status(
     document.update(
         observed_at=now.isoformat(),
         state=state_document,
-        next_export={"mode": plan.mode.value, "reason": plan.reason},
+        next_export={
+            "mode": plan.mode.value,
+            "reason": plan.reason,
+            "overdue": state.initialized and full_export_overdue(config, state, now),
+        },
     )
     if detailed:
         print_archive_status(archive, state, plan, now=now)

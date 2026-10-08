@@ -17,6 +17,9 @@ normal status exit codes. `--short` and `--json` are mutually exclusive.
 suggests any command, so a scheduled `status --check --notify` tells you when
 something needs attention. An unavailable archive also exits 3; while it is
 unavailable, `verify --record` is not suggested because it could not run.
+It also suggests `photos-backup daily` once the last full export is
+`full_export_max_age_days` old or older: a full export on cadence never gets that
+old, so this catches a schedule that has quietly stopped running `daily`.
 
 ## Latest download failures
 
@@ -142,6 +145,8 @@ are included in `transfer_history_errors` rather than mixed into JSON output.
 The additive `last_export_attempt` and `export_attempt_error` fields contain the
 latest export receipt and any read error, respectively, or null when unavailable.
 Transfer attempts expose `mode` when recorded; older attempts may omit it.
+`next_export` holds the `mode`, its cadence `reason`, and `overdue`, which is true
+when the last full export is older than `full_export_max_age_days`.
 If the archive cannot be read, `state` and `next_export` are null and
 `archive_error` contains the reason; otherwise `archive_error` is null. The JSON
 is still printed on archive errors, with CLI diagnostics on stderr.
