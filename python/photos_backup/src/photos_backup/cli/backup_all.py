@@ -53,7 +53,11 @@ T = TypeVar("T")
     help="Export Apple Photos and copy SD card, SSD, and remote backups. "
     "Archive cleanup is not reconciled here; run daily for cleanup reconciliation.",
 )
-@click.option("--dry-run", is_flag=True, help="Dry run for all steps.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Plan the export and preview every copy without writing anything.",
+)
 @click.option(
     "--download-timeout",
     type=click.IntRange(min=1),
@@ -65,9 +69,11 @@ T = TypeVar("T")
     "--delete-remote", is_flag=True, help="Delete remote files absent from its source."
 )
 @click.option(
+    "--delete-ssd",
     "--delete",
+    "delete",
     is_flag=True,
-    help="Delete extra files on SSD destination.",
+    help="Delete SSD files absent from their source.",
 )
 @click.option("--skip-apple-photos", is_flag=True, help="Skip Apple Photos export.")
 @click.option("--skip-sd-card", is_flag=True, help="Skip SD card backup.")

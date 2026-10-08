@@ -17,16 +17,19 @@ from photos_backup.summary import print_summary
 from photos_backup.transfers import TransferHistory
 
 
-@click.command(name="ssd", help="Backup to an external drive.")
+@click.command(
+    name="ssd",
+    help="Copy the archive and the SD card copy to the second on-site drive.",
+)
 @click.option(
     "--delete",
     is_flag=True,
-    help="Whether to delete files at the destination that are not at the source.",
+    help="Mirror deletions: remove SSD files that are absent from their source.",
 )
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Dry run.",
+    help="List the changes rsync would make without changing the SSD.",
 )
 @click.pass_context
 def ssd(

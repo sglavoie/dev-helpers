@@ -74,7 +74,7 @@ photos-backup approve-cleanup RUN_ID           # approve after reviewing the pre
 
 `backup-all` on its own exports and copies, but does not reconcile archive
 cleanup; use `daily` for that. SSD and cloud deletions require separate explicit
-flags (`--delete` and `--delete-remote` on `backup-all`). `verify` checks the
+flags (`--delete-ssd` and `--delete-remote` on `backup-all`). `verify` checks the
 primary archive, not the SSD/cloud copies, and does not checksum file contents.
 
 ## Reference guides

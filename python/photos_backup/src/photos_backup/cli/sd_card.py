@@ -7,11 +7,14 @@ from photos_backup.summary import print_summary
 from photos_backup.transfers import TransferHistory
 
 
-@click.command(name="sd-card", help="Work with an SD card.")
+@click.command(
+    name="sd-card",
+    help="Copy the SD card folder into its configured local destination; never deletes.",
+)
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Dry run.",
+    help="List the files rsync would copy without copying them.",
 )
 @click.pass_context
 def sd_card(

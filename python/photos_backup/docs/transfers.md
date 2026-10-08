@@ -54,8 +54,8 @@ files that exist only at the destination. To retain the previous deletion-mirror
 behavior, use `photos-backup remote --delete` (which uses `rclone sync`). Review
 the effect first with `photos-backup remote --delete --dry-run`.
 
-For the full pipeline, `backup-all --delete` continues to enable SSD deletions
-only. Use `backup-all --delete-remote` to enable cloud deletions, or pass both
+For the full pipeline, `backup-all --delete-ssd` (or its older spelling
+`--delete`) enables SSD deletions only. Use `backup-all --delete-remote` to enable cloud deletions, or pass both
 flags to mirror deletions at both destinations. Neither flag changes Apple Photos
 archive cleanup approval rules. Update any scripts that relied on automatic remote
 deletions to pass the appropriate flag.
