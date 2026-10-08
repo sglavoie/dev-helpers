@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import time
+
+import click
 from typing import TYPE_CHECKING
 
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.copy_safety import check_copy_paths
 from photos_backup.process import interactive_transfers, stream_command, transfer_errors
 from photos_backup.summary import BackupSummary, parse_rsync_stats
+from photos_backup.sd_card.folders import (
+    uncovered_camera_folders,
+    uncovered_camera_folders_message,
+)
 from photos_backup.space import print_destination_space
 
 if TYPE_CHECKING:
@@ -42,6 +48,11 @@ class Backup:
 
     def _copy(self) -> BackupSummary:
         check_copy_paths((self.src_path,), self.dst_path, workflow="SD Card")
+        if folders := uncovered_camera_folders(self.src_path):
+            click.echo(
+                "Warning: " + uncovered_camera_folders_message(self.src_path, folders),
+                err=True,
+            )
         print_destination_space(self.dst_path)
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)

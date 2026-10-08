@@ -6,6 +6,15 @@ See [configuration and setup](configuration.md) for copy paths, exclusions,
 mount checks, and locking. See [recorded status](status.md) for copy history
 and freshness hints.
 
+## SD card camera folders
+
+Cameras store photos in numbered DCF folders such as `DCIM/100MSDCF` and start
+the next one, `101MSDCF`, after 9,999 files. When `[sd_card] source` names one
+of these folders, `sd-card` and `backup-all` still copy it but warn about any
+sibling folder they leave behind, and `doctor` reports it as `ACTION`. Set the
+source to the `DCIM` directory to copy every folder; the copy then lands at
+`destination/DCIM` instead of `destination/100MSDCF`.
+
 ## Progress, previews, and failures
 
 SSD, SD-card, and remote transfers display progress while they run. Failure

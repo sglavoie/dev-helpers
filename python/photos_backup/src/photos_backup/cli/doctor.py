@@ -28,6 +28,10 @@ from photos_backup.config import (
 from photos_backup.copy_safety import check_copy_path, check_copy_paths
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
 from photos_backup.presentation import print_terminal_table
+from photos_backup.sd_card.folders import (
+    uncovered_camera_folders,
+    uncovered_camera_folders_message,
+)
 
 STATUS_STYLES = {
     "PASS": "green",
@@ -199,6 +203,10 @@ def _check_local_copies(sd, ssd, check, report):
             )
         else:
             report("SKIP", f"{name} copy layout", "needs the paths above")
+        if name == "SD Card" and paths_ok:
+            check(
+                "SD Card camera folders", lambda: _check_camera_folders(config.source)
+            )
         if config.exclude_file is not None:
             check(f"{name} exclusions", lambda: _check_exclusion(config.exclude_file))
 
@@ -218,6 +226,12 @@ def _print_results(results: list[tuple[str, str, str]]) -> None:
         return
     for status, label, detail in results:
         click.echo(f"{status} {label}" + (f": {detail}" if detail else ""))
+
+
+def _check_camera_folders(source):
+    if folders := uncovered_camera_folders(source):
+        raise ActionRequired(uncovered_camera_folders_message(source, folders))
+    return ""
 
 
 def _check_exclusion(path):

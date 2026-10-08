@@ -36,6 +36,8 @@ cleanup_max_assets = 10
 cleanup_max_fraction = 0.001
 
 [sd_card]
+# A single camera folder, or the DCIM directory to include every numbered
+# folder (100MSDCF, 101MSDCF, ...). Copies land at destination/<source name>.
 source = "/Volumes/SDSONY/DCIM/100MSDCF"
 destination = "~/Pictures/SDSONY"
 exclude_file = "~/.osxphotos.sd.exclude"
