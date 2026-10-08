@@ -14,7 +14,9 @@ from photos_backup.archive import ArchiveLocked, ArchiveUnavailable
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
+from photos_backup.cli.status import _require_nothing_suggested
 from photos_backup.copy_safety import disconnected_volume
+from photos_backup.errors import ActionRequired
 from photos_backup.status_report import print_transfer_history
 from photos_backup.summary import BackupSummary
 from photos_backup.transfers import (
@@ -256,6 +258,24 @@ class StatusPolishTests(ArchiveCommandTestCase):
         with mock.patch("photos_backup.cli.status.print_short_status", return_value=[]):
             self.assertEqual(self.invoke("status", "--check").exit_code, 0)
         self.assertEqual(self.invoke("status", "--check", "--json").exit_code, 2)
+
+    def test_check_message_leads_with_the_drive_to_connect(self):
+        _require_nothing_suggested(["photos-backup ssd"], check=False)
+        _require_nothing_suggested([], check=True)
+        for suggested, expected in (
+            (["photos-backup daily"], "Next: photos-backup daily"),
+            (
+                [
+                    "photos-backup sd-card  # connect /Volumes/SDSONY first",
+                    "photos-backup verify --record",
+                ],
+                "Next: connect /Volumes/SDSONY, then run: photos-backup sd-card "
+                "(+1 more; see status --short)",
+            ),
+        ):
+            with self.assertRaises(ActionRequired) as raised:
+                _require_nothing_suggested(suggested, check=True)
+            self.assertEqual(raised.exception.format_message(), expected)
 
     def test_short_and_json_show_new_freshness_hints(self):
         paths = self.initialized_archive(last_successful_export_at=EARLY)

@@ -56,7 +56,9 @@ stale for longer than `[status] copy_max_age_days` (default 7), a missing
 verification, or an archive drive that is not connected. Scheduling
 `daily --verify` keeps the verification suggestion from returning after every
 export. Copy suggestions for a
-drive that is not mounted end with `# connect /Volumes/... first`. Run
+drive that is not mounted end with `# connect /Volumes/... first`; the
+notification leads with that instead, as in
+`Next: connect /Volumes/Data, then run: photos-backup ssd (+1 more; see status --short)`. Run
 `photos-backup status --short` by hand to see the full list.
 
 ## Scheduling `daily` without goback

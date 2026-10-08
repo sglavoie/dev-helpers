@@ -210,8 +210,15 @@ def status(ctx: click.Context, as_json: bool, short: bool, check: bool) -> None:
 def _require_nothing_suggested(suggested: list[str], *, check: bool) -> None:
     """`status --check`: exit 3 so a scheduled check can notify a person."""
     if check and suggested:
-        more = f" (and {len(suggested) - 1} more)" if len(suggested) > 1 else ""
-        raise ActionRequired(f"Next: {suggested[0]}{more}")
+        # A suggestion may end in a `# connect ... first` shell comment, which
+        # reads badly in a notification, so lead with the drive instead.
+        command, _, note = suggested[0].partition("  # ")
+        note = note.removesuffix(" first")
+        message = f"{note}, then run: {command}" if note else command
+        message = f"Next: {message}"
+        if len(suggested) > 1:
+            message += f" (+{len(suggested) - 1} more; see status --short)"
+        raise ActionRequired(message)
 
 
 def _latest_export_at(
