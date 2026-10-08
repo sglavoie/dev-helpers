@@ -40,7 +40,12 @@ final class PickerPanel: NSPanel {
         }
     }
 
-    override var backingScaleFactor: CGFloat { super.backingScaleFactor * contentZoom }
+    /// Based on the screen's scale rather than `super`'s: AppKit's own value
+    /// was seen stuck at 1 on a Retina screen, and at 200% zoom 1 × 2 matches
+    /// the screen's scale, so AppKit never noticed and corrected it.
+    override var backingScaleFactor: CGFloat {
+        (screen?.backingScaleFactor ?? super.backingScaleFactor) * contentZoom
+    }
 
     /// AppKit only tells views about a real screen change; SwiftUI re-renders
     /// at the new scale when told this way.
