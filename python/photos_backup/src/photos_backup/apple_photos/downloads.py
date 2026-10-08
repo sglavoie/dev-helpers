@@ -175,7 +175,7 @@ class DownloadBudget:
                 self.spent.get(photo.uuid, 0) + time.monotonic() - started,
             )
             if not keep:
-                shutil.rmtree(root)
+                shutil.rmtree(root, ignore_errors=True)
 
     def _failure(self, photo: PhotoInfo, key: StageKey, reason: str) -> None:
         self._issues.setdefault(photo.uuid, {})[key] = reason
@@ -195,10 +195,19 @@ class DownloadBudget:
         if not self.failures:
             return
         path = report.with_suffix(".downloads.json")
-        path.write_text(
-            json.dumps(list(self.failures.values()), indent=2) + "\n", encoding="utf-8"
-        )
-        message = f"Incomplete downloads (retry on the next run): {path}"
+        try:
+            path.write_text(
+                json.dumps(list(self.failures.values()), indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as error:
+            # Called while an export error may be propagating; never mask it.
+            message = (
+                f"Warning: could not record {len(self.failures)} incomplete "
+                f"download(s) in '{path}': {error}"
+            )
+        else:
+            message = f"Incomplete downloads (retry on the next run): {path}"
         if self.progress:
             self.progress.message(message)
         else:
