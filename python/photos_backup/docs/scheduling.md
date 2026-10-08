@@ -58,7 +58,7 @@ drive that is not mounted end with `# connect /Volumes/... first`. Run
 
 ## Scheduling `daily` without goback
 
-Use the same plist with `daily --notify` as the arguments. `daily` exits 3 when a
+Use the same plist with `daily --verify --notify` as the arguments. `daily` exits 3 when a
 cleanup needs approval; its export has still completed, so the notification is
 a reminder, not a failure. Keep `bootstrap`, `approve-cleanup`, and
 `cleanup-local-export` out of schedules, as [deployment](deployment.md#manual-acceptance)

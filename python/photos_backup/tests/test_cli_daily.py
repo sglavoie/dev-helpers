@@ -7,11 +7,13 @@ from unittest import mock
 
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
+from photos_backup.apple_photos.verify import Check, VerificationReport
 from photos_backup.archive import ArchivePaths, ArchiveState, ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
 from photos_backup.progress import ExportProgress
 from tests.archive_case import ArchiveCommandTestCase
+from photos_backup.verification_history import VerificationHistory
 from tests.test_export import FakeRunner, row
 
 UNCHANGED_WRITER = mock.Mock(status=WriterStatus.UNCHANGED)
@@ -260,6 +262,89 @@ class DailyTests(ArchiveCommandTestCase):
 
         self.assertEqual(result.exit_code, ACTION_REQUIRED_EXIT_CODE, result.output)
         self.assertIn("Mirror (pending)", result.output)
+        self.assertIn("approve-cleanup run-7", result.output)
+
+
+class DailyVerifyTests(ArchiveCommandTestCase):
+    def run_daily(self, export: ExportResult, report: VerificationReport, *args):
+        with (
+            self.mounted(),
+            mock.patch(
+                "photos_backup.cli.exporting.ensure_writer",
+                return_value=UNCHANGED_WRITER,
+            ),
+            mock.patch(
+                "photos_backup.cli.exporting.ApplePhotosExport",
+                return_value=mock.Mock(export=lambda: export),
+            ),
+            mock.patch(
+                "photos_backup.cli.verify.verify_archive", return_value=report
+            ) as scan,
+        ):
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "daily", *args]
+            )
+        return result, scan
+
+    def export(self, **changes) -> ExportResult:
+        fields = dict(
+            plan=ExportPlan(ExportMode.INCREMENTAL, "photos created since"),
+            exit_code=0,
+            counts={"new": 1},
+            state_advanced=True,
+        )
+        return ExportResult(**{**fields, **changes})
+
+    def test_verify_records_a_receipt_status_treats_as_fresh(self) -> None:
+        paths = self.initialized_archive()
+        passing = VerificationReport((Check("state", True, "ok"),))
+        result, scan = self.run_daily(self.export(), passing, "--verify")
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        scan.assert_called_once()
+        self.assertIn("All 1 check(s) passed", result.output)
+        receipt, error = VerificationHistory(self.config_path, paths.archive).read()
+        self.assertIsNone(error)
+        self.assertTrue(receipt["passed"])
+        with self.mounted():
+            status = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "status", "--short"]
+            )
+        self.assertNotIn("verify --record", status.stdout)
+
+    def test_verify_is_opt_in_and_skipped_for_dry_runs_and_failed_exports(self):
+        paths = self.initialized_archive()
+        passing = VerificationReport((Check("state", True, "ok"),))
+        for args, export, code in (
+            ((), self.export(), 0),
+            (("--verify", "--dry-run"), self.export(), 0),
+            (("--verify",), self.export(exit_code=1), 1),
+        ):
+            with self.subTest(args=args):
+                result, scan = self.run_daily(export, passing, *args)
+                self.assertEqual(result.exit_code, code, result.output)
+                scan.assert_not_called()
+        history = VerificationHistory(self.config_path, paths.archive)
+        self.assertEqual(history.read(), (None, None))
+
+    def test_failed_checks_fail_daily_after_printing_the_export(self) -> None:
+        self.initialized_archive()
+        failing = VerificationReport((Check("missing assets", False, "1 gone"),))
+        result, _ = self.run_daily(self.export(), failing, "--verify")
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("Archive check(s) failed: missing assets", result.output)
+        self.assertLess(
+            result.output.index("Exported ("), result.output.index("1 gone")
+        )
+
+    def test_a_pending_cleanup_still_asks_for_approval(self) -> None:
+        self.initialized_archive(pending_cleanup_run_id="run-7")
+        pending = VerificationReport((Check("pending cleanup", False, "run-7"),))
+        result, scan = self.run_daily(self.export(), pending, "--verify")
+
+        self.assertEqual(result.exit_code, ACTION_REQUIRED_EXIT_CODE, result.output)
+        scan.assert_called_once()
         self.assertIn("approve-cleanup run-7", result.output)
 
 

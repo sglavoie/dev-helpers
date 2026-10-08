@@ -8,8 +8,12 @@ from typing import Any
 
 import rich_click as click
 
-from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
-from photos_backup.archive import ArchiveError, open_archive
+from photos_backup.apple_photos.verify import (
+    PENDING_CLEANUP,
+    VerificationReport,
+    verify_archive,
+)
+from photos_backup.archive import Archive, ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.cli.notify import notify_on_problems
 from photos_backup.errors import ActionRequired
@@ -43,13 +47,6 @@ def verify(
     started_at = datetime.datetime.now(datetime.UTC)
     started = time.monotonic()
 
-    def timing() -> dict[str, Any]:
-        return {
-            "started_at": started_at.isoformat(),
-            "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            "elapsed_seconds": time.monotonic() - started,
-        }
-
     with ExitStack() as stack:
         try:
             archive = stack.enter_context(open_archive(config, dry_run=True))
@@ -60,7 +57,7 @@ def verify(
                 "passed": False,
                 "checks": [],
                 "archive_error": str(error),
-                **timing(),
+                **_timing(started_at, started),
             }
             if record:
                 VerificationHistory(config_path_from(ctx), config.archive).record(
@@ -73,19 +70,8 @@ def verify(
             raise click.ClickException(str(error)) from error
         if report_path is not None:
             _validate_report_path(report_path, archive.paths.archive)
-        with ExportProgress(
-            item_label="files checked", show_downloads=False
-        ) as progress:
-            report = verify_archive(archive, progress=progress)
+        report, document = scan_archive(archive)
 
-    document = {
-        "version": 1,
-        "archive": str(archive.paths.archive),
-        "passed": report.passed,
-        "archive_error": None,
-        "checks": [asdict(check) for check in report.checks],
-        **timing(),
-    }
     if record:
         VerificationHistory(config_path_from(ctx), config.archive).record(document)
     if as_json:
@@ -101,11 +87,42 @@ def verify(
                 f"Could not write report '{report_path}': {error}"
             ) from error
         click.echo(f"Verification report: {report_path}", err=as_json)
-    if not report.passed:
-        if all(check.name == PENDING_CLEANUP for check in report.failed):
-            raise ActionRequired(report.failed[0].detail)
-        failed = ", ".join(check.name for check in report.failed)
-        raise click.ClickException(f"Archive check(s) failed: {failed}")
+    if failure := verification_failure(report):
+        raise failure
+
+
+def scan_archive(archive: Archive) -> tuple[VerificationReport, dict[str, Any]]:
+    """Verify an open archive; return the report and its recordable document."""
+    started_at = datetime.datetime.now(datetime.UTC)
+    started = time.monotonic()
+    with ExportProgress(item_label="files checked", show_downloads=False) as progress:
+        report = verify_archive(archive, progress=progress)
+    return report, {
+        "version": 1,
+        "archive": str(archive.paths.archive),
+        "passed": report.passed,
+        "archive_error": None,
+        "checks": [asdict(check) for check in report.checks],
+        **_timing(started_at, started),
+    }
+
+
+def verification_failure(report: VerificationReport) -> click.ClickException | None:
+    """Exit 3 when only a pending cleanup failed, since a person decides that."""
+    if report.passed:
+        return None
+    if all(check.name == PENDING_CLEANUP for check in report.failed):
+        return ActionRequired(report.failed[0].detail)
+    failed = ", ".join(check.name for check in report.failed)
+    return click.ClickException(f"Archive check(s) failed: {failed}")
+
+
+def _timing(started_at: datetime.datetime, started: float) -> dict[str, Any]:
+    return {
+        "started_at": started_at.isoformat(),
+        "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "elapsed_seconds": time.monotonic() - started,
+    }
 
 
 def _validate_report_path(report_path: Path, archive_path: Path) -> None:

@@ -57,9 +57,8 @@ Once configuration is in place, connect the archive drive and run
 
 ```bash
 photos-backup status --short                # compact status and suggested next commands
-photos-backup daily                        # export on cadence and reconcile cleanup
+photos-backup daily --verify               # export on cadence, reconcile cleanup, verify
 photos-backup backup-all --skip-apple-photos # copy SD card, then SSD, then cloud
-photos-backup verify --record               # check archive and remember the result locally
 ```
 
 Run these as separate steps and read each result. If `daily` exits 3 because
@@ -121,6 +120,7 @@ for plain summary output even in a terminal.
 | `photos-backup status --json` | Read archive status and local transfer receipts as one JSON document |
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
+| `photos-backup daily --verify` | Also verify the archive after a complete export and record the result for status |
 | `photos-backup approve-cleanup RUN_ID` | Delete the archive files a pending cleanup run listed, after revalidating them |
 | `photos-backup approve-cleanup RUN_ID --dry-run` | Revalidate pending cleanup and list proposed deletions and files to keep |
 | `photos-backup approve-cleanup RUN_ID --discard` | Reject a pending cleanup run instead; nothing is deleted |

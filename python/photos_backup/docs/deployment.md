@@ -40,7 +40,7 @@ rsync. Add one entry to the profile in `~/.goback.json`:
   {
     "id": "apple-photos",
     "name": "Apple Photos",
-    "command": ["photos-backup", "daily"],
+    "command": ["photos-backup", "daily", "--verify"],
     "dryRunArgs": ["--dry-run"]
   }
 ]
@@ -56,7 +56,9 @@ The companion never changes the exit status of `goback run daily`: the rsync
 result alone decides it, while both outcomes are printed in one table and
 recorded in the goback history as `daily` and `companion/apple-photos`. A
 `goback run daily --dry-run` appends `--dry-run` here too, so a dry run can
-never export for real.
+never export for real. `--verify` records a verification after each complete
+export (about as long as `photos-backup verify`), so `status` does not keep
+suggesting one; see [verification](verification.md#remember-a-verification).
 
 ## First run on a new Mac
 

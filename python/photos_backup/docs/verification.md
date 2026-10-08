@@ -14,7 +14,14 @@ photos-backup status --short
 and completion times, pass/fail, failed check names, and any archive-opening error.
 It can be combined with `--json` and `--report`; recording notices go to stderr.
 Ordinary `verify` does not record anything automatically, and an unrecorded run
-does not replace a previous receipt. Configuration and argument errors are not
+does not replace a previous receipt.
+
+`photos-backup daily --verify` runs the same checks right after a complete
+export, while it still holds the archive lock, and records the receipt as
+`--record` would. Status then treats the archive as verified since its latest
+export instead of suggesting `verify --record` after every scheduled run. A
+failed or dry-run export skips verification. A failed check makes `daily` exit 1
+after its export result prints; a pending cleanup still exits 3. Configuration and argument errors are not
 verification results and do not create receipts.
 
 Receipts live under `~/.local/state/photos-backup/verifications/`, or
