@@ -150,8 +150,12 @@ def migrate_export_db(
             raise ArchiveUnsafe(
                 f"{stale} record(s) still point at the previous library"
             )
-    except Exception as error:
+    except BaseException as error:
+        # Restore on Ctrl-C too, so an interrupted migration never leaves the
+        # export database half-repointed; only ordinary failures are reworded.
         copy_database(backup, export_db)
+        if not isinstance(error, Exception):
+            raise
         raise ActionRequired(
             f"Migrating export database '{export_db}' to library '{library}' "
             f"failed and was restored from '{backup}': {error}"

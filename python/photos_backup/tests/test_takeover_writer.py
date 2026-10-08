@@ -148,6 +148,24 @@ class EnsureWriterTests(TakeoverTestCase):
         self.assertEqual(read_uuids(self.paths.export_db), {"old-1"})
         self.assertEqual(self.writer(), OLD_HOST)
 
+    def test_an_interrupted_migration_is_restored_and_reraised(self) -> None:
+        self.set_writer(OLD_HOST)
+        write_export_db(self.paths.export_db, (asset("old-1", "guid-1"),))
+        library = (asset("new-1", "guid-1"),)
+        rewrite = FakeMigrator(library)
+
+        def interrupted(export_db: Path, target: Path, *, dry_run: bool):
+            rewrite(export_db, target, dry_run=dry_run)
+            raise KeyboardInterrupt
+
+        with self.archive() as opened, self.assertRaises(KeyboardInterrupt):
+            ensure_writer(
+                self.config, opened, probes=self.probes(library, migrate=interrupted)
+            )
+
+        self.assertEqual(read_uuids(self.paths.export_db), {"old-1"})
+        self.assertEqual(self.writer(), OLD_HOST)
+
     def test_a_migration_that_leaves_stale_uuids_is_rolled_back(self) -> None:
         self.set_writer(OLD_HOST)
         write_export_db(self.paths.export_db, (asset("old-1", "guid-1"),))
