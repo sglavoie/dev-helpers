@@ -16,7 +16,7 @@ from osxphotos.photoexporter import PhotoExporter, StagedFiles
 from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.downloads import (
     DownloadBudget,
-    _run_worker,
+    DownloadWorker,
     _worker,
     bounded_downloads,
 )
@@ -182,7 +182,11 @@ class DownloadTests(unittest.TestCase):
             ),
             self.assertRaises(subprocess.TimeoutExpired),
         ):
-            _run_worker(self.root / "request", self.root / "response", 1)
+            worker = DownloadWorker()
+            try:
+                worker.run(self.root / "request", self.root / "response", 1)
+            finally:
+                worker.close()
         pid = int(pid_file.read_text())
         with self.assertRaises(ProcessLookupError):
             os.kill(pid, 0)

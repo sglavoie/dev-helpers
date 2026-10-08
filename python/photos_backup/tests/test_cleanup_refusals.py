@@ -114,7 +114,10 @@ class RefusedMirrorTests(MirrorTestCase):
         outcome = self.reconcile(dry_run=True)
 
         self.assertIs(outcome.status, MirrorStatus.PREVIEW)
-        self.assertEqual(outcome.reconciliation.paths, (self.gone,))
+        self.assertEqual(
+            [candidate.path for candidate in outcome.reconciliation.candidates],
+            [self.gone],
+        )
         self.assertTrue(self.gone.is_file())
         self.assertIsNone(self.state.last_mirror_completed_at)
         self.assertEqual(self.manifests(), [])

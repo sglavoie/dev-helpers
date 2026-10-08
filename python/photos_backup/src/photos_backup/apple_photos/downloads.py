@@ -324,15 +324,6 @@ class DownloadWorker:
             self.diagnostics = None
 
 
-def _run_worker(request: Path, response: Path, timeout: float) -> None:
-    """Standalone request helper, also useful for process-lifecycle checks."""
-    worker = DownloadWorker()
-    try:
-        worker.run(request, response, timeout)
-    finally:
-        worker.close()
-
-
 @contextmanager
 def bounded_downloads(
     seconds: float = DEFAULT_DOWNLOAD_TIMEOUT, progress: ExportProgress | None = None
@@ -433,7 +424,7 @@ def _serve(descriptor: int) -> None:
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "--serve":
-        _serve(int(sys.argv[2]))
-    else:
-        _worker(Path(sys.argv[1]), Path(sys.argv[2]))
+    # DownloadWorker starts this module only as `--serve FD`.
+    if sys.argv[1:-1] != ["--serve"]:
+        sys.exit("usage: python -m photos_backup.apple_photos.downloads --serve FD")
+    _serve(int(sys.argv[2]))

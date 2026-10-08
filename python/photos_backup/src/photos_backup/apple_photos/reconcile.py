@@ -42,10 +42,6 @@ class Reconciliation:
     unknown: tuple[Path, ...]
     ambiguous: tuple[Path, ...]
 
-    @property
-    def paths(self) -> tuple[Path, ...]:
-        return tuple(candidate.path for candidate in self.candidates)
-
 
 def plan_reconciliation(
     comparison: LibraryComparison,

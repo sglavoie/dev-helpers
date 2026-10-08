@@ -41,7 +41,9 @@ class ReconciliationTests(unittest.TestCase):
             [on_disk("/a/gone.jpg"), on_disk("/a/kept.jpg")],
         )
 
-        self.assertEqual([str(path) for path in plan.paths], ["/a/gone.jpg"])
+        self.assertEqual(
+            [str(candidate.path) for candidate in plan.candidates], ["/a/gone.jpg"]
+        )
         self.assertEqual(plan.candidates[0].uuid, "gone")
         self.assertEqual(plan.unknown, ())
         self.assertEqual(plan.ambiguous, ())
