@@ -15,6 +15,11 @@ sibling folder they leave behind, and `doctor` reports it as `ACTION`. Set the
 source to the `DCIM` directory to copy every folder; the copy then lands at
 `destination/DCIM` instead of `destination/100MSDCF`.
 
+SD-card copies never overwrite a file that already exists at the destination
+(`rsync --ignore-existing`). After a camera's file counter resets, a new
+`DSC00001.ARW` is skipped instead of replacing the archived original; move or
+rename the archived files first if you want the new ones copied beside them.
+
 ## Progress, previews, and failures
 
 SSD, SD-card, and remote transfers display progress while they run. Failure

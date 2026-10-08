@@ -57,7 +57,9 @@ class Backup:
         if not self.dry_run:
             self.dst_path.mkdir(parents=True, exist_ok=True)
         exclude = exclude_from_arg(self.exclude_file)
-        cmd = ["rsync", "-a", "--stats"]
+        # Cameras restart file numbering after a counter reset or a new card, so
+        # a later DSC00001.ARW must never replace the copy already archived here.
+        cmd = ["rsync", "-a", "--ignore-existing", "--stats"]
         if interactive_transfers():
             cmd.append("--progress")
         if self.dry_run:
