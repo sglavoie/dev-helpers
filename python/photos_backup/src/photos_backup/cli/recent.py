@@ -10,12 +10,13 @@ import rich_click as click
 from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
 from photos_backup.apple_photos.export import ApplePhotosExport
+from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
-from photos_backup.apple_photos.takeover import ensure_writer
+from photos_backup.apple_photos.takeover import TakeoverCheck, ensure_writer
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, suggested_command
 from photos_backup.progress import ExportProgress
-from photos_backup.summary import print_export_result
+from photos_backup.summary import print_export_result, print_takeover_check
 
 
 @click.command(help="Back up recent photos/videos without completing a full bootstrap.")
@@ -41,9 +42,13 @@ def recent(ctx: click.Context, days: int, download_timeout: int, dry_run: bool) 
     started = time.monotonic()
     try:
         with ExportProgress() as progress:
-            result = _recent_export(ctx, days, download_timeout, dry_run, progress)
+            takeover, result = _recent_export(
+                ctx, days, download_timeout, dry_run, progress
+            )
     finally:
         click.echo(f"Total command time: {time.monotonic() - started:.1f}s")
+    if takeover.status is not WriterStatus.UNCHANGED:
+        print_takeover_check(takeover, dry_run=dry_run)
     print_export_result(result, dry_run=dry_run)
     if not result.complete:
         raise click.ClickException(
@@ -59,13 +64,13 @@ def _recent_export(
     download_timeout: int,
     dry_run: bool,
     progress: ExportProgress,
-) -> ExportResult:
+) -> tuple[TakeoverCheck, ExportResult]:
     with ExitStack() as stack:
         with progress.phase("Checking archive"):
             config = apple_photos_config_from(ctx)
             archive = stack.enter_context(open_archive(config, dry_run=dry_run))
         with progress.phase("Checking archive writer"):
-            ensure_writer(config, archive)
+            takeover = ensure_writer(config, archive)
         start = archive.now() - datetime.timedelta(days=days)
         plan = ExportPlan(
             ExportMode.RECENT, f"photos/videos taken since {start.isoformat()}", start
@@ -73,7 +78,7 @@ def _recent_export(
         progress.message(
             f"Missing downloads: {download_timeout}s per asset; no total run limit."
         )
-        return ApplePhotosExport(
+        result = ApplePhotosExport(
             config,
             archive,
             plan=plan,
@@ -86,3 +91,4 @@ def _recent_export(
                 progress=progress,
             ),
         ).export()
+        return takeover, result

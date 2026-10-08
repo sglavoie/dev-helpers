@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from photos_backup.apple_photos.export import ApplePhotosExport
+from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.archive.paths import ArchivePaths
 from photos_backup.archive.probes import real_hostname
 from photos_backup.archive.state import ArchiveStateStore
@@ -66,6 +67,30 @@ class RecentTests(ArchiveCommandTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(paths.state_file.read_bytes(), before)
+
+    def test_recent_prints_a_writer_change_after_the_live_progress(self):
+        takeover = mock.Mock(
+            status=WriterStatus.CLAIMED,
+            previous_hostname=None,
+            hostname="this Mac.local",
+            verdict=None,
+            migration=None,
+            deletion_candidates=(),
+        )
+        with mock.patch(
+            "photos_backup.cli.recent.ensure_writer", return_value=takeover
+        ):
+            result = self.run_recent(FakeRunner([row("a.jpg", new=1)]))
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertLess(
+            result.output.index("Total command time"),
+            result.output.index("Archive writer: 'this Mac.local'"),
+        )
+        self.assertLess(
+            result.output.index("Archive writer:"),
+            result.output.index("Export report:"),
+        )
 
     def test_missing_files_leave_recent_backup_incomplete(self):
         result = self.run_recent(FakeRunner([row("missing.mov", missing=1)]))
