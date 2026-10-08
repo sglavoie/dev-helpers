@@ -139,6 +139,20 @@ class StatusPolishTests(ArchiveCommandTestCase):
             ),
         }
 
+    def test_detailed_status_names_a_baseline_report_only_once(self):
+        report = ".photos-backup/reports/latest.csv"
+        paths = self.initialized_archive()
+        self.attempt(paths, status="succeeded", report_path=report)
+        store = ArchiveStateStore(paths)
+        for baseline, shown in ((paths.archive / report, False), (None, True)):
+            with self.subTest(baseline=baseline):
+                store.update(last_report_path=baseline)
+                output = self.invoke("status").stdout
+                self.assertEqual("Export report (if written):" in output, shown, output)
+                self.assertEqual(
+                    "Export report: the baseline report above" in output, not shown
+                )
+
     def test_short_failed_export_downloads_cleanup_and_context(self):
         paths = self.initialized_archive(
             last_successful_export_at=EARLY, pending_cleanup_run_id="run-7"

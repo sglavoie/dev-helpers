@@ -92,7 +92,11 @@ def print_archive_status(
 
 
 def print_export_attempt(
-    attempt: dict[str, Any] | None, error: str | None, *, now: datetime.datetime
+    attempt: dict[str, Any] | None,
+    error: str | None,
+    *,
+    now: datetime.datetime,
+    baseline_report: str | None = None,
 ) -> None:
     if error:
         click.echo(f"Warning: {error}", err=True)
@@ -108,7 +112,12 @@ def print_export_attempt(
     if attempt["completed_at"]:
         click.echo(f"  Completed: {_when(attempt['completed_at'], now)}")
     click.echo(f"  Mac: {attempt['hostname']}")
-    click.echo(f"  Export report (if written): {attempt['report_path']}")
+    same_as_baseline = baseline_report and attempt["report_path"] == baseline_report
+    click.echo(
+        "  Export report: the baseline report above"
+        if same_as_baseline
+        else f"  Export report (if written): {attempt['report_path']}"
+    )
     click.echo(
         f"  Baseline advanced: {'yes' if attempt['baseline_advanced'] else 'no'}"
     )

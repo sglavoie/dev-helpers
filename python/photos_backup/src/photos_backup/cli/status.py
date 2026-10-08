@@ -278,6 +278,13 @@ def _read_archive_status(
     )
     if detailed:
         print_archive_status(archive, state, plan, next_full, now=now)
-        print_export_attempt(attempt, attempt_error, now=now)
+        print_export_attempt(
+            attempt,
+            attempt_error,
+            now=now,
+            baseline_report=str(state.last_report_path)
+            if state.last_report_path
+            else None,
+        )
         print_download_summary(downloads, download_error)
     return now
