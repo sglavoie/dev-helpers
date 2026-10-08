@@ -22,6 +22,9 @@ if TYPE_CHECKING:
     from photos_backup.config import RcloneConfig
     from photos_backup.transfers import TransferHistory
 
+# Separate argv items: rclone receives the patterns verbatim, without a shell.
+FINDER_CLUTTER_EXCLUDES = ("--exclude", ".DS_Store", "--exclude", "._*")
+
 
 class Backup:
     def __init__(
@@ -67,6 +70,7 @@ class Backup:
             str(self.src_path),
             self.remote,
             "--stats-one-line",
+            *FINDER_CLUTTER_EXCLUDES,
         ]
         if interactive_transfers():
             cmd.extend(["--progress", "--stats", "5s"])

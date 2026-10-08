@@ -78,3 +78,5 @@ deletions to pass the appropriate flag.
 2. Configure a remote: `rclone config`
 3. Set `remote` in the `[rclone]` section (e.g. `b2:my-photos-bucket`)
 4. Optionally set `source` (defaults to `ssd.destination`)
+
+Uploads skip Finder's `.DS_Store` and `._*` files.
