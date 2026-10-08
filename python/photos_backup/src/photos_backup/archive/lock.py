@@ -36,12 +36,15 @@ def archive_lock(
 @contextmanager
 def _exclusive_lock(paths: ArchivePaths, probes: SystemProbes) -> Iterator[None]:
     try:
-        descriptor = os.open(paths.lock_file, os.O_RDWR | os.O_CREAT, 0o644)
+        descriptor = os.open(
+            paths.lock_file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o644
+        )
     except OSError as error:
         raise ArchiveUnavailable(
             f"Could not open archive lock '{paths.lock_file}': {error}"
         ) from error
     try:
+        _require_regular(descriptor, paths)
         _acquire(descriptor, fcntl.LOCK_EX, paths)
         _record_owner(descriptor, probes)
         yield
@@ -97,14 +100,18 @@ def _shared_lock(paths: ArchivePaths, *, required: bool = False) -> Iterator[Non
             f"Could not open archive lock '{paths.lock_file}': {error}"
         ) from error
     try:
-        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            raise ArchiveUnavailable(
-                f"Archive lock '{paths.lock_file}' must be a regular file"
-            )
+        _require_regular(descriptor, paths)
         _acquire(descriptor, fcntl.LOCK_SH, paths)
         yield
     finally:
         os.close(descriptor)
+
+
+def _require_regular(descriptor: int, paths: ArchivePaths) -> None:
+    if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+        raise ArchiveUnavailable(
+            f"Archive lock '{paths.lock_file}' must be a regular file"
+        )
 
 
 def _acquire(descriptor: int, operation: int, paths: ArchivePaths) -> None:
@@ -122,10 +129,14 @@ def _acquire(descriptor: int, operation: int, paths: ArchivePaths) -> None:
 
 
 def _record_owner(descriptor: int, probes: SystemProbes) -> None:
+    """Note who holds the lock; the line is informational, so a failed write is not."""
     owner = f"pid {os.getpid()} on {probes.hostname()} since {probes.now().isoformat()}"
-    os.ftruncate(descriptor, 0)
-    os.lseek(descriptor, 0, os.SEEK_SET)
-    os.write(descriptor, f"{owner}\n".encode())
+    try:
+        os.ftruncate(descriptor, 0)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        os.write(descriptor, f"{owner}\n".encode())
+    except OSError:
+        pass
 
 
 def _owner_suffix(paths: ArchivePaths) -> str:
