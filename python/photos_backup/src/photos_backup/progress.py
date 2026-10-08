@@ -48,7 +48,7 @@ class ExportProgress:
         self._thread.start()
         return self
 
-    def __exit__(self, *_exc) -> None:
+    def __exit__(self, *_exc: object) -> None:
         self._stop.set()
         if self._thread is not None:
             self._thread.join()

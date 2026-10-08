@@ -306,6 +306,11 @@ def _check_state(state: ArchiveState | None, error: str | None) -> Check:
 
     if problems:
         return Check(STATE, False, "; ".join(problems))
+    assert (
+        state.initialized_at is not None
+        and state.last_successful_export_at is not None
+        and state.last_full_export_at is not None
+    )
     return Check(
         STATE,
         True,

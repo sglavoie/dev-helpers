@@ -16,7 +16,7 @@ from photos_backup.process import (
     transfer_errors,
     transfer_failure,
 )
-from photos_backup.summary import BackupSummary
+from photos_backup.summary import BackupSummary, TransferStats
 
 if TYPE_CHECKING:
     from photos_backup.config import RcloneConfig
@@ -115,8 +115,8 @@ class Backup:
         )
 
 
-def _parse_rclone_stats(output: str) -> dict[str, int | str | None]:
-    result: dict[str, int | str | None] = {"files_transferred": None, "total_size": ""}
+def _parse_rclone_stats(output: str) -> TransferStats:
+    result: TransferStats = {"files_transferred": None, "total_size": ""}
 
     files_matches = re.findall(r"(?:Transferred:\s*|xfr#)(\d+)\s*/\s*\d+", output)
     if files_matches:

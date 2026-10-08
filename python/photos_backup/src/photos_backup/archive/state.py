@@ -91,8 +91,8 @@ class ArchiveStateStore:
         return self.save(replace(self.load(), **changes))
 
 
-def _encode(state: ArchiveState, paths: ArchivePaths) -> dict:
-    document: dict = {"version": STATE_VERSION}
+def _encode(state: ArchiveState, paths: ArchivePaths) -> dict[str, Any]:
+    document: dict[str, Any] = {"version": STATE_VERSION}
     for name in _TIMESTAMP_FIELDS:
         value = getattr(state, name)
         document[name] = None if value is None else value.isoformat()
@@ -121,7 +121,7 @@ def _decode(document: Any, paths: ArchivePaths) -> ArchiveState:
         raise ArchiveUnsafe(
             f"Archive state '{path}' has unknown key(s) {', '.join(unknown)}"
         )
-    values: dict = {"version": STATE_VERSION}
+    values: dict[str, Any] = {"version": STATE_VERSION}
     for name in _TIMESTAMP_FIELDS:
         values[name] = _decode_timestamp(document.get(name), name, path)
     for name in _TEXT_FIELDS:

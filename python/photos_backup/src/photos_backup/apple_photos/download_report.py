@@ -4,11 +4,12 @@ import json
 import stat
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 
 def summarize_downloads(
-    attempt: dict | None, archive: Path
-) -> tuple[dict | None, str | None]:
+    attempt: dict[str, Any] | None, archive: Path
+) -> tuple[dict[str, Any] | None, str | None]:
     if (
         not attempt
         or attempt["status"] == "succeeded"

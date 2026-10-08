@@ -57,6 +57,7 @@ def daily(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
     if not result.complete:
         raise click.ClickException(str(result.failure_reason()))
     if mirror.pending:
+        assert mirror.run_id is not None
         raise ActionRequired(
             f"Cleanup run '{mirror.run_id}' needs approval because {mirror.reason}; "
             f"review '{mirror.manifest_path}' and preview with "

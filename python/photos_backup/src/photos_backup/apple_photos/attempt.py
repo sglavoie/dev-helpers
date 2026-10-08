@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -27,7 +27,7 @@ class ExportAttemptStore:
         self.archive = archive
         self.path = archive.paths.metadata / "last-export-attempt.json"
 
-    def read(self) -> tuple[dict | None, str | None]:
+    def read(self) -> tuple[dict[str, Any] | None, str | None]:
         try:
             if self.path.is_symlink():
                 raise ValueError("receipt must not be a symlink")
@@ -117,7 +117,7 @@ class ExportAttemptStore:
         )
         return result
 
-    def _save(self, document: dict) -> None:
+    def _save(self, document: dict[str, Any]) -> None:
         """Receipt I/O must not change or hide the export's outcome."""
         try:
             write_atomic(self.path, json.dumps(document, indent=2) + "\n")
@@ -160,7 +160,7 @@ def _validate(document: object) -> None:
             raise ValueError(f"invalid {field}")
 
 
-def _validate_details(document: dict) -> None:
+def _validate_details(document: dict[str, Any]) -> None:
     success = document.get("last_successful_export_at")
     if success is not None and (
         not isinstance(success, str) or datetime.fromisoformat(success).tzinfo is None

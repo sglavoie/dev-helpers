@@ -67,6 +67,8 @@ def cleanup_local_export(ctx: click.Context, dry_run: bool) -> None:
     if dry_run:
         return
 
+    # A plan with no target always carries a refusal.
+    assert plan.target is not None
     typed = click.prompt(CONFIRMATION, default="", show_default=False)
     if not confirmation_matches(typed, plan.target):
         click.echo(CANCELLED)

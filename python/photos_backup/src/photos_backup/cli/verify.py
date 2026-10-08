@@ -4,6 +4,7 @@ import time
 from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import rich_click as click
 
@@ -40,7 +41,7 @@ def verify(
     started_at = datetime.datetime.now(datetime.UTC)
     started = time.monotonic()
 
-    def timing() -> dict:
+    def timing() -> dict[str, Any]:
         return {
             "started_at": started_at.isoformat(),
             "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),

@@ -4,7 +4,11 @@ import json
 import platform
 import shutil
 import subprocess
+from collections.abc import Callable
+from functools import partial
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+from typing import Any
 
 import rich_click as click
 
@@ -20,7 +24,11 @@ from photos_backup.cli.context import (
     suggested_command,
 )
 from photos_backup.config import (
+    ApplePhotosConfig,
     MissingSection,
+    RcloneConfig,
+    SdCardConfig,
+    SsdConfig,
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
@@ -33,6 +41,11 @@ from photos_backup.sd_card.folders import (
     uncovered_camera_folders,
     uncovered_camera_folders_message,
 )
+
+# check(label, operation) records PASS with the operation's detail, or its error.
+Check = Callable[[str, Callable[[], str | None]], bool]
+# report(status, label, detail) records a result without running anything.
+Report = Callable[[str, str, str], None]
 
 STATUS_STYLES = {
     "PASS": "green",
@@ -56,7 +69,7 @@ def doctor(ctx: click.Context, as_json: bool) -> None:
     def report(status: str, label: str, detail: str = "") -> None:
         results.append((status, label, detail))
 
-    def check(label, operation) -> bool:
+    def check(label: str, operation: Callable[[], str | None]) -> bool:
         try:
             detail = operation()
         except (click.ClickException, OSError) as error:
@@ -84,7 +97,7 @@ def doctor(ctx: click.Context, as_json: bool) -> None:
             report("FAIL", package, "package metadata unavailable")
 
     path = config_path_from(ctx)
-    configs = {}
+    configs: dict[str, Any] = {}
     for name, loader in (
         ("apple_photos", lambda: apple_photos_config_from(ctx)),
         ("sd_card", lambda: load_sd_card_config(path)),
@@ -93,7 +106,7 @@ def doctor(ctx: click.Context, as_json: bool) -> None:
     ):
         try:
             configs[name] = loader()
-            report("PASS", f"[{name}] configuration")
+            report("PASS", f"[{name}] configuration", "")
         except MissingSection:
             report("SKIP", f"[{name}]", "not configured")
         except click.ClickException as error:
@@ -112,9 +125,7 @@ def doctor(ctx: click.Context, as_json: bool) -> None:
     if remote:
         required.append("rclone")
     installed = {
-        executable: check(
-            executable, lambda executable=executable: _tool_version(executable)
-        )
+        executable: check(executable, partial(_tool_version, executable))
         for executable in required
     }
     _check_local_copies(sd, ssd, check, report)
@@ -126,10 +137,10 @@ def doctor(ctx: click.Context, as_json: bool) -> None:
         ctx.exit(exit_code)
 
 
-def _check_apple_photos(apple, check):
-    export_db = None
+def _check_apple_photos(apple: ApplePhotosConfig, check: Check) -> None:
+    export_db: Path | None = None
 
-    def archive_check():
+    def archive_check() -> str:
         nonlocal export_db
         with open_archive(apple, dry_run=True) as archive:
             export_db = archive.paths.export_db
@@ -140,7 +151,9 @@ def _check_apple_photos(apple, check):
                 else f"not initialized; run {suggested_command('bootstrap')}"
             )
 
-    def export_db_check():
+    def export_db_check() -> str:
+        # Runs only after archive_check has found the database path.
+        assert export_db is not None
         if not export_db.exists():
             return "not created yet; the first export creates it"
         schema = read_export_db_version(export_db)
@@ -156,8 +169,15 @@ def _check_apple_photos(apple, check):
     )
 
 
-def _check_remote(remote, config_path, check, report, *, rclone_installed):
-    def remote_source_check():
+def _check_remote(
+    remote: RcloneConfig,
+    config_path: Path | None,
+    check: Check,
+    report: Report,
+    *,
+    rclone_installed: bool,
+) -> None:
+    def remote_source_check() -> str:
         source = resolve_rclone_source(remote, config_path)
         check_copy_path(source, workflow="Remote", source=True)
         return str(source)
@@ -175,11 +195,17 @@ def _check_remote(remote, config_path, check, report, *, rclone_installed):
     )
 
 
-def _check_local_copies(sd, ssd, check, report):
-    for name, config in (("SD Card", sd), ("SSD", ssd)):
+def _check_local_copies(
+    sd: SdCardConfig | None, ssd: SsdConfig | None, check: Check, report: Report
+) -> None:
+    configs: tuple[tuple[str, SdCardConfig | SsdConfig | None], ...] = (
+        ("SD Card", sd),
+        ("SSD", ssd),
+    )
+    for name, config in configs:
         if config is None:
             continue
-        sources = (config.source,)
+        sources: tuple[Path, ...] = (config.source,)
         if name == "SSD" and sd:
             sources += (sd.destination,)
         paths_ok = True
@@ -202,9 +228,7 @@ def _check_local_copies(sd, ssd, check, report):
                 continue
             paths_ok &= check(
                 label,
-                lambda source=source: check_copy_path(
-                    source, workflow=name, source=True
-                ),
+                partial(check_copy_path, source, workflow=name, source=True),
             )
         paths_ok &= check(
             f"{name} destination {config.destination}",
@@ -222,10 +246,10 @@ def _check_local_copies(sd, ssd, check, report):
                 "SD Card camera folders", lambda: _check_camera_folders(config.source)
             )
         if config.exclude_file is not None:
-            check(f"{name} exclusions", lambda: _check_exclusion(config.exclude_file))
+            check(f"{name} exclusions", partial(_check_exclusion, config.exclude_file))
 
 
-def _check_destination(path, *, workflow):
+def _check_destination(path: Path, *, workflow: str) -> str:
     check_copy_path(path, workflow=workflow)
     return "" if path.exists() else "created on the first copy"
 
@@ -266,13 +290,13 @@ def _print_results(
     )
 
 
-def _check_camera_folders(source):
+def _check_camera_folders(source: Path) -> str:
     if folders := uncovered_camera_folders(source):
         raise ActionRequired(uncovered_camera_folders_message(source, folders))
     return ""
 
 
-def _check_exclusion(path):
+def _check_exclusion(path: Path) -> str:
     if not path.is_file():
         raise ActionRequired(
             f"'{path}' is missing or not a regular file; copies omit these exclusions "

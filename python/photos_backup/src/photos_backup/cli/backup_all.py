@@ -139,6 +139,11 @@ def _backup_all(
         if remote_config is not None
         else None
     )
+    remote: tuple[RcloneConfig, Path] | None = (
+        (remote_config, remote_source)
+        if remote_config is not None and remote_source is not None
+        else None
+    )
     _check_executables(
         apple_photos=config is not None and not dry_run,
         local_copy=ssd_config is not None
@@ -241,11 +246,11 @@ def _backup_all(
         summaries.extend(
             _optional_step(
                 "Remote",
-                remote_config,
-                lambda config: [
+                remote,
+                lambda route: [
                     RemoteBackup(
-                        config=config,
-                        source=remote_source,
+                        config=route[0],
+                        source=route[1],
                         dry_run=dry_run,
                         delete_at_destination=delete_remote,
                         history=TransferHistory(config_path),

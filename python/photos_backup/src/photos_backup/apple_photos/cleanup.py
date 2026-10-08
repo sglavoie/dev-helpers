@@ -467,7 +467,7 @@ def _delete(
     return deleted, archive.now()
 
 
-def _encode(manifest: CleanupManifest) -> dict:
+def _encode(manifest: CleanupManifest) -> dict[str, Any]:
     return {
         "version": manifest.version,
         "run_id": manifest.run_id,

@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -21,7 +22,7 @@ class VerificationHistory:
         key = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
         self.path = transfers.history_root().parent / "verifications" / f"{key}.json"
 
-    def read(self) -> tuple[dict | None, str | None]:
+    def read(self) -> tuple[dict[str, Any] | None, str | None]:
         try:
             document = json.loads(self.path.read_text(encoding="utf-8"))
             if (
@@ -51,7 +52,7 @@ class VerificationHistory:
         except (OSError, ValueError) as error:
             return None, f"Could not read verification receipt '{self.path}': {error}"
 
-    def record(self, report: dict) -> None:
+    def record(self, report: dict[str, Any]) -> None:
         temporary = None
         try:
             archive = self.archive.resolve()
@@ -102,11 +103,11 @@ class VerificationHistory:
 
 
 def annotate_verification(
-    receipt: dict | None,
+    receipt: dict[str, Any] | None,
     exported_at: datetime.datetime | None,
-    attempt: dict | None,
+    attempt: dict[str, Any] | None,
     state_available: bool,
-) -> dict | None:
+) -> dict[str, Any] | None:
     if receipt is None:
         return None
     started = datetime.datetime.fromisoformat(receipt["started_at"])

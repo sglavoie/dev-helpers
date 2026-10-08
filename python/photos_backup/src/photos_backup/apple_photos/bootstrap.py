@@ -133,9 +133,10 @@ def _require_bootstrappable(archive: Archive, state: ArchiveState) -> bool:
     """Accept a new or half-finished archive; return True when resuming one."""
     paths = archive.paths
     if state.initialized:
+        initialized_at = state.initialized_at
         raise ActionRequired(
             f"Archive '{paths.archive}' was already initialized at "
-            f"{state.initialized_at.isoformat()}; run `{suggested_command('daily')}` to "
+            f"{initialized_at.isoformat() if initialized_at else 'an unknown time'}; run `{suggested_command('daily')}` to "
             f"keep it current or `{suggested_command('verify')}` to check its health"
         )
 

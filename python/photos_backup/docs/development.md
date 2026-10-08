@@ -7,7 +7,7 @@ cd python/photos_backup
 uv sync                                  # create .venv and install the package
 uv run python3 -m unittest discover -v   # tests
 uv run ruff check .                      # lint
-uv run mypy                              # check Photos integration and report types
+uv run mypy                              # type-check the whole package
 uv run ruff format .                     # format
 uv run photos-backup --help              # run without installing
 ```
@@ -57,11 +57,10 @@ option changes what those flags accept. A real
 export on a disposable archive is still needed to validate native PhotoKit behavior
 before deploying an upgrade to both Macs.
 
-The type check covers the adapter, download worker, export argument builder,
-late-additions report, configuration, copy safety, subprocess helpers, transfer
-receipts, and SD card folder detection; add modules to `[tool.mypy] files` as
-they are annotated. It checks our code; upstream `osxphotos` internals remain
-outside static checking and are covered by the compatibility tests.
+The type check covers all of `src/photos_backup` with untyped definitions
+disallowed, so new code needs annotations to pass. It checks our code; upstream
+`osxphotos` internals remain outside static checking and are covered by the
+compatibility tests.
 
 ## Profiling metadata reports
 

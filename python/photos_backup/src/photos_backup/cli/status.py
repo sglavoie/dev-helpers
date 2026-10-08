@@ -2,15 +2,17 @@ import datetime
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import rich_click as click
 
 from photos_backup.apple_photos.plan import plan_export
 from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.download_report import summarize_downloads
-from photos_backup.archive import ArchiveError, open_archive
+from photos_backup.archive import Archive, ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
 from photos_backup.config import (
+    ApplePhotosConfig,
     MissingSection,
     load_sd_card_config,
     load_ssd_config,
@@ -37,7 +39,7 @@ from photos_backup.transfers import (
 )
 
 
-def _configured_transfers(config_path: Path | None) -> list[dict]:
+def _configured_transfers(config_path: Path | None) -> list[dict[str, Any]]:
     try:
         sd_card = load_sd_card_config(config_path)
     except MissingSection:
@@ -111,7 +113,7 @@ def status(ctx: click.Context, as_json: bool, short: bool) -> None:
         if config
         else (None, None)
     )
-    document = {
+    document: dict[str, Any] = {
         "version": 1,
         "archive": str(config.archive) if config is not None else None,
         "archive_configured": config is not None,
@@ -170,7 +172,7 @@ def status(ctx: click.Context, as_json: bool, short: bool) -> None:
 
 
 def _latest_export_at(
-    baseline: datetime.datetime | None, attempt: dict | None
+    baseline: datetime.datetime | None, attempt: dict[str, Any] | None
 ) -> datetime.datetime | None:
     candidates = [baseline] if baseline else []
     if attempt:
@@ -183,7 +185,12 @@ def _latest_export_at(
 
 
 def _read_archive_status(
-    archive, config, document: dict, verification: dict | None, *, detailed: bool
+    archive: Archive,
+    config: ApplePhotosConfig,
+    document: dict[str, Any],
+    verification: dict[str, Any] | None,
+    *,
+    detailed: bool,
 ) -> datetime.datetime:
     attempt, attempt_error = ExportAttemptStore(archive).read()
     document.update(last_export_attempt=attempt, export_attempt_error=attempt_error)

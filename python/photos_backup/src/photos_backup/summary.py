@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import click
 
@@ -51,13 +51,18 @@ class BackupSummary:
     skip_reason: str | None = None
 
 
-def parse_rsync_stats(output: str) -> dict[str, int | str | None]:
+class TransferStats(TypedDict):
+    files_transferred: int | None
+    total_size: str
+
+
+def parse_rsync_stats(output: str) -> TransferStats:
     """Parse rsync --stats output for file count and total size.
 
     GNU rsync reports "regular files"; macOS openrsync (/usr/bin/rsync) reports
     "files". Both count regular files only.
     """
-    result: dict[str, int | str | None] = {"files_transferred": None, "total_size": ""}
+    result: TransferStats = {"files_transferred": None, "total_size": ""}
 
     files_match = re.search(
         r"Number of (?:regular )?files transferred:\s*([\d,]+)", output
@@ -291,7 +296,7 @@ def print_bootstrap_result(result: BootstrapResult, *, dry_run: bool = False) ->
         )
 
     reason = result.blocking_reason()
-    if result.initialized:
+    if result.initialized and result.initialized_at is not None:
         click.echo(f"Archive initialized at {result.initialized_at.isoformat()}")
     elif dry_run:
         click.echo("Dry run: nothing was written and the archive was not initialized")
@@ -313,6 +318,8 @@ def print_mirror_outcome(outcome: MirrorOutcome, *, dry_run: bool = False) -> No
             ("Claimed by several assets", reconciliation.ambiguous),
         )
     if outcome.manifest_path is not None:
+        # A manifest is only ever written for a run with an ID.
+        assert outcome.run_id is not None
         click.echo(f"  Manifest: {outcome.manifest_path}")
         click.echo(
             f"  Preview with: {suggested_command('approve-cleanup', outcome.run_id, '--dry-run')}"
@@ -403,7 +410,7 @@ def human_size(total: int) -> str:
     return f"{size:.1f} TB"
 
 
-def _print_counts(*labelled: tuple[str, tuple]) -> None:
+def _print_counts(*labelled: tuple[str, tuple[object, ...]]) -> None:
     for label, items in labelled:
         if items:
             click.echo(f"  {label}: {len(items)}")
@@ -465,7 +472,7 @@ def print_archive_status(
 
 
 def print_export_attempt(
-    attempt: dict | None, error: str | None, *, now: datetime.datetime
+    attempt: dict[str, Any] | None, error: str | None, *, now: datetime.datetime
 ) -> None:
     if error:
         click.echo(f"Warning: {error}", err=True)
@@ -505,7 +512,7 @@ def print_export_attempt(
             click.echo("  Retry with the original manual export options/limit.")
 
 
-def _transfer_attention(receipts: list[dict]) -> list[str]:
+def _transfer_attention(receipts: list[dict[str, Any]]) -> list[str]:
     attention = []
     for status, label in (
         ("failed", "latest attempt failed"),
@@ -545,11 +552,11 @@ def _transfer_attention(receipts: list[dict]) -> list[str]:
 
 
 def print_transfer_history(
-    receipts: list[dict],
+    receipts: list[dict[str, Any]],
     errors: list[str],
     *,
     now: datetime.datetime | None = None,
-    historical_receipts: list[dict] | None = None,
+    historical_receipts: list[dict[str, Any]] | None = None,
 ) -> None:
     now = now or datetime.datetime.now(datetime.UTC)
 
@@ -576,7 +583,7 @@ def print_transfer_history(
 
 
 def _print_transfer_receipt(
-    receipt: dict, *, now: datetime.datetime, retry: bool = False
+    receipt: dict[str, Any], *, now: datetime.datetime, retry: bool = False
 ) -> None:
     def timestamp(value: str) -> str:
         return f"{value} ({_relative_age(datetime.datetime.fromisoformat(value), now)})"
@@ -616,7 +623,7 @@ def _print_transfer_receipt(
             click.echo(f"    Successful copy details: {', '.join(details)}")
 
 
-def _print_transfer_freshness(receipt: dict) -> None:
+def _print_transfer_freshness(receipt: dict[str, Any]) -> None:
     if receipt.get("archive_exported_since_copy"):
         click.echo(
             "    Archive exported since this copy started (recorded-time hint; "
@@ -651,7 +658,7 @@ _FRESHNESS_HINTS = (
 )
 
 
-def _transfer_retry(row: dict) -> tuple[str, str] | None:
+def _transfer_retry(row: dict[str, Any]) -> tuple[str, str] | None:
     """Return the label and command that bring one transfer row up to date.
 
     Unfinished attempts (including ones whose completion was never recorded)
@@ -672,20 +679,20 @@ def _transfer_retry(row: dict) -> tuple[str, str] | None:
     return f"{action.capitalize()} copy", suggested_command(command)
 
 
-def _print_transfer_retry(receipt: dict) -> None:
+def _print_transfer_retry(receipt: dict[str, Any]) -> None:
     if retry := _transfer_retry(receipt):
         label, command = retry
         click.echo(f"    {label}: {command}")
 
 
-def _transfer_mode(attempt: dict) -> str:
+def _transfer_mode(attempt: dict[str, Any]) -> str:
     return {
         "copy": "copy (preserves destination-only files)",
         "mirror": "mirror (deletions enabled)",
-    }.get(attempt.get("mode"), "mode not recorded")
+    }.get(attempt.get("mode") or "", "mode not recorded")
 
 
-def print_download_summary(summary: dict | None, error: str | None) -> None:
+def print_download_summary(summary: dict[str, Any] | None, error: str | None) -> None:
     if error:
         click.echo(f"Warning: {error}", err=True)
     if summary is None:
@@ -708,7 +715,7 @@ def print_download_summary(summary: dict | None, error: str | None) -> None:
 
 
 def print_verification_history(
-    receipt: dict | None, error: str | None, *, now: datetime.datetime
+    receipt: dict[str, Any] | None, error: str | None, *, now: datetime.datetime
 ) -> None:
     if error:
         click.echo(f"Warning: {error}", err=True)
@@ -730,7 +737,7 @@ def print_verification_history(
     click.echo(f"Last verification (this Mac): {'; '.join(details)}")
 
 
-def print_short_status(document: dict, *, now: datetime.datetime) -> None:
+def print_short_status(document: dict[str, Any], *, now: datetime.datetime) -> None:
     click.echo("Recorded status — files have not been verified by this command")
     commands: list[str] = []
     _print_short_archive(document, now, commands)
@@ -762,7 +769,7 @@ def print_short_status(document: dict, *, now: datetime.datetime) -> None:
 
 
 def _print_short_archive(
-    document: dict, now: datetime.datetime, commands: list[str]
+    document: dict[str, Any], now: datetime.datetime, commands: list[str]
 ) -> None:
     state, attempt = document["state"], document["last_export_attempt"]
     if not document["archive_configured"]:
@@ -807,7 +814,7 @@ def _print_short_archive(
 
 
 def _print_short_transfer(
-    row: dict, now: datetime.datetime, commands: list[str]
+    row: dict[str, Any], now: datetime.datetime, commands: list[str]
 ) -> None:
     latest, success = row["last_attempt"], row["last_success"]
     hints = [row.get(field) for field in _FRESHNESS_HINTS]
