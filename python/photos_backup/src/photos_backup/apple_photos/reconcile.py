@@ -5,14 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from photos_backup.apple_photos.files import sample_paths, signature_matches
 from photos_backup.apple_photos.identity import within_absence_limits
 
 if TYPE_CHECKING:
     from photos_backup.apple_photos.adapter import ExportedFile
     from photos_backup.apple_photos.identity import AssetIdentity, LibraryComparison
-
-# How many offending paths to name before the message stops being useful.
-_PATH_SAMPLE = 3
 
 
 @dataclass(frozen=True)
@@ -82,7 +80,7 @@ def plan_reconciliation(
         if current is None:
             continue
         record = records[path]
-        if not _signature_matches(record, current):
+        if not signature_matches(record, current.size, current.mtime):
             changed.append(path)
             continue
         candidates.append(
@@ -114,18 +112,18 @@ def approval_reason(
     if reconciliation.unknown:
         return (
             f"{len(reconciliation.unknown)} archive file(s) have no export-database "
-            f"record ({_sample(reconciliation.unknown)})"
+            f"record ({sample_paths(reconciliation.unknown)})"
         )
     if reconciliation.ambiguous:
         return (
             f"{len(reconciliation.ambiguous)} archive file(s) are claimed by more "
-            f"than one export-database asset ({_sample(reconciliation.ambiguous)})"
+            f"than one export-database asset ({sample_paths(reconciliation.ambiguous)})"
         )
     if reconciliation.changed:
         return (
             f"{len(reconciliation.changed)} deletion candidate(s) no longer carry "
             "the size and modification time osxphotos recorded "
-            f"({_sample(reconciliation.changed)})"
+            f"({sample_paths(reconciliation.changed)})"
         )
     if not within_absence_limits(
         comparison,
@@ -138,17 +136,3 @@ def approval_reason(
             f"the limit of {max_absent_assets} asset(s) or {max_absent_fraction:.3%}"
         )
     return None
-
-
-def _signature_matches(record: ExportedFile, current: ArchiveFile) -> bool:
-    if record.size is None or record.mtime is None:
-        return False
-    return record.size == current.size and int(record.mtime) == int(current.mtime)
-
-
-def _sample(paths: tuple[Path, ...]) -> str:
-    names = [str(path) for path in paths[:_PATH_SAMPLE]]
-    remaining = len(paths) - len(names)
-    if remaining > 0:
-        names.append(f"and {remaining} more")
-    return ", ".join(names)

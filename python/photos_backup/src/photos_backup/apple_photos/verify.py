@@ -17,6 +17,7 @@ from photos_backup.apple_photos.adapter import (
     unsupported_export_db_reason,
     resolve_export_files,
 )
+from photos_backup.apple_photos.files import sample_paths, signature_matches
 from photos_backup.archive.errors import ArchiveError
 
 if TYPE_CHECKING:
@@ -33,9 +34,6 @@ PENDING_CLEANUP = "pending cleanup"
 
 UNREADABLE_STATE = "the archive state could not be read"
 UNREADABLE_EXPORT_DB = "the export database could not be read, so nothing was checked"
-
-# How many offending paths to name before the message stops being useful.
-_PATH_SAMPLE = 3
 
 
 @dataclass(frozen=True)
@@ -196,7 +194,7 @@ def _check_export_database(
             EXPORT_DATABASE,
             False,
             f"{len(outside)} record(s) point outside the archive "
-            f"({_sample(outside)}), so this database was written for another "
+            f"({sample_paths([record.path for record in outside])}), so this database was written for another "
             "destination",
             paths=tuple(record.path for record in outside),
         )
@@ -227,7 +225,9 @@ def _check_signatures(
     mismatched = [
         record
         for record in comparable
-        if not _signature_matches(record, statuses[record.path])
+        if not signature_matches(
+            record, statuses[record.path].st_size, statuses[record.path].st_mtime
+        )
     ]
     unsigned = sum(record.size is None or record.mtime is None for record in files)
     unavailable = len(files) - unsigned - len(comparable)
@@ -244,7 +244,7 @@ def _check_signatures(
             SIGNATURES,
             False,
             f"{len(mismatched)} of {len(comparable)} exported file(s) no longer "
-            f"match their recorded size and modification time ({_sample(mismatched)}). "
+            f"match their recorded size and modification time ({sample_paths([record.path for record in mismatched])}). "
             + coverage,
             paths=tuple(record.path for record in mismatched),
         )
@@ -265,17 +265,15 @@ def _check_missing_assets(
 
     absent = [record for record in files if record.path in file_errors]
     if absent:
-        details = [
-            f"{record.path}: {file_errors[record.path]}"
-            for record in absent[:_PATH_SAMPLE]
-        ]
-        if len(absent) > _PATH_SAMPLE:
-            details.append(f"and {len(absent) - _PATH_SAMPLE} more")
+        details = sample_paths(
+            [f"{record.path}: {file_errors[record.path]}" for record in absent],
+            separator="; ",
+        )
         return Check(
             MISSING_ASSETS,
             False,
             f"{len(absent)} of {len(files)} exported file(s) are missing, invalid, "
-            f"or unreadable ({'; '.join(details)})",
+            f"or unreadable ({details})",
             paths=tuple(record.path for record in absent),
         )
     return Check(
@@ -352,15 +350,3 @@ def _check_pending_cleanup(archive: Archive, state: ArchiveState | None) -> Chec
         f"({archive.paths.cleanup_manifest(run_id)}); review it and run "
         f"`{suggested_command('approve-cleanup', run_id)}`",
     )
-
-
-def _signature_matches(record: ExportedFile, status: os.stat_result) -> bool:
-    return status.st_size == record.size and int(status.st_mtime) == int(record.mtime)
-
-
-def _sample(records: list[ExportedFile]) -> str:
-    names = [str(record.path) for record in records[:_PATH_SAMPLE]]
-    remaining = len(records) - len(names)
-    if remaining > 0:
-        names.append(f"and {remaining} more")
-    return ", ".join(names)

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from photos_backup.archive.errors import ArchiveUnavailable, ArchiveUnsafe
-from photos_backup.archive.paths import ArchivePaths
+from photos_backup.archive.paths import ArchivePaths, climbs
 
 STATE_VERSION = 2
 LEGACY_STATE_VERSION = 1
@@ -135,7 +135,7 @@ def _decode(document: Any, paths: ArchivePaths) -> ArchiveState:
 def _report_path(text: str, paths: ArchivePaths) -> Path:
     """Resolve portable references and re-anchor legacy managed reports."""
     report = Path(text)
-    if ".." in report.parts or report == Path("."):
+    if climbs(report):
         raise ArchiveUnsafe(
             f"Archive state '{paths.state_file}' has an unsafe last_report_path: {text!r}"
         )

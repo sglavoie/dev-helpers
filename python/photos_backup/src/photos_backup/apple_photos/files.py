@@ -1,18 +1,41 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from photos_backup.archive.errors import ArchiveUnavailable
+
+if TYPE_CHECKING:
+    from photos_backup.apple_photos.adapter import ExportedFile
 
 # Files macOS drops into any browsed directory; never ours to explain.
 IGNORED_NAMES = (".DS_Store", ".localized")
 IGNORED_PREFIX = "._"
 
+# How many offending paths to name before the message stops being useful.
+PATH_SAMPLE = 3
+
 
 def is_ignored(path: Path) -> bool:
     """Whether macOS wrote this file rather than an export."""
     return path.name in IGNORED_NAMES or path.name.startswith(IGNORED_PREFIX)
+
+
+def sample_paths(items: Sequence[object], *, separator: str = ", ") -> str:
+    """Name the first few offending paths and count the rest."""
+    names = [str(item) for item in items[:PATH_SAMPLE]]
+    remaining = len(items) - len(names)
+    if remaining > 0:
+        names.append(f"and {remaining} more")
+    return separator.join(names)
+
+
+def signature_matches(record: ExportedFile, size: int, mtime: float) -> bool:
+    """Whether a file still has the size and whole-second mtime it was exported with."""
+    if record.size is None or record.mtime is None:
+        return False
+    return record.size == size and int(record.mtime) == int(mtime)
 
 
 def delete_files(paths: Iterable[Path]) -> tuple[Path, ...]:

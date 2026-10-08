@@ -18,6 +18,16 @@ def _sequence_suffix(sequence: int) -> str:
     return "" if sequence == 1 else f"_{sequence}"
 
 
+def climbs(path: Path) -> bool:
+    """Whether a stored path climbs with '..' or names only its own base directory."""
+    return ".." in path.parts or path == Path(".")
+
+
+def is_archive_relative(path: Path) -> bool:
+    """Whether a stored path safely names something inside the archive root."""
+    return not path.is_absolute() and not climbs(path)
+
+
 def safe_name(raw: str) -> str:
     """Reduce a hostname or run identifier to a safe single filename part."""
     cleaned = _UNSAFE_NAME.sub("-", raw).strip("-")

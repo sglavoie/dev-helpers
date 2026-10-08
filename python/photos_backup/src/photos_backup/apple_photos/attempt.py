@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import click
 
 from photos_backup.archive.errors import ArchiveUnavailable
+from photos_backup.archive.paths import is_archive_relative
 from photos_backup.archive.state import write_atomic
 from photos_backup.cli.context import export_retry_arguments
 
@@ -137,7 +138,7 @@ def _validate(document: object) -> None:
         if not isinstance(document.get(field), str) or not document[field]:
             raise ValueError(f"invalid {field}")
     report = Path(document["report_path"])
-    if report.is_absolute() or ".." in report.parts or report == Path("."):
+    if not is_archive_relative(report):
         raise ValueError("report path must be relative to the archive")
     _validate_details(document)
     if any(
@@ -170,7 +171,7 @@ def _validate_details(document: dict) -> None:
         if not isinstance(download_report, str):
             raise ValueError("invalid download report path")
         path = Path(download_report)
-        if path.is_absolute() or ".." in path.parts or path == Path("."):
+        if not is_archive_relative(path):
             raise ValueError("download report path must be relative to the archive")
     for field in ("missing_count", "error_count"):
         value = document.get(field)

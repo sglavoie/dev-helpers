@@ -8,6 +8,7 @@ from photos_backup.apple_photos.files import (
     delete_files,
     is_ignored,
     prune_empty_directories,
+    sample_paths,
 )
 from photos_backup.archive.errors import ArchiveUnsafe
 
@@ -50,9 +51,6 @@ NOT_CONFIGURED = (
     "no [apple_photos] legacy_export is configured, so there is no local export "
     "this command is allowed to delete"
 )
-
-# How many offending paths to name before the message stops being useful.
-_PATH_SAMPLE = 3
 
 
 @dataclass(frozen=True)
@@ -192,17 +190,17 @@ def contents_refusal(scan: LocalExportScan) -> str | None:
     if scan.symlinks:
         return (
             f"{len(scan.symlinks)} entr(ies) under '{scan.root}' are symlinks that "
-            f"could point anywhere ({_sample(scan.symlinks)})"
+            f"could point anywhere ({sample_paths(scan.symlinks)})"
         )
     if scan.libraries:
         return (
             f"{len(scan.libraries)} Photos library(ies) are stored under "
-            f"'{scan.root}' ({_sample(scan.libraries)})"
+            f"'{scan.root}' ({sample_paths(scan.libraries)})"
         )
     if scan.unrecognized:
         return (
             f"{len(scan.unrecognized)} file(s) under '{scan.root}' are not something "
-            f"an Apple Photos export writes ({_sample(scan.unrecognized)})"
+            f"an Apple Photos export writes ({sample_paths(scan.unrecognized)})"
         )
     return None
 
@@ -239,11 +237,3 @@ def _recognized(path: Path) -> bool:
         or path.name.startswith(EXPORT_DB_PREFIX)
         or path.suffix.lower() in RECOGNIZED_SUFFIXES
     )
-
-
-def _sample(paths: tuple[Path, ...]) -> str:
-    names = [str(path) for path in paths[:_PATH_SAMPLE]]
-    remaining = len(paths) - len(names)
-    if remaining > 0:
-        names.append(f"and {remaining} more")
-    return ", ".join(names)
