@@ -52,14 +52,23 @@ class BackupSummary:
 
 
 def parse_rsync_stats(output: str) -> dict[str, int | str | None]:
-    """Parse rsync --stats output for file count and total size."""
+    """Parse rsync --stats output for file count and total size.
+
+    GNU rsync reports "regular files"; macOS openrsync (/usr/bin/rsync) reports
+    "files". Both count regular files only.
+    """
     result: dict[str, int | str | None] = {"files_transferred": None, "total_size": ""}
 
-    files_match = re.search(r"Number of regular files transferred:\s*([\d,]+)", output)
+    files_match = re.search(
+        r"Number of (?:regular )?files transferred:\s*([\d,]+)", output
+    )
     if files_match:
         result["files_transferred"] = int(files_match.group(1).replace(",", ""))
 
-    size_match = re.search(r"Total transferred file size:\s*([\d,.]+ \S+)", output)
+    # GNU -h prints "1.50M bytes", plain GNU "1,500,006 bytes", openrsync "1500 kB".
+    size_match = re.search(
+        r"Total transferred file size:\s*([\d,.]+\s*\S+(?: bytes)?)", output
+    )
     if size_match:
         result["total_size"] = size_match.group(1)
 
