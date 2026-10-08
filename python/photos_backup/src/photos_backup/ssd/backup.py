@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from photos_backup.copy_safety import (
+    check_copy_path,
     check_copy_paths,
     check_mirror_source,
 )
 from photos_backup.archive.lock import copy_source_lock
+from photos_backup.cli.context import suggested_command
 from photos_backup.exclude import exclude_from_arg
 from photos_backup.errors import ActionRequired
 from photos_backup.process import interactive_transfers, stream_command, transfer_errors
@@ -79,9 +81,23 @@ class Backup:
             copies.append(
                 ("SSD: SD Card", self.sd_card.destination, self.sd_card.exclude_file)
             )
+        sd_card_skip: BackupSummary | None = None
         started_at = datetime.datetime.now(datetime.UTC).isoformat()
         with ExitStack() as locks:
             try:
+                if self.sd_card is not None and self._sd_card_copy_missing(
+                    self.sd_card
+                ):
+                    copies = copies[:1]
+                    sd_card_skip = BackupSummary(
+                        step_name="SSD: SD Card",
+                        skipped=True,
+                        skip_reason=(
+                            f"'{self.sd_card.destination}' not created yet; run "
+                            f"`{suggested_command('sd-card')}` before copying it "
+                            "to the SSD"
+                        ),
+                    )
                 # Validate every input and exclusion before creating destinations
                 # or copying, and keep all archive locks through the transfers.
                 sources = tuple(source for _, source, _ in copies)
@@ -118,7 +134,22 @@ class Backup:
                             delete_at_destination=self.delete_at_destination,
                         )
                 raise
-            return self._copy_sources(prepared)
+            summaries = self._copy_sources(prepared)
+        if sd_card_skip is not None:
+            summaries.append(sd_card_skip)
+        return summaries
+
+    @staticmethod
+    def _sd_card_copy_missing(sd_card: SdCardConfig) -> bool:
+        """The SD card copy only exists after `sd-card` first runs.
+
+        An unmounted volume still requires action, so check it before treating
+        the directory as not created yet.
+        """
+        if sd_card.destination.exists():
+            return False
+        check_copy_path(sd_card.destination, workflow="SSD")
+        return True
 
     def _copy_sources(
         self, prepared: list[tuple[str, Path, str]]

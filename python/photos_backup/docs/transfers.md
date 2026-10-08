@@ -48,6 +48,11 @@ and `backup-all`. The failed copy is named, and any remaining SSD copy is
 reported as skipped because the previous copy did not complete. SSD source
 and destination checks still run before any copying starts.
 
+When `[sd_card]` is configured but its destination has not been created yet
+(`sd-card` has never run), `ssd` and `backup-all` report `SSD: SD Card` as
+skipped and still copy the archive, so the remote step can run too. An
+unmounted drive under `/Volumes` still requires action.
+
 Mirroring deletions (`ssd --delete`, `backup-all --delete-ssd`, `remote --delete`,
 `backup-all --delete-remote`) refuses, with exit 3, a source that holds nothing
 but Finder's `.DS_Store` and `._*` files: an empty folder or bare mount point would
