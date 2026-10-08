@@ -10,8 +10,8 @@ and has no Dock icon.
 
 Each open starts clean, with an empty search, no filters and the first row
 selected. The search field starts unfocused: j/k (or ↓/↑) move through the list.
-⌘F, or k on the first row, focuses the search field, and Esc hands the keys back
-to the list.
+⌘F, or k on the first row, focuses the search field. Esc first clears a typed
+search, then hands the keys back to the list.
 
 Unfinished snippet edits survive closing the picker. **Resume Draft** appears
 above the list and in ⌘K; saving or explicitly discarding clears the draft.

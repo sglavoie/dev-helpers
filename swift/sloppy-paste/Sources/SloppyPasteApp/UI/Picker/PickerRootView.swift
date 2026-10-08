@@ -542,7 +542,13 @@ struct PickerRootView: View {
             KeyBinding(id: "focusSearch", title: "Search", chord: KeyChord(.character("f"), .command)) {
                 searchFocused = true
             },
-            // Esc leaves the search field first; a second Esc closes the panel.
+            // Esc clears a typed query first, then leaves the search field; a further Esc closes the panel.
+            KeyBinding(
+                id: "clearQuery", title: "Clear Search", chord: query.isEmpty ? nil : KeyChord(.escape),
+                showsInMenu: false
+            ) {
+                query = ""
+            },
             KeyBinding(
                 id: "leaveSearch", title: "Leave Search", chord: searchFocused ? KeyChord(.escape) : nil,
                 showsInMenu: false
