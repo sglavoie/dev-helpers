@@ -59,8 +59,8 @@ def generate_late_photo_additions_report(
     metadata_cache: dict[Path, dict[str, str]] = {}
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with (
-        export_report_path.open(newline="") as source,
-        output_path.open("w", newline="") as output,
+        export_report_path.open(newline="", encoding="utf-8") as source,
+        output_path.open("w", newline="", encoding="utf-8") as output,
     ):
         reader = csv.DictReader(source)
         writer = csv.DictWriter(output, fieldnames=REPORT_COLUMNS)
