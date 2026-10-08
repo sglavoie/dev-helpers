@@ -11,6 +11,7 @@ import rich_click as click
 from photos_backup.apple_photos.verify import PENDING_CLEANUP, verify_archive
 from photos_backup.archive import ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
 from photos_backup.summary import print_verification_report
@@ -33,6 +34,7 @@ from photos_backup.verification_history import VerificationHistory
     is_flag=True,
     help="Remember this result locally for status; never write to the archive.",
 )
+@notify_on_problems
 @click.pass_context
 def verify(
     ctx: click.Context, report_path: Path | None, as_json: bool, record: bool

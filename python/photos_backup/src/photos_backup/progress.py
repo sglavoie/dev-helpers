@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Literal
 
 import click
+
+
+def live_terminal(stream: Literal["stdout", "stderr"]) -> bool:
+    """Whether `stream` can redraw a line in place; `TERM=dumb` asks for plain text."""
+    return click.get_text_stream(stream).isatty() and os.environ.get("TERM") != "dumb"
 
 
 class ExportProgress:
@@ -23,9 +30,7 @@ class ExportProgress:
         self.clock = clock
         self.item_label = item_label
         self.show_downloads = show_downloads
-        self.terminal = (
-            click.get_text_stream("stderr").isatty() if terminal is None else terminal
-        )
+        self.terminal = live_terminal("stderr") if terminal is None else terminal
         self.sink = sink or (
             lambda line: click.echo(line, err=True, nl=not self.terminal)
         )

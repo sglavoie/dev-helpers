@@ -44,6 +44,12 @@ environment; outside that directory it may find the installed tool on `PATH`.
 reinstall with `uv tool install --force --editable .` to drop it from `PATH`. Configuration is not installed by this repository: it is
 stow-managed at `~/.config/osxphotos-backup/photos-backup.toml`.
 
+For tab completion of commands and options in zsh, add this to `~/.zshrc`:
+
+```bash
+eval "$(_PHOTOS_BACKUP_COMPLETE=zsh_source photos-backup)"
+```
+
 ## Everyday workflow
 
 Once configuration is in place, connect the archive drive and run
@@ -110,6 +116,7 @@ for plain summary output even in a terminal.
 | `photos-backup verify --json` | Print all verification findings as one JSON document |
 | `photos-backup status` | Show recorded export dates, writer, pending cleanup, and the next export mode |
 | `photos-backup status --short` | Show one line per stage, download failures, and suggested next commands |
+| `photos-backup status --check` | Show the compact status and exit 3 when it suggests a command |
 | `photos-backup status --json` | Read archive status and local transfer receipts as one JSON document |
 | `photos-backup recent` | Back up photos/videos taken in the last N days, with live progress |
 | `photos-backup daily` | Export from Apple Photos into the shared archive on cadence |
@@ -119,7 +126,7 @@ for plain summary output even in a terminal.
 | `photos-backup cleanup-local-export` | Delete the legacy local export once the archive proves it is redundant |
 | `photos-backup apple-photos` | Export manually, forwarding extra flags to osxphotos |
 | `photos-backup sd-card` | Copy RAW files from SD card to primary backup |
-| `photos-backup ssd` | Sync primary backup to secondary on-site backup (SSD) |
+| `photos-backup ssd` | Copy primary backup to secondary on-site backup (SSD); deletes only with `--delete` |
 | `photos-backup remote` | Copy backup to cloud via rclone; preserve remote-only files |
 | `photos-backup remote --delete` | Mirror backup to cloud, including deletions |
 | `photos-backup backup-all` | Run the Apple Photos, SD card, SSD, and remote steps in one pass |
@@ -135,8 +142,8 @@ for plain summary output even in a terminal.
 
 Exit 3 is deliberately not a failure: it means the tool stopped on purpose and a
 person, not a retry, resolves it. Scheduled runs should treat 3 as "notify me"
-rather than "page me"; `daily --notify` and `backup-all --notify` post a macOS
-notification when a run fails, needs you, or is stopped (Ctrl-C, `kill`,
+rather than "page me". `--notify` on `daily`, `backup-all`, `verify`, `sd-card`,
+`ssd`, `remote`, and `status --check` posts a macOS notification when a run fails, needs you, or is stopped (Ctrl-C, `kill`,
 launchd), and stay silent on success. Mistyped options exit 2 before the command
 starts, so run a new schedule once by hand. `photos-backup daily` still exports before reporting
 a pending cleanup, so backups never stop over a deletion question.

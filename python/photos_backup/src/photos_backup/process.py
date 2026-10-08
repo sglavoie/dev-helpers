@@ -8,6 +8,8 @@ from contextlib import contextmanager
 
 import click
 
+from photos_backup.progress import live_terminal
+
 _DIAGNOSTIC = re.compile(r"\b(error|fatal|failed|failure)\b|rsync:", re.IGNORECASE)
 
 
@@ -19,7 +21,7 @@ def _clean_line(line: str) -> str:
 
 def interactive_transfers() -> bool:
     """Transfer output is streamed to stdout, which may be redirected to a log."""
-    return click.get_text_stream("stdout").isatty()
+    return live_terminal("stdout")
 
 
 @contextmanager

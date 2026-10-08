@@ -10,10 +10,28 @@ from unittest import mock
 
 from photos_backup.apple_photos.late_additions import (
     METADATA_BATCH_SIZE,
+    is_earlier_month,
+    parse_mdls_datetime,
     generate_late_photo_additions_report,
     read_spotlight_metadata,
 )
 from photos_backup.summary import read_export_report
+from tests.timezones import pin_timezone
+
+
+class LateMonthTests(unittest.TestCase):
+    def test_months_are_compared_in_local_time_not_utc(self):
+        pin_timezone(self, "America/New_York")
+        # 22:00 on May 31 in New York is already June 1 in UTC.
+        taken = parse_mdls_datetime("2026-06-01 02:00:00 +0000")
+        added = parse_mdls_datetime("2026-06-02 12:00:00 +0000")
+
+        self.assertTrue(is_earlier_month(taken, added))
+
+        pin_timezone(self, "Europe/Paris")
+        # 01:00 on June 1 in Paris is still May 31 in UTC.
+        taken = parse_mdls_datetime("2026-05-31 23:00:00 +0000")
+        self.assertFalse(is_earlier_month(taken, added))
 
 
 class ApplePhotosCsvTests(unittest.TestCase):

@@ -4,7 +4,7 @@ import fcntl
 import os
 import stat
 from collections.abc import Iterator
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -43,12 +43,18 @@ def _exclusive_lock(paths: ArchivePaths, probes: SystemProbes) -> Iterator[None]
         raise ArchiveUnavailable(
             f"Could not open archive lock '{paths.lock_file}': {error}"
         ) from error
+    owned = False
     try:
         _require_regular(descriptor, paths)
         _acquire(descriptor, fcntl.LOCK_EX, paths)
+        owned = True
         _record_owner(descriptor, probes)
         yield
     finally:
+        if owned:
+            # A stale owner line would name a finished run in a later lock error.
+            with suppress(OSError):
+                os.ftruncate(descriptor, 0)
         os.close(descriptor)
 
 
@@ -120,7 +126,8 @@ def _acquire(descriptor: int, operation: int, paths: ArchivePaths) -> None:
     except BlockingIOError as error:
         raise ArchiveLocked(
             f"Another photos-backup run holds the archive lock "
-            f"'{paths.lock_file}'{_owner_suffix(paths)}"
+            f"'{paths.lock_file}'{_owner_suffix(paths)}; wait for it to finish "
+            "and retry"
         ) from error
     except OSError as error:
         raise ArchiveUnavailable(
@@ -144,4 +151,5 @@ def _owner_suffix(paths: ArchivePaths) -> str:
         owner = paths.lock_file.read_text().strip()
     except OSError:
         return ""
-    return f" ({owner})" if owner else ""
+    # Readers (verify, dry runs, SSD and remote copies) never record themselves.
+    return f" ({owner})" if owner else " (a reader such as verify, ssd, or remote)"

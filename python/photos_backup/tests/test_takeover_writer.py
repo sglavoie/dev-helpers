@@ -41,6 +41,17 @@ class EnsureWriterTests(TakeoverTestCase):
         self.assertIs(check.status, WriterStatus.CLAIMED)
         self.assertEqual(self.writer(), NEW_HOST)
 
+    def test_a_folder_with_foreign_files_is_never_claimed(self) -> None:
+        (self.paths.archive / "2019").mkdir()
+        (self.paths.archive / ".DS_Store").write_text("finder")
+
+        with self.archive() as opened, self.assertRaises(ActionRequired) as raised:
+            ensure_writer(self.config, opened, probes=self.probes(()))
+
+        self.assertIn("'2019'", str(raised.exception))
+        self.assertNotIn(".DS_Store", str(raised.exception))
+        self.assertFalse(self.paths.state_file.exists())
+
     def test_an_unsupported_export_database_blocks_the_takeover(self) -> None:
         self.set_writer(OLD_HOST)
         write_export_db(

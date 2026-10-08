@@ -13,6 +13,11 @@ Unknown freshness is labeled explicitly. A successful copy with no newer recorde
 upstream success is not proof that its files are current. The compact view retains
 normal status exit codes. `--short` and `--json` are mutually exclusive.
 
+`photos-backup status --check` prints the same compact view and exits 3 when it
+suggests any command, so a scheduled `status --check --notify` tells you when
+something needs attention. An unavailable archive also exits 3; while it is
+unavailable, `verify --record` is not suggested because it could not run.
+
 ## Latest download failures
 
 Both text views summarize the latest incomplete export's `.downloads.json` report:

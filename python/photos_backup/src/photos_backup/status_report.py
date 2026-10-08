@@ -345,7 +345,10 @@ def print_verification_history(
     click.echo(f"Last verification (this Mac): {'; '.join(details)}")
 
 
-def print_short_status(document: dict[str, Any], *, now: datetime.datetime) -> None:
+def print_short_status(
+    document: dict[str, Any], *, now: datetime.datetime
+) -> list[str]:
+    """Print one line per stage; return the suggested next commands."""
     click.echo("Recorded status — files have not been verified by this command")
     commands: list[str] = []
     _print_short_archive(document, now, commands)
@@ -363,17 +366,20 @@ def print_short_status(document: dict[str, Any], *, now: datetime.datetime) -> N
         print_verification_history(
             receipt, document["verification_history_error"], now=now
         )
-        if (
+        # Verification cannot run while the archive itself is unavailable.
+        if not document["archive_error"] and (
             receipt is None
             or not receipt["passed"]
             or receipt["archive_exported_since_verification"]
             or receipt["archive_may_have_changed_since_verification"]
         ):
             commands.append(suggested_command("verify", "--record"))
+    commands = list(dict.fromkeys(commands))
     if commands:
         click.echo("Suggested next commands (mirror retries are previews):")
-        for command in dict.fromkeys(commands):
+        for command in commands:
             click.echo(f"  {command}")
+    return commands
 
 
 def _print_short_archive(

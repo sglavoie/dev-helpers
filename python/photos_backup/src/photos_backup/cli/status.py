@@ -11,6 +11,7 @@ from photos_backup.apple_photos.attempt import ExportAttemptStore
 from photos_backup.apple_photos.download_report import summarize_downloads
 from photos_backup.archive import Archive, ArchiveError, open_archive
 from photos_backup.cli.context import apple_photos_config_from, config_path_from
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.config import (
     ApplePhotosConfig,
     MissingSection,
@@ -19,6 +20,7 @@ from photos_backup.config import (
     load_rclone_config,
     resolve_rclone_source,
 )
+from photos_backup.errors import ActionRequired
 from photos_backup.status_report import (
     print_archive_status,
     print_export_attempt,
@@ -91,10 +93,18 @@ def _configured_transfers(config_path: Path | None) -> list[dict[str, Any]]:
     is_flag=True,
     help="Show a compact status and suggested next commands.",
 )
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Show the compact status and exit 3 when it suggests a command; "
+    "for scheduled checks.",
+)
+@notify_on_problems
 @click.pass_context
-def status(ctx: click.Context, as_json: bool, short: bool) -> None:
-    if short and as_json:
-        raise click.UsageError("Choose either --short or --json")
+def status(ctx: click.Context, as_json: bool, short: bool, check: bool) -> None:
+    if (short or check) and as_json:
+        raise click.UsageError("Choose either --short/--check or --json")
+    short = short or check
     try:
         config = apple_photos_config_from(ctx)
     except MissingSection:
@@ -134,6 +144,7 @@ def status(ctx: click.Context, as_json: bool, short: bool) -> None:
         "transfer_history_errors": errors,
     }
     archive_error = None
+    suggested: list[str] = []
     if config is None:
         if not as_json and not short:
             click.echo("Archive status: not configured ([apple_photos] is absent)")
@@ -160,7 +171,7 @@ def status(ctx: click.Context, as_json: bool, short: bool) -> None:
     if as_json:
         click.echo(json.dumps(document, indent=2, default=str))
     elif short:
-        print_short_status(document, now=now)
+        suggested = print_short_status(document, now=now)
     else:
         if config:
             print_verification_history(
@@ -169,6 +180,14 @@ def status(ctx: click.Context, as_json: bool, short: bool) -> None:
         print_transfer_history(current, errors, now=now, historical_receipts=historical)
     if archive_error is not None:
         raise archive_error
+    _require_nothing_suggested(suggested, check=check)
+
+
+def _require_nothing_suggested(suggested: list[str], *, check: bool) -> None:
+    """`status --check`: exit 3 so a scheduled check can notify a person."""
+    if check and suggested:
+        more = f" (and {len(suggested) - 1} more)" if len(suggested) > 1 else ""
+        raise ActionRequired(f"Next: {suggested[0]}{more}")
 
 
 def _latest_export_at(

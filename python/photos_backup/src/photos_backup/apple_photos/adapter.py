@@ -25,6 +25,7 @@ from photos_backup.apple_photos.downloads import (
 )
 from photos_backup.apple_photos.identity import AssetIdentity
 from photos_backup.archive.errors import ArchiveUnsafe
+from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
 
 if TYPE_CHECKING:
@@ -80,7 +81,7 @@ def run_osxphotos_export(
     arguments = dict(arguments)
     if local_first or progress:
         with progress.phase("Loading Photos library") if progress else nullcontext():
-            database = PhotosDB(dbfile=arguments["db"])
+            database = open_library(Path(arguments["db"]))
         query = database.query
 
         def ordered_query(options: QueryOptions) -> list[PhotoInfo]:
@@ -149,9 +150,21 @@ def _needs_download(photo: PhotoInfo) -> bool:
     )
 
 
+def open_library(library: Path) -> PhotosDB:
+    """Explain a wrong library path instead of letting osxphotos raise a traceback."""
+    try:
+        return PhotosDB(dbfile=str(library))
+    except FileNotFoundError as error:
+        raise ActionRequired(
+            f"[apple_photos] library: '{library}' does not exist or is not a "
+            "Photos library; fix the path in the configuration and check it with "
+            "`photos-backup doctor`"
+        ) from error
+
+
 def read_photos_library(library: Path) -> tuple[AssetIdentity, ...]:
     """Enumerate every asset in a Photos library with its iCloud cloud GUID."""
-    photosdb = PhotosDB(dbfile=str(library))
+    photosdb = open_library(library)
     return tuple(
         AssetIdentity(
             uuid=photo.uuid,

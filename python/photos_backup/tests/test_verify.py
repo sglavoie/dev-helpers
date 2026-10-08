@@ -14,8 +14,9 @@ from unittest import mock
 
 from click.testing import CliRunner
 
-from photos_backup.apple_photos.adapter import PhotosProbes
+from photos_backup.apple_photos.adapter import ExportedFile, PhotosProbes
 from photos_backup.apple_photos.verify import (
+    _inspect_files,
     EXPORT_DATABASE,
     MISSING_ASSETS,
     OWNERSHIP,
@@ -401,6 +402,29 @@ class ExportedFileTests(VerifyTestCase):
         self.assertFalse(signatures.passed)
         self.assertIn(str(self.exported), signatures.detail)
         self.assertTrue(self.check(report, MISSING_ASSETS).passed)
+
+
+class InspectFilesTests(unittest.TestCase):
+    def test_a_shared_parent_directory_is_checked_once(self):
+        archive = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
+        month = archive / "2026" / "08"
+        month.mkdir(parents=True)
+        files = []
+        for index in range(5):
+            path = month / f"IMG_{index}.jpg"
+            path.write_bytes(b"photo")
+            files.append(ExportedFile(path=path, uuid=str(index), size=5, mtime=0))
+
+        original = Path.lstat
+        with mock.patch.object(
+            Path, "lstat", autospec=True, side_effect=original
+        ) as lstat:
+            statuses, errors = _inspect_files(tuple(files), archive)
+
+        self.assertEqual(errors, {})
+        self.assertEqual(len(statuses), 5)
+        # Two directories once each, then one call per file.
+        self.assertEqual(lstat.call_count, 2 + 5)
 
 
 class StateTests(VerifyTestCase):

@@ -19,7 +19,9 @@ from photos_backup.apple_photos.identity import (
     assess_library,
     compare_library,
 )
+from photos_backup.apple_photos.files import is_ignored
 from photos_backup.archive.errors import ArchiveUnavailable, ArchiveUnsafe
+from photos_backup.archive.paths import METADATA_DIR_NAME, ArchivePaths
 from photos_backup.errors import ActionRequired
 
 if TYPE_CHECKING:
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
     from photos_backup.config import ApplePhotosConfig
 
 SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm")
+
+# How many stray names to name before the message stops being useful.
+_FOREIGN_SAMPLE = 5
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,10 @@ def ensure_writer(
             status=WriterStatus.UNCHANGED, hostname=host, previous_hostname=previous
         )
 
+    if not archive.paths.state_file.exists() and not export_db.exists():
+        # Never claim, and then export into, a folder that holds someone else's files.
+        refuse_foreign_archive(archive.paths, "photos-backup")
+
     recorded = active.read_export_db(export_db)
     if not recorded:
         archive.state_store.update(writer_hostname=host)
@@ -122,6 +131,37 @@ def ensure_writer(
         previous_hostname=previous,
         verdict=verdict,
         migration=migration,
+    )
+
+
+def refuse_foreign_archive(paths: ArchivePaths, command: str) -> None:
+    """Refuse an archive with contents but no photos-backup metadata."""
+    foreign = _foreign_entries(paths)
+    if foreign:
+        listed = ", ".join(f"'{name}'" for name in foreign[:_FOREIGN_SAMPLE])
+        raise ActionRequired(
+            f"Archive '{paths.archive}' already holds {len(foreign)} entry(ies) "
+            f"({listed}) but no photos-backup metadata; {command} only accepts an "
+            "empty archive or one it left incomplete itself, so move the existing "
+            "contents aside or point [apple_photos] archive somewhere empty"
+        )
+
+
+def _foreign_entries(paths: ArchivePaths) -> tuple[str, ...]:
+    """Archive entries photos-backup does not own, in a stable order."""
+    try:
+        entries = sorted(paths.archive.iterdir())
+    except FileNotFoundError:
+        return ()
+    except OSError as error:
+        # An unreadable archive must not pass for an empty one.
+        raise ArchiveUnavailable(
+            f"Could not list archive '{paths.archive}': {error}"
+        ) from error
+    return tuple(
+        entry.name
+        for entry in entries
+        if entry.name != METADATA_DIR_NAME and not is_ignored(entry)
     )
 
 

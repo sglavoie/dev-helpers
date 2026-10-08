@@ -9,7 +9,9 @@ from osxphotos.cli.export import export_cli, export_photo
 from osxphotos.export_db_utils import export_db_migrate_photos_library
 from osxphotos.photoexporter import PhotoExporter, StagedFiles
 
+from photos_backup.apple_photos.adapter import read_photos_library
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, export_arguments
+from photos_backup.errors import ActionRequired
 from tests.test_export import make_config
 
 
@@ -18,6 +20,14 @@ class OsxphotosCompatibilityTests(unittest.TestCase):
         supported = "0.77.2"
         self.assertEqual(version("osxphotos"), supported)
         self.assertIn(f"osxphotos=={supported}", requires("photos_backup"))
+
+    def test_a_missing_library_asks_for_the_path_instead_of_a_traceback(self):
+        missing = Path("/nonexistent-photos-backup-test/Photos Library.photoslibrary")
+
+        with self.assertRaises(ActionRequired) as raised:
+            read_photos_library(missing)
+
+        self.assertIn("[apple_photos] library", str(raised.exception))
 
     def test_generated_options_bind_to_upstream_export(self):
         root = Path("/unused-compatibility-fixture")

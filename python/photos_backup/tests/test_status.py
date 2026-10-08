@@ -243,6 +243,18 @@ class StatusPolishTests(ArchiveCommandTestCase):
             result = self.invoke("status", "--short")
         self.assertEqual(result.exit_code, ArchiveUnavailable.exit_code)
         self.assertIn("Apple Photos: unavailable", result.stdout)
+        self.assertNotIn("verify --record", result.stdout)
+
+    def test_check_exits_three_only_when_a_command_is_suggested(self):
+        result = self.invoke("status", "--check")
+        self.assertEqual(result.exit_code, 3)
+        self.assertIn("bootstrap incomplete", result.stdout)
+        self.assertIn("Next: ", result.output)
+        self.assertIn("bootstrap", result.output)
+
+        with mock.patch("photos_backup.cli.status.print_short_status", return_value=[]):
+            self.assertEqual(self.invoke("status", "--check").exit_code, 0)
+        self.assertEqual(self.invoke("status", "--check", "--json").exit_code, 2)
 
     def test_short_and_json_show_new_freshness_hints(self):
         paths = self.initialized_archive(last_successful_export_at=EARLY)

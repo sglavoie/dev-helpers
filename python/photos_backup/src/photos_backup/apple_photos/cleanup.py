@@ -177,13 +177,19 @@ def reconcile_mirror(
 
     deleted, now = _delete(archive, reconciliation.candidates)
     archive.state_store.update(last_mirror_completed_at=now)
+    reason = (
+        f"{len(deleted)} archive file(s) the library no longer has were deleted"
+        if deleted
+        else ALREADY_MIRRORED
+    )
+    if reconciliation.unidentifiable:
+        reason += (
+            f"; {reconciliation.unidentifiable} export-database record(s) have no "
+            "iCloud GUID, so their deletions cannot be mirrored"
+        )
     return MirrorOutcome(
         status=MirrorStatus.APPLIED if deleted else MirrorStatus.CLEAN,
-        reason=(
-            f"{len(deleted)} archive file(s) the library no longer has were deleted"
-            if deleted
-            else ALREADY_MIRRORED
-        ),
+        reason=reason,
         reconciliation=reconciliation,
         deleted=deleted,
         completed_at=now,
@@ -305,15 +311,33 @@ def discard_cleanup(archive: Archive, run_id: str) -> CleanupDiscard:
 
 
 def archive_files(paths: ArchivePaths) -> tuple[ArchiveFile, ...]:
-    """Every real file in the archive except the metadata photos-backup owns."""
-    metadata = paths.metadata
+    """Every real file in the archive except the metadata photos-backup owns.
+
+    One `scandir` pass with one `stat` per file; symlinked directories are not
+    descended, and a file that vanishes mid-scan is simply not present.
+    """
     found: list[ArchiveFile] = []
-    for path in sorted(paths.archive.rglob("*")):
-        if metadata in path.parents or is_ignored(path) or not path.is_file():
-            continue
-        status = path.stat()
-        found.append(ArchiveFile(path=path, size=status.st_size, mtime=status.st_mtime))
-    return tuple(found)
+    pending = [paths.archive]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if entry.is_dir(follow_symlinks=False):
+                    if path != paths.metadata:
+                        pending.append(path)
+                    continue
+                if is_ignored(path):
+                    continue
+                try:
+                    if not entry.is_file():
+                        continue
+                    status = entry.stat()
+                except FileNotFoundError:
+                    continue
+                found.append(
+                    ArchiveFile(path=path, size=status.st_size, mtime=status.st_mtime)
+                )
+    return tuple(sorted(found, key=lambda item: item.path))
 
 
 def new_run_id(hostname: str, now: datetime.datetime) -> str:

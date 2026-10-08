@@ -133,22 +133,29 @@ def _inspect_files(
     archive: Path,
     progress: ExportProgress | None = None,
 ) -> tuple[dict[Path, os.stat_result], dict[Path, str]]:
-    """Inspect each path once without following symlinks beneath the archive."""
+    """Inspect each path once without following symlinks beneath the archive.
+
+    Each directory is checked once and remembered, so a dated layout costs about
+    one `lstat` per file instead of one per path component.
+    """
     statuses: dict[Path, os.stat_result] = {}
     errors: dict[Path, str] = {}
+    directories: dict[Path, str | None] = {}
     for record in files:
         path = record.path
-        current = archive
         try:
             if not path.is_relative_to(archive) or path == archive:
                 raise OSError("not a file beneath the archive")
-            for part in path.relative_to(archive).parts:
+            current = archive
+            for part in path.relative_to(archive).parts[:-1]:
                 current = current / part
-                status = current.lstat()
-                if stat.S_ISLNK(status.st_mode):
-                    raise OSError(f"symlink at '{current}'")
-                if current != path and not stat.S_ISDIR(status.st_mode):
-                    raise OSError(f"not a directory: '{current}'")
+                if current not in directories:
+                    directories[current] = _directory_problem(current)
+                if (problem := directories[current]) is not None:
+                    raise OSError(problem)
+            status = path.lstat()
+            if stat.S_ISLNK(status.st_mode):
+                raise OSError(f"symlink at '{path}'")
             if not stat.S_ISREG(status.st_mode):
                 raise OSError("not a regular file")
             statuses[path] = status
@@ -158,6 +165,19 @@ def _inspect_files(
             if progress:
                 progress.asset_done()
     return statuses, errors
+
+
+def _directory_problem(directory: Path) -> str | None:
+    """Why a path component is not a real directory, or None when it is."""
+    try:
+        status = directory.lstat()
+    except OSError as error:
+        return str(error)
+    if stat.S_ISLNK(status.st_mode):
+        return f"symlink at '{directory}'"
+    if not stat.S_ISDIR(status.st_mode):
+        return f"not a directory: '{directory}'"
+    return None
 
 
 def _check_export_database(

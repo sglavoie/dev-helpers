@@ -4,6 +4,7 @@ import rich_click as click
 
 from photos_backup.cli.context import config_path_from
 from photos_backup.cli.outcome import raise_for_summaries
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.config import load_optional, load_sd_card_config, load_ssd_config
 from photos_backup.ssd.backup import Backup
 from photos_backup.summary import print_summary
@@ -24,6 +25,7 @@ from photos_backup.transfers import TransferHistory
     is_flag=True,
     help="List the changes rsync would make without changing the SSD.",
 )
+@notify_on_problems
 @click.pass_context
 def ssd(
     ctx: click.Context,

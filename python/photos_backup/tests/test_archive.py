@@ -200,6 +200,20 @@ class ArchiveLockTests(ArchiveTestCase):
         with open_archive(self.config, probes=self.probes) as archive:
             self.assertTrue(archive.paths.lock_file.is_file())
 
+    def test_a_reader_blocking_a_writer_is_not_blamed_on_a_finished_run(
+        self,
+    ) -> None:
+        with open_archive(self.config, probes=self.probes) as archive:
+            lock_file = archive.paths.lock_file
+        self.assertEqual(lock_file.read_text(), "")
+
+        with open_archive(self.config, dry_run=True, probes=self.probes):
+            with self.assertRaises(ArchiveLocked) as caught:
+                with open_archive(self.config, probes=self.probes):
+                    self.fail("a writer must wait for the reader")
+        self.assertIn("a reader such as verify", str(caught.exception))
+        self.assertNotIn("pid", str(caught.exception))
+
     def test_lock_is_released_after_a_failure(self) -> None:
         with self.assertRaises(RuntimeError):
             with open_archive(self.config, probes=self.probes):

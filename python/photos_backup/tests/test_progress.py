@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from photos_backup.apple_photos.adapter import _export_progress
-from photos_backup.progress import ExportProgress
+from photos_backup.progress import ExportProgress, live_terminal
 
 
 class ProgressTests(unittest.TestCase):
@@ -17,6 +17,15 @@ class ProgressTests(unittest.TestCase):
         return ExportProgress(
             clock=lambda: self.now, sink=self.lines.append, terminal=terminal
         )
+
+    def test_a_dumb_terminal_gets_plain_lines(self):
+        tty = SimpleNamespace(isatty=lambda: True)
+        with mock.patch(
+            "photos_backup.progress.click.get_text_stream", return_value=tty
+        ):
+            for term, expected in (("xterm-256color", True), ("dumb", False)):
+                with self.subTest(term), mock.patch.dict("os.environ", TERM=term):
+                    self.assertIs(live_terminal("stderr"), expected)
 
     def test_redirected_heartbeat_and_remaining_budget(self):
         progress = self.reporter()

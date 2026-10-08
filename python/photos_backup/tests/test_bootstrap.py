@@ -9,10 +9,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from photos_backup.apple_photos.adapter import PhotosProbes
+from photos_backup.apple_photos.takeover import _foreign_entries
 from photos_backup.apple_photos.bootstrap import (
     FRESH_REASON,
     RESUME_REASON,
-    _foreign_entries,
     bootstrap_archive,
 )
 from photos_backup.apple_photos.identity import (

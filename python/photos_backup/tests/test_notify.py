@@ -7,6 +7,7 @@ from unittest import mock
 import click
 from click.testing import CliRunner
 
+from photos_backup.cli.cli import cli
 from photos_backup.cli.notify import notify_on_problems, post_notification
 from photos_backup.errors import ActionRequired
 from tests.transfer_case import TransferTestCase
@@ -94,6 +95,14 @@ class PostNotificationTests(unittest.TestCase):
                 post_notification("title", "message")
 
 
+class NotifyOptionTests(unittest.TestCase):
+    def test_every_schedulable_command_accepts_notify(self):
+        for name in ("daily", "backup-all", "verify", "sd-card", "ssd", "remote"):
+            with self.subTest(name):
+                options = {param.name for param in cli.commands[name].params}
+                self.assertIn("notify", options)
+
+
 class PipelineNotifyTests(TransferTestCase):
     def test_backup_all_accepts_notify_and_stays_silent_when_nothing_fails(self):
         self.config.write_text("")
@@ -102,6 +111,23 @@ class PipelineNotifyTests(TransferTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         post.assert_not_called()
+
+    def test_a_failed_ssd_copy_notifies_and_keeps_exit_one(self):
+        self.add_photo(self.source)
+        self.config.write_text(
+            f'[ssd]\nsource = "{self.source}"\ndestination = "{self.destination}"\n'
+        )
+        failure = subprocess.CalledProcessError(23, ["rsync"], output="rsync error")
+        with (
+            mock.patch("photos_backup.cli.notify.post_notification") as post,
+            mock.patch("photos_backup.ssd.backup.stream_command", side_effect=failure),
+            mock.patch("photos_backup.space.click.echo"),
+        ):
+            result = self.invoke("ssd", "--notify")
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        post.assert_called_once()
+        self.assertEqual(post.call_args.args[0], "photos-backup ssd failed")
 
 
 if __name__ == "__main__":

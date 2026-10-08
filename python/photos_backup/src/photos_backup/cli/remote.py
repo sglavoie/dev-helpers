@@ -2,6 +2,7 @@ import rich_click as click
 
 from photos_backup.cli.context import config_path_from
 from photos_backup.cli.outcome import raise_for_summaries
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.config import load_rclone_config, resolve_rclone_source
 from photos_backup.remote.backup import Backup
 from photos_backup.summary import print_summary
@@ -13,6 +14,7 @@ from photos_backup.transfers import TransferHistory
 @click.option(
     "--delete", is_flag=True, help="Delete remote files absent from the source."
 )
+@notify_on_problems
 @click.pass_context
 def remote(ctx: click.Context, dry_run: bool, delete: bool) -> None:
     config_path = config_path_from(ctx)

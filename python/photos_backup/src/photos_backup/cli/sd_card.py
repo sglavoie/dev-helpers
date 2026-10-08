@@ -2,6 +2,7 @@ import rich_click as click
 
 from photos_backup.cli.context import config_path_from
 from photos_backup.cli.outcome import raise_for_summaries
+from photos_backup.cli.notify import notify_on_problems
 from photos_backup.config import load_sd_card_config
 from photos_backup.sd_card.backup import Backup
 from photos_backup.summary import print_summary
@@ -17,6 +18,7 @@ from photos_backup.transfers import TransferHistory
     is_flag=True,
     help="List the files rsync would copy without copying them.",
 )
+@notify_on_problems
 @click.pass_context
 def sd_card(
     ctx: click.Context,

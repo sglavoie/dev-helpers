@@ -230,6 +230,9 @@ def is_earlier_month(
 ) -> bool:
     if content_date is None or comparison_date is None:
         return False
+    # Spotlight reports UTC, but export folders use the photo's local month.
+    content_date = content_date.astimezone()
+    comparison_date = comparison_date.astimezone()
     return (content_date.year, content_date.month) < (
         comparison_date.year,
         comparison_date.month,

@@ -41,6 +41,8 @@ class Reconciliation:
     changed: tuple[Path, ...]
     unknown: tuple[Path, ...]
     ambiguous: tuple[Path, ...]
+    # Records without an iCloud GUID cannot be matched, so they are never deleted.
+    unidentifiable: int = 0
 
 
 def plan_reconciliation(
@@ -94,6 +96,7 @@ def plan_reconciliation(
         changed=tuple(sorted(changed)),
         unknown=tuple(sorted(set(on_disk) - set(claimants))),
         ambiguous=tuple(sorted(ambiguous)),
+        unidentifiable=comparison.unidentifiable,
     )
 
 

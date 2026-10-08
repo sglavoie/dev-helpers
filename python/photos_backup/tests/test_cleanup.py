@@ -12,10 +12,12 @@ from photos_backup.apple_photos.cleanup import (
     ALREADY_MIRRORED,
     MirrorStatus,
     approve_cleanup,
+    archive_files,
     discard_cleanup,
     reconcile_mirror,
 )
 from photos_backup.apple_photos.files import prune_emptied_parents
+from photos_backup.apple_photos.identity import AssetIdentity
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
 from photos_backup.archive import (
     ArchivePaths,
@@ -206,6 +208,21 @@ class AutomaticMirrorTests(MirrorTestCase):
         self.assertTrue(self.gone.is_file())
         self.assertEqual(self.state.last_mirror_completed_at, THURSDAY)
 
+    def test_records_without_an_icloud_guid_are_named_in_the_outcome(self) -> None:
+        local_only = AssetIdentity(
+            uuid="local", cloud_guid=None, original_filename="local"
+        )
+        outcome = self.reconcile(
+            probes=self.probes(
+                library=(asset("kept"), asset("gone")),
+                recorded=(asset("kept"), asset("gone"), local_only),
+                files=self.records,
+            )
+        )
+
+        self.assertIs(outcome.status, MirrorStatus.CLEAN)
+        self.assertIn("1 export-database record(s) have no iCloud GUID", outcome.reason)
+
     def test_macos_metadata_is_neither_deleted_nor_unexplained(self) -> None:
         stray = self.write_photo("2026/08/.DS_Store", b"finder")
 
@@ -247,6 +264,29 @@ class RelativeRecordTests(MirrorTestCase):
         self.assertIn("no export-database record", outcome.reason)
         self.assertEqual(outcome.reconciliation.unknown, (self.gone,))
         self.assertTrue(self.gone.is_file())
+
+
+class ArchiveFilesTests(unittest.TestCase):
+    def test_lists_real_files_sorted_without_metadata_or_finder_clutter(self) -> None:
+        root = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
+        paths = ArchivePaths(volume=root, archive=root / "archive")
+        create_archive_tree(paths)
+        outside = root / "outside"
+        outside.mkdir()
+        (outside / "elsewhere.jpg").write_bytes(b"not archived")
+        for relative in ("2026/08/b.jpg", "2019/07/a.jpg", "2019/07/.DS_Store"):
+            target = paths.archive / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"x")
+        (paths.metadata / "state.json").write_text("{}")
+        (paths.archive / "linked-folder").symlink_to(outside)
+
+        found = [item.path for item in archive_files(paths)]
+
+        self.assertEqual(
+            found,
+            [paths.archive / "2019/07/a.jpg", paths.archive / "2026/08/b.jpg"],
+        )
 
 
 class PruneEmptiedParentsTests(unittest.TestCase):

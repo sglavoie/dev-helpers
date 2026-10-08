@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING
 from photos_backup.cli.context import suggested_command
 from photos_backup.apple_photos.adapter import PhotosProbes
 from photos_backup.apple_photos.export import ApplePhotosExport
-from photos_backup.apple_photos.files import is_ignored
 from photos_backup.apple_photos.identity import CoverageReport, assess_coverage
 from photos_backup.apple_photos.late_additions import MetadataReader
 from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
-from photos_backup.apple_photos.takeover import TakeoverCheck, ensure_writer
-from photos_backup.archive.errors import ArchiveUnavailable
-from photos_backup.archive.paths import METADATA_DIR_NAME, ArchivePaths
+from photos_backup.apple_photos.takeover import (
+    TakeoverCheck,
+    ensure_writer,
+    refuse_foreign_archive,
+)
 from photos_backup.errors import ActionRequired
 
 if TYPE_CHECKING:
@@ -26,9 +27,6 @@ if TYPE_CHECKING:
 
 FRESH_REASON = "bootstrapping a fresh archive"
 RESUME_REASON = "resuming an interrupted bootstrap"
-
-# How many stray names to name before the message stops being useful.
-_FOREIGN_SAMPLE = 5
 
 
 @dataclass(frozen=True)
@@ -144,31 +142,5 @@ def _require_bootstrappable(archive: Archive, state: ArchiveState) -> bool:
     if recognized:
         return True
 
-    foreign = _foreign_entries(paths)
-    if foreign:
-        listed = ", ".join(f"'{name}'" for name in foreign[:_FOREIGN_SAMPLE])
-        raise ActionRequired(
-            f"Archive '{paths.archive}' already holds {len(foreign)} entry(ies) "
-            f"({listed}) but no photos-backup metadata; bootstrap only accepts an "
-            "empty archive or one it left incomplete itself, so move the existing "
-            "contents aside or point [apple_photos] archive somewhere empty"
-        )
+    refuse_foreign_archive(paths, "bootstrap")
     return False
-
-
-def _foreign_entries(paths: ArchivePaths) -> tuple[str, ...]:
-    """Archive entries photos-backup does not own, in a stable order."""
-    try:
-        entries = sorted(paths.archive.iterdir())
-    except FileNotFoundError:
-        return ()
-    except OSError as error:
-        # An unreadable archive must not pass for an empty one.
-        raise ArchiveUnavailable(
-            f"Could not list archive '{paths.archive}': {error}"
-        ) from error
-    return tuple(
-        entry.name
-        for entry in entries
-        if entry.name != METADATA_DIR_NAME and not is_ignored(entry)
-    )
