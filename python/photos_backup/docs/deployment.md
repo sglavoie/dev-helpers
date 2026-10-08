@@ -73,6 +73,8 @@ never export for real.
 6. Add the `dailyCompanions` entry above to that Mac's goback profile, or
    schedule `photos-backup daily --notify` directly, which posts a macOS
    notification for exit 3 (or a failure) rather than an alarm.
+   Either way, add the [status watchdog](scheduling.md) so a schedule that
+   stops running gets noticed.
 7. Only once all of that holds, run `photos-backup cleanup-local-export` to
    retire `~/Pictures/export`.
 

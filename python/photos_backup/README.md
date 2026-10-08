@@ -92,6 +92,7 @@ primary archive, not the SSD/cloud copies, and does not checksum file contents.
 - [SD-card, SSD, and cloud copies](docs/transfers.md): previews, failures, and deletion flags.
 - [Archive safety and cleanup](docs/archive-safety.md): locking, state layout,
   deletion approval, retiring the legacy export, and cross-Mac takeover.
+- [Scheduling](docs/scheduling.md): a launchd `status --check` watchdog, and launchd gotchas.
 - [Deployment and migration](docs/deployment.md): stow, goback, a new Mac,
   and migrating the old environment configuration.
 - [Restore rehearsal](docs/restore.md): recover sample media from SSD and cloud.
