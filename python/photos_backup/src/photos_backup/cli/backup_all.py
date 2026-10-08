@@ -66,15 +66,16 @@ T = TypeVar("T")
     help="Seconds allowed for missing-file retrieval per asset, across retries. No total run limit.",
 )
 @click.option(
-    "--delete-remote", is_flag=True, help="Delete remote files absent from its source."
+    "--delete-remote", is_flag=True, help="Delete remote files absent from the source."
 )
 @click.option(
     "--delete-ssd",
-    "--delete",
     "delete",
     is_flag=True,
     help="Delete SSD files absent from their source.",
 )
+# The older spelling keeps working without competing with --delete-ssd in help.
+@click.option("--delete", "delete_alias", is_flag=True, hidden=True)
 @click.option("--skip-apple-photos", is_flag=True, help="Skip Apple Photos export.")
 @click.option("--skip-sd-card", is_flag=True, help="Skip SD card backup.")
 @click.option("--skip-ssd", is_flag=True, help="Skip SSD backup.")
@@ -85,12 +86,14 @@ def backup_all(
     dry_run: bool,
     download_timeout: int,
     delete: bool,
+    delete_alias: bool,
     delete_remote: bool,
     skip_apple_photos: bool,
     skip_sd_card: bool,
     skip_ssd: bool,
     skip_remote: bool,
 ) -> None:
+    delete = delete or delete_alias
     # A --volume override re-points the Apple Photos step only; the SSD and
     # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
@@ -321,16 +324,12 @@ def _export_apple_photos(
             archive = stack.enter_context(open_archive(config, dry_run=dry_run))
         with progress.phase("Checking archive writer"):
             takeover = ensure_writer(config, archive)
-        if takeover.status is not WriterStatus.UNCHANGED:
-            print_takeover_check(takeover, dry_run=dry_run)
         progress.message(
             f"Missing downloads: {download_timeout}s per asset; no total run limit."
         )
         result = ApplePhotosExport(
             config=config,
             archive=archive,
-            verbose=dry_run,
-            limit=config.limit_export if dry_run else 0,
             plan_only=dry_run,
             progress=progress,
             runner=partial(
@@ -339,6 +338,9 @@ def _export_apple_photos(
                 progress=progress,
             ),
         ).export()
+    # After the live status line has finished, so this starts on its own line.
+    if takeover.status is not WriterStatus.UNCHANGED:
+        print_takeover_check(takeover, dry_run=dry_run)
     print_export_result(result, dry_run=dry_run)
     return result.summary()
 

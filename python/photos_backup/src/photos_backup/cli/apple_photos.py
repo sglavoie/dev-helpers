@@ -18,7 +18,10 @@ from photos_backup.summary import print_export_result, print_takeover_check
 
 @click.command(
     name="apple-photos",
-    help="Export Apple Photos manually. Extra flags are forwarded to osxphotos.",
+    help="Export Apple Photos manually. Extra flags are forwarded to osxphotos export.",
+    epilog="Example: photos-backup --volume /Volumes/T7 apple-photos "
+    "--album Holiday --limit 50",
+    options_metavar="[OPTIONS] [OSXPHOTOS EXPORT OPTIONS]...",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
 @click.option(

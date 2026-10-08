@@ -10,7 +10,10 @@ from unittest import mock
 import click
 from click.testing import CliRunner
 
+from photos_backup.apple_photos.identity import WriterStatus
+from photos_backup.apple_photos.takeover import TakeoverCheck
 from photos_backup.cli.apple_photos import _parse_extra_args
+from photos_backup.cli.backup_all import _export_apple_photos, backup_all
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
 from photos_backup.summary import (
@@ -316,6 +319,58 @@ class ForwardedOsxphotosOptionTests(unittest.TestCase):
             _parse_extra_args(["--library", "/elsewhere.photoslibrary"])
         self.assertIn("Archive-managed option(s)", raised.exception.format_message())
         self.assertIn("--db", raised.exception.format_message())
+
+
+class BackupAllTweaksTests(unittest.TestCase):
+    def test_help_shows_only_the_current_ssd_deletion_flag(self):
+        result = CliRunner().invoke(cli, ["backup-all", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("--delete-ssd", result.output)
+        options = {param.name: param for param in backup_all.params}
+        self.assertTrue(options["delete_alias"].hidden)
+        self.assertIn("absent from the source", options["delete_remote"].help)
+        self.assertNotIn("--delete ", result.output)
+        self.assertNotIn("--delete,", result.output)
+
+    def test_takeover_is_printed_after_the_live_status_line(self):
+        events = []
+
+        class Progress:
+            def __enter__(self):
+                events.append("progress started")
+                return mock.MagicMock()
+
+            def __exit__(self, *_):
+                events.append("progress finished")
+
+        config = mock.Mock(limit_export=25)
+        with (
+            mock.patch("photos_backup.cli.backup_all.ExportProgress", Progress),
+            mock.patch("photos_backup.cli.backup_all.open_archive"),
+            mock.patch(
+                "photos_backup.cli.backup_all.ensure_writer",
+                return_value=TakeoverCheck(WriterStatus.CLAIMED, "this.local"),
+            ),
+            mock.patch("photos_backup.cli.backup_all.ApplePhotosExport") as exporter,
+            mock.patch(
+                "photos_backup.cli.backup_all.print_takeover_check",
+                side_effect=lambda *_, **__: events.append("takeover"),
+            ),
+            mock.patch("photos_backup.cli.backup_all.print_export_result"),
+        ):
+            _export_apple_photos(config, dry_run=True, download_timeout=5)
+        self.assertEqual(events, ["progress started", "progress finished", "takeover"])
+        self.assertNotIn("verbose", exporter.call_args.kwargs)
+        self.assertNotIn("limit", exporter.call_args.kwargs)
+        self.assertTrue(exporter.call_args.kwargs["plan_only"])
+
+
+class ApplePhotosHelpTests(unittest.TestCase):
+    def test_usage_shows_forwarded_options_and_an_example(self):
+        result = CliRunner().invoke(cli, ["apple-photos", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("[OSXPHOTOS EXPORT OPTIONS]...", result.output)
+        self.assertIn("apple-photos --album Holiday", result.output)
 
 
 if __name__ == "__main__":
