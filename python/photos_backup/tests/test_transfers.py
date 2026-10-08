@@ -13,7 +13,8 @@ from photos_backup.cli.cli import cli
 from photos_backup.config import SdCardConfig, SsdConfig
 from photos_backup.errors import ActionRequired
 from photos_backup.ssd.backup import Backup as SsdBackup
-from photos_backup.summary import BackupSummary, print_transfer_history
+from photos_backup.summary import BackupSummary
+from photos_backup.status_report import print_transfer_history
 from photos_backup.transfers import TransferHistory
 from tests import isolate_transfer_history
 
@@ -253,7 +254,7 @@ class TransferHistoryTests(unittest.TestCase):
         receipt = self.receipt()
         self.assertEqual(receipt["last_success"]["mode"], "copy")
         self.assertEqual(receipt["last_attempt"]["mode"], "mirror")
-        with mock.patch("photos_backup.summary.click.echo") as echo:
+        with mock.patch("photos_backup.status_report.click.echo") as echo:
             print_transfer_history([receipt], [])
         output = "\n".join(str(call.args[0]) for call in echo.call_args_list)
         self.assertIn("Attempt mode: mirror (deletions enabled)", output)
@@ -264,7 +265,7 @@ class TransferHistoryTests(unittest.TestCase):
         for field in ("last_attempt", "last_success"):
             receipt[field].pop("mode")
         path.write_text(json.dumps(receipt))
-        with mock.patch("photos_backup.summary.click.echo") as echo:
+        with mock.patch("photos_backup.status_report.click.echo") as echo:
             print_transfer_history([self.receipt()], [])
         self.assertEqual(
             sum(
@@ -407,14 +408,14 @@ class TransferHistoryTests(unittest.TestCase):
         now = datetime.datetime.fromisoformat(
             receipts[0]["last_success"]["completed_at"]
         ) + datetime.timedelta(days=3)
-        with mock.patch("photos_backup.summary.click.echo") as echo:
+        with mock.patch("photos_backup.status_report.click.echo") as echo:
             print_transfer_history(receipts, errors, now=now)
         output = "\n".join(call.args[0] for call in echo.call_args_list)
         self.assertIn("3 days ago", output)
         self.assertIn("offline", output)
         self.assertIn("0 files, 0 B, 2.5s", output)
         receipts[0]["last_success"].pop("elapsed_seconds")
-        with mock.patch("photos_backup.summary.click.echo"):
+        with mock.patch("photos_backup.status_report.click.echo"):
             print_transfer_history(receipts, errors, now=now)
 
     def test_invalid_receipt_schema_is_reported(self):
@@ -584,7 +585,7 @@ class TransferHistoryTests(unittest.TestCase):
                         if never_succeeded
                         else receipt["last_success"],
                     }
-                    with mock.patch("photos_backup.summary.click.echo") as echo:
+                    with mock.patch("photos_backup.status_report.click.echo") as echo:
                         print_transfer_history([row], [])
                     lines = [call.args[0] for call in echo.call_args_list]
                     attention = [line for line in lines if "Attention:" in line]

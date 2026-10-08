@@ -20,7 +20,8 @@ The package lives under `src/photos_backup/`:
 | `config.py` | Load and validate the TOML file into frozen dataclasses |
 | `archive/` | Path resolution, mount and symlink safety, locking, versioned state |
 | `apple_photos/` | Export planning, identity and takeover, reconciliation, cleanup, verification |
-| `summary.py` | Every line the commands print |
+| `summary.py` | What backup, export, cleanup, and verification commands print |
+| `status_report.py` | What `status` prints: recorded exports, transfers, and verification |
 | `presentation.py` | Terminal tables and redirected error formatting |
 | `errors.py` | `ActionRequired`, the exit-code-3 exception |
 | `exclude.py` | The shared `--exclude-from` argument helper |

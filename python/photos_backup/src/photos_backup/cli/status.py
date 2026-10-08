@@ -19,7 +19,7 @@ from photos_backup.config import (
     load_rclone_config,
     resolve_rclone_source,
 )
-from photos_backup.summary import (
+from photos_backup.status_report import (
     print_archive_status,
     print_export_attempt,
     print_transfer_history,

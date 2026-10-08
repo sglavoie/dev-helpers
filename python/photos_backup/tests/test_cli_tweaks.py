@@ -16,11 +16,8 @@ from photos_backup.cli.apple_photos import _parse_extra_args
 from photos_backup.cli.backup_all import _export_apple_photos, backup_all
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
-from photos_backup.summary import (
-    parse_rsync_stats,
-    print_mirror_outcome,
-    print_transfer_history,
-)
+from photos_backup.summary import parse_rsync_stats, print_mirror_outcome
+from photos_backup.status_report import print_transfer_history
 
 # Captured from macOS /usr/bin/rsync (openrsync, protocol 29) with -ah --stats.
 OPENRSYNC_STATS = """\

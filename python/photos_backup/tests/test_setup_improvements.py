@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
-from photos_backup.summary import print_transfer_history
+from photos_backup.status_report import print_transfer_history
 from photos_backup.transfers import annotate_upstream_freshness
 from tests.test_cli import ArchiveCommandTestCase
 from tests.test_takeover import asset, write_export_db
