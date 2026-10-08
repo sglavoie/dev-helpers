@@ -401,7 +401,7 @@ def _worker(request: Path, response: Path) -> None:
     exporter = PhotoExporter(photo)
     exporter._temp_dir_path = request.parent
     options = ExportOptions(**document["options"])
-    # osxphotos 0.76.1's RAW branch writes StagedFiles.uuids although its
+    # The pinned osxphotos's RAW branch writes StagedFiles.uuids although its
     # constructor omits it. Supply the unused bookkeeping map only in the child;
     # the parent still uses the ordinary StagedFiles wire format.
     with patch("osxphotos.photoexporter.StagedFiles", _WorkerStagedFiles):

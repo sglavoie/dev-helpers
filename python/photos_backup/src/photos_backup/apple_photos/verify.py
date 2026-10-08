@@ -14,6 +14,7 @@ from photos_backup.apple_photos.adapter import (
     ExportedFile,
     PhotosProbes,
     export_db_version_supported,
+    unsupported_export_db_reason,
     resolve_export_files,
 )
 from photos_backup.archive.errors import ArchiveError
@@ -182,8 +183,7 @@ def _check_export_database(
         return Check(
             EXPORT_DATABASE,
             False,
-            f"schema version {version or 'unknown'} is not one this osxphotos "
-            "can read; upgrade photos-backup",
+            unsupported_export_db_reason(version),
         )
 
     outside = [

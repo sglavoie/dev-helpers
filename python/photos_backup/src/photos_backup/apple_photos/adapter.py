@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 from osxphotos import PhotosDB
 from osxphotos.cli.export import export_cli
+from osxphotos._version import __version__ as osxphotos_version
 from osxphotos.export_db import OSXPHOTOS_EXPORTDB_VERSION
 from osxphotos.export_db_utils import export_db_migrate_photos_library
 
@@ -241,6 +242,15 @@ def export_db_version_supported(version: str | None) -> bool:
         return float(version) <= float(OSXPHOTOS_EXPORTDB_VERSION)
     except ValueError:
         return False
+
+
+def unsupported_export_db_reason(version: str | None) -> str:
+    """Explain an export database newer than the pinned osxphotos can safely use."""
+    return (
+        f"schema version {version or 'unknown'} is newer than this osxphotos "
+        f"{osxphotos_version} supports (up to {OSXPHOTOS_EXPORTDB_VERSION}); a newer "
+        "osxphotos last wrote it, so update photos-backup and its osxphotos pin"
+    )
 
 
 def run_export_db_migration(

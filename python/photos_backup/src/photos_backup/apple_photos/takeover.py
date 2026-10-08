@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from photos_backup.apple_photos.adapter import (
     PhotosProbes,
     export_db_version_supported,
+    unsupported_export_db_reason,
 )
 from photos_backup.apple_photos.identity import (
     AssetIdentity,
@@ -63,17 +64,25 @@ def ensure_writer(
 ) -> TakeoverCheck:
     """Let this Mac write the archive, migrating the export database if it must.
 
-    An unchanged writer costs one state read and never opens the Photos library.
+    An unchanged writer costs one state read and a schema-version read, and
+    never opens the Photos library.
     """
     active = probes or PhotosProbes()
     previous = archive.state_store.load().writer_hostname
     host = archive.hostname
+    export_db = archive.paths.export_db
     if previous == host:
+        if export_db.exists():
+            version = active.read_export_db_version(export_db)
+            if not export_db_version_supported(version):
+                raise ActionRequired(
+                    f"Export database '{export_db}': "
+                    f"{unsupported_export_db_reason(version)} before exporting again"
+                )
         return TakeoverCheck(
             status=WriterStatus.UNCHANGED, hostname=host, previous_hostname=previous
         )
 
-    export_db = archive.paths.export_db
     recorded = active.read_export_db(export_db)
     if not recorded:
         archive.state_store.update(writer_hostname=host)
@@ -84,9 +93,8 @@ def ensure_writer(
     version = active.read_export_db_version(export_db)
     if not export_db_version_supported(version):
         raise ActionRequired(
-            f"Export database '{export_db}' reports schema version "
-            f"{version or 'unknown'}, which this osxphotos cannot migrate; "
-            f"upgrade photos-backup on '{host}' before taking over the archive"
+            f"Export database '{export_db}': {unsupported_export_db_reason(version)} "
+            f"on '{host}' before taking over the archive"
         )
 
     library_assets = active.read_library(config.library)

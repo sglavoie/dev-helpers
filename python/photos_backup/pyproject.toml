@@ -1,12 +1,12 @@
 [project]
 name = "photos_backup"
 version = "0.1.0"
-description = "Simple backup solution for Apple Photos on macOS"
+description = "Opinionated backup solution for Apple Photos on macOS"
 authors = [{ name = "Sébastien Lavoie", email = "sgdlavoie@gmail.com" }]
 dependencies = [
     "click>=8.4.2",
     # Private PhotoKit/export hooks are tested against this exact release.
-    "osxphotos==0.76.1",
+    "osxphotos==0.77.2",
     "rich>=13.5.2,<14",
     "rich-click>=1.9,<2",
 ]

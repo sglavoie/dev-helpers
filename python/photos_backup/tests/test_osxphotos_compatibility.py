@@ -15,7 +15,7 @@ from tests.test_export import make_config
 
 class OsxphotosCompatibilityTests(unittest.TestCase):
     def test_installation_uses_the_tested_release(self):
-        supported = "0.76.1"
+        supported = "0.77.2"
         self.assertEqual(version("osxphotos"), supported)
         self.assertIn(f"osxphotos=={supported}", requires("photos_backup"))
 

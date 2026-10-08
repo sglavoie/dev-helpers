@@ -54,6 +54,18 @@ class EnsureWriterTests(TakeoverTestCase):
         self.assertIn("12.0", str(raised.exception))
         self.assertEqual(self.writer(), OLD_HOST)
 
+    def test_an_unsupported_export_database_blocks_the_same_writer(self) -> None:
+        self.set_writer(NEW_HOST)
+        write_export_db(
+            self.paths.export_db, (asset("old-1", "guid-1"),), version="12.0"
+        )
+
+        with self.archive() as opened, self.assertRaises(ActionRequired) as raised:
+            ensure_writer(self.config, opened, probes=self.probes(()))
+
+        self.assertIn("12.0", str(raised.exception))
+        self.assertIn("before exporting again", str(raised.exception))
+
     def test_a_takeover_migrates_changed_uuids_and_records_the_writer(self) -> None:
         self.set_writer(OLD_HOST)
         write_export_db(

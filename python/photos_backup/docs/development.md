@@ -44,7 +44,7 @@ terminals. Pass data as `Text` so filenames and error messages containing bracke
 are never interpreted as markup. Keep Rich within the range required by the pinned
 `osxphotos` release (currently `>=13.5.2,<14`).
 
-`osxphotos` is pinned to exactly `0.76.1` in both package requirements and the
+`osxphotos` is pinned to exactly `0.77.2` in both package requirements and the
 lockfile, including for `uv tool install`. The adapter depends on private export
 and PhotoKit staging hooks. Upgrade deliberately: update the pin and the supported
 version in `tests/test_osxphotos_compatibility.py`, refresh the lockfile, then run
