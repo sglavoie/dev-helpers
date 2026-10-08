@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import re
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, NoReturn, TypeVar
 
 import click
 
@@ -45,8 +46,22 @@ DEFAULT_RCLONE_MAX_DELETE = 1000
 RCLONE_REMOTE = re.compile(r":?[^/:]+:")
 
 
+T = TypeVar("T")
+
+
 class MissingSection(click.UsageError):
     """Raised when a section an optional workflow depends on is absent."""
+
+
+def load_optional(load: Callable[[], T]) -> T | None:
+    """Run a section loader, treating an absent section as unconfigured.
+
+    Any other configuration error, such as an invalid key, still stops the run.
+    """
+    try:
+        return load()
+    except MissingSection:
+        return None
 
 
 @dataclass(frozen=True)

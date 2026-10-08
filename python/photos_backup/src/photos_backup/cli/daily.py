@@ -1,24 +1,18 @@
-import time
 from contextlib import ExitStack
-from functools import partial
 
 import rich_click as click
 
-from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.cleanup import reconcile_mirror
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
-from photos_backup.apple_photos.export import ApplePhotosExport
-from photos_backup.apple_photos.identity import WriterStatus
-from photos_backup.apple_photos.takeover import ensure_writer
-from photos_backup.archive import open_archive
 from photos_backup.cli.context import apple_photos_config_from, suggested_command
+from photos_backup.cli.exporting import (
+    command_timer,
+    export_into_archive,
+    print_export_outcome,
+)
 from photos_backup.errors import ActionRequired
 from photos_backup.progress import ExportProgress
-from photos_backup.summary import (
-    print_export_result,
-    print_mirror_outcome,
-    print_takeover_check,
-)
+from photos_backup.summary import print_mirror_outcome
 
 
 @click.command(
@@ -39,46 +33,25 @@ from photos_backup.summary import (
 )
 @click.pass_context
 def daily(ctx: click.Context, dry_run: bool, download_timeout: int) -> None:
-    started = time.monotonic()
-    try:
-        with ExitStack() as stack:
-            with ExportProgress() as progress:
-                with progress.phase("Checking archive"):
-                    config = apple_photos_config_from(ctx)
-                    archive = stack.enter_context(open_archive(config, dry_run=dry_run))
-                    if not archive.state_store.load().initialized:
-                        raise ActionRequired(
-                            f"Archive '{config.archive}' is not initialized; "
-                            f"run `{suggested_command('bootstrap')}` before the first daily run"
-                        )
-                with progress.phase("Checking archive writer"):
-                    takeover = ensure_writer(config, archive)
-                progress.message(
-                    f"Missing downloads: {download_timeout}s per asset; no total run limit."
-                )
-                result = ApplePhotosExport(
-                    config=config,
-                    archive=archive,
-                    plan_only=dry_run,
-                    progress=progress,
-                    runner=partial(
-                        run_osxphotos_export,
-                        download_timeout=download_timeout,
-                        progress=progress,
-                    ),
-                ).export()
-            # The live status line is closed, so results print on their own
-            # lines; the export result still precedes cleanup reconciliation.
-            if takeover.status is not WriterStatus.UNCHANGED:
-                print_takeover_check(takeover, dry_run=dry_run)
-            print_export_result(result, dry_run=dry_run)
-            with (
-                ExportProgress() as progress,
-                progress.phase("Reconciling archive cleanup"),
-            ):
-                mirror = reconcile_mirror(config, archive, result)
-    finally:
-        click.echo(f"Total command time: {time.monotonic() - started:.1f}s")
+    with command_timer(), ExitStack() as stack:
+        with ExportProgress() as progress:
+            config = apple_photos_config_from(ctx)
+            archive, takeover, result = export_into_archive(
+                stack,
+                progress,
+                config,
+                dry_run=dry_run,
+                download_timeout=download_timeout,
+                require_initialized="daily",
+            )
+        # The live status line is closed, so results print on their own
+        # lines; the export result still precedes cleanup reconciliation.
+        print_export_outcome(takeover, result, dry_run=dry_run)
+        with (
+            ExportProgress() as progress,
+            progress.phase("Reconciling archive cleanup"),
+        ):
+            mirror = reconcile_mirror(config, archive, result)
 
     print_mirror_outcome(mirror, dry_run=dry_run)
     if not result.complete:

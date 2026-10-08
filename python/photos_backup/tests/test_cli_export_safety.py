@@ -27,7 +27,7 @@ class ExportEntryPointTests(ArchiveCommandTestCase):
     def test_both_commands_check_writer_before_export_and_preserve_exit_three(self):
         for command, module in (
             ("apple-photos", "apple_photos"),
-            ("backup-all", "backup_all"),
+            ("backup-all", "exporting"),
         ):
             with (
                 self.subTest(command=command),
@@ -47,7 +47,7 @@ class ExportEntryPointTests(ArchiveCommandTestCase):
     def test_previews_check_writer_without_invoking_exporter_or_creating_archive(self):
         for command, module in (
             ("apple-photos", "apple_photos"),
-            ("backup-all", "backup_all"),
+            ("backup-all", "exporting"),
         ):
             with (
                 self.subTest(command=command),
@@ -170,7 +170,7 @@ class ExportEntryPointTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.backup_all.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 side_effect=ActionRequired("different library"),
             ),
             mock.patch(

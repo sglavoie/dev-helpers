@@ -100,10 +100,10 @@ class CommandHintTests(ArchiveCommandTestCase):
         )
         with (
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=mock.Mock(status=WriterStatus.UNCHANGED),
             ),
-            mock.patch("photos_backup.cli.daily.ApplePhotosExport") as exporter,
+            mock.patch("photos_backup.cli.exporting.ApplePhotosExport") as exporter,
         ):
             exporter.return_value.export.return_value = export
             result = self.runner.invoke(cli, [*self.options, "daily"])

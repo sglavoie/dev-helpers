@@ -1,18 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import rich_click as click
 
 from photos_backup.cli.context import config_path_from
-from photos_backup.config import (
-    MissingSection,
-    SdCardConfig,
-    load_sd_card_config,
-    load_ssd_config,
-)
+from photos_backup.cli.outcome import raise_for_summaries
+from photos_backup.config import load_optional, load_sd_card_config, load_ssd_config
 from photos_backup.ssd.backup import Backup
-from photos_backup.errors import ActionRequired
 from photos_backup.summary import print_summary
 from photos_backup.transfers import TransferHistory
 
@@ -42,21 +35,9 @@ def ssd(
         config=load_ssd_config(config_path),
         delete_at_destination=delete,
         dry_run=dry_run,
-        sd_card=load_optional_sd_card_config(config_path),
+        sd_card=load_optional(lambda: load_sd_card_config(config_path)),
         history=TransferHistory(config_path),
     ).backup()
     for summary in summaries:
         print_summary(summary)
-    failures = [s for s in summaries if s.error and not s.action_required]
-    if failures:
-        raise click.ClickException("; ".join(s.error for s in failures))
-    actions = [s.error for s in summaries if s.error and s.action_required]
-    if actions:
-        raise ActionRequired("; ".join(actions))
-
-
-def load_optional_sd_card_config(config_path: Path | None) -> SdCardConfig | None:
-    try:
-        return load_sd_card_config(config_path)
-    except MissingSection:
-        return None
+    raise_for_summaries(summaries)

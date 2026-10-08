@@ -1,22 +1,20 @@
 from __future__ import annotations
 
 import datetime
-import time
 from contextlib import ExitStack
-from functools import partial
 
 import rich_click as click
 
-from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
-from photos_backup.apple_photos.export import ApplePhotosExport
-from photos_backup.apple_photos.identity import WriterStatus
-from photos_backup.apple_photos.plan import ExportMode, ExportPlan, ExportResult
-from photos_backup.apple_photos.takeover import TakeoverCheck, ensure_writer
-from photos_backup.archive import open_archive
+from photos_backup.apple_photos.plan import ExportMode, ExportPlan
+from photos_backup.archive import Archive
 from photos_backup.cli.context import apple_photos_config_from, suggested_command
+from photos_backup.cli.exporting import (
+    command_timer,
+    export_into_archive,
+    print_export_outcome,
+)
 from photos_backup.progress import ExportProgress
-from photos_backup.summary import print_export_result, print_takeover_check
 
 
 @click.command(help="Back up recent photos/videos without completing a full bootstrap.")
@@ -39,56 +37,27 @@ from photos_backup.summary import print_export_result, print_takeover_check
 )
 @click.pass_context
 def recent(ctx: click.Context, days: int, download_timeout: int, dry_run: bool) -> None:
-    started = time.monotonic()
-    try:
-        with ExportProgress() as progress:
-            takeover, result = _recent_export(
-                ctx, days, download_timeout, dry_run, progress
-            )
-    finally:
-        click.echo(f"Total command time: {time.monotonic() - started:.1f}s")
-    if takeover.status is not WriterStatus.UNCHANGED:
-        print_takeover_check(takeover, dry_run=dry_run)
-    print_export_result(result, dry_run=dry_run)
+    def since(archive: Archive) -> ExportPlan:
+        start = archive.now() - datetime.timedelta(days=days)
+        return ExportPlan(
+            ExportMode.RECENT, f"photos/videos taken since {start.isoformat()}", start
+        )
+
+    with command_timer(), ExitStack() as stack, ExportProgress() as progress:
+        config = apple_photos_config_from(ctx)
+        _, takeover, result = export_into_archive(
+            stack,
+            progress,
+            config,
+            dry_run=dry_run,
+            download_timeout=download_timeout,
+            plan=since,
+            local_first=True,
+        )
+    print_export_outcome(takeover, result, dry_run=dry_run)
     if not result.complete:
         raise click.ClickException(
             "Recent backup is incomplete; review the reports and rerun "
             f"`{suggested_command('recent', '--days', str(days), '--download-timeout', str(download_timeout))}` "
             "to retry missing items. Completed files are retained."
         )
-
-
-def _recent_export(
-    ctx: click.Context,
-    days: int,
-    download_timeout: int,
-    dry_run: bool,
-    progress: ExportProgress,
-) -> tuple[TakeoverCheck, ExportResult]:
-    with ExitStack() as stack:
-        with progress.phase("Checking archive"):
-            config = apple_photos_config_from(ctx)
-            archive = stack.enter_context(open_archive(config, dry_run=dry_run))
-        with progress.phase("Checking archive writer"):
-            takeover = ensure_writer(config, archive)
-        start = archive.now() - datetime.timedelta(days=days)
-        plan = ExportPlan(
-            ExportMode.RECENT, f"photos/videos taken since {start.isoformat()}", start
-        )
-        progress.message(
-            f"Missing downloads: {download_timeout}s per asset; no total run limit."
-        )
-        result = ApplePhotosExport(
-            config,
-            archive,
-            plan=plan,
-            plan_only=dry_run,
-            progress=progress,
-            runner=partial(
-                run_osxphotos_export,
-                download_timeout=download_timeout,
-                local_first=True,
-                progress=progress,
-            ),
-        ).export()
-        return takeover, result

@@ -23,10 +23,11 @@ class DailyTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer", return_value=UNCHANGED_WRITER
+                "photos_backup.cli.exporting.ensure_writer",
+                return_value=UNCHANGED_WRITER,
             ),
             mock.patch(
-                "photos_backup.cli.daily.run_osxphotos_export",
+                "photos_backup.cli.exporting.run_osxphotos_export",
                 side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
             ),
             mock.patch(
@@ -64,21 +65,21 @@ class DailyTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=mock.Mock(status=WriterStatus.CLAIMED),
             ),
             mock.patch(
-                "photos_backup.cli.daily.run_osxphotos_export",
+                "photos_backup.cli.exporting.run_osxphotos_export",
                 side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
             ),
             mock.patch.object(ExportProgress, "__enter__", entering),
             mock.patch.object(ExportProgress, "__exit__", exiting),
             mock.patch(
-                "photos_backup.cli.daily.print_takeover_check",
+                "photos_backup.cli.exporting.print_takeover_check",
                 side_effect=record("takeover"),
             ),
             mock.patch(
-                "photos_backup.cli.daily.print_export_result",
+                "photos_backup.cli.exporting.print_export_result",
                 side_effect=record("export result"),
             ),
             mock.patch(
@@ -115,10 +116,11 @@ class DailyTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer", return_value=UNCHANGED_WRITER
+                "photos_backup.cli.exporting.ensure_writer",
+                return_value=UNCHANGED_WRITER,
             ),
             mock.patch(
-                "photos_backup.cli.daily.run_osxphotos_export",
+                "photos_backup.cli.exporting.run_osxphotos_export",
                 side_effect=lambda arguments, **kwargs: runner(arguments),
             ),
             mock.patch("photos_backup.apple_photos.cleanup._reconcile") as reconcile,
@@ -138,11 +140,11 @@ class DailyTests(ArchiveCommandTestCase):
                 self.subTest(dry_run=dry_run),
                 self.mounted(),
                 mock.patch(
-                    "photos_backup.cli.daily.ensure_writer",
+                    "photos_backup.cli.exporting.ensure_writer",
                     return_value=UNCHANGED_WRITER,
                 ),
                 mock.patch(
-                    "photos_backup.cli.daily.run_osxphotos_export",
+                    "photos_backup.cli.exporting.run_osxphotos_export",
                     side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
                 ) as runner,
             ):
@@ -174,7 +176,7 @@ class DailyTests(ArchiveCommandTestCase):
                 )
 
     def test_invalid_timeout_is_rejected_before_opening_archive(self):
-        with mock.patch("photos_backup.cli.daily.open_archive") as opened:
+        with mock.patch("photos_backup.cli.exporting.open_archive") as opened:
             result = self.runner.invoke(cli, ["daily", "--download-timeout", "0"])
         self.assertEqual(result.exit_code, 2, result.output)
         opened.assert_not_called()
@@ -212,7 +214,7 @@ class DailyTests(ArchiveCommandTestCase):
                 lambda path: Path(path) == self.volume,
             ),
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 side_effect=ActionRequired("that is a different library"),
             ),
         ):
@@ -244,11 +246,11 @@ class DailyTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.daily.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=UNCHANGED_WRITER,
             ),
             mock.patch(
-                "photos_backup.cli.daily.ApplePhotosExport",
+                "photos_backup.cli.exporting.ApplePhotosExport",
                 return_value=mock.Mock(export=lambda: export),
             ),
         ):

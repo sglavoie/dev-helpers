@@ -1,6 +1,7 @@
 import rich_click as click
 
 from photos_backup.cli.context import config_path_from
+from photos_backup.cli.outcome import raise_for_summaries
 from photos_backup.config import load_sd_card_config
 from photos_backup.sd_card.backup import Backup
 from photos_backup.summary import print_summary
@@ -28,3 +29,4 @@ def sd_card(
         history=TransferHistory(config_path_from(ctx)),
     ).backup()
     print_summary(summary)
+    raise_for_summaries([summary])

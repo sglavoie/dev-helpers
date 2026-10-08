@@ -12,9 +12,9 @@ from click.testing import CliRunner
 
 from photos_backup.archive import ArchivePaths, ArchiveState, ArchiveStateStore
 from photos_backup.cli.cli import cli
-from photos_backup.cli.ssd import load_optional_sd_card_config
 from photos_backup.config import (
     load_apple_photos_config,
+    load_optional,
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
@@ -142,7 +142,7 @@ class ConstructionTests(unittest.TestCase):
             config=load_ssd_config(config_path),
             delete_at_destination=False,
             dry_run=True,
-            sd_card=load_optional_sd_card_config(config_path),
+            sd_card=load_optional(lambda: load_sd_card_config(config_path)),
         )
 
         self.assertEqual(backup.source, Path("/Users/tester/Pictures/export"))
@@ -158,7 +158,7 @@ class ConstructionTests(unittest.TestCase):
             config=load_ssd_config(config_path),
             delete_at_destination=False,
             dry_run=True,
-            sd_card=load_optional_sd_card_config(config_path),
+            sd_card=load_optional(lambda: load_sd_card_config(config_path)),
         )
 
         self.assertIsNone(backup.sd_card)
@@ -204,7 +204,7 @@ class ConstructionTests(unittest.TestCase):
         config_path = self.write_config(APPLE_PHOTOS_ONLY)
 
         self.assertIsNone(load_apple_photos_config(config_path).legacy_export)
-        self.assertIsNone(load_optional_sd_card_config(config_path))
+        self.assertIsNone(load_optional(lambda: load_sd_card_config(config_path)))
 
     def test_apple_photos_export_does_not_need_a_legacy_export(self) -> None:
         config = load_apple_photos_config(self.write_config(APPLE_PHOTOS_ONLY))

@@ -2,30 +2,31 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import ExitStack
-from functools import partial
 from pathlib import Path
 from shutil import which
 from typing import TypeVar
 
 import rich_click as click
 
-from photos_backup.apple_photos.adapter import run_osxphotos_export
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
-from photos_backup.apple_photos.export import ApplePhotosExport
-from photos_backup.apple_photos.identity import WriterStatus
-from photos_backup.apple_photos.takeover import ensure_writer
-from photos_backup.archive import open_archive
 from photos_backup.cli.context import (
     apple_photos_config_from,
     config_path_from,
     suggested_command,
 )
+from photos_backup.cli.exporting import (
+    command_timer,
+    export_into_archive,
+    print_export_outcome,
+)
+from photos_backup.cli.outcome import raise_for_summaries
 from photos_backup.config import (
     ApplePhotosConfig,
     MissingSection,
     RcloneConfig,
     SdCardConfig,
     SsdConfig,
+    load_optional,
     load_rclone_config,
     load_sd_card_config,
     load_ssd_config,
@@ -39,10 +40,8 @@ from photos_backup.sd_card.backup import Backup as SdCardBackup
 from photos_backup.ssd.backup import Backup as SsdBackup
 from photos_backup.summary import (
     BackupSummary,
-    print_export_result,
     print_pipeline_destinations,
     print_pipeline_summary,
-    print_takeover_check,
 )
 
 T = TypeVar("T")
@@ -93,7 +92,32 @@ def backup_all(
     skip_ssd: bool,
     skip_remote: bool,
 ) -> None:
-    delete = delete or delete_alias
+    with command_timer():
+        _backup_all(
+            ctx,
+            dry_run=dry_run,
+            download_timeout=download_timeout,
+            delete=delete or delete_alias,
+            delete_remote=delete_remote,
+            skip_apple_photos=skip_apple_photos,
+            skip_sd_card=skip_sd_card,
+            skip_ssd=skip_ssd,
+            skip_remote=skip_remote,
+        )
+
+
+def _backup_all(
+    ctx: click.Context,
+    *,
+    dry_run: bool,
+    download_timeout: int,
+    delete: bool,
+    delete_remote: bool,
+    skip_apple_photos: bool,
+    skip_sd_card: bool,
+    skip_ssd: bool,
+    skip_remote: bool,
+) -> None:
     # A --volume override re-points the Apple Photos step only; the SSD and
     # remote steps keep reading their own configured sources.
     config_path = config_path_from(ctx)
@@ -233,20 +257,7 @@ def backup_all(
         )
 
     print_pipeline_summary(summaries)
-    failed = [
-        summary.step_name
-        for summary in summaries
-        if summary.error and not summary.action_required
-    ]
-    if failed:
-        raise click.ClickException(f"Step(s) failed: {', '.join(failed)}")
-    actions = [
-        summary.error
-        for summary in summaries
-        if summary.action_required and summary.error
-    ]
-    if actions:
-        raise ActionRequired("; ".join(actions))
+    raise_for_summaries(summaries, name_failed_steps=True)
 
 
 def _pipeline_destinations(
@@ -320,38 +331,20 @@ def _export_apple_photos(
     config: ApplePhotosConfig, *, dry_run: bool, download_timeout: int
 ) -> BackupSummary:
     with ExportProgress() as progress, ExitStack() as stack:
-        with progress.phase("Checking archive"):
-            archive = stack.enter_context(open_archive(config, dry_run=dry_run))
-        with progress.phase("Checking archive writer"):
-            takeover = ensure_writer(config, archive)
-        progress.message(
-            f"Missing downloads: {download_timeout}s per asset; no total run limit."
+        _, takeover, result = export_into_archive(
+            stack,
+            progress,
+            config,
+            dry_run=dry_run,
+            download_timeout=download_timeout,
         )
-        result = ApplePhotosExport(
-            config=config,
-            archive=archive,
-            plan_only=dry_run,
-            progress=progress,
-            runner=partial(
-                run_osxphotos_export,
-                download_timeout=download_timeout,
-                progress=progress,
-            ),
-        ).export()
     # After the live status line has finished, so this starts on its own line.
-    if takeover.status is not WriterStatus.UNCHANGED:
-        print_takeover_check(takeover, dry_run=dry_run)
-    print_export_result(result, dry_run=dry_run)
+    print_export_outcome(takeover, result, dry_run=dry_run)
     return result.summary()
 
 
 def _load_optional(skip: bool, load: Callable[[], T]) -> T | None:
-    if skip:
-        return None
-    try:
-        return load()
-    except MissingSection:
-        return None
+    return None if skip else load_optional(load)
 
 
 def _optional_step(

@@ -219,7 +219,7 @@ class PipelinePreflightTests(ArchiveCommandTestCase):
     def test_bad_later_configuration_stops_before_export(self):
         with self.config_path.open("a") as handle:
             handle.write("\n[rclone]\nremote = 42\n")
-        with mock.patch("photos_backup.cli.backup_all.open_archive") as opened:
+        with mock.patch("photos_backup.cli.exporting.open_archive") as opened:
             result = self.runner.invoke(
                 cli, ["--config", str(self.config_path), "backup-all"]
             )

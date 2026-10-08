@@ -16,7 +16,7 @@ The package lives under `src/photos_backup/`:
 
 | Module | Responsibility |
 |--------|----------------|
-| `cli/` | One module per command; parsing, prompting, and exit codes only |
+| `cli/` | One module per command; parsing, prompting, and exit codes only. `exporting.py` holds the export sequence `daily`, `recent`, and `backup-all` share, and `outcome.py` maps copy results to exit codes |
 | `config.py` | Load and validate the TOML file into frozen dataclasses |
 | `archive/` | Path resolution, mount and symlink safety, locking, versioned state |
 | `apple_photos/` | Export planning, identity and takeover, reconciliation, cleanup, verification |

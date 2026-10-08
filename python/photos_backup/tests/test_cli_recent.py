@@ -29,7 +29,7 @@ class RecentTests(ArchiveCommandTestCase):
             self.mounted(),
             mock.patch("photos_backup.archive.Archive.now", return_value=THURSDAY),
             mock.patch(
-                "photos_backup.cli.recent.ApplePhotosExport", side_effect=export
+                "photos_backup.cli.exporting.ApplePhotosExport", side_effect=export
             ),
         ):
             return self.runner.invoke(
@@ -78,7 +78,7 @@ class RecentTests(ArchiveCommandTestCase):
             deletion_candidates=(),
         )
         with mock.patch(
-            "photos_backup.cli.recent.ensure_writer", return_value=takeover
+            "photos_backup.cli.exporting.ensure_writer", return_value=takeover
         ):
             result = self.run_recent(FakeRunner([row("a.jpg", new=1)]))
 
@@ -153,7 +153,7 @@ class RecentTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.recent.run_osxphotos_export",
+                "photos_backup.cli.exporting.run_osxphotos_export",
                 side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
             ) as runner,
         ):

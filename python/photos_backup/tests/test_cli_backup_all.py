@@ -37,11 +37,11 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
                 self.subTest(timeout=timeout),
                 self.mounted(),
                 mock.patch(
-                    "photos_backup.cli.backup_all.ensure_writer",
+                    "photos_backup.cli.exporting.ensure_writer",
                     return_value=TakeoverCheck(WriterStatus.UNCHANGED, "test.local"),
                 ),
                 mock.patch(
-                    "photos_backup.cli.backup_all.run_osxphotos_export",
+                    "photos_backup.cli.exporting.run_osxphotos_export",
                     side_effect=lambda arguments, **kwargs: FakeRunner()(arguments),
                 ) as runner,
             ):
@@ -63,10 +63,10 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.backup_all.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=TakeoverCheck(WriterStatus.UNCHANGED, "test.local"),
             ),
-            mock.patch("photos_backup.cli.backup_all.run_osxphotos_export") as runner,
+            mock.patch("photos_backup.cli.exporting.run_osxphotos_export") as runner,
         ):
             result = self.invoke("--dry-run", "--download-timeout", "300")
         self.assertEqual(result.exit_code, 0, result.output)
@@ -80,7 +80,7 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
     def test_skipped_export_does_not_start_progress_or_open_archive(self):
         with (
             mock.patch("photos_backup.cli.backup_all.ExportProgress") as progress,
-            mock.patch("photos_backup.cli.backup_all.open_archive") as opened,
+            mock.patch("photos_backup.cli.exporting.open_archive") as opened,
         ):
             result = self.invoke("--skip-apple-photos")
         self.assertEqual(result.exit_code, 0, result.output)
@@ -92,7 +92,7 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
         for timeout in ("0", "-1", "invalid"):
             with (
                 self.subTest(timeout=timeout),
-                mock.patch("photos_backup.cli.backup_all.open_archive") as opened,
+                mock.patch("photos_backup.cli.exporting.open_archive") as opened,
             ):
                 result = self.invoke("--download-timeout", timeout)
             self.assertEqual(result.exit_code, 2, result.output)
@@ -104,11 +104,11 @@ class BackupAllProgressTests(ArchiveCommandTestCase):
         with (
             self.mounted(),
             mock.patch(
-                "photos_backup.cli.backup_all.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=TakeoverCheck(WriterStatus.UNCHANGED, "test.local"),
             ),
             mock.patch(
-                "photos_backup.cli.backup_all.run_osxphotos_export",
+                "photos_backup.cli.exporting.run_osxphotos_export",
                 side_effect=lambda arguments, **kwargs: FakeRunner(
                     [row("a.jpg", missing=1)]
                 )(arguments),
@@ -275,10 +275,10 @@ class ExecutablePreflightTests(ArchiveCommandTestCase):
                 "photos_backup.cli.backup_all.which", return_value=None
             ) as which,
             mock.patch(
-                "photos_backup.cli.backup_all.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=TakeoverCheck(WriterStatus.UNCHANGED, "test.local"),
             ),
-            mock.patch("photos_backup.cli.backup_all.run_osxphotos_export") as runner,
+            mock.patch("photos_backup.cli.exporting.run_osxphotos_export") as runner,
         ):
             result = self.invoke("--dry-run")
         self.assertEqual(result.exit_code, 0, result.output)

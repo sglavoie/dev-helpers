@@ -344,17 +344,17 @@ class BackupAllTweaksTests(unittest.TestCase):
         config = mock.Mock(limit_export=25)
         with (
             mock.patch("photos_backup.cli.backup_all.ExportProgress", Progress),
-            mock.patch("photos_backup.cli.backup_all.open_archive"),
+            mock.patch("photos_backup.cli.exporting.open_archive"),
             mock.patch(
-                "photos_backup.cli.backup_all.ensure_writer",
+                "photos_backup.cli.exporting.ensure_writer",
                 return_value=TakeoverCheck(WriterStatus.CLAIMED, "this.local"),
             ),
-            mock.patch("photos_backup.cli.backup_all.ApplePhotosExport") as exporter,
+            mock.patch("photos_backup.cli.exporting.ApplePhotosExport") as exporter,
             mock.patch(
-                "photos_backup.cli.backup_all.print_takeover_check",
+                "photos_backup.cli.exporting.print_takeover_check",
                 side_effect=lambda *_, **__: events.append("takeover"),
             ),
-            mock.patch("photos_backup.cli.backup_all.print_export_result"),
+            mock.patch("photos_backup.cli.exporting.print_export_result"),
         ):
             _export_apple_photos(config, dry_run=True, download_timeout=5)
         self.assertEqual(events, ["progress started", "progress finished", "takeover"])
