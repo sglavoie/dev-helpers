@@ -12,7 +12,7 @@ from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ActionRequired
 from photos_backup.summary import BackupSummary, print_export_result
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import FakeRunner
 
 

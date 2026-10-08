@@ -1,14 +1,19 @@
+from __future__ import annotations
+
+import unittest
 from unittest import mock
 
 import click
+from click.testing import CliRunner
 
 from photos_backup.apple_photos.downloads import DEFAULT_DOWNLOAD_TIMEOUT
 from photos_backup.apple_photos.identity import WriterStatus
 from photos_backup.apple_photos.takeover import TakeoverCheck
 from photos_backup.archive import ArchiveStateStore
+from photos_backup.cli.backup_all import _export_apple_photos, backup_all
 from photos_backup.cli.cli import cli
 from photos_backup.summary import BackupSummary
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import FakeRunner, row
 
 
@@ -302,3 +307,129 @@ class ExecutablePreflightTests(ArchiveCommandTestCase):
         self.assertIn("NOTHING TO DO — all steps skipped", result.output)
         self.assertNotIn("PREVIEW COMPLETE", result.output)
         which.assert_not_called()
+
+
+class PipelinePreflightTests(ArchiveCommandTestCase):
+    def test_missing_apple_photos_suggests_copy_only_without_starting_work(self):
+        self.config_path.write_text("")
+        with mock.patch("photos_backup.cli.backup_all._check_executables") as check:
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "backup-all"]
+            )
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("backup-all --skip-apple-photos", result.output)
+        self.assertIn(str(self.config_path), result.output)
+        check.assert_not_called()
+
+    def test_skip_reasons_distinguish_explicit_flags_from_missing_sections(self):
+        self.config_path.write_text("")
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                args = [
+                    "--config",
+                    str(self.config_path),
+                    "backup-all",
+                    "--skip-apple-photos",
+                ]
+                if explicit:
+                    args += ["--skip-sd-card", "--skip-ssd", "--skip-remote"]
+                result = self.runner.invoke(cli, args)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn("NOTHING TO DO — all steps skipped", result.output)
+                self.assertNotIn("ALL OK", result.output)
+                self.assertEqual(
+                    result.output.count("Skipped by request"), 4 if explicit else 1
+                )
+                for section in ("sd_card", "ssd", "rclone"):
+                    if explicit:
+                        self.assertNotIn(f"Not configured: [{section}]", result.output)
+                    else:
+                        self.assertIn(f"Not configured: [{section}]", result.output)
+
+    def test_bad_later_configuration_stops_before_export(self):
+        with self.config_path.open("a") as handle:
+            handle.write("\n[rclone]\nremote = 42\n")
+        with mock.patch("photos_backup.cli.exporting.open_archive") as opened:
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "backup-all"]
+            )
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("[rclone] remote", result.output)
+        opened.assert_not_called()
+        self.assertEqual(list(self.volume.iterdir()), [])
+
+    def test_remote_fallback_configuration_is_validated_even_when_ssd_skipped(self):
+        self.config_path.write_text('[rclone]\nremote = "b2:photos"\n')
+        with mock.patch("photos_backup.cli.backup_all.RemoteBackup") as remote:
+            result = self.runner.invoke(
+                cli,
+                [
+                    "--config",
+                    str(self.config_path),
+                    "backup-all",
+                    "--skip-apple-photos",
+                    "--skip-ssd",
+                ],
+            )
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertIn("[ssd]", result.output)
+        remote.assert_not_called()
+
+    def test_skipped_invalid_sections_are_not_loaded(self):
+        self.config_path.write_text("[rclone]\nremote = 42\n")
+        result = self.runner.invoke(
+            cli,
+            [
+                "--config",
+                str(self.config_path),
+                "backup-all",
+                "--skip-apple-photos",
+                "--skip-remote",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("SKIPPED", result.output)
+
+
+class BackupAllTweaksTests(unittest.TestCase):
+    def test_help_shows_only_the_current_ssd_deletion_flag(self):
+        result = CliRunner().invoke(cli, ["backup-all", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("--delete-ssd", result.output)
+        options = {param.name: param for param in backup_all.params}
+        self.assertTrue(options["delete_alias"].hidden)
+        self.assertIn("absent from the source", options["delete_remote"].help)
+        self.assertNotIn("--delete ", result.output)
+        self.assertNotIn("--delete,", result.output)
+
+    def test_takeover_is_printed_after_the_live_status_line(self):
+        events = []
+
+        class Progress:
+            def __enter__(self):
+                events.append("progress started")
+                return mock.MagicMock()
+
+            def __exit__(self, *_):
+                events.append("progress finished")
+
+        config = mock.Mock(limit_export=25)
+        with (
+            mock.patch("photos_backup.cli.backup_all.ExportProgress", Progress),
+            mock.patch("photos_backup.cli.exporting.open_archive"),
+            mock.patch(
+                "photos_backup.cli.exporting.ensure_writer",
+                return_value=TakeoverCheck(WriterStatus.CLAIMED, "this.local"),
+            ),
+            mock.patch("photos_backup.cli.exporting.ApplePhotosExport") as exporter,
+            mock.patch(
+                "photos_backup.cli.exporting.print_takeover_check",
+                side_effect=lambda *_, **__: events.append("takeover"),
+            ),
+            mock.patch("photos_backup.cli.exporting.print_export_result"),
+        ):
+            _export_apple_photos(config, dry_run=True, download_timeout=5)
+        self.assertEqual(events, ["progress started", "progress finished", "takeover"])
+        self.assertNotIn("verbose", exporter.call_args.kwargs)
+        self.assertNotIn("limit", exporter.call_args.kwargs)
+        self.assertTrue(exporter.call_args.kwargs["plan_only"])

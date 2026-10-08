@@ -10,7 +10,7 @@ from photos_backup.cli.backup_all import backup_all
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import suggested_command
 from photos_backup.cli.context import export_retry_arguments
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 
 
 class CommandHintTests(ArchiveCommandTestCase):

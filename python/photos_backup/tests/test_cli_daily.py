@@ -11,7 +11,7 @@ from photos_backup.archive import ArchivePaths, ArchiveState, ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
 from photos_backup.progress import ExportProgress
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import FakeRunner, row
 
 UNCHANGED_WRITER = mock.Mock(status=WriterStatus.UNCHANGED)

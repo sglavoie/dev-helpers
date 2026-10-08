@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -441,6 +443,53 @@ class PairedVideoFallbackTests(unittest.TestCase):
                 self.assertTrue(result["error"])
                 self.assertIsNone(result["original_live"])
                 self.assertFalse((self.root / "original_live.mov").exists())
+
+
+class DownloadFailureRecordTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.missing = self.root / "gone" / "export.csv"
+
+    def test_an_unwritable_failure_record_is_a_warning(self) -> None:
+        budget = DownloadBudget(120)
+        budget.failures["asset-1"] = {
+            "uuid": "asset-1",
+            "filename": "photo.jpg",
+            "reason": "timed out",
+        }
+        stderr = io.StringIO()
+
+        with contextlib.redirect_stderr(stderr):
+            budget.write_failures(self.missing)
+
+        self.assertIn("Warning: could not record 1 incomplete", stderr.getvalue())
+
+    def test_an_unwritable_failure_record_does_not_mask_the_export_error(
+        self,
+    ) -> None:
+        def failing_export(**_: object) -> int:
+            raise RuntimeError("osxphotos crashed")
+
+        def record_failure(budget: DownloadBudget) -> None:
+            budget.failures["asset-1"] = {
+                "uuid": "asset-1",
+                "filename": "photo.jpg",
+                "reason": "timed out",
+            }
+
+        original = DownloadBudget.__init__
+
+        def init(budget: DownloadBudget, *args: object, **kwargs: object) -> None:
+            original(budget, *args, **kwargs)  # type: ignore[arg-type]
+            record_failure(budget)
+
+        with (
+            mock.patch.object(DownloadBudget, "__init__", init),
+            mock.patch("photos_backup.apple_photos.adapter.export_cli", failing_export),
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaisesRegex(RuntimeError, "osxphotos crashed"),
+        ):
+            run_osxphotos_export({"report": str(self.missing)}, download_timeout=1)
 
 
 if __name__ == "__main__":

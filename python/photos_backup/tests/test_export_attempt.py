@@ -8,7 +8,7 @@ from photos_backup.apple_photos.plan import ExportMode, ExportPlan
 from photos_backup.archive import ArchiveStateStore, open_archive
 from photos_backup.cli.cli import cli
 from photos_backup.cli.status import _latest_export_at
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import ExportTestCase, FakeRunner, THURSDAY, row
 
 

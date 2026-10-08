@@ -13,7 +13,7 @@ from photos_backup.archive.probes import real_hostname
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.progress import ExportProgress
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import THURSDAY, FakeRunner, row
 
 

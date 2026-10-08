@@ -15,7 +15,7 @@ from photos_backup.apple_photos.verify import Check, VerificationReport
 from photos_backup.archive import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 
 
 class ApproveCleanupTests(ArchiveCommandTestCase):

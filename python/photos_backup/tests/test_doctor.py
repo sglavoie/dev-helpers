@@ -1,5 +1,7 @@
 import datetime
 import io
+import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +13,7 @@ from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
 from photos_backup.status_report import print_transfer_history
 from photos_backup.transfers import annotate_upstream_freshness
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_takeover import asset, write_export_db
 
 
@@ -212,3 +214,116 @@ class DoctorArchiveTests(ArchiveCommandTestCase):
             )
         self.assertEqual(result.exit_code, 3, result.output)
         self.assertIn("ACTION Export database: schema version 99.0", result.output)
+
+
+def _completed(stdout):
+    return mock.Mock(stdout=stdout)
+
+
+class DoctorTests(unittest.TestCase):
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+        self.root = Path(self._tmpdir.name)
+        (self.root / "ssd").mkdir()
+        self.config = self.root / "config.toml"
+
+    def doctor(self, remote, listremotes, *arguments):
+        self.config.write_text(
+            f'[rclone]\nsource = "{self.root}/ssd"\nremote = "{remote}"\n'
+        )
+
+        def run(command, **kwargs):
+            self.assertEqual(kwargs["timeout"], 5)
+            self.assertIs(kwargs["stdin"], subprocess.DEVNULL)
+            if command[1] == "--version":
+                return _completed("rclone v1.70.0\n")
+            self.assertEqual(command[1:], ["listremotes", "--ask-password=false"])
+            if isinstance(listremotes, Exception):
+                raise listremotes
+            return _completed(listremotes)
+
+        with (
+            mock.patch(
+                "photos_backup.cli.doctor.shutil.which",
+                return_value="/opt/homebrew/bin/rclone",
+            ),
+            mock.patch(
+                "photos_backup.cli.doctor.subprocess.run", side_effect=run
+            ) as runner,
+        ):
+            result = CliRunner().invoke(
+                cli, ["--config", str(self.config), "doctor", *arguments]
+            )
+        return result, runner
+
+    def test_configured_rclone_remote_passes(self):
+        result, _ = self.doctor("b2:photos", "local:\nb2:\n")
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("PASS rclone remote: 'b2:' is configured", result.output)
+
+    def test_missing_rclone_remote_needs_action(self):
+        result, _ = self.doctor("b2,hard_delete=true:photos", "local:\n")
+        self.assertEqual(result.exit_code, 3, result.output)
+        self.assertIn(
+            "ACTION rclone remote: 'b2:' is not in the rclone configuration",
+            result.output,
+        )
+
+    def test_unreadable_rclone_configuration_needs_action(self):
+        error = subprocess.CalledProcessError(1, ["rclone", "listremotes"])
+        result, _ = self.doctor("b2:photos", error)
+        self.assertEqual(result.exit_code, 3, result.output)
+        self.assertIn("set RCLONE_CONFIG_PASS", result.output)
+
+    def test_on_the_fly_remote_needs_no_configuration(self):
+        result, runner = self.doctor(":b2:photos", AssertionError("not called"))
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("SKIP rclone remote", result.output)
+        self.assertEqual(runner.call_count, 1)
+
+    def test_missing_rclone_skips_remote_lookup(self):
+        self.config.write_text('[rclone]\nremote = "b2:photos"\n')
+        with (
+            mock.patch("photos_backup.cli.doctor.shutil.which", return_value=None),
+            mock.patch("photos_backup.cli.doctor.subprocess.run") as run,
+        ):
+            result = CliRunner().invoke(cli, ["--config", str(self.config), "doctor"])
+        self.assertIn("SKIP rclone remote: needs rclone above", result.output)
+        run.assert_not_called()
+
+    def test_json_reports_versions_checks_and_exit_code(self):
+        result, _ = self.doctor("b2:photos", "local:\n", "--json")
+        self.assertEqual(result.exit_code, 3, result.output)
+        document = json.loads(result.output)
+        self.assertEqual(
+            set(document["versions"]), {"python", "photos_backup", "click", "osxphotos"}
+        )
+        self.assertEqual(document["exit_code"], 3)
+        self.assertIn(
+            {"status": "PASS", "check": "[rclone] configuration", "detail": ""},
+            document["checks"],
+        )
+        self.assertIn(
+            "ACTION",
+            {check["status"] for check in document["checks"]},
+        )
+
+    def test_openrsync_first_on_path_is_named(self):
+        (self.root / "card").mkdir()
+        self.config.write_text(
+            f'[sd_card]\nsource = "{self.root}/card"\n'
+            f'destination = "{self.root}/copy"\n'
+        )
+        with (
+            mock.patch(
+                "photos_backup.cli.doctor.shutil.which", return_value="/usr/bin/rsync"
+            ),
+            mock.patch(
+                "photos_backup.cli.doctor.subprocess.run",
+                return_value=_completed("openrsync: protocol version 29\n"),
+            ),
+        ):
+            result = CliRunner().invoke(cli, ["--config", str(self.config), "doctor"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("macOS built-in openrsync, not GNU rsync", result.output)

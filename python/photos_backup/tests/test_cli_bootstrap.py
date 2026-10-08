@@ -8,7 +8,7 @@ from photos_backup.apple_photos.bootstrap import bootstrap_archive
 from photos_backup.cli.cli import cli
 from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE
 from tests.test_bootstrap import asset
-from tests.test_cli import ArchiveCommandTestCase
+from tests.archive_case import ArchiveCommandTestCase
 from tests.test_export import FakeRunner, row
 
 ASSET = asset("a")

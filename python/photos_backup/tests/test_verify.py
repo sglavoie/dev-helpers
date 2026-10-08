@@ -469,5 +469,42 @@ class PendingCleanupTests(VerifyTestCase):
         self.assertIn("approve-cleanup", check.detail)
 
 
+class SignatureCoverageTests(VerifyTestCase):
+    def test_missing_signature_fields_are_explicit_without_changing_exit_policy(self):
+        for field in ("dest_size", "dest_mtime"):
+            write_export_db(self.paths.export_db, [self.exported])
+            with sqlite3.connect(self.paths.export_db) as connection:
+                connection.execute(f"UPDATE export_data SET {field} = NULL")
+            report = self.verify()
+            check = self.check(report, SIGNATURES)
+            self.assertTrue(report.passed)
+            self.assertIn("Coverage incomplete", check.detail)
+            self.assertIn("0 matched, 0 changed, 1 missing signatures", check.detail)
+            self.assertIn("file contents were not checksummed", check.detail)
+
+    def test_mixed_coverage_accounts_for_every_record(self):
+        changed, unsigned, missing = (
+            self.archive_root / name
+            for name in ("changed.jpg", "unsigned.jpg", "missing.jpg")
+        )
+        for path in (changed, unsigned, missing):
+            path.write_bytes(b"photo")
+        write_export_db(
+            self.paths.export_db, [self.exported, changed, unsigned, missing]
+        )
+        with sqlite3.connect(self.paths.export_db) as connection:
+            connection.execute(
+                "UPDATE export_data SET dest_size = NULL WHERE uuid = 'uuid-2'"
+            )
+        changed.write_bytes(b"changed photo")
+        missing.unlink()
+        check = self.check(self.verify(), SIGNATURES)
+        self.assertFalse(check.passed)
+        self.assertIn(
+            "1 matched, 1 changed, 1 missing signatures, 1 unavailable", check.detail
+        )
+        self.assertEqual(check.paths, (changed,))
+
+
 if __name__ == "__main__":
     unittest.main()

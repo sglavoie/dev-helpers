@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import contextlib
 import io
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import click
+from click.testing import CliRunner
 
 from photos_backup.apple_photos.verify import Check, VerificationReport
+from photos_backup.cli.cli import cli
+from photos_backup.remote.backup import _parse_rclone_stats
 from photos_backup.summary import (
     BackupSummary,
+    parse_rsync_stats,
     print_pipeline_summary,
     print_summary,
     print_verification_report,
@@ -82,3 +90,89 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(self.stream.getvalue(), redirected.getvalue())
         self.assertNotIn("\x1b", redirected.getvalue())
         self.assertIn("Files transferred: 2", redirected.getvalue())
+
+
+class PreviewSummaryTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(
+            mock.patch(
+                "photos_backup.cli.backup_all.which", return_value="/test/bin/tool"
+            )
+        )
+
+    def test_copy_previews_never_claim_files_were_transferred(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / "config.toml"
+            config.write_text(
+                f'[sd_card]\nsource = "{root / "card"}"\ndestination = "{root / "sd"}"\n'
+                f'[ssd]\nsource = "{root / "photos"}"\ndestination = "{root / "ssd"}"\n'
+                f'[rclone]\nsource = "{root}"\nremote = "b2:photos"\n'
+            )
+            (root / "card").mkdir()
+            (root / "photos").mkdir()
+            (root / "sd").mkdir()
+            completed = subprocess.CompletedProcess(
+                [],
+                0,
+                stdout="Number of regular files transferred: 3\n"
+                "Total transferred file size: 42 bytes\n"
+                "Transferred: 42 bytes / 42 bytes, (xfr#3/3)\n",
+            )
+            for command in ("sd-card", "ssd", "remote", "backup-all"):
+                with (
+                    self.subTest(command=command),
+                    mock.patch(
+                        "photos_backup.remote.backup.shutil.which",
+                        return_value="rclone",
+                    ),
+                    mock.patch(
+                        "photos_backup.remote.backup.stream_command",
+                        return_value=completed,
+                    ),
+                    mock.patch(
+                        "photos_backup.sd_card.backup.stream_command",
+                        return_value=completed,
+                    ),
+                    mock.patch(
+                        "photos_backup.ssd.backup.stream_command",
+                        return_value=completed,
+                    ),
+                ):
+                    args = ["--config", str(config), command, "--dry-run"]
+                    if command == "backup-all":
+                        args.append("--skip-apple-photos")
+                    result = CliRunner().invoke(cli, args)
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    self.assertIn("DRY RUN", result.output)
+                    self.assertIn("proposed transfers", result.output.lower())
+                    self.assertNotIn("Files transferred:", result.output)
+                    self.assertNotIn("Status: OK", result.output)
+                    self.assertNotIn("ALL OK", result.output)
+            self.assertFalse((root / "ssd").exists())
+
+
+class TransferCountTests(unittest.TestCase):
+    def test_absent_statistics_are_not_presented_as_a_successful_zero(self):
+        for parse in (parse_rsync_stats, _parse_rclone_stats):
+            self.assertIsNone(parse("unrecognized output")["files_transferred"])
+        for count in (None, 0):
+            for dry_run in (False, True):
+                summary = BackupSummary(
+                    "Remote", files_transferred=count, dry_run=dry_run
+                )
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    print_summary(summary)
+                    print_pipeline_summary([summary])
+                rendered = output.getvalue()
+                if count is None:
+                    self.assertIn("Transfer count: unavailable", rendered)
+                    self.assertNotIn("transfers: 0", rendered)
+                    self.assertNotIn("transferred: 0", rendered)
+                else:
+                    self.assertIn(
+                        "Proposed transfers: 0" if dry_run else "Files transferred: 0",
+                        rendered,
+                    )
+                    self.assertNotIn("unavailable", rendered)
