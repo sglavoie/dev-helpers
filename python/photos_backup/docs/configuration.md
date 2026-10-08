@@ -65,7 +65,7 @@ source is copied into `destination/source-name`; SSD inputs must map to distinct
 non-overlapping directories. An omitted `exclude_file` is optional. An explicitly
 configured file that is missing or is not a regular file prints a warning to
 stderr, and ordinary copying continues without those exclusions, including in dry
-runs. With SSD deletions enabled (`ssd --delete` or `backup-all --delete`), every
+runs. With SSD deletions enabled (`ssd --delete` or `backup-all --delete-ssd`), every
 configured SSD and SD-card exclusion file must exist and be a regular file.
 Otherwise the SSD step exits 3 before creating its destination or starting either
 copy. The same refusal applies to previews. Restore the exclusion file or rerun
@@ -106,4 +106,12 @@ a bootstrap hint. This is setup diagnosis, not file verification or a guarantee
 that a subsequent backup will succeed. Exit codes are 2 for configuration errors,
 1 for tool/I/O failures, and 3 for paths or exclusions requiring attention, in that
 priority order; otherwise 0. Configured but disconnected SD cards are reported.
+
+Each check is `PASS`, `SKIP`, `ACTION`, or `FAIL`. `ACTION` marks something a
+person can fix, such as connecting a drive or restoring an exclusion file; `FAIL`
+marks broken configuration, missing tools, or I/O errors. A copy-layout check is
+skipped while its own source or destination is unavailable, and the SSD copy of
+the SD card folder is skipped until `sd-card` has created it. The export database
+check reports its schema version and needs action when a newer osxphotos wrote it
+than this installation pins. In a terminal, results appear as a table.
 

@@ -12,6 +12,7 @@ from photos_backup.cli.context import CliContext
 from photos_backup.summary import print_transfer_history
 from photos_backup.transfers import annotate_upstream_freshness
 from tests.test_cli import ArchiveCommandTestCase
+from tests.test_takeover import asset, write_export_db
 
 
 class SetupImprovementsTests(unittest.TestCase):
@@ -67,6 +68,40 @@ class SetupImprovementsTests(unittest.TestCase):
             self.assertEqual(run.call_args.args[0], ["/usr/bin/rsync", "--version"])
             self.assertEqual(run.call_args.kwargs["timeout"], 5)
             self.assertFalse((root / "new-copy").exists())
+
+    def test_doctor_separates_actions_from_failures_and_skips_dependent_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "archive").mkdir()
+            config = root / "config.toml"
+            config.write_text(
+                f'[sd_card]\nsource = "{root}/missing-card"\n'
+                f'destination = "{root}/card-copy"\n'
+                f'[ssd]\nsource = "{root}/archive"\ndestination = "{root}/ssd"\n'
+            )
+            with mock.patch(
+                "photos_backup.cli.doctor._tool_version", return_value="test"
+            ):
+                result = CliRunner().invoke(cli, ["--config", str(config), "doctor"])
+            self.assertEqual(result.exit_code, 3, result.output)
+            self.assertIn("ACTION SD Card source", result.output)
+            self.assertNotIn("FAIL", result.output)
+            self.assertIn(
+                "SKIP SD Card copy layout: needs the paths above", result.output
+            )
+            self.assertIn(
+                f"SKIP SSD source {root}/card-copy: not created yet; run `photos-backup",
+                result.output,
+            )
+            self.assertIn(
+                "sd-card` before copying it to the SSD",
+                result.output,
+            )
+            self.assertIn(
+                f"PASS SSD destination {root}/ssd: created on the first copy",
+                result.output,
+            )
+            self.assertFalse((root / "card-copy").exists())
 
     def test_version_needs_no_configuration(self):
         result = CliRunner().invoke(cli, ["--config", "/missing/config", "--version"])
@@ -164,3 +199,16 @@ class DoctorArchiveTests(ArchiveCommandTestCase):
         )
         self.assertTrue(paths.state_file.exists())
         photos.assert_not_called()
+
+    def test_export_database_newer_than_osxphotos_needs_action(self):
+        paths = self.initialized_archive()
+        write_export_db(paths.export_db, (asset("uuid-1", "guid-1"),), version="99.0")
+        with (
+            self.mounted(),
+            mock.patch("photos_backup.cli.doctor._tool_version", return_value="test"),
+        ):
+            result = self.runner.invoke(
+                cli, ["--config", str(self.config_path), "doctor"]
+            )
+        self.assertEqual(result.exit_code, 3, result.output)
+        self.assertIn("ACTION Export database: schema version 99.0", result.output)

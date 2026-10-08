@@ -7,6 +7,11 @@ from importlib.metadata import PackageNotFoundError, version
 
 import rich_click as click
 
+from photos_backup.apple_photos.adapter import (
+    export_db_version_supported,
+    read_export_db_version,
+    unsupported_export_db_reason,
+)
 from photos_backup.archive import open_archive
 from photos_backup.cli.context import (
     apple_photos_config_from,
@@ -21,7 +26,15 @@ from photos_backup.config import (
     resolve_rclone_source,
 )
 from photos_backup.copy_safety import check_copy_path, check_copy_paths
-from photos_backup.errors import ActionRequired
+from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, ActionRequired
+from photos_backup.presentation import print_terminal_table
+
+STATUS_STYLES = {
+    "PASS": "green",
+    "SKIP": "dim",
+    "ACTION": "bold yellow",
+    "FAIL": "bold red",
+}
 
 
 @click.command(
@@ -30,17 +43,28 @@ from photos_backup.errors import ActionRequired
 @click.pass_context
 def doctor(ctx: click.Context) -> None:
     failures: list[int] = []
+    results: list[tuple[str, str, str]] = []
 
-    def check(label, operation):
+    def report(status: str, label: str, detail: str = "") -> None:
+        results.append((status, label, detail))
+
+    def check(label, operation) -> bool:
         try:
             detail = operation()
         except (click.ClickException, OSError) as error:
-            failures.append(
+            exit_code = (
                 error.exit_code if isinstance(error, click.ClickException) else 1
             )
-            click.echo(f"FAIL {label}: {error}")
-            return
-        click.echo(f"PASS {label}" + (f": {detail}" if detail else ""))
+            failures.append(exit_code)
+            # Exit 3 means a person can fix it, often by connecting a drive.
+            report(
+                "ACTION" if exit_code == ACTION_REQUIRED_EXIT_CODE else "FAIL",
+                label,
+                str(error),
+            )
+            return False
+        report("PASS", label, detail or "")
+        return True
 
     click.echo(f"Python: {platform.python_version()}")
     for package in ("photos_backup", "click", "osxphotos"):
@@ -48,7 +72,7 @@ def doctor(ctx: click.Context) -> None:
             click.echo(f"{package}: {version(package)}")
         except PackageNotFoundError:
             failures.append(1)
-            click.echo(f"FAIL {package}: package metadata unavailable")
+            report("FAIL", package, "package metadata unavailable")
 
     path = config_path_from(ctx)
     configs = {}
@@ -60,12 +84,12 @@ def doctor(ctx: click.Context) -> None:
     ):
         try:
             configs[name] = loader()
-            click.echo(f"PASS [{name}] configuration")
+            report("PASS", f"[{name}] configuration")
         except MissingSection:
-            click.echo(f"SKIP [{name}]: not configured")
+            report("SKIP", f"[{name}]", "not configured")
         except click.ClickException as error:
             failures.append(error.exit_code)
-            click.echo(f"FAIL [{name}] configuration: {error}")
+            report("FAIL", f"[{name}] configuration", str(error))
 
     apple, sd, ssd, remote = (
         configs.get(key) for key in ("apple_photos", "sd_card", "ssd", "rclone")
@@ -73,41 +97,17 @@ def doctor(ctx: click.Context) -> None:
     required = []
     if apple:
         required.append("exiftool")
-
-        def archive_check():
-            with open_archive(apple, dry_run=True) as archive:
-                state = archive.state_store.load()
-                return (
-                    "initialized"
-                    if state.initialized
-                    else f"not initialized; run {suggested_command('bootstrap')}"
-                )
-
-        check("Archive access", archive_check)
-        check(
-            "Photos library directory",
-            lambda: check_copy_path(
-                apple.library, workflow="Photos library", source=True
-            ),
-        )
+        _check_apple_photos(apple, check)
     if sd or ssd:
         required.append("rsync")
     if remote:
         required.append("rclone")
     for executable in required:
         check(executable, lambda executable=executable: _tool_version(executable))
-    _check_local_copies(sd, ssd, check)
+    _check_local_copies(sd, ssd, check, report)
     if remote:
-
-        def remote_source_check():
-            source = resolve_rclone_source(remote, path)
-            check_copy_path(source, workflow="Remote", source=True)
-            return str(source)
-
-        check("Remote source", remote_source_check)
-        click.echo(
-            "SKIP Cloud connectivity and credentials: no remote connection attempted"
-        )
+        _check_remote(remote, path, check, report)
+    _print_results(results)
     click.echo(
         "Setup diagnostics only; media contents and destination copies were not verified."
     )
@@ -115,30 +115,109 @@ def doctor(ctx: click.Context) -> None:
         ctx.exit(next(code for code in (2, 1, 3) if code in failures))
 
 
-def _check_local_copies(sd, ssd, check):
+def _check_apple_photos(apple, check):
+    export_db = None
+
+    def archive_check():
+        nonlocal export_db
+        with open_archive(apple, dry_run=True) as archive:
+            export_db = archive.paths.export_db
+            state = archive.state_store.load()
+            return (
+                "initialized"
+                if state.initialized
+                else f"not initialized; run {suggested_command('bootstrap')}"
+            )
+
+    def export_db_check():
+        if not export_db.exists():
+            return "not created yet; the first export creates it"
+        schema = read_export_db_version(export_db)
+        if not export_db_version_supported(schema):
+            raise ActionRequired(unsupported_export_db_reason(schema))
+        return f"schema version {schema}"
+
+    if check("Archive access", archive_check):
+        check("Export database", export_db_check)
+    check(
+        "Photos library directory",
+        lambda: check_copy_path(apple.library, workflow="Photos library", source=True),
+    )
+
+
+def _check_remote(remote, config_path, check, report):
+    def remote_source_check():
+        source = resolve_rclone_source(remote, config_path)
+        check_copy_path(source, workflow="Remote", source=True)
+        return str(source)
+
+    check("Remote source", remote_source_check)
+    report(
+        "SKIP", "Cloud connectivity and credentials", "no remote connection attempted"
+    )
+
+
+def _check_local_copies(sd, ssd, check, report):
     for name, config in (("SD Card", sd), ("SSD", ssd)):
         if config is None:
             continue
         sources = (config.source,)
         if name == "SSD" and sd:
             sources += (sd.destination,)
+        paths_ok = True
         for source in sources:
-            check(
-                f"{name} source {source}",
+            label = f"{name} source {source}"
+            if (
+                name == "SSD"
+                and sd
+                and source == sd.destination
+                and not source.exists()
+            ):
+                # The SD card copy creates this directory on its first run.
+                paths_ok = False
+                report(
+                    "SKIP",
+                    label,
+                    "not created yet; run "
+                    f"`{suggested_command('sd-card')}` before copying it to the SSD",
+                )
+                continue
+            paths_ok &= check(
+                label,
                 lambda source=source: check_copy_path(
                     source, workflow=name, source=True
                 ),
             )
-        check(
+        paths_ok &= check(
             f"{name} destination {config.destination}",
-            lambda: check_copy_path(config.destination, workflow=name),
+            lambda: _check_destination(config.destination, workflow=name),
         )
-        check(
-            f"{name} copy layout",
-            lambda: check_copy_paths(sources, config.destination, workflow=name),
-        )
+        if paths_ok:
+            check(
+                f"{name} copy layout",
+                lambda: check_copy_paths(sources, config.destination, workflow=name),
+            )
+        else:
+            report("SKIP", f"{name} copy layout", "needs the paths above")
         if config.exclude_file is not None:
             check(f"{name} exclusions", lambda: _check_exclusion(config.exclude_file))
+
+
+def _check_destination(path, *, workflow):
+    check_copy_path(path, workflow=workflow)
+    return "" if path.exists() else "created on the first copy"
+
+
+def _print_results(results: list[tuple[str, str, str]]) -> None:
+    if print_terminal_table(
+        "Setup check",
+        ("Status", "Check", "Detail"),
+        results,
+        styles=[STATUS_STYLES[status] for status, _, _ in results],
+    ):
+        return
+    for status, label, detail in results:
+        click.echo(f"{status} {label}" + (f": {detail}" if detail else ""))
 
 
 def _check_exclusion(path):
