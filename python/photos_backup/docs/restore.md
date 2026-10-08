@@ -41,3 +41,47 @@ separate Photos-library backup if you need to restore that application state.
 
 `photos-backup verify` checks the primary archive's records, sizes, and timestamps.
 It does not perform this recovery exercise or verify SSD/cloud file contents.
+
+## Replace a lost primary drive
+
+The SSD copy includes the archive's `.photos-backup/` directory: its export
+database, state, reports, and any pending cleanup. A new drive filled from that
+copy therefore continues the same history rather than starting a fresh
+bootstrap. The export database records file paths relative to the archive, so the
+archive works from a new location. `ssd` holds the archive lock while it copies,
+so the database and the files in the copy match each other.
+
+1. Check how current the SSD copy is. `photos-backup status` shows when the
+   `SSD: All Photos` copy last succeeded. Anything exported after that is not in
+   the copy, but the next export fills the gap (step 5).
+2. Check that no `[ssd] exclude_file` pattern matches `.photos-backup`. If one
+   does, the copy has media but no history; use `photos-backup bootstrap`
+   instead.
+3. Copy the archive directory from the SSD to the new drive. Leave out the
+   trailing slash on the source so that the directory itself is copied:
+
+   ```sh
+   mkdir -p "/Volumes/NEW/Media"
+   rsync -ah --stats -- "/Volumes/Data/Pictures/Apple Photos" "/Volumes/NEW/Media"
+   ```
+
+   Do not point `[apple_photos] archive` at the SSD copy itself. The SSD would
+   then be both the archive and its own backup.
+4. Give the new drive the old volume name so the configuration still applies, or
+   update `[apple_photos] volume` and `archive` and `[ssd] source`. For a single
+   trial run, `photos-backup --volume /Volumes/NEW ...` re-roots the archive
+   without editing the configuration.
+5. Check the archive before writing to it:
+
+   ```sh
+   photos-backup doctor
+   photos-backup verify             # every database record should match a file
+   photos-backup daily --dry-run    # shows the export that will fill the gap
+   ```
+
+   `rsync -a` keeps file sizes and modification times, so `verify` should
+   report no changed signatures. The copied `archive.lock` is harmless: locks
+   are held only by running processes, not by the file's contents. Then run
+   `photos-backup daily`. Incremental exports start
+   `incremental_overlap_days` before the last export that the copied state
+   records, so they also cover photos added since the SSD copy was made.
