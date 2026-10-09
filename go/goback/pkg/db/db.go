@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -72,12 +73,21 @@ func QueryRows(query string, callback func(*sql.Rows), args ...any) {
 	})
 }
 
-func open() (*sql.DB, error) {
+// Path is where backup history lives: ~/.goback.db.
+func Path() (string, error) {
 	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".goback.db"), nil
+}
+
+func open() (*sql.DB, error) {
+	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
-	sqldb, err := sql.Open("sqlite3", home+"/.goback.db")
+	sqldb, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err
 	}

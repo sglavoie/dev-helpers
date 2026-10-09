@@ -187,10 +187,31 @@ backup's latest attempt failed or was interrupted, has no recorded success, or
 is stale. An empty selection also fails a check. Without `--older-than`, a check
 assesses recorded outcomes only, not age. Filters let daily and weekly backups
 use different thresholds in separate checks. `--json --check` still emits its
-JSON array on stdout when unhealthy; the error is written to stderr.
-`--json` emits an array with `profile`, `backup_type`, `last_success`,
-`latest_attempt`, `exit_code`, `result`, and `freshness`; missing timestamps and
-exit codes are `null`.
+JSON report on stdout when unhealthy; the error is written to stderr.
+
+The table ends with the history database's path, marked `(no backups recorded
+yet)` when it does not exist. `--json` emits one object: `generated_at`,
+`db_path`, `db_exists`, and `backups`, an array with `profile`, `backup_type`,
+`last_success`, `latest_attempt`, `exit_code`, `result`, and `freshness` per
+row. Missing timestamps and exit codes are `null`. Times are RFC 3339 with the
+current local offset (history stores local wall-clock times). Errors are a
+single message on stderr without the usage text, so tools such as Heartbeat's
+"Mac backups" row can show it as is.
+
+```json
+{
+  "generated_at": "2026-10-08T17:49:08-06:00",
+  "db_path": "/Users/me/.goback.db",
+  "db_exists": true,
+  "backups": [
+    {"profile": "default", "backup_type": "daily", "last_success": "2026-10-06T11:21:24-06:00",
+     "latest_attempt": "2026-10-06T11:21:24-06:00", "exit_code": 0, "result": "succeeded",
+     "freshness": "not assessed"},
+    {"profile": "default", "backup_type": "weekly", "last_success": null, "latest_attempt": null,
+     "exit_code": null, "result": "never run", "freshness": "no recorded success"}
+  ]
+}
+```
 
 Both overview commands validate configuration without prompting or changing it,
 and require no mounted drives. Status opens existing history read-only and never

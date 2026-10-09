@@ -66,10 +66,11 @@ func TestStatusChecksFilterBackupsAndKeepJSONOnFailure(t *testing.T) {
 			if (err != nil) != tc.fail {
 				t.Fatalf("exit %v: %s", err, &stderr)
 			}
-			var rows []statusRow
-			if err := json.Unmarshal(output, &rows); err != nil {
+			var report statusReport
+			if err := json.Unmarshal(output, &report); err != nil {
 				t.Fatalf("invalid JSON: %v\n%s", err, output)
 			}
+			rows := report.Backups
 			if len(rows) != tc.count {
 				t.Fatalf("rows: %s", output)
 			}

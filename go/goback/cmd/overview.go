@@ -29,6 +29,9 @@ var statusCmd = &cobra.Command{
 	Short:       "Show configured backups, including those never recorded in history",
 	Long:        "Show configured snapshot backups, daily companions, and the global mirror, including backups with no retained history. By default all profiles are shown; --profile narrows the report. Select one of --daily, --weekly, --monthly, --mirror, or --companions to filter backup types. --older-than marks last successes older than a duration such as 48h or 168h. --check exits nonzero for unhealthy or empty results; without --older-than it assesses outcomes only, not age. This command does not change configuration or history and does not require mounted drives.",
 	Annotations: withProfileResolution(profileNotRequired),
+	// Status is read by scripts and menu-bar tools: an error is one message on
+	// stderr, not the message followed by the usage text.
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		older, _ := cmd.Flags().GetDuration("older-than")
 		if older < 0 || (cmd.Flags().Changed("older-than") && older == 0) {
@@ -45,29 +48,38 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		path, err := db.Path()
+		if err != nil {
+			return fmt.Errorf("locate backup history: %w", err)
+		}
+		_, statErr := os.Stat(path)
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return fmt.Errorf("read backup history: %w", statErr)
+		}
 		history, err := db.ReadSummary()
 		if err != nil {
 			return fmt.Errorf("read backup history: %w", err)
 		}
-		rows, err := configuredStatus(names, history, time.Now(), older)
+		now := time.Now()
+		rows, err := configuredStatus(names, history, now, older)
 		if err != nil {
 			return err
 		}
-		rows = filterStatus(rows, kind)
+		report := statusReport{GeneratedAt: now.Format(time.RFC3339), DBPath: path, DBExists: statErr == nil, Backups: filterStatus(rows, kind)}
+		rows = report.Backups
 		asJSON, _ := cmd.Flags().GetBool("json")
 		if asJSON {
 			encoder := json.NewEncoder(cmd.OutOrStdout())
 			encoder.SetIndent("", "  ")
-			if err := encoder.Encode(rows); err != nil {
+			if err := encoder.Encode(report); err != nil {
 				return err
 			}
 		} else {
-			printStatus(cmd.OutOrStdout(), rows)
+			printStatus(cmd.OutOrStdout(), report)
 		}
 		check, _ := cmd.Flags().GetBool("check")
 		if check {
-			// Keep stdout valid JSON even when a health check fails.
-			cmd.SilenceUsage = true
+			// stdout stays valid JSON even when a health check fails.
 			return checkStatus(rows)
 		}
 		return nil
@@ -142,6 +154,15 @@ func printProfiles(w io.Writer) error {
 	return nil
 }
 
+// statusReport is the `status --json` document. Times are RFC 3339 with the
+// local offset; history itself stores local wall-clock times without one.
+type statusReport struct {
+	GeneratedAt string      `json:"generated_at"`
+	DBPath      string      `json:"db_path"`
+	DBExists    bool        `json:"db_exists"`
+	Backups     []statusRow `json:"backups"`
+}
+
 type statusRow struct {
 	Profile       string  `json:"profile"`
 	BackupType    string  `json:"backup_type"`
@@ -150,6 +171,24 @@ type statusRow struct {
 	ExitCode      *int    `json:"exit_code"`
 	Result        string  `json:"result"`
 	Freshness     string  `json:"freshness"`
+	// The recorded local timestamps, for the table's ages.
+	lastSuccessRaw, latestAttemptRaw *string
+}
+
+const historyTimestamp = "2006-01-02 15:04:05"
+
+// historyTime reads a history timestamp as local wall-clock time.
+func historyTime(value string) (time.Time, error) {
+	return time.ParseInLocation(historyTimestamp, value, time.Local)
+}
+
+func isoTimestamp(value string) (*string, error) {
+	parsed, err := historyTime(value)
+	if err != nil {
+		return nil, err
+	}
+	formatted := parsed.Format(time.RFC3339)
+	return &formatted, nil
 }
 
 func configuredStatus(names []string, history []db.SummaryRow, now time.Time, older time.Duration) ([]statusRow, error) {
@@ -162,7 +201,11 @@ func configuredStatus(names []string, history []db.SummaryRow, now time.Time, ol
 	appendStatus := func(profile, kind string) error {
 		row := statusRow{Profile: profile, BackupType: kind, Result: "never run", Freshness: "no recorded success"}
 		if entry, ok := indexed[key{profile, kind}]; ok {
-			row.LatestAttempt, row.ExitCode, row.LastSuccess = &entry.LatestAttempt, &entry.ExitCode, entry.LastSuccess
+			attempt, err := isoTimestamp(entry.LatestAttempt)
+			if err != nil {
+				return fmt.Errorf("invalid attempt timestamp for %s/%s: %w", profile, kind, err)
+			}
+			row.LatestAttempt, row.latestAttemptRaw, row.ExitCode = attempt, &entry.LatestAttempt, &entry.ExitCode
 			row.Result = "succeeded"
 			if entry.ExitCode == -1 {
 				row.Result = "interrupted"
@@ -170,12 +213,14 @@ func configuredStatus(names []string, history []db.SummaryRow, now time.Time, ol
 				row.Result = fmt.Sprintf("failed (exit %d)", entry.ExitCode)
 			}
 			if entry.LastSuccess != nil {
+				success, err := historyTime(*entry.LastSuccess)
+				if err != nil {
+					return fmt.Errorf("invalid success timestamp for %s/%s: %w", profile, kind, err)
+				}
+				formatted := success.Format(time.RFC3339)
+				row.LastSuccess, row.lastSuccessRaw = &formatted, entry.LastSuccess
 				row.Freshness = "not assessed"
 				if older > 0 {
-					success, err := time.ParseInLocation("2006-01-02 15:04:05", *entry.LastSuccess, time.Local)
-					if err != nil {
-						return fmt.Errorf("invalid success timestamp for %s/%s: %w", profile, kind, err)
-					}
 					row.Freshness = "current"
 					if now.Sub(success) > older {
 						row.Freshness = "stale"
@@ -240,22 +285,28 @@ func checkStatus(rows []statusRow) error {
 	return nil
 }
 
-func printStatus(w io.Writer, rows []statusRow) {
-	if len(rows) == 0 {
+func printStatus(w io.Writer, report statusReport) {
+	history := "History: " + report.DBPath
+	if !report.DBExists {
+		history += " (no backups recorded yet)"
+	}
+	if len(report.Backups) == 0 {
 		fmt.Fprintln(w, "No configured backups.")
+		fmt.Fprintln(w, history)
 		return
 	}
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Profile", "Backup type", "Last success", "Latest attempt", "Result", "Freshness"})
-	for _, row := range rows {
+	for _, row := range report.Backups {
 		success, attempt := "Never recorded", "Never recorded"
-		if row.LastSuccess != nil {
-			success = printer.TimestampWithAge(*row.LastSuccess)
+		if row.lastSuccessRaw != nil {
+			success = printer.TimestampWithAge(*row.lastSuccessRaw)
 		}
-		if row.LatestAttempt != nil {
-			attempt = printer.TimestampWithAge(*row.LatestAttempt)
+		if row.latestAttemptRaw != nil {
+			attempt = printer.TimestampWithAge(*row.latestAttemptRaw)
 		}
 		t.AppendRow(table.Row{row.Profile, row.BackupType, success, attempt, row.Result, row.Freshness})
 	}
 	fmt.Fprintln(w, t.Render())
+	fmt.Fprintln(w, history)
 }

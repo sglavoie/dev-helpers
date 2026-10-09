@@ -139,7 +139,10 @@ selection an unqualified run would make. `status` joins configured snapshot
 types, daily companions, and the global mirror with `db.ReadSummary`; it reads SQLite with
 `mode=ro`, supports legacy columns without migrating, and shows missing attempts.
 `--older-than` assesses last-success age in the current local timezone;
-`--json` returns nulls for absent timestamps and exit codes. Status is
+`--json` returns one object with `generated_at`, `db_path`, `db_exists`
+and the `backups` rows, RFC 3339 times with the local offset, and nulls for
+absent timestamps and exit codes; Heartbeat's "Mac backups" row parses it.
+Status sets `SilenceUsage`, so errors are one stderr message. Status is
 informational by default. `--check` returns an error for failed/interrupted
 latest attempts, missing successes, stale successes, or an empty selection,
 while preserving JSON stdout. Mutually exclusive `--daily`, `--weekly`,

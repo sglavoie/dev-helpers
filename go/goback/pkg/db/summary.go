@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 )
 
 type SummaryRow struct {
@@ -19,11 +18,10 @@ type SummaryRow struct {
 // ReadSummary does not create or migrate the database. Legacy rows retain the
 // same empty-profile and successful-exit defaults used by normal migrations.
 func ReadSummary() ([]SummaryRow, error) {
-	home, err := os.UserHomeDir()
+	path, err := Path()
 	if err != nil {
 		return nil, err
 	}
-	path := filepath.Join(home, ".goback.db")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
