@@ -5,7 +5,7 @@ let usage = """
     heartbeatctl \(HeartbeatCore.version)
 
     Usage:
-      heartbeatctl status [--json] [--all] [--health] [--pi]
+      heartbeatctl status [--json] [--all] [--health] [--pi] [--backups]
       heartbeatctl list [--json]
       heartbeatctl explain <label>
       heartbeatctl check-config
@@ -14,8 +14,9 @@ let usage = """
     status lists failing, warning and paused agents (--all adds ok and hidden
     ones). --health runs the configured health commands now instead of using
     the app's last results from state.json. --pi adds the Pi summary row (ssh to
-    piHost; an unreachable or unhappy Pi is a warning at most). explain accepts
-    a full label or the part after the label prefix.
+    piHost; an unreachable or unhappy Pi is a warning at most). --backups adds
+    the Mac backups row (goback status --json; only a failing row counts, and as
+    a warning). explain accepts a full label or the part after the label prefix.
 
     Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error.
     check-config exits 0 when the config is clean, 1 on warnings, 2 on errors.
@@ -36,6 +37,7 @@ struct Options {
     var all = false
     var health = false
     var pi = false
+    var backups = false
 
     init(_ arguments: ArraySlice<String>, allowed: Set<String>, positional maxPositional: Int = 0) throws {
         for argument in arguments {
@@ -46,6 +48,7 @@ struct Options {
                 case "--all": all = true
                 case "--health": health = true
                 case "--pi": pi = true
+                case "--backups": backups = true
                 default: break
                 }
             } else {
@@ -74,9 +77,10 @@ func snapshot(health: Bool = false) -> Snapshot {
 /// Filled on a background queue and read after `DispatchGroup.wait()`.
 final class PiResult: @unchecked Sendable {
     var check: PiCheck?
+    var backups: MacBackupsCheck?
 }
 
-/// The Pi check runs alongside the agent snapshot, so a slow Pi only adds its own time.
+/// The Pi and backups checks run alongside the agent snapshot, so a slow Pi only adds its own time.
 func status(_ options: Options) -> Int32 {
     let result = PiResult()
     let group = DispatchGroup()
@@ -84,12 +88,15 @@ func status(_ options: Options) -> Int32 {
         let host = loadConfig().config.piHost
         DispatchQueue.global().async(group: group) { result.check = PiStatusClient().check(host: host) }
     }
+    if options.backups {
+        DispatchQueue.global().async(group: group) { result.backups = MacBackupsClient().check() }
+    }
     let snapshot = snapshot(health: options.health)
     group.wait()
-    let pi = result.check
-    print(options.json ? formatter.statusJSON(snapshot, all: options.all, pi: pi)
-        : formatter.statusText(snapshot, all: options.all, pi: pi))
-    return snapshot.overall.including(pi).exitCode
+    let pi = result.check, backups = result.backups
+    print(options.json ? formatter.statusJSON(snapshot, all: options.all, pi: pi, backups: backups)
+        : formatter.statusText(snapshot, all: options.all, pi: pi, backups: backups))
+    return snapshot.overall.including(pi).including(backups: backups, now: snapshot.takenAt).exitCode
 }
 
 func list(_ options: Options) -> Int32 {
@@ -131,7 +138,7 @@ func run(_ arguments: [String]) throws -> Int32 {
     case "--version", "version":
         print("heartbeatctl \(HeartbeatCore.version)")
     case "status":
-        return status(try Options(rest, allowed: ["--json", "--all", "--health", "--pi"]))
+        return status(try Options(rest, allowed: ["--json", "--all", "--health", "--pi", "--backups"]))
     case "list":
         return list(try Options(rest, allowed: ["--json"]))
     case "explain":

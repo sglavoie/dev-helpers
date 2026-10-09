@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let menu = NSMenu()
     private let monitor = Monitor()
     private let piMonitor = PiMonitor()
+    private let backupsMonitor = BackupsMonitor()
     private let launchAtLogin = LaunchAtLogin()
     private let menuBuilder = StatusMenuBuilder()
     private lazy var agentActions = AgentActions(monitor: monitor)
@@ -24,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.render()
         }
         piMonitor.onUpdate = { [weak self] _ in self?.render() }
+        backupsMonitor.onUpdate = { [weak self] in self?.render() }
+        backupsMonitor.onActivityChange = { [weak self] in self?.render() }
         monitor.onActivityChange = { [weak self] in self?.render() }
         piMonitor.onActivityChange = { [weak self] in self?.render() }
         monitor.healthChecks.onActivityChange = { [weak self] in self?.render() }
@@ -40,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notifier.start()
         render()
         monitor.start()
+        backupsMonitor.refresh()
     }
 
     private func makeStatusItem() -> NSStatusItem {
@@ -50,29 +54,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Redraws the icon and the menu (also while the menu is open).
     private func render() {
-        let snapshot = monitor.snapshot, pi = piMonitor.check
+        let snapshot = monitor.snapshot, pi = piMonitor.check, backups = backupsMonitor.check, now = Date()
         if let button = statusItem?.button {
-            let overall = snapshot?.overall.including(pi)
+            let overall = snapshot?.overall.including(pi).including(backups: backups, now: now)
             StatusIcon.apply(StatusIcon.appearance(overall, failing: snapshot?.count(.failing) ?? 0), to: button)
             let formatter = menuBuilder.formatter
             let devices = piMonitor.devices
             button.toolTip = snapshot.map {
                 "Heartbeat — " + formatter.headline($0) + "\n" + formatter.piRow(pi) + "\n" + formatter.piJournalRow(pi)
-                    + "\n" + formatter.lanDevicesRow(devices)
+                    + "\n" + formatter.lanDevicesRow(devices) + "\n" + formatter.macBackupsRow(backups, now: now)
             } ?? "Heartbeat"
         }
         menuBuilder.populate(
             menu, snapshot: snapshot, pi: StatusMenuBuilder.PiItem(check: pi, isChecking: piMonitor.isChecking,
                                                                  host: piMonitor.host, devices: piMonitor.devices,
                                                                  deviceActivity: deviceActivity),
+            backups: StatusMenuBuilder.BackupsItem(check: backups, isChecking: backupsMonitor.isChecking),
             stateProblem: monitor.stateProblem, launchAtLogin: launchAtLogin,
-            notifications: notificationsItem(snapshot), isRefreshing: monitor.isPolling || piMonitor.isChecking,
+            notifications: notificationsItem(snapshot), isRefreshing: monitor.isPolling || piMonitor.isChecking || backupsMonitor.isChecking,
             actions: StatusMenuBuilder.Actions(
                 target: self, refresh: #selector(refreshNow(_:)), openConfig: #selector(openConfig(_:)),
                 toggleLaunchAtLogin: #selector(toggleLaunchAtLogin(_:)),
                 toggleNotifications: #selector(toggleNotifications(_:)), checkPi: #selector(checkPiNow(_:)),
                 openKuma: #selector(openUptimeKuma(_:)), viewPiJournal: #selector(viewPiJournal(_:)),
-                decideDevice: #selector(decideDevice(_:)),
+                decideDevice: #selector(decideDevice(_:)), checkBackups: #selector(checkBackupsNow(_:)),
                 agent: agentActions))
     }
 
@@ -102,6 +107,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func refreshNow(_ sender: Any?) {
         monitor.refresh()
         piMonitor.refresh()
+        backupsMonitor.refresh()
+    }
+
+    @objc private func checkBackupsNow(_ sender: Any?) {
+        backupsMonitor.refresh()
+        render()
     }
 
     @objc private func checkPiNow(_ sender: Any?) {
@@ -223,5 +234,6 @@ extension AppDelegate: NSMenuDelegate {
         render()
         monitor.refreshIfStale()
         piMonitor.refreshIfStale()
+        backupsMonitor.refreshIfStale()
     }
 }

@@ -17,6 +17,8 @@ struct StatusMenuBuilder {
         var viewPiJournal: Selector
         /// Approve…, Reject… and Forget… on a LAN device; the item's representedObject is a `LanDeviceRequest`.
         var decideDevice: Selector
+        /// Check Backups Now on the Mac backups row.
+        var checkBackups: Selector
         /// Implements the per-agent items.
         var agent: AgentActions
     }
@@ -40,9 +42,16 @@ struct StatusMenuBuilder {
         var deviceActivity: [String: String] = [:]
     }
 
+    /// The Mac backups row's last check and whether one is running.
+    struct BackupsItem {
+        var check: MacBackupsCheck?
+        var isChecking: Bool
+    }
+
     var formatter = StatusFormatter()
 
-    func populate(_ menu: NSMenu, snapshot: Snapshot?, pi: PiItem, stateProblem: String?, launchAtLogin: LaunchAtLogin,
+    func populate(_ menu: NSMenu, snapshot: Snapshot?, pi: PiItem, backups: BackupsItem, stateProblem: String?,
+                  launchAtLogin: LaunchAtLogin,
                   notifications: NotificationsItem, isRefreshing: Bool, actions: Actions) {
         menu.autoenablesItems = false
         menu.removeAllItems()
@@ -64,6 +73,7 @@ struct StatusMenuBuilder {
         menu.addItem(piRow(pi, now: Date(), actions: actions))
         menu.addItem(piJournalRow(pi, now: Date(), actions: actions))
         menu.addItem(lanDevicesRow(pi, now: Date(), actions: actions))
+        menu.addItem(macBackupsRow(backups, now: Date(), actions: actions))
 
         let problems = problemLines(snapshot, stateProblem: stateProblem)
         if !problems.isEmpty {
@@ -185,6 +195,29 @@ struct StatusMenuBuilder {
         submenu.addItem(.separator())
         let check = command(pi.isChecking ? "Checking Pi…" : "Check Pi Now", actions.checkPi, target: actions.target)
         check.isEnabled = !pi.isChecking
+        submenu.addItem(check)
+        item.submenu = submenu
+        return item
+    }
+
+    /// Dot + "Mac backups — weekly never recorded"; the submenu lists each kind's last success and attempt, the mirror
+    /// and companions as information, then Check Backups Now. Only a red row colors the icon, and only amber.
+    private func macBackupsRow(_ backups: BackupsItem, now: Date, actions: Actions) -> NSMenuItem {
+        let title = backups.check == nil && backups.isChecking
+            ? "Mac backups — checking…" : formatter.macBackupsRow(backups.check, now: now)
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.image = dot(backups.check.map { Self.color($0.severity(now: now)) } ?? .systemGray)
+        item.toolTip = MacBackupsClient.command(binary: backups.check?.binary)
+        let submenu = NSMenu(title: "Mac backups")
+        submenu.autoenablesItems = false
+        for (index, group) in formatter.macBackupsMenuInfo(backups.check, now: now).enumerated() {
+            if index > 0 { submenu.addItem(.separator()) }
+            group.forEach { submenu.addItem(disabled($0)) }
+        }
+        submenu.addItem(.separator())
+        let check = command(backups.isChecking ? "Checking Backups…" : "Check Backups Now", actions.checkBackups,
+                            target: actions.target)
+        check.isEnabled = !backups.isChecking
         submenu.addItem(check)
         item.submenu = submenu
         return item

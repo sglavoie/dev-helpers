@@ -302,6 +302,30 @@ in the last hour, amber with any pending, and green when all are approved. Like
 the journal row, it never colors the icon and never counts toward `overall`:
 the Pi already sends the phone alert.
 
+Below that, the **Mac backups row** shows how fresh goback's backups are, read
+locally (no ssh) with `goback status --json` at launch, every 5 minutes, on menu
+open when the last check is older than that, and on Refresh Now (⌘R) or the
+submenu's Check Backups Now. goback opens `~/.goback.db` read-only, so a check
+changes nothing. The binary is the first executable of `~/.local/bin/goback`
+(where `just install` puts it), `~/go/bin/goback`, `/opt/homebrew/bin/goback`
+and `/usr/local/bin/goback`; the row's tooltip shows the command. The dot comes
+from the age of each kind's last *successful* run: daily green up to 2 days,
+amber up to 4; weekly green up to 9 days, amber up to 14; monthly green up to
+35 days, amber up to 45; red beyond that or when no success was ever recorded
+(`BackupFreshness` in `MacBackups.swift`). The row names the worst kind, or the
+one furthest through its green window: "Mac backups — weekly never recorded",
+"Mac backups — daily 3 days ago", with ", last attempt failed" when that kind's
+latest run failed. Its submenu lists each kind's last success and, when it was
+a different run or failed, its last attempt with the exit code; then the mirror
+and the daily companions (Apple Photos) as information only, since they never
+affect the dot; then the thresholds, the history database, the binary and the
+check time. The dot is amber with "goback not found" or "cannot read goback
+status" (the submenu shows goback's error, such as a configuration it rejects).
+Unlike the Pi rows, nothing else watches these backups, so a red row turns an
+ok icon amber and counts as a warning in `overall`. Only red counts, because
+goback runs by hand and a day or two late is a reminder; and only as amber,
+because the red icon and its count mean an agent failed.
+
 When launchctl fails, an alert shows its stderr and the command. After every
 action the app polls again after 1 s and 5 s. Config errors and warnings, plist problems and state.json problems appear
 under Problems. The footer has Refresh Now (⌘R), Open Config… (writes a
@@ -421,7 +445,7 @@ the banner opens the log. Every banner requested is logged:
 ## heartbeatctl
 
 ```
-heartbeatctl status [--json] [--all] [--health] [--pi]
+heartbeatctl status [--json] [--all] [--health] [--pi] [--backups]
 heartbeatctl list [--json]
 heartbeatctl explain <label>
 heartbeatctl check-config
@@ -460,7 +484,14 @@ comes from logs, evidence paths and receipts only.
   `generated` and `journal`. `journal` is `null` when there's no report, or
   else an object with `status`, `severity` (`ok`, `warning` or `unknown`),
   `row`, `count`, `truncated`, `reason` and `entries` (`message`, `count`,
-  `last`). `overall` includes the Pi but not its journal.
+  `last`). `overall` includes the Pi but not its journal. `--backups` runs
+  `goback status --json` alongside and prints the Mac backups row with each
+  kind's lines; the JSON gets a `backups` object with `binary`, `checkedAt`,
+  `status` (`ok`, `unavailable` or `unreadable`), `detail`, `severity`, `row`,
+  `dbPath`, `dbExists`, `kinds` (daily, weekly and monthly: `profile`,
+  `backupType`, `lastSuccess`, `latestAttempt`, `exitCode`, `severity`,
+  `okDays`, `warningDays`) and `info` (the mirror and companions, same keys
+  without the last three). Without the flag the output is unchanged.
 - `list` prints every discovered agent with its launchd state and schedule.
   `--json` gives the same agent objects as `status --json`.
 - `explain <label>` shows how one verdict was reached: the plist, launchd's
@@ -474,7 +505,8 @@ The overall status is failing if any agent is red. It is warning if any agent
 is amber, the config is broken, a plist can't be read (broken symlink or
 invalid file) or no agents are found. Otherwise it is ok. Paused and hidden
 agents don't count. With `--pi`, a Pi that isn't ok turns ok into warning,
-but never makes it worse than that. Journal errors alone don't. It is unknown when the LaunchAgents directory or the boot
+but never makes it worse than that. Journal errors alone don't. With
+`--backups`, a red Mac backups row turns ok into warning the same way. It is unknown when the LaunchAgents directory or the boot
 time can't be read.
 
 Exit status: 0 ok, 1 warning, 2 failing, 3 unknown, 64 usage error. `explain`

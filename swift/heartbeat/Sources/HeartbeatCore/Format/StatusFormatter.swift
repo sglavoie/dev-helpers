@@ -63,8 +63,10 @@ public struct StatusFormatter: Sendable {
         (.hidden, "Hidden", "-"),
     ]
 
-    /// Header, then one section per severity. Without `all`, OK and hidden agents are left out. `pi` adds the Pi row.
-    public func statusText(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil) -> String {
+    /// Header, then one section per severity. Without `all`, OK and hidden agents are left out. `pi` adds the Pi row,
+    /// `backups` the Mac backups row.
+    public func statusText(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil,
+                           backups: MacBackupsCheck? = nil) -> String {
         var lines = ["Heartbeat — " + headline(snapshot)]
         let shown = snapshot.agents.filter { all || ($0.severity != .ok && $0.severity != .hidden) }
         let width = shown.map(\.label.count).max() ?? 0
@@ -95,6 +97,11 @@ public struct StatusFormatter: Sendable {
             lines.append(piJournalRow(pi))
             lines += piJournalEntries(pi).map { "  \($0)" }
         }
+        if let backups {
+            lines.append("")
+            lines.append(macBackupsRow(backups, now: snapshot.takenAt))
+            lines += macBackupsMenuInfo(backups, now: snapshot.takenAt).dropLast().flatMap { $0 }.map { "  \($0)" }
+        }
         let notes = problemLines(snapshot)
         if !notes.isEmpty {
             lines.append("")
@@ -111,14 +118,16 @@ public struct StatusFormatter: Sendable {
         return lines
     }
 
-    /// `pi` adds a `pi` object and folds the Pi row into `overall`.
-    public func statusJSON(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil) -> String {
+    /// `pi` adds a `pi` object and folds the Pi row into `overall`; `backups` adds a `backups` object and folds a
+    /// failing Mac backups row into `overall` as a warning.
+    public func statusJSON(_ snapshot: Snapshot, all: Bool = false, pi: PiCheck? = nil,
+                           backups: MacBackupsCheck? = nil) -> String {
         let agents = snapshot.agents.filter { all || $0.severity != .hidden }
         let counts = Dictionary(uniqueKeysWithValues: Severity.allCases.map { ($0.rawValue, snapshot.count($0)) })
         var object: [String: Any] = [
             "version": HeartbeatCore.version,
             "checkedAt": iso(snapshot.takenAt),
-            "overall": snapshot.overall.including(pi).rawValue,
+            "overall": snapshot.overall.including(pi).including(backups: backups, now: snapshot.takenAt).rawValue,
             "headline": headline(snapshot),
             "counts": counts,
             "agents": agents.map { agentJSON($0, snapshot: snapshot) },
@@ -134,6 +143,7 @@ public struct StatusFormatter: Sendable {
             ] as [String: Any],
         ]
         if let pi { object["pi"] = piJSON(pi) }
+        if let backups { object["backups"] = macBackupsJSON(backups, now: snapshot.takenAt) }
         return Self.serialize(object)
     }
 
