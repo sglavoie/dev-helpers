@@ -38,7 +38,7 @@ APPLE_PHOTOS_KEYS = (
     "exclude_hidden",
     "keep_reports",
 )
-SD_CARD_KEYS = ("source", "destination", "exclude_file")
+SD_CARD_KEYS = ("source", "destination", "exclude_file", "occasional")
 SSD_KEYS = ("source", "destination", "exclude_file", "max_delete")
 RCLONE_KEYS = ("remote", "source", "max_delete")
 STATUS_KEYS = ("copy_max_age_days",)
@@ -95,6 +95,8 @@ class SdCardConfig:
     source: Path
     destination: Path
     exclude_file: Path | None
+    # `status --check` does not ask for a card that is only connected now and then.
+    occasional: bool = False
 
 
 @dataclass(frozen=True)
@@ -195,6 +197,7 @@ def load_sd_card_config(config_path: Path | None = None) -> SdCardConfig:
         source=section.required_path("source"),
         destination=section.required_path("destination"),
         exclude_file=section.optional_path("exclude_file"),
+        occasional=section.boolean("occasional", default=False),
     )
 
 

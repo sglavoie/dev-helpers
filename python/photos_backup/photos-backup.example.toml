@@ -45,6 +45,9 @@ cleanup_max_fraction = 0.001
 source = "/Volumes/SDSONY/DCIM/100MSDCF"
 destination = "~/Pictures/SDSONY"
 exclude_file = "~/.osxphotos.sd.exclude"
+# A card that is only connected now and then: `status --check` still lists its
+# copy, but does not exit 3 for it while the card is unplugged. Default: false.
+# occasional = true
 
 [ssd]
 # Copy the shared archive, not the legacy export, to the second on-site drive.

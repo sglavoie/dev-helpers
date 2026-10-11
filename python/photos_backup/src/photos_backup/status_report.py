@@ -336,9 +336,11 @@ def _transfer_suggestions(rows: list[dict[str, Any]]) -> list[tuple[str, bool]]:
 
     Two or more plain copies collapse into one copy-only `backup-all`, which
     skips the configured steps that are already current. Mirror previews stay
-    separate, since `backup-all` would not preview them.
+    separate, since `backup-all` would not preview them. So does a step held up
+    only by an absent occasional SD card, so nothing else asks for that card.
     """
     copies: dict[str, list[dict[str, Any]]] = {}
+    awaiting: dict[str, list[dict[str, Any]]] = {}
     previews: list[tuple[str, list[dict[str, Any]]]] = []
     for row in rows:
         if (retry := _retry_action(row)) is None:
@@ -347,8 +349,12 @@ def _transfer_suggestions(rows: list[dict[str, Any]]) -> list[tuple[str, bool]]:
         if mirror:
             command = suggested_command(step, "--delete", "--dry-run")
             previews.append((command, [row]))
+        elif row.get("awaiting_card"):
+            awaiting.setdefault(step, []).append(row)
         else:
             copies.setdefault(step, []).append(row)
+    for step in [step for step in awaiting if step in copies]:
+        copies[step].extend(awaiting.pop(step))
     groups: list[tuple[str, list[dict[str, Any]]]] = []
     if len(copies) > 1:
         configured = dict.fromkeys(_TRANSFER_COMMANDS[row["step"]] for row in rows)
@@ -360,8 +366,12 @@ def _transfer_suggestions(rows: list[dict[str, Any]]) -> list[tuple[str, bool]]:
         groups.extend(
             (suggested_command(step), group) for step, group in copies.items()
         )
+    groups.extend((suggested_command(step), group) for step, group in awaiting.items())
     return [
-        (command + _connect_note(group), all(row.get("within_grace") for row in group))
+        (
+            command + _connect_note(group),
+            all(row.get("within_grace") or row.get("awaiting_card") for row in group),
+        )
         for command, group in groups + previews
     ]
 
@@ -560,4 +570,6 @@ def _print_short_transfer(row: dict[str, Any], now: datetime.datetime) -> None:
             if False in hints
             else "freshness unknown"
         )
+    if row.get("awaiting_card") and _retry_action(row) is not None:
+        detail += "; waits for the occasional SD card, not counted by --check"
     click.echo(f"{row['step']}: {detail}")

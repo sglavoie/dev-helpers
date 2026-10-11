@@ -30,6 +30,16 @@ never-recorded copy always counts, and `copy_max_age_days = 0` makes every
 stale copy count. `status --json` shows the decision as `within_grace` on each
 configured transfer.
 
+A camera card is only around from time to time, so `[sd_card] occasional = true`
+keeps it from counting: while the card is unplugged, the `SD Card` copy is
+listed with `waits for the occasional SD card, not counted by --check` and its
+`sd-card` suggestion does not make `--check` exit 3, even when it failed or
+was never recorded. The same holds for `SSD: SD Card` until `sd-card` has
+created its destination, since there is nothing to copy before that. Other
+suggestions no longer ask for the card either: a failed SSD copy suggests
+`ssd`, not a `backup-all` that needs both drives. Connect the card and the
+copy counts again. `status --json` shows this as `awaiting_card`.
+
 ## Latest download failures
 
 Both text views summarize the latest incomplete export's `.downloads.json` report:

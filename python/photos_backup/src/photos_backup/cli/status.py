@@ -102,6 +102,27 @@ def _annotate_disconnected_drives(rows: list[dict[str, Any]]) -> list[dict[str, 
     ]
 
 
+def _annotate_awaiting_card(
+    rows: list[dict[str, Any]], config_path: Path | None
+) -> list[dict[str, Any]]:
+    """Mark the copies that only an absent `[sd_card] occasional` card holds up.
+
+    That is the card's own copy while the card is unplugged, and the SSD copy
+    of it for as long as `sd-card` has never created anything to copy.
+    """
+    try:
+        sd_card = load_sd_card_config(config_path)
+    except MissingSection:
+        sd_card = None
+    awaiting: set[str] = set()
+    if sd_card is not None and sd_card.occasional:
+        if disconnected_volume(str(sd_card.source)) is not None:
+            awaiting.add("SD Card")
+        if not sd_card.destination.exists():
+            awaiting.add("SSD: SD Card")
+    return [{**row, "awaiting_card": row["step"] in awaiting} for row in rows]
+
+
 @click.command(
     name="status",
     help="Show recorded backup state and the next export, without scanning files.",
@@ -134,6 +155,7 @@ def status(ctx: click.Context, as_json: bool, short: bool, check: bool) -> None:
     receipts, errors = TransferHistory(config_path).read()
     current, historical = classify_transfers(configured, receipts)
     current = _annotate_disconnected_drives(current)
+    current = _annotate_awaiting_card(current, config_path)
     current = annotate_upstream_freshness(current)
     current = annotate_archive_freshness(
         current, config.archive if config else None, None
@@ -214,8 +236,7 @@ def _require_nothing_suggested(suggested: list[str], *, check: bool) -> None:
         # reads badly in a notification, so lead with the drive instead.
         command, _, note = suggested[0].partition("  # ")
         note = note.removesuffix(" first")
-        message = f"{note}, then run: {command}" if note else command
-        message = f"Next: {message}"
+        message = f"{note}, then run: {command}" if note else f"run: {command}"
         if len(suggested) > 1:
             message += f" (+{len(suggested) - 1} more; see status --short)"
         raise ActionRequired(message)

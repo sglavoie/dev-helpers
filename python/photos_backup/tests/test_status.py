@@ -14,7 +14,10 @@ from photos_backup.archive import ArchiveLocked, ArchiveUnavailable
 from photos_backup.archive.state import ArchiveStateStore
 from photos_backup.cli.cli import cli
 from photos_backup.cli.context import CliContext
-from photos_backup.cli.status import _require_nothing_suggested
+from photos_backup.cli.status import (
+    _annotate_awaiting_card,
+    _require_nothing_suggested,
+)
 from photos_backup.copy_safety import disconnected_volume
 from photos_backup.errors import ActionRequired
 from photos_backup.status_report import _transfer_suggestions, print_transfer_history
@@ -266,7 +269,7 @@ class StatusPolishTests(ArchiveCommandTestCase):
         result = self.invoke("status", "--check")
         self.assertEqual(result.exit_code, 3)
         self.assertIn("bootstrap incomplete", result.stdout)
-        self.assertIn("Next: ", result.output)
+        self.assertIn("Action needed: run: ", result.stderr)
         self.assertIn("bootstrap", result.output)
 
         with mock.patch("photos_backup.cli.status.print_short_status", return_value=[]):
@@ -277,19 +280,42 @@ class StatusPolishTests(ArchiveCommandTestCase):
         _require_nothing_suggested(["photos-backup ssd"], check=False)
         _require_nothing_suggested([], check=True)
         for suggested, expected in (
-            (["photos-backup daily"], "Next: photos-backup daily"),
+            (["photos-backup daily"], "run: photos-backup daily"),
             (
                 [
                     "photos-backup sd-card  # connect /Volumes/SDSONY first",
                     "photos-backup verify --record",
                 ],
-                "Next: connect /Volumes/SDSONY, then run: photos-backup sd-card "
+                "connect /Volumes/SDSONY, then run: photos-backup sd-card "
                 "(+1 more; see status --short)",
             ),
         ):
             with self.assertRaises(ActionRequired) as raised:
                 _require_nothing_suggested(suggested, check=True)
             self.assertEqual(raised.exception.format_message(), expected)
+
+    def test_an_occasional_card_marks_only_the_copies_it_holds_up(self):
+        def awaiting(extra=""):
+            self.config_path.write_text(
+                '[sd_card]\nsource = "/Volumes/NoSuchCard/DCIM"\n'
+                f'destination = "{self.root}/raw"\n{extra}'
+            )
+            rows = [
+                {"step": step}
+                for step in ("SD Card", "SSD: All Photos", "SSD: SD Card")
+            ]
+            marked = _annotate_awaiting_card(rows, self.config_path)
+            return [row["step"] for row in marked if row["awaiting_card"]]
+
+        self.assertEqual(awaiting(), [])
+        self.assertEqual(awaiting("occasional = true\n"), ["SD Card", "SSD: SD Card"])
+        (self.root / "raw").mkdir()
+        self.assertEqual(awaiting("occasional = true\n"), ["SD Card"])
+        self.config_path.write_text("")
+        self.assertEqual(
+            _annotate_awaiting_card([{"step": "SD Card"}], self.config_path),
+            [{"step": "SD Card", "awaiting_card": False}],
+        )
 
     def test_short_and_json_show_new_freshness_hints(self):
         paths = self.initialized_archive(last_successful_export_at=EARLY)
@@ -930,6 +956,20 @@ class TransferSuggestionTests(unittest.TestCase):
                     False,
                 )
             ],
+        )
+
+    def test_a_copy_awaiting_the_occasional_card_waits_on_its_own_command(self):
+        card = {**self.row("SD Card", drive="/Volumes/SDSONY"), "awaiting_card": True}
+        on_ssd = {**self.row("SSD: SD Card"), "awaiting_card": True}
+        waiting = ("photos-backup sd-card  # connect /Volumes/SDSONY first", True)
+        self.assertEqual(_transfer_suggestions([card]), [waiting])
+        self.assertEqual(
+            _transfer_suggestions([card, self.row("SSD: All Photos"), on_ssd]),
+            [("photos-backup ssd", False), waiting],
+        )
+        self.assertEqual(
+            _transfer_suggestions([card, on_ssd]),
+            [waiting, ("photos-backup ssd", True)],
         )
 
     def test_mirror_previews_stay_separate_and_grace_applies_per_command(self):

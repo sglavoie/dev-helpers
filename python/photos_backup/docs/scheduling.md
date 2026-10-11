@@ -50,16 +50,33 @@ the stowed `launchagents` package that other agents already use):
 Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sglavoie.photos-backup-check.plist`
 and try it once with `launchctl kickstart gui/$(id -u)/com.sglavoie.photos-backup-check`.
 
-`status --check` exits 3, and notifies, whenever it suggests a command: an
+`status --check` exits 3, prints `Action needed: ...` and notifies whenever it suggests a command: an
 overdue `daily`, a pending cleanup, a failed or never-recorded copy, a copy
 stale for longer than `[status] copy_max_age_days` (default 7), a missing
-verification, or an archive drive that is not connected. Scheduling
+verification, or an archive drive that is not connected. An unplugged SD card
+marked `[sd_card] occasional = true` [does not count](status.md). Scheduling
 `daily --verify` keeps the verification suggestion from returning after every
 export. Copy suggestions for a
 drive that is not mounted end with `# connect /Volumes/... first`; the
 notification leads with that instead, as in
-`Next: connect /Volumes/Data, then run: photos-backup ssd (+1 more; see status --short)`. Run
+`connect /Volumes/Data, then run: photos-backup ssd (+1 more; see status --short)`. Run
 `photos-backup status --short` by hand to see the full list.
+
+### Showing exit 3 as a warning in Heartbeat
+
+[Heartbeat](../../../swift/heartbeat/README.md) colors any non-zero launchd exit
+red, but exit 3 only means a person has to act, such as connecting the SSD
+or running `verify`. Ignore that exit for the agent and add
+the same check as a health command whose exit 3 is a warning, so the row turns
+amber with the `Action needed: ...` line, while exit 1 or 2 stays red:
+
+```json
+"com.sglavoie.photos-backup-check": {
+  "displayName": "Photos backup",
+  "ignoreExitCodes": [3],
+  "health": { "command": ["~/.local/bin/photos-backup", "status", "--check"],
+              "warningExitCodes": [3] } }
+```
 
 ## Scheduling `daily` without goback
 

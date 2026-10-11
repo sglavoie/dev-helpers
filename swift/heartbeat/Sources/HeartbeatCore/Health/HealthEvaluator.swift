@@ -279,7 +279,7 @@ public enum HealthEvaluator {
                                 message: "Health check killed by signal \(signal)\(suffix)")
         case .warning(let code):
             return HealthReason(rule: 7, code: .healthCheckWarning, severity: .warning,
-                                message: "Health check could not check (exit \(code))\(suffix)")
+                                message: "Health check warning (exit \(code))\(suffix)")
         case .timedOut:
             return HealthReason(rule: 7, code: .healthCheckWarning, severity: .warning,
                                 message: "Health check timed out after \(ScheduleDescription.duration(config.timeoutSeconds))")

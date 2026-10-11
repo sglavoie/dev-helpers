@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE
+from photos_backup.errors import ACTION_REQUIRED_EXIT_CODE, show_action_needed
 
 
 class ArchiveError(click.ClickException):
@@ -15,6 +15,7 @@ class ArchiveUnavailable(ArchiveError):
     """The archive volume is not mounted or cannot be written to right now."""
 
     exit_code = ACTION_REQUIRED_EXIT_CODE
+    show = show_action_needed
 
 
 class ArchiveUnsafe(ArchiveError):
@@ -25,3 +26,4 @@ class ArchiveLocked(ArchiveError):
     """Another photos-backup run already holds the archive lock."""
 
     exit_code = ACTION_REQUIRED_EXIT_CODE
+    show = show_action_needed

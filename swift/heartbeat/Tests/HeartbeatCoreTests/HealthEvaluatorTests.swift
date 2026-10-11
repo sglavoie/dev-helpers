@@ -250,7 +250,7 @@ import Testing
         Case(name: "7: exit 1 is red with the first output line", input: healthInput(.failed(exitCode: 1), detail: "dirty and late"),
              severity: .failing, codes: [.healthCheckFailed], summary: "Health check failed (exit 1): dirty and late"),
         Case(name: "7: warningExitCodes exit 2 is amber", input: healthInput(.warning(exitCode: 2)),
-             severity: .warning, codes: [.healthCheckWarning], summary: "Health check could not check (exit 2)"),
+             severity: .warning, codes: [.healthCheckWarning], summary: "Health check warning (exit 2)"),
         Case(name: "7: killed by a signal is red", input: healthInput(.killed(signal: 9)),
              severity: .failing, codes: [.healthCheckFailed], summary: "Health check killed by signal 9"),
         Case(name: "7: timeout is amber", input: healthInput(.timedOut),

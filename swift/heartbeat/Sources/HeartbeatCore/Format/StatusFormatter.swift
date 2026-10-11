@@ -567,7 +567,7 @@ public struct StatusFormatter: Sendable {
         switch outcome {
         case .ok: "ok"
         case .failed(let code): "failed (exit \(code))"
-        case .warning(let code): "could not check (exit \(code))"
+        case .warning(let code): "warning (exit \(code))"
         case .killed(let signal): "killed by signal \(signal)"
         case .timedOut: "timed out"
         case .couldNotStart(let message): "could not start: \(message)"
