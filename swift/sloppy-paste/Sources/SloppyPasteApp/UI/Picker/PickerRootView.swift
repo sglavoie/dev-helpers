@@ -10,34 +10,34 @@ import SloppyCore
 /// too; ⌘F, or k on the first row, focuses it and Esc hands keys back to
 /// the list.
 struct PickerRootView: View {
-    @Environment(SnippetStore.self) private var store
-    @Environment(Navigator.self) private var navigator
-    @Environment(AccessibilityPermission.self) private var accessibility
-    @Environment(ToastCenter.self) private var toasts
-    @Environment(\.pickerPanel) private var pickerPanel
+    @Environment(SnippetStore.self) var store
+    @Environment(Navigator.self) var navigator
+    @Environment(AccessibilityPermission.self) var accessibility
+    @Environment(ToastCenter.self) var toasts
+    @Environment(\.pickerPanel) var pickerPanel
 
-    @AppStorage("picker.showingDetail") private var showingDetail = false
-    @AppStorage("picker.sortOption") private var sortRaw = SortOption.updatedDesc.rawValue
-    @AppStorage("picker.showRecentSection") private var showRecentSection = true
-    @AppStorage(DetailPaneWidth.defaultsKey) private var storedDetailWidth = Double(DetailPaneWidth.defaultWidth)
+    @AppStorage("picker.showingDetail") var showingDetail = false
+    @AppStorage("picker.sortOption") var sortRaw = SortOption.updatedDesc.rawValue
+    @AppStorage("picker.showRecentSection") var showRecentSection = true
+    @AppStorage(DetailPaneWidth.defaultsKey) var storedDetailWidth = Double(DetailPaneWidth.defaultWidth)
 
-    @ViewState private var query = ""
-    @ViewState private var options = SnippetFilterOptions()
-    @ViewState private var showingFilters = false
-    @ViewState private var selectedID: String?
+    @ViewState var query = ""
+    @ViewState var options = SnippetFilterOptions()
+    @ViewState var showingFilters = false
+    @ViewState var selectedID: String?
     /// The snippet awaiting ⌃X delete confirmation.
-    @ViewState private var pendingDelete: Snippet?
+    @ViewState var pendingDelete: Snippet?
     /// The ⌘G tag filter chooser, while open.
-    @ViewState private var tagChooser: TagFilterChooserModel?
-    @ViewState private var tagChooserSearchHandle = FocusHandle()
-    @FocusState private var searchFocused: Bool
+    @ViewState var tagChooser: TagFilterChooserModel?
+    @ViewState var tagChooserSearchHandle = FocusHandle()
+    @FocusState var searchFocused: Bool
     /// The width of the list and detail pane row, to keep the list visible.
-    @ViewState private var paneRowWidth: CGFloat = 0
+    @ViewState var paneRowWidth: CGFloat = 0
     /// The detail pane's width while its divider is dragged; saved on release.
-    @ViewState private var draggedDetailWidth: CGFloat?
-    @ViewState private var detailDragStartWidth: CGFloat = 0
+    @ViewState var draggedDetailWidth: CGFloat?
+    @ViewState var detailDragStartWidth: CGFloat = 0
 
-    private var sort: SortOption { SortOption(rawValue: sortRaw) ?? .updatedDesc }
+    var sort: SortOption { SortOption(rawValue: sortRaw) ?? .updatedDesc }
 
     var body: some View {
         let now = store.now()
@@ -123,14 +123,14 @@ struct PickerRootView: View {
 
     /// The detail pane's width as shown: the stored width (or the one being
     /// dragged), narrowed when the picker is too small to fit it beside the list.
-    private var detailWidth: CGFloat {
+    var detailWidth: CGFloat {
         let width = draggedDetailWidth ?? DetailPaneWidth.sanitized(storedDetailWidth)
         return paneRowWidth > 0 ? DetailPaneWidth.displayed(width, in: paneRowWidth) : width
     }
 
     // MARK: Header
 
-    private func searchHeader(_ state: PickerListState) -> some View {
+    func searchHeader(_ state: PickerListState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -170,7 +170,7 @@ struct PickerRootView: View {
     }
 
     /// ⌘P: sort and tag dropdowns.
-    private func filterMenus(_ state: PickerListState) -> some View {
+    func filterMenus(_ state: PickerListState) -> some View {
         HStack(spacing: 8) {
             Picker("Sort", selection: $sortRaw) {
                 ForEach(SortOption.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
@@ -188,7 +188,7 @@ struct PickerRootView: View {
         .controlSize(.small)
     }
 
-    private func tagChoices(_ state: PickerListState) -> [String] {
+    func tagChoices(_ state: PickerListState) -> [String] {
         var tags = state.list.visibleTags
         if let selected = options.selectedTag, selected != TagHierarchy.untaggedSentinel, !tags.contains(selected) {
             tags.insert(selected, at: 0)
@@ -196,13 +196,13 @@ struct PickerRootView: View {
         return tags
     }
 
-    private struct FilterChip: Identifiable {
+    struct FilterChip: Identifiable {
         var id: String
         var title: String
         var clear: @MainActor () -> Void
     }
 
-    private var activeChips: [FilterChip] {
+    var activeChips: [FilterChip] {
         var chips: [FilterChip] = []
         if options.showOnlyFavorites {
             chips.append(FilterChip(id: "favorites", title: "★ Bookmarked") { options.showOnlyFavorites = false })
@@ -227,7 +227,7 @@ struct PickerRootView: View {
 
     // MARK: List
 
-    private func list(
+    func list(
         _ state: PickerListState, selection: PickerItem?, historyAvailable: Set<String>, now: Int64
     ) -> some View {
         ScrollViewReader { proxy in
@@ -276,7 +276,7 @@ struct PickerRootView: View {
         }
     }
 
-    private func sectionHeader(_ title: String, subtitle: String?) -> some View {
+    func sectionHeader(_ title: String, subtitle: String?) -> some View {
         HStack(spacing: 6) {
             Text(title).fontWeight(.semibold)
             if let subtitle {
@@ -290,7 +290,7 @@ struct PickerRootView: View {
         .padding(.bottom, 2)
     }
 
-    private func suggestionRow(_ suggestion: SearchSuggestion, isSelected: Bool) -> some View {
+    func suggestionRow(_ suggestion: SearchSuggestion, isSelected: Bool) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "text.magnifyingglass")
                 .sharpWhenZoomed()
@@ -310,7 +310,7 @@ struct PickerRootView: View {
 
     // MARK: Footer
 
-    private func footer(_ state: PickerListState, selection: PickerItem?) -> some View {
+    func footer(_ state: PickerListState, selection: PickerItem?) -> some View {
         HStack(spacing: 14) {
             if !accessibility.isTrusted {
                 Button {
@@ -355,369 +355,6 @@ struct PickerRootView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-    }
-
-    // MARK: State
-
-    private var hasSearchOrFilters: Bool {
-        !query.isEmpty || options != SnippetFilterOptions()
-    }
-
-    private func clearSearchAndFilters() {
-        query = ""
-        options = SnippetFilterOptions()
-        selectedID = nil
-        searchFocused = false
-    }
-
-    private func listState(now: Int64) -> PickerListState {
-        PickerListModel.build(
-            store.snippets, query: query, options: options, sort: sort, showRecentSection: showRecentSection, now: now)
-    }
-
-    /// The selected item, falling back to the first one when the selection
-    /// is unset or was filtered away.
-    private func effectiveSelection(in items: [PickerItem]) -> PickerItem? {
-        items.first { $0.id == selectedID } ?? items.first
-    }
-
-    /// ⌘G: choose the tag filter from a filterable list.
-    private func openTagChooser() {
-        searchFocused = false
-        tagChooser = TagFilterChooserModel(
-            snippets: store.snippets, showArchived: options.showArchivedSnippets, currentTag: options.selectedTag
-        ) { tag in
-            options.selectedTag = tag
-            closeTagChooser()
-        }
-    }
-
-    /// Ends editing first: removing the chooser's field while it edits would
-    /// leave an orphaned field editor as first responder.
-    private func closeTagChooser() {
-        NSApp.keyWindow?.makeFirstResponder(nil)
-        tagChooser = nil
-        searchFocused = false
-    }
-
-    private func select(_ id: String) {
-        selectedID = id
-        searchFocused = false
-    }
-
-    /// Moves the selection by `offset` rows without wrapping.
-    private func moveSelection(by offset: Int) {
-        let items = PickerItem.items(listState(now: store.now()))
-        guard !items.isEmpty else { return }
-        let current = items.firstIndex { $0.id == selectedID } ?? 0
-        let next = min(max(current + offset, 0), items.count - 1)
-        selectedID = items[next].id
-    }
-
-    /// k: moves up, or focuses the search field from the first row.
-    private func moveUpOrFocusSearch() {
-        let items = PickerItem.items(listState(now: store.now()))
-        if let first = items.first, effectiveSelection(in: items)?.id != first.id {
-            moveSelection(by: -1)
-        } else {
-            searchFocused = true
-        }
-    }
-
-    /// Reads the live selection; binding closures outlive the render that made them.
-    private func currentSelection() -> PickerItem? {
-        effectiveSelection(in: PickerItem.items(listState(now: store.now())))
-    }
-
-    /// ↵ on a snippet: paste it directly, or open the placeholder form first.
-    private func useSelectedSnippet(_ mode: PickerPanelController.DeliveryMode) {
-        guard case .snippet(let snippet) = currentSelection() else { return }
-        switch SnippetPreparation.plan(for: snippet, now: store.now()) {
-        case .direct(let prepared):
-            pickerPanel?.deliver(prepared, snippetID: snippet.id, mode: mode)
-        case .form:
-            navigator.push(.placeholderForm(snippetID: snippet.id, mode: mode.formMode))
-        }
-    }
-
-    /// ⇧⌘↵: paste with each required placeholder's last-used value, skipping the form.
-    private func pasteSelectedWithLastValues() {
-        guard case .snippet(let snippet) = currentSelection() else { return }
-        do {
-            let prepared = try SnippetPreparation.prepareWithLastValues(
-                snippet, history: store.data.placeholderHistory, now: store.now())
-            pickerPanel?.deliver(prepared, snippetID: snippet.id, mode: .paste)
-        } catch {
-            pickerPanel?.showFailure("Missing History", message: error.description)
-        }
-    }
-
-    private var actions: SnippetActions { SnippetActions(store: store, toasts: toasts) }
-
-    private func selectedSnippet() -> Snippet? {
-        guard case .snippet(let snippet) = currentSelection() else { return nil }
-        return snippet
-    }
-
-    /// Deletes the confirmed snippet and moves the selection to its neighbour.
-    private func confirmDelete() {
-        guard let snippet = pendingDelete else { return }
-        pendingDelete = nil
-        let items = PickerItem.items(listState(now: store.now()))
-        if let index = items.firstIndex(where: { $0.id == snippet.id }) {
-            let neighbour = items.indices.contains(index + 1) ? index + 1 : index - 1
-            selectedID = items.indices.contains(neighbour) ? items[neighbour].id : nil
-        }
-        actions.delete(snippet)
-    }
-
-    private var manageTagsTitle: String {
-        let unused = TagStatistics.unusedTags(
-            snippets: store.snippets, tags: SnippetRepository(data: store.data).tags).count
-        return unused > 0 ? "Manage Tags (\(unused) unused)" : "Manage Tags"
-    }
-
-    private func copyTitle(_ snippet: Snippet) {
-        do {
-            try Pasteboard.copy(snippet.title)
-            toasts.success("Copied Title", message: snippet.title)
-        } catch {
-            toasts.failure("Could Not Copy", message: String(describing: error))
-        }
-    }
-
-    private func lastValuesAvailability(_ selection: PickerItem?) -> SnippetPreparation.LastValuesAvailability {
-        guard case .snippet(let snippet) = selection else { return .notApplicable }
-        return SnippetPreparation.lastValuesAvailability(
-            for: snippet, history: store.data.placeholderHistory, now: store.now())
-    }
-
-    private func bindings(selection: PickerItem?) -> [KeyBinding] {
-        var isSuggestion = false
-        var isSnippet = false
-        switch selection {
-        case .suggestion: isSuggestion = true
-        case .snippet: isSnippet = true
-        case nil: break
-        }
-        if let tagChooser {
-            return tagChooser.bindings + [
-                KeyBinding(id: "closeTagFilter", title: "Back", chord: KeyChord(.escape), showsInMenu: false) {
-                    closeTagChooser()
-                }
-            ]
-        }
-        if pendingDelete != nil {
-            return [
-                KeyBinding(id: "confirmDelete", title: "Delete", chord: KeyChord(.return)) { confirmDelete() },
-                KeyBinding(id: "cancelDelete", title: "Cancel", chord: KeyChord(.escape)) { pendingDelete = nil },
-            ]
-        }
-        let lastValues = lastValuesAvailability(selection)
-        let snippet: Snippet? = if case .snippet(let snippet) = selection { snippet } else { nil }
-        // The extension offered this only on stale snippets; archived ones are already done.
-        let staleReason = snippet.flatMap { snippet in
-            snippet.isArchived ? nil : Staleness.analyze(snippet, now: store.now()).stalenessReason
-        }
-        return [
-            KeyBinding(id: "up", title: "Previous", chord: KeyChord(.upArrow), showsInMenu: false) {
-                moveSelection(by: -1)
-            },
-            KeyBinding(id: "down", title: "Next", chord: KeyChord(.downArrow), showsInMenu: false) {
-                moveSelection(by: 1)
-            },
-            // j/k only while the search field is unfocused, so they still type.
-            KeyBinding(
-                id: "vimUp", title: "Previous", chord: searchFocused ? nil : KeyChord(.character("k")),
-                showsInMenu: false
-            ) {
-                moveUpOrFocusSearch()
-            },
-            KeyBinding(
-                id: "vimDown", title: "Next", chord: searchFocused ? nil : KeyChord(.character("j")),
-                showsInMenu: false
-            ) {
-                moveSelection(by: 1)
-            },
-            KeyBinding(id: "focusSearch", title: "Search", chord: KeyChord(.character("f"), .command)) {
-                searchFocused = true
-            },
-            // Esc clears a typed query first, then leaves the search field; a further Esc closes the panel.
-            KeyBinding(
-                id: "clearQuery", title: "Clear Search", chord: query.isEmpty ? nil : KeyChord(.escape),
-                showsInMenu: false
-            ) {
-                query = ""
-            },
-            KeyBinding(
-                id: "leaveSearch", title: "Leave Search", chord: searchFocused ? KeyChord(.escape) : nil,
-                showsInMenu: false
-            ) {
-                selectedID = currentSelection()?.id
-                searchFocused = false
-            },
-            KeyBinding(
-                id: "applySuggestion", title: "Use Suggestion", chord: KeyChord(.return), showsInMenu: false,
-                isEnabled: isSuggestion
-            ) {
-                if case .suggestion(let suggestion) = currentSelection() {
-                    query = suggestion.completion
-                }
-            },
-            KeyBinding(id: "paste", title: "Paste", chord: KeyChord(.return), isEnabled: isSnippet) {
-                useSelectedSnippet(.paste)
-            },
-            KeyBinding(
-                id: "pasteCommand", title: "Paste", chord: KeyChord(.return, .command), showsInMenu: false,
-                isEnabled: isSnippet
-            ) {
-                useSelectedSnippet(.paste)
-            },
-            KeyBinding(
-                id: "copy", title: "Copy to Clipboard", chord: KeyChord(.return, [.command, .option]),
-                isEnabled: isSnippet
-            ) {
-                useSelectedSnippet(.copy)
-            },
-            KeyBinding(
-                id: "copyAndStay", title: "Copy and Keep Open", chord: KeyChord(.return, [.command, .control]),
-                isEnabled: isSnippet
-            ) {
-                useSelectedSnippet(.copyAndStay)
-            },
-            KeyBinding(
-                id: "pasteLastValues",
-                title: lastValues == .available ? "Paste with Last Values" : "Paste with Last Values (no history yet)",
-                chord: KeyChord(.return, [.command, .shift]),
-                isEnabled: lastValues != .notApplicable
-            ) {
-                pasteSelectedWithLastValues()
-            },
-            // ⌘C only while the search field is empty, so it still copies typed text.
-            KeyBinding(
-                id: "copyTitle", title: "Copy Title",
-                chord: query.isEmpty ? KeyChord(.character("c"), .command) : nil, isEnabled: isSnippet
-            ) {
-                if let snippet = selectedSnippet() { copyTitle(snippet) }
-            },
-            KeyBinding(id: "new", title: "New Snippet", chord: KeyChord(.character("n"), .command)) {
-                navigator.push(.editor(.new))
-            },
-            KeyBinding(id: "resumeDraft", title: "Resume Draft", isEnabled: navigator.pendingEditor != nil) {
-                if let pending = navigator.pendingEditor { navigator.push(.editor(pending.mode)) }
-            },
-            KeyBinding(
-                id: "newFromClipboard", title: "New Snippet from Clipboard",
-                chord: KeyChord(.character("n"), [.command, .option])
-            ) {
-                navigator.push(.editor(.fromClipboard))
-            },
-            KeyBinding(id: "edit", title: "Edit Snippet", chord: KeyChord(.character("e"), .command), isEnabled: isSnippet)
-            {
-                if let snippet = selectedSnippet() { navigator.push(.editor(.edit(snippetID: snippet.id))) }
-            },
-            KeyBinding(
-                id: "duplicate", title: "Duplicate Snippet", chord: KeyChord(.character("d"), [.command, .shift]),
-                isEnabled: isSnippet
-            ) {
-                if let snippet = selectedSnippet(), let copy = actions.duplicate(snippet) {
-                    selectedID = copy.id
-                    navigator.push(.editor(.edit(snippetID: copy.id)))
-                }
-            },
-            KeyBinding(id: "delete", title: "Delete Snippet", chord: KeyChord(.character("x"), .control), isEnabled: isSnippet)
-            {
-                pendingDelete = selectedSnippet()
-            },
-            KeyBinding(
-                id: "pin", title: snippet?.isPinned == true ? "Unpin Snippet" : "Pin Snippet",
-                chord: KeyChord(.character("p"), [.command, .shift]), isEnabled: isSnippet
-            ) {
-                if let snippet = selectedSnippet() { actions.togglePin(snippet) }
-            },
-            KeyBinding(
-                id: "bookmark", title: snippet?.isFavorite == true ? "Remove Bookmark" : "Add Bookmark",
-                chord: KeyChord(.character("v"), [.command, .shift]), isEnabled: isSnippet
-            ) {
-                if let snippet = selectedSnippet() { actions.toggleBookmark(snippet) }
-            },
-            KeyBinding(
-                id: "archive", title: snippet?.isArchived == true ? "Unarchive Snippet" : "Archive Snippet",
-                chord: KeyChord(.character("a"), [.command, .shift]), isEnabled: isSnippet
-            ) {
-                if let snippet = selectedSnippet() { actions.toggleArchive(snippet) }
-            },
-            KeyBinding(
-                id: "archiveStale", title: "Archive — \(staleReason ?? "Stale Snippet")",
-                chord: KeyChord(.character("u"), [.command, .shift]), isEnabled: staleReason != nil
-            ) {
-                if let snippet = selectedSnippet(), snippet.isArchived == false,
-                   Staleness.analyze(snippet, now: store.now()).isStale {
-                    actions.toggleArchive(snippet)
-                }
-            },
-            KeyBinding(id: "editTags", title: "Edit Tags", chord: KeyChord(.character("t"), .command), isEnabled: isSnippet)
-            {
-                if let snippet = selectedSnippet() { navigator.push(.tagPicker(snippetID: snippet.id)) }
-            },
-            KeyBinding(id: "manageTags", title: manageTagsTitle, chord: KeyChord(.character("t"), [.command, .option])) {
-                navigator.push(.manageTags)
-            },
-            KeyBinding(id: "manageHistory", title: "Manage Placeholder History") {
-                navigator.push(.history(key: nil))
-            },
-            KeyBinding(id: "toggleDetail", title: "Toggle Detail View", chord: KeyChord(.character("d"), .command)) {
-                showingDetail.toggle()
-            },
-            KeyBinding(id: "filters", title: "Sort and Tag Filters", chord: KeyChord(.character("p"), .command)) {
-                showingFilters.toggle()
-            },
-            KeyBinding(id: "filterByTag", title: "Filter by Tag…", chord: KeyChord(.character("g"), .command)) {
-                openTagChooser()
-            },
-            KeyBinding(id: "clearSearchAndFilters", title: "Clear Search and Filters", isEnabled: hasSearchOrFilters) {
-                clearSearchAndFilters()
-            },
-            KeyBinding(
-                id: "favorites", title: options.showOnlyFavorites ? "Show All Snippets" : "Show Bookmarked",
-                chord: KeyChord(.character("f"), [.command, .shift])
-            ) {
-                options.showOnlyFavorites.toggle()
-            },
-            KeyBinding(
-                id: "recent", title: showRecentSection ? "Hide Recent Section" : "Show Recent Section",
-                chord: KeyChord(.character("r"), .command)
-            ) {
-                showRecentSection.toggle()
-            },
-            KeyBinding(
-                id: "archived", title: options.showArchivedSnippets ? "Hide Archived Snippets" : "Show Archived Snippets",
-                chord: KeyChord(.character("b"), .command)
-            ) {
-                options.showArchivedSnippets.toggle()
-            },
-            KeyBinding(
-                id: "needsAttention",
-                title: options.showNeedsAttention ? "Show All Snippets" : "Show Snippets Needing Attention",
-                chord: KeyChord(.character("n"), [.command, .shift])
-            ) {
-                options.showNeedsAttention.toggle()
-            },
-            KeyBinding(id: "import", title: "Import Snippets…", chord: KeyChord(.character("i"), [.command, .shift])) {
-                pickerPanel?.commands.importData()
-            },
-            KeyBinding(id: "export", title: "Export All Snippets…", chord: KeyChord(.character("e"), [.command, .shift])) {
-                pickerPanel?.commands.exportData()
-            },
-            KeyBinding(id: "storage", title: "View Storage Info", chord: KeyChord(.character("s"), [.command, .shift])) {
-                if let description = pickerPanel?.commands.storageDescription() {
-                    toasts.success("Storage Information", message: description)
-                }
-            },
-            KeyBinding(id: "settings", title: "Settings…", chord: KeyChord(.character(","), .command)) {
-                pickerPanel?.commands.openSettings()
-            },
-        ]
     }
 }
 

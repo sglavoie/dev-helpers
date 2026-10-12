@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import contextlib
-import dataclasses
-import datetime
 import json
-import os
 import shutil
 import sqlite3
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from click.testing import CliRunner
 
-from photos_backup.apple_photos.adapter import ExportedFile, PhotosProbes
 from photos_backup.apple_photos.verify import (
-    _inspect_files,
     EXPORT_DATABASE,
     MISSING_ASSETS,
     OWNERSHIP,
@@ -27,130 +20,20 @@ from photos_backup.apple_photos.verify import (
 )
 from photos_backup.archive import (
     ArchivePaths,
-    ArchiveState,
-    ArchiveStateStore,
     SystemProbes,
-    create_archive_tree,
     open_archive,
 )
 from photos_backup.cli.cli import cli
 from photos_backup.progress import ExportProgress
-from tests.test_export import HOSTNAME, THURSDAY, make_config
-
-MONDAY = datetime.datetime(2026, 8, 10, 6, 0, tzinfo=datetime.UTC)
-OTHER_HOST = "Sebastiens Mac mini.local"
-MALFORMED = "*** in database main ***\nPage 4 is never used"
-
-
-def write_export_db(
-    path: Path,
-    files: list[Path],
-    *,
-    version: str = "11.0",
-    relative_to: Path | None = None,
-) -> None:
-    """Write an osxphotos-shaped export database recording `files` as exported.
-
-    `relative_to` stores the current osxphotos format, where every filepath is
-    relative to the export root; without it the legacy absolute format is used.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.unlink(missing_ok=True)
-    connection = sqlite3.connect(str(path))
-    with contextlib.closing(connection):
-        connection.execute(
-            "CREATE TABLE version (id INTEGER PRIMARY KEY, "
-            "osxphotos TEXT, exportdb TEXT)"
-        )
-        connection.execute(
-            "INSERT INTO version(osxphotos, exportdb) VALUES (?, ?)",
-            ("0.76.1", version),
-        )
-        connection.execute(
-            "CREATE TABLE photoinfo (id INTEGER PRIMARY KEY, uuid TEXT, photoinfo JSON)"
-        )
-        connection.execute(
-            "CREATE TABLE export_data (id INTEGER PRIMARY KEY, filepath TEXT, "
-            "uuid TEXT, dest_size INTEGER, dest_mtime REAL)"
-        )
-        for index, exported in enumerate(files):
-            status = exported.stat()
-            uuid = f"uuid-{index}"
-            connection.execute(
-                "INSERT INTO photoinfo(uuid, photoinfo) VALUES (?, ?)",
-                (
-                    uuid,
-                    json.dumps(
-                        {"cloud_guid": f"guid-{index}", "original_filename": "a.jpg"}
-                    ),
-                ),
-            )
-            filepath = (
-                os.path.relpath(exported, relative_to)
-                if relative_to is not None
-                else str(exported)
-            )
-            connection.execute(
-                "INSERT INTO export_data(filepath, uuid, dest_size, dest_mtime) "
-                "VALUES (?, ?, ?, ?)",
-                (filepath, uuid, status.st_size, status.st_mtime),
-            )
-        connection.commit()
-
-
-class VerifyTestCase(unittest.TestCase):
-    """Gives every test a healthy archive that each test then breaks one way."""
-
-    def setUp(self) -> None:
-        self._tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmpdir.cleanup)
-        # Resolved because macOS temporary directories live under symlinks.
-        self.root = Path(self._tmpdir.name).resolve()
-        self.volume = self.root / "SanDisk"
-        self.volume.mkdir()
-        self.archive_root = self.volume / "Media" / "Apple Photos"
-        self.config = make_config(self.volume, self.archive_root)
-        volume = self.volume
-        self.system_probes = SystemProbes(
-            is_mount=lambda path: path == volume,
-            hostname=lambda: HOSTNAME,
-            now=lambda: THURSDAY,
-        )
-        self.paths = ArchivePaths(volume=self.volume, archive=self.archive_root)
-        create_archive_tree(self.paths)
-
-        self.report = self.paths.export_report(HOSTNAME, MONDAY.date())
-        self.report.write_text("filename\n")
-        self.exported = self.archive_root / "2026" / "08" / "a.jpg"
-        self.exported.parent.mkdir(parents=True)
-        self.exported.write_bytes(b"an exported photo")
-        write_export_db(
-            self.paths.export_db, [self.exported], relative_to=self.archive_root
-        )
-        self.save_state()
-
-    def save_state(self, **changes) -> None:
-        healthy = ArchiveState(
-            initialized_at=MONDAY,
-            last_successful_export_at=THURSDAY,
-            last_full_export_at=MONDAY,
-            writer_hostname=HOSTNAME,
-            last_report_path=self.report,
-        )
-        ArchiveStateStore(self.paths).save(dataclasses.replace(healthy, **changes))
-
-    def verify(self, **probe_overrides):
-        probes = PhotosProbes(**probe_overrides) if probe_overrides else None
-        with open_archive(
-            self.config, dry_run=True, probes=self.system_probes
-        ) as opened:
-            return verify_archive(opened, probes=probes)
-
-    def check(self, report, name):
-        for check in report.checks:
-            if check.name == name:
-                return check
-        raise AssertionError(f"no check named {name!r} in {report}")
+from tests.test_export import HOSTNAME, make_config
+from tests.verify_case import (
+    MALFORMED,
+    MONDAY,
+    OTHER_HOST,
+    THURSDAY,
+    VerifyTestCase,
+    write_export_db,
+)
 
 
 class HealthyArchiveTests(VerifyTestCase):
@@ -319,112 +202,6 @@ class ExportDatabaseTests(VerifyTestCase):
         self.assertFalse(check.passed)
         self.assertIn("outside the archive", check.detail)
         self.assertIn(str(stray), check.detail)
-
-
-class ExportedFileTests(VerifyTestCase):
-    def test_a_directory_replacing_a_photo_fails(self):
-        self.exported.unlink()
-        self.exported.mkdir()
-        report = self.verify()
-        self.assertFalse(report.passed)
-        self.assertIn("not a regular file", self.check(report, MISSING_ASSETS).detail)
-        self.assertTrue(self.check(report, STATE).passed)
-
-    def test_symlinked_files_and_parents_fail_even_when_target_is_unchanged(self):
-        original = self.exported.read_bytes()
-        for parent in (False, True):
-            with self.subTest(parent=parent):
-                target = self.root / ("outside-directory" if parent else "outside.jpg")
-                if parent:
-                    self.exported.parent.rename(target)
-                    self.exported.parent.symlink_to(target, target_is_directory=True)
-                else:
-                    self.exported.rename(target)
-                    self.exported.symlink_to(target)
-                try:
-                    report = self.verify()
-                    self.assertFalse(report.passed)
-                    self.assertIn("symlink", self.check(report, MISSING_ASSETS).detail)
-                    self.assertEqual(self.exported.read_bytes(), original)
-                finally:
-                    link = self.exported.parent if parent else self.exported
-                    link.unlink()
-                    target.rename(link)
-
-    def test_unreadable_or_disappearing_file_does_not_abort_other_checks(self):
-        lstat = Path.lstat
-        for error in (
-            PermissionError("permission denied"),
-            FileNotFoundError("vanished"),
-        ):
-            with self.subTest(error=error):
-
-                def inspect(path):
-                    if path == self.exported:
-                        raise error
-                    return lstat(path)
-
-                with mock.patch.object(Path, "lstat", inspect):
-                    report = self.verify()
-                self.assertEqual(len(report.checks), 6)
-                self.assertFalse(report.passed)
-                self.assertIn(str(error), self.check(report, MISSING_ASSETS).detail)
-                self.assertEqual(
-                    self.check(report, MISSING_ASSETS).paths, (self.exported,)
-                )
-                self.assertTrue(self.check(report, STATE).passed)
-
-    def test_database_probe_failure_does_not_abort_remaining_checks(self):
-        def fail(_):
-            raise PermissionError("database unavailable")
-
-        report = self.verify(check_integrity=fail)
-        self.assertFalse(self.check(report, EXPORT_DATABASE).passed)
-        self.assertTrue(self.check(report, STATE).passed)
-        self.assertTrue(self.check(report, MISSING_ASSETS).passed)
-
-    def test_a_deleted_exported_file_is_reported_as_missing(self) -> None:
-        self.exported.unlink()
-
-        report = self.verify()
-
-        missing = self.check(report, MISSING_ASSETS)
-        self.assertFalse(missing.passed)
-        self.assertIn(str(self.exported), missing.detail)
-        self.assertTrue(self.check(report, SIGNATURES).passed)
-
-    def test_a_changed_exported_file_fails_its_signature(self) -> None:
-        self.exported.write_bytes(b"a different photo entirely")
-
-        report = self.verify()
-
-        signatures = self.check(report, SIGNATURES)
-        self.assertFalse(signatures.passed)
-        self.assertIn(str(self.exported), signatures.detail)
-        self.assertTrue(self.check(report, MISSING_ASSETS).passed)
-
-
-class InspectFilesTests(unittest.TestCase):
-    def test_a_shared_parent_directory_is_checked_once(self):
-        archive = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
-        month = archive / "2026" / "08"
-        month.mkdir(parents=True)
-        files = []
-        for index in range(5):
-            path = month / f"IMG_{index}.jpg"
-            path.write_bytes(b"photo")
-            files.append(ExportedFile(path=path, uuid=str(index), size=5, mtime=0))
-
-        original = Path.lstat
-        with mock.patch.object(
-            Path, "lstat", autospec=True, side_effect=original
-        ) as lstat:
-            statuses, errors = _inspect_files(tuple(files), archive)
-
-        self.assertEqual(errors, {})
-        self.assertEqual(len(statuses), 5)
-        # Two directories once each, then one call per file.
-        self.assertEqual(lstat.call_count, 2 + 5)
 
 
 class StateTests(VerifyTestCase):
