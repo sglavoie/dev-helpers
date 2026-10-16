@@ -96,3 +96,8 @@ to UTC is performed.
 A failed latest attempt leaves an earlier `last_success` intact. `--json`
 requires `--summary` and emits no table or terminal colors.
 
+
+Rsync exit code 24 (source files vanished during transfer) counts as a successful
+backup for daily, weekly, monthly, and mirror transfers. History retains the raw
+exit code, and summaries apply this rule to existing records too. Companion
+programs still require exit code 0. Preflight scans must still complete cleanly.

@@ -178,3 +178,29 @@ func TestSummaryKeepsEachProfileAndLastSuccessAfterFailure(t *testing.T) {
 		}
 	}
 }
+
+func TestSummaryJSONAcceptsVanishedSourcesOnlyForRsync(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	previous := config.ProfileFlag
+	config.ProfileFlag = ""
+	t.Cleanup(func() { config.ProfileFlag = previous })
+	for _, kind := range []string{"daily", "companion/photos"} {
+		db.RecordBackup(db.HistoryEntry{CreatedAt: time.Now(), Profile: "test", BackupType: kind, ExitCode: 24})
+	}
+	var output bytes.Buffer
+	if err := SummaryJSON(&output); err != nil {
+		t.Fatal(err)
+	}
+	var rows []SummaryRow
+	if err := json.Unmarshal(output.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows: %+v", rows)
+	}
+	for _, row := range rows {
+		if row.ExitCode != 24 || (row.LastSuccess != nil) != (row.BackupType == "daily") {
+			t.Fatalf("row: %+v", row)
+		}
+	}
+}

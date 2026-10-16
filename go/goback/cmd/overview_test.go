@@ -183,3 +183,27 @@ func TestStatusErrorsOmitTheUsageText(t *testing.T) {
 		t.Fatalf("%v: %s", err, out)
 	}
 }
+
+func TestStatusAcceptsVanishedSources(t *testing.T) {
+	customConfig(t, overviewConfig)
+	now := time.Now()
+	stamp := now.Format("2006-01-02 15:04:05")
+	rows, err := configuredStatus([]string{"alpha"}, []db.SummaryRow{
+		{Profile: "alpha", BackupType: "daily", LatestAttempt: stamp, ExitCode: 24, LastSuccess: &stamp},
+	}, now, 48*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	daily := filterStatus(rows, "daily")
+	if len(daily) != 1 || daily[0].Result != "succeeded" || daily[0].Freshness != "current" {
+		t.Fatalf("daily: %+v", daily)
+	}
+	if err := checkStatus(daily); err != nil {
+		t.Fatal(err)
+	}
+	companion := daily[0]
+	companion.BackupType = "companion/photos"
+	if err := checkStatus([]statusRow{companion}); err == nil {
+		t.Fatal("accepted companion exit 24")
+	}
+}

@@ -2,6 +2,24 @@
 // exit codes, which belong to the companion programs themselves.
 package rsyncstatus
 
+// Succeeded accepts rsync's vanished-source warning as a completed transfer.
+func Succeeded(code int) bool { return code == 0 || code == 24 }
+
+// BackupSucceeded applies rsync semantics only to known rsync backup kinds.
+// Companion exit codes belong to the companion program.
+func BackupSucceeded(kind string, code int) bool {
+	switch kind {
+	case "daily", "weekly", "monthly", "mirror":
+		return Succeeded(code)
+	default:
+		return code == 0
+	}
+}
+
+// BackupSuccessSQL is the history equivalent of BackupSucceeded, using the
+// backups table's fixed column names. Raw exit codes remain in history.
+const BackupSuccessSQL = "(exit_code = 0 OR (exit_code = 24 AND backup_type IN ('daily', 'weekly', 'monthly', 'mirror')))"
+
 // Explanation follows rsync's documented exit values:
 // https://download.samba.org/pub/rsync/rsync.1.html#EXIT_VALUES
 func Explanation(code int) string {

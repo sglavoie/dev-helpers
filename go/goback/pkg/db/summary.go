@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 )
 
 type SummaryRow struct {
@@ -64,7 +66,7 @@ func ReadSummary() ([]SummaryRow, error) {
 ), ranked AS (
  SELECT profile, backup_type, created_at, exit_code,
  ROW_NUMBER() OVER (PARTITION BY profile, backup_type ORDER BY created_at DESC, id DESC) AS rank,
- MAX(CASE WHEN exit_code = 0 THEN created_at END) OVER (PARTITION BY profile, backup_type) AS success
+ MAX(CASE WHEN `+rsyncstatus.BackupSuccessSQL+` THEN created_at END) OVER (PARTITION BY profile, backup_type) AS success
  FROM history
 ) SELECT profile, backup_type, created_at, exit_code, success FROM ranked WHERE rank = 1 ORDER BY profile, backup_type`, profile, exitCode)
 	rows, err := conn.Query(query)

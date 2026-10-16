@@ -350,3 +350,22 @@ func TestInterruptedSnapshotRecordsAttempt(t *testing.T) {
 		}
 	})
 }
+
+func TestSnapshotAcceptsVanishedSourcesAndRetainsRawHistory(t *testing.T) {
+	_, _, args := snapshotFixture(t)
+	if err := os.WriteFile(filepath.Join(filepath.Dir(args), "rsync"), []byte("#!/bin/sh\nexit 24\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	b, err := BuildDaily()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := b.Execute(context.Background())
+	if result.Err != nil || result.ExitCode != 24 || result.DiagnosticLog != "" || result.NotStarted || result.Interrupted {
+		t.Fatalf("result: %+v", result)
+	}
+	rows, err := db.ReadSummary()
+	if err != nil || len(rows) != 1 || rows[0].ExitCode != 24 || rows[0].LastSuccess == nil {
+		t.Fatalf("history: %+v: %v", rows, err)
+	}
+}

@@ -38,7 +38,7 @@ const (
 	StatusInterrupted
 	// StatusFailed means rsync ran and did not finish successfully.
 	StatusFailed
-	// StatusSucceeded means rsync ran and exited zero.
+	// StatusSucceeded means rsync completed with exit code 0 or 24.
 	StatusSucceeded
 )
 
@@ -257,6 +257,7 @@ func transfer(ctx context.Context, cfg Config, deps Deps, exec ExecDeps, plan Pl
 
 	code, err := exec.Streamer.Stream(ctx, result.Command)
 	result.Duration = deps.Clock.Now().Sub(result.StartedAt)
+	result.ExitCode = code
 
 	switch {
 	case ctx.Err() != nil:
@@ -267,7 +268,7 @@ func transfer(ctx context.Context, cfg Config, deps Deps, exec ExecDeps, plan Pl
 		result.Status = StatusFailed
 		result.ExitCode = code
 		result.Err = fmt.Errorf("the mirror could not be run: %w", err)
-	case code != 0:
+	case !rsyncstatus.Succeeded(code):
 		result.Status = StatusFailed
 		result.ExitCode = code
 		result.Err = fmt.Errorf("the mirror failed with exit code %d", code)

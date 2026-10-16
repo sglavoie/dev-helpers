@@ -300,3 +300,12 @@ func TestResultSummaryDescribesEveryOutcome(t *testing.T) {
 		})
 	}
 }
+
+func TestMirrorAcceptsVanishedSources(t *testing.T) {
+	setup := mirrorSetup()
+	setup.streamer.exitCode = 24
+	result, err := setup.run(context.Background())
+	if err != nil || result.Status != StatusSucceeded || result.ExitCode != 24 || !result.Attempted() {
+		t.Fatalf("result: %+v: %v", result, err)
+	}
+}

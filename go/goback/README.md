@@ -177,7 +177,9 @@ goback status --companions --profile default
 
 `--older-than` marks a last success as `stale` when it is older than the supplied
 positive duration (`48h`, `168h`, etc.). Without a threshold, freshness is not
-assessed. A recent failed attempt does not make an older success fresh. `never
+assessed. Rsync exit 24 (vanished source files) counts as success, including in existing
+history; its raw exit code is retained. Companion programs still require exit 0.
+A recent failed attempt does not make an older success fresh. `never
 run` means there is no retained attempt for that configured profile/type; history
 trimming can also produce this label. A failed-only history has `no recorded
 success`. Timestamps are interpreted in the current local timezone, matching

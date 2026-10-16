@@ -13,6 +13,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -209,7 +210,7 @@ func configuredStatus(names []string, history []db.SummaryRow, now time.Time, ol
 			row.Result = "succeeded"
 			if entry.ExitCode == -1 {
 				row.Result = "interrupted"
-			} else if entry.ExitCode != 0 {
+			} else if !rsyncstatus.BackupSucceeded(kind, entry.ExitCode) {
 				row.Result = fmt.Sprintf("failed (exit %d)", entry.ExitCode)
 			}
 			if entry.LastSuccess != nil {
@@ -275,7 +276,7 @@ func checkStatus(rows []statusRow) error {
 	}
 	var unhealthy []string
 	for _, row := range rows {
-		if row.LastSuccess == nil || row.ExitCode == nil || *row.ExitCode != 0 || row.Freshness == "stale" {
+		if row.LastSuccess == nil || row.ExitCode == nil || !rsyncstatus.BackupSucceeded(row.BackupType, *row.ExitCode) || row.Freshness == "stale" {
 			unhealthy = append(unhealthy, row.Profile+"/"+row.BackupType)
 		}
 	}

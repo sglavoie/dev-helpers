@@ -7,6 +7,7 @@ import (
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/usage/view"
 )
 
@@ -92,7 +93,7 @@ WITH ranked_backups AS (
            ROW_NUMBER() OVER (
                PARTITION BY profile, backup_type ORDER BY created_at DESC, id DESC
            ) AS row_num,
-           MAX(CASE WHEN exit_code = 0 THEN created_at END) OVER (
+           MAX(CASE WHEN `+rsyncstatus.BackupSuccessSQL+` THEN created_at END) OVER (
                PARTITION BY profile, backup_type
            ) AS last_success
     FROM backups

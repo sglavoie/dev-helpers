@@ -7,6 +7,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/printer"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 )
 
 // dailySourceHistory describes retained history, not the age of every file in
@@ -34,7 +35,7 @@ func dailyHistoryDescription(rows []db.SummaryRow, profile string) string {
 		} else {
 			text.WriteString(printer.TimestampWithAge(*row.LastSuccess) + ".\n")
 		}
-		if row.ExitCode != 0 {
+		if !rsyncstatus.BackupSucceeded(row.BackupType, row.ExitCode) {
 			result := fmt.Sprintf("failed (exit %d)", row.ExitCode)
 			if row.ExitCode == -1 {
 				result = "interrupted"

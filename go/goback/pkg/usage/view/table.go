@@ -68,7 +68,7 @@ func appendSummaryRows(rows *sql.Rows, t table.Writer) (hasData bool) {
 		result := "succeeded"
 		if exitCode == -1 {
 			result = "interrupted"
-		} else if exitCode != 0 {
+		} else if !rsyncstatus.BackupSucceeded(backupType, exitCode) {
 			result = fmt.Sprintf("failed (exit %d)", exitCode)
 			if !strings.HasPrefix(backupType, "companion/") {
 				if explanation := rsyncstatus.Explanation(exitCode); explanation != "" {

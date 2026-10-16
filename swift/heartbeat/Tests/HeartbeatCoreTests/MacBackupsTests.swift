@@ -74,6 +74,24 @@ import Testing
         #expect(policy.severity(lastSuccess: Self.now.addingTimeInterval(-days * Self.day), now: Self.now) == expected)
     }
 
+    @Test func vanishedSourcesCountAsCompletedOnlyForRsync() throws {
+        let json = Self.json
+            .replacingOccurrences(of: "2026-10-06T11:21:24-06:00",
+                                  with: ISO8601DateFormatter().string(from: Self.now.addingTimeInterval(-Self.day)))
+            .replacingOccurrences(of: "\"exit_code\": 0", with: "\"exit_code\": 24")
+        let report = try BackupStatusParser.parse(Data(json.utf8))
+        let daily = report.backups[0]
+        #expect(daily.exitCode == 24 && !daily.latestFailed)
+        let check = Self.check([daily])
+        #expect(check.severity(now: Self.now) == .ok)
+        #expect(!Self.formatter.macBackupsRow(check, now: Self.now).contains("failed"))
+        #expect(Self.formatter.macBackupsMenuInfo(check, now: Self.now)[0].count == 1)
+        for kind in ["daily", "weekly", "monthly", "mirror", "companion/photos", "unknown"] {
+            let record = BackupRecord(profile: "test", backupType: kind, exitCode: 24)
+            #expect(record.latestFailed == (kind == "companion/photos" || kind == "unknown"))
+        }
+    }
+
     @Test func neverSucceededIsFailing() {
         for policy in BackupFreshness.policies {
             #expect(policy.severity(lastSuccess: nil, now: Self.now) == .failing)

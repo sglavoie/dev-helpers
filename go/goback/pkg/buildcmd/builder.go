@@ -13,6 +13,7 @@ import (
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/db"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/diagnostics"
+	"github.com/sglavoie/dev-helpers/go/goback/pkg/rsyncstatus"
 	"github.com/spf13/viper"
 )
 
@@ -120,13 +121,18 @@ func (r *builder) Execute(ctx context.Context) (result ExecutionResult) {
 	}
 
 	if err != nil {
-		fmt.Println("Error running rsync command: ", err)
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			r.exitCode = exitErr.ExitCode()
 		} else {
 			r.exitCode = 1
 		}
+	}
+	if started && rsyncstatus.Succeeded(r.exitCode) {
+		err = nil
+	}
+	if err != nil {
+		fmt.Println("Error running rsync command: ", err)
 	}
 	if started && !r.dryRun {
 		r.updateDBWithUsage()

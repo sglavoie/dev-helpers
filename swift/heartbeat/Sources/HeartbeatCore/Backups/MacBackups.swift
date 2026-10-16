@@ -29,8 +29,12 @@ public struct BackupRecord: Equatable, Sendable {
 
     public var isCompanion: Bool { backupType.hasPrefix("companion/") }
 
-    /// The latest attempt exited nonzero or was interrupted.
-    public var latestFailed: Bool { exitCode.map { $0 != 0 } ?? false }
+    /// Rsync exit 24 (vanished sources) counts as completed; companion codes keep their own meaning.
+    public var latestFailed: Bool {
+        guard let exitCode else { return false }
+        let isRsync = ["daily", "weekly", "monthly", "mirror"].contains(backupType)
+        return exitCode != 0 && !(isRsync && exitCode == 24)
+    }
 }
 
 /// How old a kind's last successful run may be: green up to `okDays`, amber up to `warningDays`, red beyond that

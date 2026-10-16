@@ -24,9 +24,9 @@ const (
 	MainDeclined
 	// MainInterrupted means the run was cancelled by a signal.
 	MainInterrupted
-	// MainFailed means rsync ran and exited non-zero.
+	// MainFailed means rsync ran and returned an error other than vanished sources.
 	MainFailed
-	// MainSucceeded means rsync ran and exited zero.
+	// MainSucceeded means rsync completed with exit code 0 or 24.
 	MainSucceeded
 )
 
