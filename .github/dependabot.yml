@@ -1,0 +1,34 @@
+version: 2
+
+updates:
+  - package-ecosystem: "gomod"
+    directories:
+      - "/go/*"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "npm"
+    directories:
+      - "/typescript/*"
+    schedule:
+      interval: "weekly"
+
+  # Requirements files, Pipenv, and Python projects without a uv lockfile.
+  - package-ecosystem: "pip"
+    directories:
+      - "/python/filter_vscode_issues"
+      - "/python/har_media_downloader"
+      - "/python/haveibeenpwnwed_password_checker"
+      - "/python/learning-logs-to-markdown"
+      - "/python/password_validator"
+      - "/python/zsh_history_cleaner"
+    schedule:
+      interval: "weekly"
+
+  # Keep uv lockfiles and their project manifests updated together.
+  - package-ecosystem: "uv"
+    directories:
+      - "/python/gitbrief"
+      - "/python/photos_backup"
+    schedule:
+      interval: "weekly"
