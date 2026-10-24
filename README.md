@@ -17,7 +17,7 @@ requirements before its first use.
 | [photos-backup](python/photos_backup/README.md) | Apple Photos archive, SD-card import, SSD/cloud copies | macOS, Python 3.12+, uv; see setup guide | `uv tool install --editable .` |
 | [GoTime (`gt`)](go/gotime/README.md) | Concurrent timers, tags, reports, and undo | Go, terminal | `make install` |
 | [GoTime for Raycast](typescript/gotime-raycast/README.md) | Start, edit, and review GoTime entries | macOS, Raycast, Node.js, installed `gt` | `npm ci && npm run dev` |
-| [Sloppy Paste](swift/sloppy-paste/README.md) | Searchable snippets and placeholder forms | macOS 15+, Swift 6.2+, just | `just setup-signing`, then `just install` |
+| [AI Sloppy Paste](typescript/ai-sloppy-paste/README.md) | Searchable snippets and placeholder forms | macOS, Raycast, Node.js | `npm ci && npm run dev` |
 | [Heartbeat](swift/heartbeat/README.md) | Menu-bar health monitoring for local LaunchAgents | macOS 15+, Swift 6.2+, just | `just setup-signing`, then `just install` |
 | [gitbrief](python/gitbrief/README.md) | Summarize git activity across repositories | Python 3.13+, uv, git; Claude or Copilot CLI for AI summaries | `uv tool install --editable .` |
 | [ShellShelf (`ss`)](go/shellshelf/README.md) | Save, find, copy, and run shell commands | Go; macOS or Linux for clipboard support | `go build -o ~/.local/bin/ss .` |
@@ -31,7 +31,8 @@ requirements before its first use.
 
 - [goback](go/goback/README.md) is the Go successor to
   [rsync_backup](python/rsync_backup/README.md).
-- [Sloppy Paste](swift/sloppy-paste/README.md) replaces the
+- The native [Sloppy Paste app](https://github.com/sglavoie/AI-Sloppy-Paste)
+  now lives in its own repository and replaces the
   [AI Sloppy Paste Raycast extension](typescript/ai-sloppy-paste/README.md).
   The native app's README covers importing existing snippets.
 - [GoTime for Raycast](typescript/gotime-raycast/README.md) uses the GoTime CLI
