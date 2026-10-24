@@ -6,12 +6,42 @@ updates:
       - "/go/*"
     schedule:
       interval: "weekly"
+    groups:
+      minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      minor-and-patch-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directories:
       - "/typescript/*"
     schedule:
       interval: "weekly"
+    groups:
+      minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      minor-and-patch-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Requirements files, Pipenv, and Python projects without a uv lockfile.
   - package-ecosystem: "pip"
@@ -24,6 +54,21 @@ updates:
       - "/python/zsh_history_cleaner"
     schedule:
       interval: "weekly"
+    groups:
+      minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      minor-and-patch-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Keep uv lockfiles and their project manifests updated together.
   - package-ecosystem: "uv"
@@ -32,3 +77,18 @@ updates:
       - "/python/photos_backup"
     schedule:
       interval: "weekly"
+    groups:
+      minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      minor-and-patch-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
