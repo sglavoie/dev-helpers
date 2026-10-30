@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -20,7 +21,7 @@ func Restore(ctx context.Context, plan Plan) error {
 	return restore(ctx, plan, copyContext)
 }
 
-func restore(ctx context.Context, plan Plan, copyFile func(context.Context, io.Writer, io.Reader) (int64, error)) error {
+func restore(ctx context.Context, plan Plan, copyFile copier) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -38,13 +39,16 @@ func restore(ctx context.Context, plan Plan, copyFile func(context.Context, io.W
 	}
 	defer releaseRecovery()
 
-	files, err := inspect(plan.request)
+	files, err := inspect(ctx, plan.request)
 	if err != nil {
 		return err
 	}
 	defer files.close()
 	if !plan.matches(files.plan) {
-		return fmt.Errorf("restore paths or backup file changed since preview; run restore again")
+		return fmt.Errorf("restore paths or backup contents changed since preview; run restore again")
+	}
+	if plan.IsDir {
+		return restoreDirectory(ctx, plan, files, copyFile)
 	}
 	stage, name, err := createStaging(files.dir)
 	if err != nil {
@@ -53,55 +57,84 @@ func restore(ctx context.Context, plan Plan, copyFile func(context.Context, io.W
 	defer stage.Close()
 	defer unix.Unlinkat(int(files.dir.Fd()), name, 0)
 
-	sourceHash := sha256.New()
-	n, err := copyFile(ctx, io.MultiWriter(stage, sourceHash), files.source)
-	if err != nil {
-		return fmt.Errorf("copy backup file: %w", err)
-	}
-	if n != plan.Size {
-		return fmt.Errorf("backup file changed while restoring (copied %d of %d bytes)", n, plan.Size)
-	}
-	// Read back both files: the recovered bytes must match the copied bytes,
-	// and the backup must still contain those same bytes.
-	for _, file := range []*os.File{stage, files.source} {
-		if err := verifyContent(ctx, file, sourceHash.Sum(nil)); err != nil {
-			return err
-		}
-	}
-	info, err := files.source.Stat()
+	digest, err := copyContent(ctx, files.source, stage, plan.sourceInfo, copyFile)
 	if err != nil {
 		return err
 	}
-	if !sameSource(plan.sourceInfo, info) {
-		return fmt.Errorf("backup file changed while restoring; no recovered file published")
-	}
-	if err := stage.Chmod(plan.Mode); err != nil {
-		return fmt.Errorf("preserve recovered file permissions: %w", err)
-	}
-	modified := unix.NsecToTimeval(plan.ModTime.UnixNano())
-	if err := unix.Futimes(int(stage.Fd()), []unix.Timeval{modified, modified}); err != nil {
-		return fmt.Errorf("preserve recovered file modification time: %w", err)
-	}
-	if err := stage.Sync(); err != nil {
-		return fmt.Errorf("flush recovered file: %w", err)
-	}
-	if err := ctx.Err(); err != nil {
+	if err := finishFile(ctx, files.source, stage, plan.sourceInfo, digest); err != nil {
 		return err
 	}
-	// Recheck configured paths after a possibly long copy. Publication itself
-	// uses the bound directory, so a last-instant alias swap redirects nothing.
-	current, err := inspect(plan.request)
-	if err != nil {
+	if err := recheck(ctx, plan); err != nil {
 		return err
-	}
-	defer current.close()
-	if !plan.matches(current.plan) {
-		return fmt.Errorf("restore paths or backup file changed while restoring; no recovered file published")
 	}
 	// A hard link publishes the staged inode atomically and fails if ANY entry
 	// appeared at the target, including a dangling symlink. Rename would clobber it.
 	if err := unix.Linkat(int(files.dir.Fd()), name, int(files.dir.Fd()), filepath.Base(plan.Destination), 0); err != nil {
 		return fmt.Errorf("publish recovered file without overwriting: %w", err)
+	}
+	return nil
+}
+
+func recheck(ctx context.Context, plan Plan) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// Recheck configured paths after a possibly long copy. Publication itself
+	// uses the bound directory, so a last-instant alias swap redirects nothing.
+	current, err := inspect(ctx, plan.request)
+	if err != nil {
+		return err
+	}
+	defer current.close()
+	if !plan.matches(current.plan) {
+		return fmt.Errorf("restore paths or backup contents changed while restoring; no recovered entry published")
+	}
+	return ctx.Err()
+}
+
+type copier func(context.Context, io.Writer, io.Reader) (int64, error)
+
+func copyContent(ctx context.Context, source, stage *os.File, info fs.FileInfo, copyFile copier) ([]byte, error) {
+	hash := sha256.New()
+	n, err := copyFile(ctx, io.MultiWriter(stage, hash), source)
+	if err != nil {
+		return nil, fmt.Errorf("copy backup file: %w", err)
+	}
+	if n != info.Size() {
+		return nil, fmt.Errorf("backup file changed while restoring (copied %d of %d bytes)", n, info.Size())
+	}
+	return hash.Sum(nil), nil
+}
+
+func finishFile(ctx context.Context, source, stage *os.File, expected fs.FileInfo, digest []byte) error {
+	// Read both files back after copying: the recovered and stored bytes must
+	// still match the bytes we copied. Directory restores defer this until all
+	// files have been copied, so later I/O cannot hide corruption of an early file.
+	for _, file := range []*os.File{stage, source} {
+		if err := verifyContent(ctx, file, digest); err != nil {
+			return err
+		}
+	}
+	info, err := source.Stat()
+	if err != nil {
+		return err
+	}
+	if !sameSource(expected, info) {
+		return fmt.Errorf("backup file changed while restoring; no recovered file published")
+	}
+	return preserveMetadata(stage, expected)
+}
+
+func preserveMetadata(file *os.File, info fs.FileInfo) error {
+	if err := file.Chmod(info.Mode().Perm()); err != nil {
+		return fmt.Errorf("preserve recovered permissions: %w", err)
+	}
+	modified := unix.NsecToTimeval(info.ModTime().UnixNano())
+	if err := unix.Futimes(int(file.Fd()), []unix.Timeval{modified, modified}); err != nil {
+		return fmt.Errorf("preserve recovered modification time: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("flush recovered entry: %w", err)
 	}
 	return nil
 }

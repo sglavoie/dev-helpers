@@ -62,11 +62,10 @@ func requireAbsent(dir *os.File, name string) error {
 
 func createStaging(dir *os.File) (*os.File, string, error) {
 	for i := 0; i < 10; i++ {
-		var random [16]byte
-		if _, err := rand.Read(random[:]); err != nil {
+		name, err := stagingName()
+		if err != nil {
 			return nil, "", err
 		}
-		name := fmt.Sprintf(".goback-restore-%x", random)
 		fd, err := unix.Openat(int(dir.Fd()), name, unix.O_CREAT|unix.O_EXCL|unix.O_RDWR|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
 		if errors.Is(err, unix.EEXIST) {
 			continue
@@ -77,4 +76,12 @@ func createStaging(dir *os.File) (*os.File, string, error) {
 		return os.NewFile(uintptr(fd), name), name, nil
 	}
 	return nil, "", fmt.Errorf("could not create a unique recovery staging file")
+}
+
+func stagingName() (string, error) {
+	var random [16]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(".goback-restore-%x", random), nil
 }

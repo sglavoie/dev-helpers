@@ -1,8 +1,9 @@
-// Package restore recovers one regular file into an existing recovery directory.
+// Package restore recovers files and directory trees into an existing recovery directory.
 // Planning only reads; execution publishes a verified copy without overwriting.
 package restore
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,12 +16,13 @@ import (
 )
 
 // Request.Path is relative to BackupRoot/BackupType, not to the live source.
-// Destination is an existing directory; the recovered file keeps its basename.
+// Destination is an existing directory; the recovered entry keeps its basename.
 type Request struct {
 	BackupRoot  string
 	BackupType  string
 	Path        string
 	Destination string
+	Recursive   bool
 }
 
 // Plan describes the exact copy that was inspected. Its private identities are
@@ -31,17 +33,26 @@ type Plan struct {
 	Size        int64
 	Mode        fs.FileMode
 	ModTime     time.Time
+	IsDir       bool
+	Files       int
+	Directories int
 	request     Request
 	root        string
 	directory   string
 	rootInfo    fs.FileInfo
 	dirInfo     fs.FileInfo
 	sourceInfo  fs.FileInfo
+	entries     []treeEntry
 }
 
 // Prepare validates a restore without creating directories, locks, or history.
 func Prepare(req Request) (Plan, error) {
-	files, err := inspect(req)
+	return PrepareContext(context.Background(), req)
+}
+
+// PrepareContext also allows cancellation while inspecting a large directory tree.
+func PrepareContext(ctx context.Context, req Request) (Plan, error) {
+	files, err := inspect(ctx, req)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -62,7 +73,10 @@ func (f *opened) close() {
 	}
 }
 
-func inspect(req Request) (_ *opened, err error) {
+func inspect(ctx context.Context, req Request) (_ *opened, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	switch req.BackupType {
 	case "daily", "weekly", "monthly":
 	default:
@@ -126,7 +140,10 @@ func inspect(req Request) (_ *opened, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if !f.plan.sourceInfo.Mode().IsRegular() {
+	if f.plan.sourceInfo.IsDir() && !req.Recursive {
+		return nil, fmt.Errorf("backup path %q must be a regular file; use --recursive to recover a directory", f.plan.Source)
+	}
+	if !f.plan.sourceInfo.Mode().IsRegular() && !f.plan.sourceInfo.IsDir() {
 		return nil, fmt.Errorf("backup path %q must be a regular file", f.plan.Source)
 	}
 	f.plan.Destination = filepath.Join(f.plan.directory, filepath.Base(req.Path))
@@ -136,6 +153,23 @@ func inspect(req Request) (_ *opened, err error) {
 	f.plan.Size = f.plan.sourceInfo.Size()
 	f.plan.Mode = f.plan.sourceInfo.Mode().Perm()
 	f.plan.ModTime = f.plan.sourceInfo.ModTime()
+	f.plan.IsDir = f.plan.sourceInfo.IsDir()
+	f.plan.Files = 1
+	if f.plan.IsDir {
+		f.plan.entries, err = scanTree(ctx, f.source)
+		if err != nil {
+			return nil, fmt.Errorf("inspect backup directory: %w", err)
+		}
+		f.plan.Size, f.plan.Files = 0, 0
+		for _, entry := range f.plan.entries {
+			if entry.info.IsDir() {
+				f.plan.Directories++
+			} else {
+				f.plan.Files++
+				f.plan.Size += entry.info.Size()
+			}
+		}
+	}
 	return f, nil
 }
 
@@ -164,7 +198,7 @@ func resolveDirectory(path string) (string, error) {
 func (p Plan) matches(other Plan) bool {
 	return p.Source == other.Source && p.Destination == other.Destination &&
 		os.SameFile(p.rootInfo, other.rootInfo) && os.SameFile(p.dirInfo, other.dirInfo) &&
-		sameSource(p.sourceInfo, other.sourceInfo)
+		sameSource(p.sourceInfo, other.sourceInfo) && sameTree(p.entries, other.entries)
 }
 
 func sameSource(before, after fs.FileInfo) bool {
