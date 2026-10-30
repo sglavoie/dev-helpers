@@ -13,7 +13,7 @@ func (r *builder) PrintCommandToRunWithConfirmation() bool {
 	fmt.Print(r.dailySourceHistory())
 	fmt.Println("The following command will be executed:", "\n", r.CommandString())
 
-	if viper.GetBool("confirmExec") {
+	if viper.GetBool("confirmExec") && !viper.GetBool("cliNonInteractive") {
 		return inputs.AskYesNoQuestion("\nDo you wish to proceed?")
 	}
 	return true
@@ -42,7 +42,7 @@ func (r *builder) getFlags() []string {
 	}
 
 	quiet := viper.GetBool("cliQuiet")
-	if viper.GetBool("showProgress") && !quiet {
+	if viper.GetBool("showProgress") && !quiet && !viper.GetBool("cliNonInteractive") {
 		flags = append(flags, "--progress")
 	}
 

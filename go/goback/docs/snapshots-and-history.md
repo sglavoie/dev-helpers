@@ -43,6 +43,14 @@ Confirmation prompts accept `y`/`Y` for Yes and `n`/`N` or Escape for No.
 Arrow keys and Enter still select the displayed answer; mirror confirmation
 continues to default to No.
 
+For unattended snapshot runs, add `--non-interactive`. This explicitly approves
+the configured operations even when `confirmExec` is true, reads configuration
+without creating or repairing it, suppresses progress output, and exits nonzero
+if a main backup or daily companion fails. It also prints start and finish times
+for logs. Expected dry-run companion skips are not failures. Interactive runs
+retain their main-backup-only exit status. See [scheduling](scheduling.md) for
+the full contract and macOS LaunchAgent setup.
+
 Real snapshot runs lock the entire profile destination before confirmation.
 `run all` retains that lock through daily companions and the weekly/monthly
 copies, so daily cannot be changed by another goback operation while it is being

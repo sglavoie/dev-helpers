@@ -89,6 +89,7 @@ just
 | Command | What it does |
 | --- | --- |
 | `run daily\|weekly\|monthly\|all` | Run the profile's incremental snapshot backups. |
+| `schedule daily [--at 09:00] [--profile NAME]` | Print a macOS LaunchAgent plist for an unattended daily backup; review and install it separately. |
 | `preview daily\|weekly\|monthly` | Print the rsync command a run would execute, without running it. |
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
 | `restore daily\|weekly\|monthly PATH --to DIRECTORY [--recursive] [--dry-run]` | Recover a file or directory tree into an existing recovery directory and verify its contents. |
@@ -226,6 +227,7 @@ configuration file.
 Detailed guides live in [`docs/`](docs/):
 
 - [Snapshot previews, dry runs, and history](docs/snapshots-and-history.md)
+- [Unattended runs and macOS scheduling](docs/scheduling.md): noninteractive execution, LaunchAgent setup, logs, health checks, and removal.
 - [Failed-run diagnostics and recovery](docs/diagnostics-and-recovery.md): preview and restore files or directory trees with content verification.
 - [Cleanup and terminal output](docs/cleanup-and-output.md)
 - [`goback mirror`](docs/mirror.md): preflight, dry run and confirmation, capacity, interruptions, history.
@@ -235,5 +237,5 @@ Detailed guides live in [`docs/`](docs/):
 
 ## TODO
 
-- [ ] Add a way to run it as a service (e.g., `gocron`).
+- [x] Support unattended daily backups through a generated macOS LaunchAgent.
 - [ ] Should allow specifying which source/destination pair to use at runtime for each backup type. Can just do an incremental daily backup for now.

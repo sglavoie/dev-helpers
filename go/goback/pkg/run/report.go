@@ -1,6 +1,7 @@
 package run
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -17,6 +18,23 @@ import (
 type Report struct {
 	Mains      []MainResult
 	Companions []CompanionResult
+}
+
+// CompanionError lets unattended callers treat companion failures as a failed
+// job while retaining each main transfer's independent result and history.
+func (r *Report) CompanionError() error {
+	var failures []error
+	for _, companion := range r.Companions {
+		if companion.Succeeded() || (!companion.Started && companion.DryRun && len(companion.Companion.DryRunArgs) == 0) {
+			continue
+		}
+		err := companion.Err
+		if err == nil {
+			err = fmt.Errorf("%s (exit code %d)", companion.Status(), companion.ExitCode)
+		}
+		failures = append(failures, fmt.Errorf("companion %q: %w", companion.Companion.ID, err))
+	}
+	return errors.Join(failures...)
 }
 
 // CompletedBackup reports whether every requested main transfer and companion

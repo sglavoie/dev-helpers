@@ -3,9 +3,11 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/config"
 	"github.com/sglavoie/dev-helpers/go/goback/pkg/eject"
@@ -19,6 +21,11 @@ var runCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Use:   "run",
 	Short: "Run the backup command",
+	Long: `Run configured snapshot backups and daily companions.
+--non-interactive explicitly approves the configured snapshot operations even
+when confirmExec is true. It never prompts to create or repair configuration,
+suppresses progress output, and exits nonzero if a backup or companion fails.
+Companion programs must themselves support unattended execution.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := cmd.Help()
 		cobra.CheckErr(err)
@@ -26,6 +33,10 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
+	runCmd.PersistentFlags().Bool("non-interactive", false, "Approve configured backups without prompts; fail if a backup or companion fails")
+	if err := viper.BindPFlag("cliNonInteractive", runCmd.PersistentFlags().Lookup("non-interactive")); err != nil {
+		panic(err)
+	}
 	runCmd.PersistentFlags().Bool("dry-run", false, "Ask rsync what would be transferred without changing backups or history")
 	if err := viper.BindPFlag("cliDryRun", runCmd.PersistentFlags().Lookup("dry-run")); err != nil {
 		panic(err)
@@ -44,9 +55,20 @@ func runBackups(action func(context.Context, *run.Report) error) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	cobra.CheckErr(runBackupProfiles(ctx, action, func(paths []string) error {
+	if viper.GetBool("cliNonInteractive") {
+		fmt.Fprintf(os.Stdout, "goback: started %s\n", time.Now().Format(time.RFC3339))
+	}
+	err := runBackupProfiles(ctx, action, func(paths []string) error {
 		return eject.EjectPaths(os.Stdout, paths, eject.OSDeps())
-	}))
+	})
+	if viper.GetBool("cliNonInteractive") {
+		outcome := "succeeded"
+		if err != nil {
+			outcome = "failed"
+		}
+		fmt.Fprintf(os.Stdout, "goback: finished %s (%s)\n", time.Now().Format(time.RFC3339), outcome)
+	}
+	cobra.CheckErr(err)
 }
 
 func runBackupProfiles(ctx context.Context, action func(context.Context, *run.Report) error, ejectPaths func([]string) error) error {
@@ -54,7 +76,11 @@ func runBackupProfiles(ctx context.Context, action func(context.Context, *run.Re
 	err := forEachProfile(func() error {
 		report := &run.Report{}
 		defer report.Print(os.Stdout)
-		if err := action(ctx, report); err != nil {
+		err := action(ctx, report)
+		if viper.GetBool("cliNonInteractive") {
+			err = errors.Join(err, report.CompanionError(), ctx.Err())
+		}
+		if err != nil {
 			return err
 		}
 		if viper.GetBool("ejectOnExit") && report.CompletedBackup() {
