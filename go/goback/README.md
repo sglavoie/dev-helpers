@@ -91,6 +91,7 @@ just
 | `run daily\|weekly\|monthly\|all` | Run the profile's incremental snapshot backups. |
 | `preview daily\|weekly\|monthly` | Print the rsync command a run would execute, without running it. |
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
+| `restore daily\|weekly\|monthly FILE --to DIRECTORY [--dry-run]` | Recover one file into an existing recovery directory and verify its contents. |
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
 | `usage last\|view\|reset` | Read and trim the backup history. |
 | `profiles` | List configured profiles, their paths, and automatic selection. |
@@ -225,7 +226,7 @@ configuration file.
 Detailed guides live in [`docs/`](docs/):
 
 - [Snapshot previews, dry runs, and history](docs/snapshots-and-history.md)
-- [Failed-run diagnostics and file recovery](docs/diagnostics-and-recovery.md): includes recovering a single file.
+- [Failed-run diagnostics and file recovery](docs/diagnostics-and-recovery.md): preview and restore a single file with content verification.
 - [Cleanup and terminal output](docs/cleanup-and-output.md)
 - [`goback mirror`](docs/mirror.md): preflight, dry run and confirmation, capacity, interruptions, history.
 - [Ejecting](docs/ejecting.md)

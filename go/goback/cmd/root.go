@@ -18,6 +18,14 @@ var RootCmd = &cobra.Command{
 	Version: fmt.Sprintf("%s (built on %s)", versioninfo.Short(), lastCommitDate()),
 	Short:   "A no-nonsense backup tool using rsync",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd == restoreCmd {
+			// Recovery, including previews, must never offer to create or rewrite
+			// configuration. It uses the backup even when the live source is gone.
+			if err := config.LoadReadOnly(); err != nil {
+				return err
+			}
+			return config.ResolveProfiles()
+		}
 		if cmd == cleanLogsCmd {
 			return nil
 		}

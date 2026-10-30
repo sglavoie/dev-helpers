@@ -77,26 +77,7 @@ func (r *builder) validateBeforeRun() error {
 // target. Local backups are allowed; paths under /Volumes must stay on a
 // mounted volume. Reuse the same device-based detector as volume ejection.
 func validateSnapshotVolume(path, resolved string, mounts eject.Mounts) error {
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-	for _, endpoint := range []string{absolute, resolved} {
-		// Preserve whitespace in volume names: it is part of the path.
-		rel, err := filepath.Rel(eject.VolumesRoot, endpoint)
-		if err != nil || rel == "." || !containsPath(eject.VolumesRoot, endpoint) {
-			continue
-		}
-		name, _, _ := strings.Cut(rel, string(filepath.Separator))
-		volume := filepath.Join(eject.VolumesRoot, name)
-		if !mounts.Mounted(volume) {
-			return fmt.Errorf("volume %s is not mounted; refusing to use %s", volume, path)
-		}
-		if !containsPath(volume, resolved) {
-			return fmt.Errorf("path %s resolves outside its volume %s to %s", path, volume, resolved)
-		}
-	}
-	return nil
+	return eject.ValidateMountedPath(path, resolved, mounts)
 }
 
 func containsPath(parent, child string) bool {
