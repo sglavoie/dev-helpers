@@ -91,6 +91,7 @@ just
 | `run daily\|weekly\|monthly\|all` | Run the profile's incremental snapshot backups. |
 | `schedule daily [--at 09:00] [--profile NAME]` | Print a macOS LaunchAgent plist for an unattended daily backup; review and install it separately. |
 | `preview daily\|weekly\|monthly` | Print the rsync command a run would execute, without running it. |
+| `verify daily [--profile NAME] [--json]` | Compare daily's contents with the live source using SHA-256; report missing, different, or unreadable files without changing the backup. |
 | `mirror [--dry-run]` | Mirror one configured directory onto another, exactly. |
 | `restore daily\|weekly\|monthly PATH --to DIRECTORY [--recursive] [--dry-run]` | Recover a file or directory tree into an existing recovery directory and verify its contents. |
 | `eject [--all\|--volume NAME\|--list]` | Unmount the active profile's volume, every configured volume, or one named volume, or list the mounted ones. |
@@ -226,7 +227,7 @@ configuration file.
 
 Detailed guides live in [`docs/`](docs/):
 
-- [Snapshot previews, dry runs, and history](docs/snapshots-and-history.md)
+- [Snapshot previews, content verification, dry runs, and history](docs/snapshots-and-history.md)
 - [Unattended runs and macOS scheduling](docs/scheduling.md): noninteractive execution, LaunchAgent setup, logs, health checks, and removal.
 - [Failed-run diagnostics and recovery](docs/diagnostics-and-recovery.md): preview and restore files or directory trees with content verification.
 - [Cleanup and terminal output](docs/cleanup-and-output.md)

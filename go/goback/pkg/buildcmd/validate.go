@@ -14,11 +14,17 @@ import (
 // validateBeforeRun only reads paths. Destination creation belongs to execution,
 // after confirmation, and is never performed for a dry run.
 func (r *builder) validateBeforeRun() error {
+	return r.validateEndpoints(true)
+}
+
+// Verification also accepts an empty source: there may be no selected files,
+// and retained destination-only files are not evidence of corruption.
+func (r *builder) validateEndpoints(requireNonEmpty bool) error {
 	entries, err := os.ReadDir(r.updatedSrc)
 	if err != nil {
 		return fmt.Errorf("cannot read source directory %s: %w", r.updatedSrc, err)
 	}
-	if len(entries) == 0 {
+	if requireNonEmpty && len(entries) == 0 {
 		return fmt.Errorf("source directory %s is empty", r.updatedSrc)
 	}
 	src, err := filepath.EvalSymlinks(r.updatedSrc)

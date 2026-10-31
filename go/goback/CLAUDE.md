@@ -31,6 +31,23 @@ Commands declare whether they need an active profile through the `profileResolut
 
 ### Backup flow
 
+`verify daily` uses read-only configuration and exactly one selected profile
+(`--all` is rejected). `buildcmd.VerifyDaily` shares daily filters, endpoint
+validation, and the profile destination lock, accepting empty sources but
+requiring an existing daily directory. It runs an rsync dry-run listing with
+`--ignore-times` and repeated itemization to enumerate selected entries, then
+reads regular files itself for SHA-256 comparison. Do not rely on rsync dry-run
+`--checksum` for read errors: it can report a difference and exit zero for an
+unreadable file. Tab-delimited itemization supports modern rsync's eleven columns
+and macOS openrsync's nine, decoding filename escapes once. Verification checks
+regular bytes, structure, types, link targets, and device identities; metadata
+and destination-only entries are ignored. File identity/size/mtime are checked
+around reads and endpoint identities after the scan. It is a live-source
+comparison, not a point-in-time snapshot or stored manifest. JSON reports keep
+partial differences and errors with `completed: false` on scan failure; any
+difference or incomplete check exits nonzero, including rsync exit 24. Only
+coordination locks are written; no history, logs, companions, or ejection run.
+
 Initialization and profile iteration share `config.SelectProfiles`, including the sole-profile fallback and the error for an empty selection. `config.ValidateCompanionPlacement` rejects top-level `dailyCompanions` on operational commands; config editing and printing skip this validation so the user can repair the file.
 
 The backup pipeline flows through three stages. First, `pkg/buildcmd` constructs the rsync command: `BuildDaily/Weekly/Monthly` factory functions read source/destination from Viper config, validate paths, and assemble an argument vector from per-type boolean flags and include/exclude patterns. Daily backups copy from the configured source to `<dest>/daily/`. Weekly and monthly validate their effective daily source independently of the original profile source, then copy from `<dest>/daily/` to `<dest>/weekly/` or `<dest>/monthly/`, treating the daily snapshot as input. Second, `pkg/run` orchestrates execution by calling the builder, checking that rsync exists, showing a confirmation prompt (if `confirmExec` is true), and running rsync directly under a signal context created once per `run` invocation. Destination creation happens only during real execution after confirmation. Validation resolves symlinks and checks directory boundaries without writing. Third, real attempted transfers are recorded in SQLite, including interruptions with exit code `-1`; both CLI and configuration dry runs record nothing. Command strings are shell-quoted for display only.

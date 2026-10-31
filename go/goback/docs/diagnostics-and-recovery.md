@@ -118,6 +118,11 @@ Restoring therefore does not make `goback status` report a fresher backup.
 Content verification establishes a match with the stored copy; it cannot prove
 that the stored copy was free of earlier corruption.
 
+When the live source is available, [`goback verify daily`](snapshots-and-history.md#verifying-daily-contents)
+can compare the daily backup against it using SHA-256 without restoring files.
+It detects content differences even when size and modification time match;
+a difference may also mean the source was edited since the last backup.
+
 ## Inspecting a recovered file
 
 If the original text file still exists, compare it:

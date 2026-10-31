@@ -25,9 +25,9 @@ var RootCmd = &cobra.Command{
 			}
 			return config.ResolveProfiles()
 		}
-		if cmd == restoreCmd {
-			// Recovery, including previews, must never offer to create or rewrite
-			// configuration. It uses the backup even when the live source is gone.
+		if cmd == restoreCmd || cmd == verifyCmd {
+			// Recovery and verification must never offer to create or rewrite
+			// configuration. Recovery also works when the live source is gone.
 			if err := config.LoadReadOnly(); err != nil {
 				return err
 			}

@@ -1,4 +1,4 @@
-# goback: snapshot previews, dry runs, and history
+# goback: snapshot previews, verification, dry runs, and history
 
 Part of the [goback README](../README.md).
 
@@ -10,6 +10,64 @@ goback run daily --dry-run    # ask rsync what would change
 goback run daily              # perform the backup
 goback usage last --summary   # last success and latest attempt per profile/type
 ```
+
+## Verifying daily contents
+
+```bash
+goback verify daily
+goback --profile default verify daily --json
+```
+
+`verify daily` compares an existing daily backup with the current live source.
+Goback reads every selected regular file on both sides and compares SHA-256
+checksums, detecting changed contents even when size and modification time are
+unchanged. Rsync supplies the file selection using the same daily include/exclude
+rules, their order, `pruneEmptyDirs`, and the source's trailing-slash layout.
+A source ending in `/` or `/.` compares its contents directly with `daily/`;
+without the slash, the source basename is part of the path inside `daily/`.
+The comparison recursively checks the selected source tree, even if the backup's
+`archive` setting is disabled. Directory presence, entry types, symlink targets,
+and device identities are checked too. Symlinks are compared as links, not by
+following their targets. File permissions, timestamps, ownership, ACLs, extended
+attributes, and hard-link relationships are not checked.
+
+Paths in the report are relative to `daily/`, with directory names ending in `/`.
+`missing` means a selected entry is absent from the backup. `different` means its
+contents, type, or link target differ. `unreadable` means a regular file could not
+be read reliably; details identify the source or backup side. Destination-only
+retained entries and excluded paths are ignored, even when deletion is configured
+for new backups. An empty source or filter selection is valid: a successful
+comparison covers only the selected entries.
+
+Verification never changes source or backup contents, configuration, history,
+or diagnostic logs. It does not prompt, run companions, or eject drives, and
+does not make backup status fresher. It does create the usual coordination
+lock files outside the backup and holds the profile destination lock for the
+entire comparison; competing goback writers fail immediately. Both endpoints
+must exist, must not overlap, and must be mounted when under `/Volumes`.
+Select one profile with `--profile` when automatic selection includes several;
+`--all` is refused. Weekly/monthly and mirrors are outside this command's scope.
+
+The exit status is zero only for a completed comparison with no differences.
+Missing/different files, unreadable or changing files, lock contention, missing
+drives, interruptions, and incomplete rsync scans all exit nonzero. Unlike a
+backup transfer, rsync exit 24 is an incomplete verification. In JSON mode,
+stdout contains one report with `profile`, `backup_type`, `source`, `destination`,
+`completed`, `differences`, and `errors`. Each difference has `path` and `status`.
+The arrays are empty when there are no findings. A completed comparison can
+still contain differences; `completed: false` means the comparison was incomplete.
+Partial findings remain available when scanning fails. Errors also go to stderr;
+configuration or argument errors can stop the command before a report is built.
+
+This checks agreement with the live source, not a historical baseline. A source
+edit since the last backup is a legitimate difference, and matching files do not
+prove that either copy is historically correct. Other programs can still modify
+files during verification. Goback checks file identity, size, and modification
+time around each read and rechecks endpoint identities, but this is not a
+point-in-time filesystem snapshot. Large backups require reading all selected
+file contents and may take time. Saved checksum manifests are not created.
+
+## Preview and run behavior
 
 Preview checks required configuration settings without requiring mounted drives;
 an unconfigured backup type produces an error. It never creates a backup directory
