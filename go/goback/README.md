@@ -194,7 +194,13 @@ assesses recorded outcomes only, not age. Filters let daily and weekly backups
 use different thresholds in separate checks. `--json --check` still emits its
 JSON report on stdout when unhealthy; the error is written to stderr.
 
-The table ends with the history database's path, marked `(no backups recorded
+The text report groups backups by profile, with each result beside the backup
+name and timestamps on separate lines to keep the output readable in narrow
+terminals. When the latest attempt is the last success, its timestamp appears
+only once. Failed and interrupted attempts appear separately from the last
+success. Freshness is shown when assessed with `--older-than`.
+
+The report ends with the history database's path, marked `(no backups recorded
 yet)` when it does not exist. `--json` emits one object: `generated_at`,
 `db_path`, `db_exists`, and `backups`, an array with `profile`, `backup_type`,
 `last_success`, `latest_attempt`, `exit_code`, `result`, and `freshness` per

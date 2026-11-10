@@ -172,7 +172,7 @@ type statusRow struct {
 	ExitCode      *int    `json:"exit_code"`
 	Result        string  `json:"result"`
 	Freshness     string  `json:"freshness"`
-	// The recorded local timestamps, for the table's ages.
+	// The recorded local timestamps, for the human-readable report's ages.
 	lastSuccessRaw, latestAttemptRaw *string
 }
 
@@ -296,18 +296,32 @@ func printStatus(w io.Writer, report statusReport) {
 		fmt.Fprintln(w, history)
 		return
 	}
-	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Profile", "Backup type", "Last success", "Latest attempt", "Result", "Freshness"})
-	for _, row := range report.Backups {
-		success, attempt := "Never recorded", "Never recorded"
+	profile := ""
+	for i, row := range report.Backups {
+		if i == 0 || row.Profile != profile {
+			if i > 0 {
+				fmt.Fprintln(w)
+			}
+			fmt.Fprintf(w, "Profile: %s\n", row.Profile)
+			profile = row.Profile
+		}
+		fmt.Fprintf(w, "\n  %s: %s\n", row.BackupType, row.Result)
+		success := "Never recorded"
 		if row.lastSuccessRaw != nil {
 			success = printer.TimestampWithAge(*row.lastSuccessRaw)
 		}
+		fmt.Fprintf(w, "    Last success:   %s\n", success)
+		// A successful latest attempt is already shown as the last success.
+		// Keep failures visible even if they share a timestamp with a success.
 		if row.latestAttemptRaw != nil {
-			attempt = printer.TimestampWithAge(*row.latestAttemptRaw)
+			if row.Result != "succeeded" || row.lastSuccessRaw == nil || *row.latestAttemptRaw != *row.lastSuccessRaw {
+				fmt.Fprintf(w, "    Latest attempt: %s\n", printer.TimestampWithAge(*row.latestAttemptRaw))
+			}
 		}
-		t.AppendRow(table.Row{row.Profile, row.BackupType, success, attempt, row.Result, row.Freshness})
+		if row.Freshness == "current" || row.Freshness == "stale" {
+			fmt.Fprintf(w, "    Freshness:      %s\n", row.Freshness)
+		}
 	}
-	fmt.Fprintln(w, t.Render())
+	fmt.Fprintln(w)
 	fmt.Fprintln(w, history)
 }
