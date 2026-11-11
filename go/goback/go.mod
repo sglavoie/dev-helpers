@@ -1,6 +1,6 @@
 module github.com/sglavoie/dev-helpers/go/goback
 
-go 1.23.0
+go 1.26.0
 
 require (
 	github.com/carlmjohnson/versioninfo v0.22.5
@@ -9,12 +9,12 @@ require (
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/jedib0t/go-pretty/v6 v6.8.3
 	github.com/mattn/go-isatty v0.0.24
-	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/spf13/viper v1.21.0
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.50.0
 )
 
 require (
