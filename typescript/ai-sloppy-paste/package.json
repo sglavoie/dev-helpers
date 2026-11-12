@@ -68,7 +68,7 @@
     "@raycast/eslint-config": "^2.2.0",
     "@types/node": "22.19.17",
     "@types/react": "19.0.10",
-    "@vitest/ui": "^4.1.10",
+    "@vitest/ui": "^5.1.0",
     "eslint": "^10.14.0",
     "prettier": "^3.9.5",
     "typescript": "^5.9.3",
